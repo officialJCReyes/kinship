@@ -42,6 +42,9 @@ export function AboutPage() {
           {version.isPending ? t('about.loading') : version.isError ? t('about.loadError') : version.data.version}
         </dd>
 
+        <dt>{t('about.schema')}</dt>
+        <dd className="mono">{version.isSuccess ? (version.data.schema ?? t('about.unknown')) : t('about.unknown')}</dd>
+
         <dt>{t('about.build')}</dt>
         <dd className="mono">{version.isSuccess ? version.data.commit : __WEB_COMMIT__}</dd>
 

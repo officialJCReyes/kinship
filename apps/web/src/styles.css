@@ -178,3 +178,92 @@ main {
     margin-bottom: 10px;
   }
 }
+
+/* Forms */
+.narrow {
+  max-width: 460px;
+  margin-inline: auto;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.field input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--crit);
+}
+
+.field-help,
+.small {
+  font-size: 13px;
+}
+
+.field-help {
+  margin-top: 4px;
+}
+
+.field-error {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--crit);
+}
+
+.alert {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--crit);
+  border-radius: 8px;
+  color: var(--crit);
+}
+
+.button {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.account-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header-inner {
+  gap: 16px;
+}
+
+.login-footer {
+  margin-bottom: 0;
+}
