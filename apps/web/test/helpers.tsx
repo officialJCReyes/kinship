@@ -8,7 +8,13 @@ import { App } from '../src/App.js';
 export type MockReply = { status: number; body?: unknown; text?: string } | 'network-error' | 'never';
 export type MockRoute = MockReply | ((init: RequestInit) => MockReply);
 
-export const ALICE = { id: 'u1', email: 'marcus@example.com', displayName: 'Marcus Hale', role: 'superadmin' } as const;
+export const ALICE = {
+  id: 'u1',
+  email: 'marcus@example.com',
+  displayName: 'Marcus Hale',
+  role: 'superadmin',
+  personId: null,
+} as const;
 export const ME = { user: ALICE, treeName: 'Hale Family' };
 /** The version the web app was built with (vite.config.ts reads it from package.json). */
 export const WEB_VERSION = __WEB_VERSION__;
