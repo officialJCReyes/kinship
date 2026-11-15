@@ -16,7 +16,9 @@
     "test": "pnpm -r test",
     "lint": "eslint . && node scripts/check-spdx.mjs",
     "format": "prettier --write \"**/*.{ts,mjs,json,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,mjs,json,yml,yaml}\""
+    "format:check": "prettier --check \"**/*.{ts,mjs,json,yml,yaml}\"",
+    "licenses:check": "node scripts/check-licenses.mjs",
+    "test:scripts": "node --test scripts/"
   },
   "packageManager": "pnpm@12.21.0",
   "engines": {
