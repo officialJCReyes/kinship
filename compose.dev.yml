@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# For contributors: builds from source, API restarts when you save a file.
-#   docker compose -f compose.dev.yml up --build
+# For contributors: builds from source; the API restarts and the UI reloads when you
+# save a file.
+#   docker compose -f compose.dev.yml up --build     # then open http://localhost:5173
 # The passwords below are for this local, throwaway setup only. The database is
 # published on 127.0.0.1:5433 so the API tests (pnpm test) can reach it.
 name: kinship-dev
@@ -47,6 +48,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Vite dev server: hot reload for the UI. It proxies /api to the api service.
+  # (The production web image is nginx; see apps/web/Dockerfile.)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    environment:
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - '127.0.0.1:5173:5173'
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+      - ./apps/web/index.html:/app/apps/web/index.html
+      - ./packages/shared/src:/app/packages/shared/src
+    depends_on:
+      - api
     restart: unless-stopped
 
 volumes:
