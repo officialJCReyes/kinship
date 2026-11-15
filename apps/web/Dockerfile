@@ -54,6 +54,11 @@ LABEL org.opencontainers.image.title="kinship-web" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${GIT_COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}"
+# Apply Alpine's security updates for the packages in the base image (a pinned nginx tag is only
+# rebuilt now and then). The image runs as the unprivileged user again straight after.
+USER root
+RUN apk upgrade --no-cache
+USER 101
 COPY apps/web/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
