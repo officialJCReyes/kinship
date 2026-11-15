@@ -37,7 +37,7 @@ COPY packages/shared packages/shared
 RUN pnpm --filter @kinship/web build
 
 # ---- runtime: unprivileged nginx (uid 101), stable branch ----
-FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 LABEL org.opencontainers.image.title="kinship-web" \
       org.opencontainers.image.source="https://github.com/officialJCReyes/kinship" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
