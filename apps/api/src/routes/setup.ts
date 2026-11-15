@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { SetupRequest } from '@kinship/shared';
 import type { FastifyInstance } from 'fastify';
 import { checkSetupToken, completeSetup, needsSetup, SETUP_ALREADY_DONE, SETUP_INVALID_TOKEN } from '../auth/store.js';
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwords.js';
@@ -40,13 +41,7 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
       },
     },
     async (request, reply) => {
-      const body = request.body as {
-        token: string;
-        email: string;
-        displayName: string;
-        password: string;
-        treeName: string;
-      };
+      const body = request.body as SetupRequest;
 
       // Fails closed: once an account exists this endpoint only ever says no.
       if (!(await needsSetup(db))) return reply.code(409).send({ error: 'already_set_up' });

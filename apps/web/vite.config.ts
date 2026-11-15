@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
@@ -7,6 +8,10 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 
 export default defineConfig({
   plugins: [react()],
+  // The web app uses the shared package's TypeScript source directly (no build step needed).
+  resolve: {
+    alias: { '@kinship/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)) },
+  },
   define: {
     // Shown on the About page. GIT_COMMIT is set by the Docker build.
     __WEB_VERSION__: JSON.stringify(pkg.version),

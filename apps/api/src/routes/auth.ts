@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { LoginRequest, MeResponse } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db.js';
@@ -59,7 +60,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
       },
     },
     async (request, reply) => {
-      const body = request.body as { email: string; password: string };
+      const body = request.body as LoginRequest;
       const email = normalizeEmail(body.email);
       const ipKey = request.ip;
 
@@ -113,7 +114,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
  * The signed-in person and the tree name, read as that person, so row-level
  * security applies: the app role cannot see anyone else's row here.
  */
-export async function readMe(db: Kysely<Database>, userId: string) {
+export async function readMe(db: Kysely<Database>, userId: string): Promise<MeResponse | undefined> {
   const result = await withUserTransaction(db, userId, async (trx) => {
     const user = await trx
       .selectFrom('users')
