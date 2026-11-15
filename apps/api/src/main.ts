@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { buildApp } from './app.js';
 import { ConfigError, loadConfig } from './config.js';
-import { assertStubUserAllowed } from './request-context.js';
+import { prepareSetupToken, scheduleSessionCleanup } from './auth/startup.js';
 import { createAppDb, createOwnerDb } from './db.js';
 import { runMigrations } from './migrations/runner.js';
 import { ensureAppRole } from './migrations/roles.js';
@@ -13,7 +13,6 @@ function log(message: string): void {
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  assertStubUserAllowed(config.nodeEnv); // TODO(auth): remove with the stub; fail before touching the database
   const version = readVersion(config.gitCommit);
   log(`KinShip API ${version.version} (${version.commit}) starting`);
 
@@ -29,10 +28,19 @@ async function main(): Promise<void> {
 
   // 2. As the app role: serve requests.
   const db = createAppDb(config.db);
-  const app = buildApp({ db, version, nodeEnv: config.nodeEnv, logLevel: config.logLevel });
+  await prepareSetupToken(db, config.publicUrl, (text) => console.log(text));
+  const stopCleanup = scheduleSessionCleanup(db, log);
+  const app = buildApp({
+    db,
+    version,
+    logLevel: config.logLevel,
+    trustProxy: config.trustProxy,
+    sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
+  });
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`${signal} received, shutting down`);
+    stopCleanup();
     await app.close();
     await db.destroy();
     process.exit(0);

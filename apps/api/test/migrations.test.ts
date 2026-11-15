@@ -6,6 +6,7 @@ import { ensureAppRole } from '../src/migrations/roles.js';
 import { MigrationError, runMigrations } from '../src/migrations/runner.js';
 import { createTestDatabase } from './helpers/db.js';
 import type { TestDatabase } from './helpers/db.js';
+import { readMigrationFiles } from '../src/migrations/files.js';
 import { realMigrationsDir, tempMigrationsDir } from './helpers/migrations-dir.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -34,13 +35,17 @@ async function tableExists(test: TestDatabase, name: string): Promise<boolean> {
 describe('migration runner', () => {
   it('applies the migrations to an empty database and records the schema number', async () => {
     const { test, run } = await setup();
+    const real = await readMigrationFiles(realMigrationsDir);
     const { applied } = await run();
-    expect(applied).toEqual(['0001_schema_info_and_grants']);
+    expect(applied).toEqual(real.map((f) => f.name));
+    expect(applied[0]).toBe('0001_schema_info_and_grants');
 
     const info = await sql<{ schema_number: number }>`select schema_number from schema_info`.execute(test.owner);
-    expect(info.rows).toEqual([{ schema_number: 1 }]);
-    const checksums = await sql<{ name: string }>`select name from kinship_migration_checksum`.execute(test.owner);
-    expect(checksums.rows.map((r) => r.name)).toEqual(['0001_schema_info_and_grants']);
+    expect(info.rows).toEqual([{ schema_number: real.length }]);
+    const checksums = await sql<{ name: string }>`select name from kinship_migration_checksum order by name`.execute(
+      test.owner,
+    );
+    expect(checksums.rows.map((r) => r.name)).toEqual(real.map((f) => f.name));
   });
 
   it('does nothing the second time', async () => {
@@ -52,10 +57,10 @@ describe('migration runner', () => {
   it('applies only new migrations later, and updates the schema number', async () => {
     const { test, dir, run } = await setup();
     await run();
-    await dir.add('0002_people.sql', 'create table people (id serial primary key, given_name text not null);');
-    expect((await run()).applied).toEqual(['0002_people']);
+    await dir.add('9001_people.sql', 'create table people (id serial primary key, given_name text not null);');
+    expect((await run()).applied).toEqual(['9001_people']);
     const info = await sql<{ schema_number: number }>`select schema_number from schema_info`.execute(test.owner);
-    expect(info.rows[0]?.schema_number).toBe(2);
+    expect(info.rows[0]?.schema_number).toBe(9001);
     expect(await tableExists(test, 'people')).toBe(true);
   });
 
@@ -71,11 +76,11 @@ describe('migration runner', () => {
   it('fails when an applied migration file is missing', async () => {
     const { dir, run } = await setup();
     await run();
-    await dir.add('0002_extra.sql', 'select 1;');
+    await dir.add('9001_extra.sql', 'select 1;');
     await run();
     const { rm } = await import('node:fs/promises');
-    await rm(`${dir.dir}/0002_extra.sql`);
-    await expect(run()).rejects.toThrow(/0002_extra was applied to this database but its file is missing/);
+    await rm(`${dir.dir}/9001_extra.sql`);
+    await expect(run()).rejects.toThrow(/9001_extra was applied to this database but its file is missing/);
   });
 
   it('fails when an applied migration has no recorded checksum', async () => {
@@ -88,27 +93,29 @@ describe('migration runner', () => {
   it('rolls back everything when a migration fails', async () => {
     const { test, dir, run } = await setup();
     await run();
-    await dir.add('0002_good.sql', 'create table good_table (id int);');
-    await dir.add('0003_bad.sql', 'create table bad_table (id int); select * from does_not_exist;');
+    await dir.add('9001_good.sql', 'create table good_table (id int);');
+    await dir.add('9002_bad.sql', 'create table bad_table (id int); select * from does_not_exist;');
     await expect(run()).rejects.toThrow(/Migration failed and was rolled back/);
 
     expect(await tableExists(test, 'good_table')).toBe(false);
     expect(await tableExists(test, 'bad_table')).toBe(false);
+    const real = await readMigrationFiles(realMigrationsDir);
     const info = await sql<{ schema_number: number }>`select schema_number from schema_info`.execute(test.owner);
-    expect(info.rows[0]?.schema_number).toBe(1);
+    expect(info.rows[0]?.schema_number).toBe(real.length);
 
     // Fixing the pending file lets the next run succeed.
-    await dir.add('0003_bad.sql', 'create table fixed_table (id int);');
-    expect((await run()).applied).toEqual(['0002_good', '0003_bad']);
+    await dir.add('9002_bad.sql', 'create table fixed_table (id int);');
+    expect((await run()).applied).toEqual(['9001_good', '9002_bad']);
   });
 
   it('applies each migration once when two runners start at the same time', async () => {
     const { test, run } = await setup();
     const results = await Promise.all([run(), run(), run()]);
-    const appliedCounts = results.map((r) => r.applied.length).sort();
-    expect(appliedCounts).toEqual([0, 0, 1]);
+    const real = await readMigrationFiles(realMigrationsDir);
+    // One runner applies everything; the others wait for the lock and find nothing left to do.
+    expect(results.map((r) => r.applied.length).sort((a, b) => a - b)).toEqual([0, 0, real.length]);
     const rows = await sql`select 1 from kinship_migration_checksum`.execute(test.owner);
-    expect(rows.rows).toHaveLength(1);
+    expect(rows.rows).toHaveLength(real.length);
   });
 });
 
@@ -163,7 +170,7 @@ describe('the app role after migrating', () => {
 
   it('can read schema_info but not change it', async () => {
     const read = await sql<{ schema_number: number }>`select schema_number from schema_info`.execute(app);
-    expect(read.rows[0]?.schema_number).toBe(1);
+    expect(read.rows[0]?.schema_number).toBe((await readMigrationFiles(realMigrationsDir)).length);
     await expect(sql`update schema_info set schema_number = 99`.execute(app)).rejects.toThrow(/permission denied/);
     await expect(sql`delete from schema_info`.execute(app)).rejects.toThrow(/permission denied/);
   });

@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import type { Kysely } from 'kysely';
+import type { Limiters } from '../app.js';
+import type { Database } from '../db.js';
+
+export interface RouteDeps {
+  db: Kysely<Database>;
+  sessions: { idleSeconds: number; maxSeconds: number };
+  limiters: Limiters;
+  failureDelayMs: number;
+}
+
+export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+export function isValidEmail(email: string): boolean {
+  return email.length >= 3 && email.length <= 320 && EMAIL.test(email);
+}
+
+/** The longest wait, in whole seconds (at least 1), for a 429 response. */
+export function retrySeconds(...waitsMs: number[]): number {
+  return Math.max(1, Math.ceil(Math.max(0, ...waitsMs) / 1000));
+}

@@ -40,6 +40,8 @@ services:
       DB_APP_USER: kinship_app
       DB_APP_PASSWORD: dev-app-password
       GIT_COMMIT: dev
+      # Where the first-run setup message tells you to go (the Vite dev server).
+      PUBLIC_URL: http://localhost:5173
     ports:
       - '127.0.0.1:3000:3000'
     volumes:
