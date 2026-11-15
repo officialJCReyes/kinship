@@ -43,6 +43,7 @@ These differ from the defaults in the request. The docs won.
 - Because the host is compared, the nginx `web` container now forwards `Host` with its port (`$http_host`).
 
 ### Rate limiting
+- **A plain request cap** (`@fastify/rate-limit`, MIT): at most 30 requests a minute per IP address to sign-in and to setup, successful or not. Every attempt costs an argon2 check, and the failure counters below only count failures. Found by CodeQL (`js/missing-rate-limiting`), which does not recognise the custom limiter.
 - Failures are counted in memory per IP and per account (email, whether or not it exists), in a 15-minute sliding window: 20 per IP, 10 per account. Over the limit the answer is 429 with `Retry-After`, the same for real and unknown accounts. Held in memory means a restart clears the counters and it assumes one API process. Limiting per account lets an attacker lock a victim out for up to 15 minutes by failing deliberately; that is accepted as the lesser harm, and the owner's recovery command is not affected.
 
 ### Database

@@ -67,6 +67,15 @@ describe('the setup token', () => {
   });
 });
 
+describe('request-rate cap on setup', () => {
+  it('refuses a flood from one address', async () => {
+    const t = await freshInstall({ loginRequestsPerMinute: 3 });
+    const codes: number[] = [];
+    for (let i = 0; i < 5; i++) codes.push((await post(t.app, '/api/setup', body(`guess-${i}`))).statusCode);
+    expect(codes).toEqual([403, 403, 403, 429, 429]);
+  });
+});
+
 describe('GET /api/setup/status', () => {
   it('says setup is needed on a fresh install, and not after', async () => {
     const t = await freshInstall();

@@ -8,6 +8,8 @@ export interface RouteDeps {
   sessions: { idleSeconds: number; maxSeconds: number };
   limiters: Limiters;
   failureDelayMs: number;
+  /** Per-address request cap for the routes that check credentials (see @fastify/rate-limit). */
+  requestLimit: { max: number; timeWindow: string };
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
