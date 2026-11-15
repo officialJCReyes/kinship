@@ -15,8 +15,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "lint": "eslint . && node scripts/check-spdx.mjs",
-    "format": "prettier --write \"**/*.{ts,mjs,json,yml,yaml}\"",
-    "format:check": "prettier --check \"**/*.{ts,mjs,json,yml,yaml}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,mjs,json,yml,yaml,css,html}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mjs,json,yml,yaml,css,html}\"",
     "licenses:check": "node scripts/check-licenses.mjs",
     "test:scripts": "node --test scripts/"
   },
@@ -29,6 +29,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.14.0",
     "prettier": "^3.10.1",
     "typescript-eslint": "^8.72.2"

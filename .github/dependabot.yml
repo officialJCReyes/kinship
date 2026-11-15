@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Not listed yet, added when the files exist: docker for /apps/web.
 version: 2
 updates:
   # JavaScript dependencies (pnpm workspace: root, apps/*, packages/*).
@@ -16,9 +15,11 @@ updates:
       npm-minor-and-patch:
         update-types: ['minor', 'patch']
 
-  # Base images in the api Dockerfile.
+  # Base images in the api and web Dockerfiles.
   - package-ecosystem: 'docker'
-    directory: '/apps/api'
+    directories:
+      - '/apps/api'
+      - '/apps/web'
     schedule:
       interval: 'weekly'
     commit-message:
