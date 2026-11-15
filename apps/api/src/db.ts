@@ -21,6 +21,20 @@ export interface Database {
     schema_number: number;
     updated_at: Date;
   };
+  /** The app role can read these columns, and only the signed-in person's own row (row-level security). */
+  users: {
+    id: string;
+    email: string;
+    display_name: string;
+    role: 'superadmin' | 'familyadmin' | 'member' | 'user';
+    created_at: Date;
+    updated_at: Date;
+  };
+  /** Readable only when someone is signed in. */
+  family_tree: {
+    name: string;
+    created_at: Date;
+  };
 }
 
 /**

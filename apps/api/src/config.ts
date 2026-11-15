@@ -12,9 +12,16 @@ export interface DbConfig {
   appPassword: string;
 }
 
+/** What Fastify's trustProxy accepts here: off, on (every hop), or the addresses/ranges of trusted proxies. */
+export type TrustProxy = boolean | string[];
+
 export interface Config {
-  /** NODE_ENV; "production" in the published image. */
-  nodeEnv: string;
+  /** Public address of the site, used in the first-run setup message. */
+  publicUrl: string;
+  /** Whether to believe X-Forwarded-For / -Proto / -Host, and from whom. Off unless configured. */
+  trustProxy: TrustProxy;
+  sessionIdleSeconds: number;
+  sessionMaxSeconds: number;
   logLevel: string;
   host: string;
   port: number;
@@ -77,6 +84,27 @@ function secret(env: Env, name: string, readFile: ReadFile): string {
   return value;
 }
 
+function trustProxy(env: Env): TrustProxy {
+  const raw = (env.TRUST_PROXY ?? '').trim();
+  if (raw === '' || raw === 'false') return false;
+  if (raw === 'true') return true;
+  const list = raw.split(',').map((item) => item.trim());
+  if (list.some((item) => item === '' || /\s/.test(item))) {
+    throw new ConfigError('TRUST_PROXY must be true, false, or a comma-separated list of addresses or ranges');
+  }
+  return list;
+}
+
+function days(env: Env, name: string, fallback: number): number {
+  const raw = env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0 || value > 3650) {
+    throw new ConfigError(`${name} must be a number of days between 0 and 3650`);
+  }
+  return value;
+}
+
 function roleName(env: Env, name: string, fallback: string): string {
   const value = str(env, name, fallback);
   if (!ROLE_NAME.test(value)) {
@@ -104,8 +132,17 @@ export function loadConfig(env: Env = process.env, readFile: ReadFile = (p) => r
     throw new ConfigError('DB_OWNER_PASSWORD and DB_APP_PASSWORD must be different');
   }
 
+  const sessionIdleSeconds = Math.round(days(env, 'SESSION_IDLE_DAYS', 14) * 86_400);
+  const sessionMaxSeconds = Math.round(days(env, 'SESSION_MAX_DAYS', 90) * 86_400);
+  if (sessionIdleSeconds > sessionMaxSeconds) {
+    throw new ConfigError('SESSION_IDLE_DAYS must not be longer than SESSION_MAX_DAYS');
+  }
+
   return {
-    nodeEnv: str(env, 'NODE_ENV', 'development'),
+    publicUrl: str(env, 'PUBLIC_URL', 'http://localhost:8080').replace(/\/+$/, ''),
+    trustProxy: trustProxy(env),
+    sessionIdleSeconds,
+    sessionMaxSeconds,
     logLevel,
     host: str(env, 'API_HOST', '0.0.0.0'),
     port: port(env, 'API_PORT', 3000),

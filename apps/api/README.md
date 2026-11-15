@@ -28,6 +28,18 @@ Each test file creates its own throwaway database and app role, and drops them a
 - **Owner role** (`DB_OWNER_USER`): runs migrations at startup, and nothing else.
 - **App role** (`DB_APP_USER`): serves every request. It cannot create objects, does not bypass row-level security, and only gets access to tables the owner creates after migration 0001. The API creates it (or refreshes its password) on each start, because its password is a secret and cannot live in a `.sql` file.
 
+## Sign-in, sessions and setup
+
+See [ADR 0003](../../docs/decisions/0003-accounts-and-sessions.md). In short: argon2id passwords, server-side sessions (the cookie holds a random token, the database only its hash), a CSRF header on every state-changing request, sign-in and setup rate limits, and a one-time setup token printed in the log on a fresh install. Every request that touches private data runs in a transaction that sets `kinship.user_id`, so Postgres row-level security decides what it can see.
+
+## The `kinship` command
+
+Inside the container, for whoever runs the server (not reachable over HTTP):
+
+```sh
+docker compose exec -it api kinship set-password you@example.com
+```
+
 ## Migrations
 
 Numbered files like `migrations/0002_people.sql`, forward-only. Never edit one that has been applied: the runner stores each file's SHA-256 and refuses to start if an applied file changed. See [ADR 0001](../../docs/decisions/0001-stack.md).

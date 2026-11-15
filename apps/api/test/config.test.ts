@@ -22,7 +22,10 @@ describe('loadConfig', () => {
       host: '0.0.0.0',
       logLevel: 'info',
       gitCommit: 'unknown',
-      nodeEnv: 'development',
+      publicUrl: 'http://localhost:8080',
+      trustProxy: false,
+      sessionIdleSeconds: 14 * 86_400,
+      sessionMaxSeconds: 90 * 86_400,
     });
     expect(config.migrationsDir).toMatch(/migrations$/);
   });
@@ -56,6 +59,32 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...good, DB_APP_USER: 'kinship' }, noFiles)).toThrow(/must be different roles/);
     expect(() => loadConfig({ DB_OWNER_PASSWORD: 'same', DB_APP_PASSWORD: 'same' }, noFiles)).toThrow(
       /must be different/,
+    );
+  });
+
+  it('reads proxy trust and session lengths', () => {
+    expect(loadConfig({ ...good, TRUST_PROXY: 'true' }, noFiles).trustProxy).toBe(true);
+    expect(loadConfig({ ...good, TRUST_PROXY: 'false' }, noFiles).trustProxy).toBe(false);
+    expect(loadConfig({ ...good, TRUST_PROXY: '10.0.0.0/8, 172.16.0.0/12' }, noFiles).trustProxy).toEqual([
+      '10.0.0.0/8',
+      '172.16.0.0/12',
+    ]);
+    const config = loadConfig(
+      { ...good, SESSION_IDLE_DAYS: '1', SESSION_MAX_DAYS: '2', PUBLIC_URL: 'https://kin.example/' },
+      noFiles,
+    );
+    expect(config).toMatchObject({
+      sessionIdleSeconds: 86_400,
+      sessionMaxSeconds: 172_800,
+      publicUrl: 'https://kin.example',
+    });
+  });
+
+  it('rejects odd proxy and session settings', () => {
+    expect(() => loadConfig({ ...good, TRUST_PROXY: '10.0.0.1,,10.0.0.2' }, noFiles)).toThrow(/TRUST_PROXY/);
+    expect(() => loadConfig({ ...good, SESSION_IDLE_DAYS: '0' }, noFiles)).toThrow(/SESSION_IDLE_DAYS/);
+    expect(() => loadConfig({ ...good, SESSION_IDLE_DAYS: '30', SESSION_MAX_DAYS: '7' }, noFiles)).toThrow(
+      /must not be longer/,
     );
   });
 
