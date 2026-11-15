@@ -1,13 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { CSRF_HEADER, CSRF_VALUE } from '@kinship/shared';
 import type {
+  AddChildRequest,
+  AddParentRequest,
   ApiErrorCode,
   ApiHealth,
   ApiVersion,
+  ChildResponse,
   LoginRequest,
   MeResponse,
+  ParentageResponse,
+  PeoplePage,
+  PersonDetail,
+  PersonInput,
+  PersonPatch,
+  PersonResponse,
   SetupRequest,
   SetupStatus,
+  TreeResponse,
+  UnionInput,
+  UnionPatch,
+  UnionResponse,
 } from '@kinship/shared';
 
 /** A failed API call. `code` is the API's `error` value, when it sent one. */
@@ -33,7 +46,12 @@ interface Reply {
   body: unknown;
 }
 
-async function send(method: 'GET' | 'POST', path: string, body?: unknown, signal?: AbortSignal): Promise<Reply> {
+async function send(
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<Reply> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (method !== 'GET') headers[CSRF_HEADER] = CSRF_VALUE;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -106,4 +124,105 @@ export async function setup(request: SetupRequest): Promise<MeResponse> {
   const reply = await send('POST', '/api/setup', request);
   if (reply.status !== 201) fail('/api/setup', reply);
   return reply.body as MeResponse;
+}
+
+// --- People, relationships and the tree. Every path here is in PEOPLE_ROUTES (a test checks it). ---
+
+function succeeded(reply: Reply): boolean {
+  return reply.status >= 200 && reply.status < 300;
+}
+
+export async function listPeople(
+  params: { q?: string; cursor?: string | null; limit?: number },
+  signal?: AbortSignal,
+): Promise<PeoplePage> {
+  const query = new URLSearchParams();
+  if (params.q?.trim()) query.set('q', params.q.trim());
+  if (params.cursor) query.set('cursor', params.cursor);
+  if (params.limit) query.set('limit', String(params.limit));
+  const path = `/api/people${query.size ? `?${query}` : ''}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as PeoplePage;
+}
+
+export async function fetchPerson(id: string, signal?: AbortSignal): Promise<PersonDetail> {
+  const path = `/api/people/${encodeURIComponent(id)}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as PersonDetail;
+}
+
+/** The people, relationships and parent links around one person (see TreeResponse). */
+export async function fetchTree(
+  id: string,
+  options: { up: number; down: number; collateral?: boolean },
+  signal?: AbortSignal,
+): Promise<TreeResponse> {
+  const query = new URLSearchParams({ up: String(options.up), down: String(options.down) });
+  if (options.collateral) query.set('collateral', 'true');
+  const path = `/api/tree/${encodeURIComponent(id)}?${query}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as TreeResponse;
+}
+
+export async function createPerson(input: PersonInput): Promise<PersonResponse> {
+  const reply = await send('POST', '/api/people', input);
+  if (!succeeded(reply)) fail('/api/people', reply);
+  return reply.body as PersonResponse;
+}
+
+export async function updatePerson(id: string, patch: PersonPatch): Promise<PersonResponse> {
+  const path = `/api/people/${encodeURIComponent(id)}`;
+  const reply = await send('PATCH', path, patch);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as PersonResponse;
+}
+
+/** Without `confirm`, a person with relationships or children is refused with 409 confirm_required (and counts). */
+export async function deletePerson(id: string, confirm: boolean): Promise<void> {
+  const path = `/api/people/${encodeURIComponent(id)}${confirm ? '?confirm=true' : ''}`;
+  const reply = await send('DELETE', path);
+  if (!succeeded(reply)) fail(path, reply);
+}
+
+export async function addChild(parentId: string, request: AddChildRequest): Promise<ChildResponse> {
+  const path = `/api/people/${encodeURIComponent(parentId)}/children`;
+  const reply = await send('POST', path, request);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as ChildResponse;
+}
+
+export async function addParent(childId: string, request: AddParentRequest): Promise<ParentageResponse> {
+  const path = `/api/people/${encodeURIComponent(childId)}/parents`;
+  const reply = await send('POST', path, request);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as ParentageResponse;
+}
+
+export async function removeParent(childId: string, parentId: string): Promise<ParentageResponse> {
+  const path = `/api/people/${encodeURIComponent(childId)}/parents/${encodeURIComponent(parentId)}`;
+  const reply = await send('DELETE', path);
+  if (!succeeded(reply)) fail(path, reply);
+  return (reply.body ?? { parentage: null, warnings: [] }) as ParentageResponse;
+}
+
+export async function createUnion(input: UnionInput): Promise<UnionResponse> {
+  const reply = await send('POST', '/api/unions', input);
+  if (!succeeded(reply)) fail('/api/unions', reply);
+  return reply.body as UnionResponse;
+}
+
+export async function updateUnion(id: string, patch: UnionPatch): Promise<UnionResponse> {
+  const path = `/api/unions/${encodeURIComponent(id)}`;
+  const reply = await send('PATCH', path, patch);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as UnionResponse;
+}
+
+export async function deleteUnion(id: string): Promise<void> {
+  const path = `/api/unions/${encodeURIComponent(id)}`;
+  const reply = await send('DELETE', path);
+  if (!succeeded(reply)) fail(path, reply);
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { MIN_PASSWORD_LENGTH } from '@kinship/shared';
+import { MIN_PASSWORD_LENGTH, NAME_MAX_LENGTH } from '@kinship/shared';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
@@ -7,6 +7,7 @@ import { ApiError } from '../api.js';
 import { useSetup } from '../auth.js';
 import { Field } from '../components/Field.js';
 import { t } from '../i18n.js';
+import { errorMessage } from '../lib/errors.js';
 
 function serverMessage(error: unknown): string {
   if (!(error instanceof ApiError) || error.status === undefined || error.status >= 500)
@@ -23,7 +24,7 @@ function serverMessage(error: unknown): string {
     case 'rate_limited':
       return t('setup.rateLimited', { minutes: Math.max(1, Math.ceil((error.retryAfterSeconds ?? 60) / 60)) });
     default:
-      return t('common.unexpectedError');
+      return errorMessage(error);
   }
 }
 
@@ -34,6 +35,8 @@ export function SetupPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [treeName, setTreeName] = useState('');
+  const [givenName, setGivenName] = useState('');
+  const [surname, setSurname] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const setup = useSetup();
 
@@ -42,13 +45,18 @@ export function SetupPage() {
     password.length < MIN_PASSWORD_LENGTH ? t('setup.passwordTooShort', { min: MIN_PASSWORD_LENGTH }) : undefined;
   const confirmError = confirm !== password ? t('setup.passwordMismatch') : undefined;
   const emailError = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? undefined : t('setup.invalidEmail');
-  const hasProblem = Boolean(passwordError ?? confirmError ?? emailError);
+  // The first person: both names, or neither (then the tree starts empty and an admin adds people).
+  const givenError = surname.trim() && !givenName.trim() ? t('error.invalid_given_name') : undefined;
+  const surnameError = givenName.trim() && !surname.trim() ? t('error.invalid_surname') : undefined;
+  const hasProblem = Boolean(passwordError ?? confirmError ?? emailError ?? givenError ?? surnameError);
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     setSubmitted(true);
     if (hasProblem) return;
-    setup.mutate({ token: token.trim(), displayName, email, password, treeName });
+    const person =
+      givenName.trim() && surname.trim() ? { givenName: givenName.trim(), surname: surname.trim() } : undefined;
+    setup.mutate({ token: token.trim(), displayName, email, password, treeName, ...(person ? { person } : {}) });
   };
 
   return (
@@ -113,6 +121,28 @@ export function SetupPage() {
           help={t('setup.treeNameHelp')}
           required
         />
+        <fieldset className="you">
+          <legend>{t('setup.youTitle')}</legend>
+          <p className="muted small">{t('setup.youHelp')}</p>
+          <Field
+            label={t('setup.youGivenName')}
+            name="givenName"
+            autoComplete="given-name"
+            maxLength={NAME_MAX_LENGTH}
+            value={givenName}
+            onChange={(event) => setGivenName(event.target.value)}
+            error={submitted ? givenError : undefined}
+          />
+          <Field
+            label={t('setup.youSurname')}
+            name="surname"
+            autoComplete="family-name"
+            maxLength={NAME_MAX_LENGTH}
+            value={surname}
+            onChange={(event) => setSurname(event.target.value)}
+            error={submitted ? surnameError : undefined}
+          />
+        </fieldset>
         {setup.isError ? (
           <div className="alert" role="alert">
             {serverMessage(setup.error)}
