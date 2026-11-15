@@ -362,6 +362,45 @@ describe('sign-in rate limiting', () => {
   });
 });
 
+describe('request-rate cap on sign-in', () => {
+  it('refuses a flood from one address, successful or not, and says when to retry', async () => {
+    const t = await withUser({ loginRequestsPerMinute: 5 });
+    const codes: number[] = [];
+    for (let i = 0; i < 7; i++) codes.push((await login(t.app, 'marcus@example.com')).statusCode); // all correct
+    expect(codes).toEqual([200, 200, 200, 200, 200, 429, 429]);
+    const blocked = await login(t.app, 'marcus@example.com');
+    expect(blocked.json()).toMatchObject({ error: 'rate_limited' });
+    expect(blocked.json().retryAfterSeconds).toBeGreaterThan(0);
+    expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
+  });
+
+  it('counts each address separately', async () => {
+    const t = await withUser({ loginRequestsPerMinute: 2 });
+    for (let i = 0; i < 3; i++)
+      await t.app.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: {},
+        headers: { 'x-kinship-request': '1' },
+      });
+    const other = await t.app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'marcus@example.com', password: PASSWORD },
+      headers: { 'x-kinship-request': '1' },
+      remoteAddress: '10.7.7.7',
+    });
+    expect(other.statusCode).toBe(200);
+  });
+
+  it('does not apply to reading who is signed in', async () => {
+    const t = await withUser({ loginRequestsPerMinute: 1 });
+    const cookie = cookieHeader(await login(t.app, 'marcus@example.com'));
+    for (let i = 0; i < 5; i++)
+      expect((await t.app.inject({ url: '/api/auth/me', headers: { cookie } })).statusCode).toBe(200);
+  });
+});
+
 describe('what is not exposed', () => {
   it('has no HTTP route for password recovery or user listing', async () => {
     const t = await withUser();

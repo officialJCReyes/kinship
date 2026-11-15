@@ -44,6 +44,8 @@ export async function createTestApp(
     logLevel: 'silent',
     sessions: { idleSeconds: 3600, maxSeconds: 86_400 },
     failureDelayMs: 0,
+    // The failure limiters are what most tests exercise; the plain request cap has its own tests.
+    loginRequestsPerMinute: 10_000,
     ...overrides,
   });
   beforeReady?.(app);

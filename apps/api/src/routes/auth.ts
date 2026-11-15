@@ -40,11 +40,12 @@ export async function startSession(
 }
 
 export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void {
-  const { db, limiters, failureDelayMs } = deps;
+  const { db, limiters, failureDelayMs, requestLimit } = deps;
 
   app.post(
     '/api/auth/login',
     {
+      config: { rateLimit: requestLimit },
       schema: {
         body: {
           type: 'object',

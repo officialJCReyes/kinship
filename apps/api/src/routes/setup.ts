@@ -16,13 +16,14 @@ function sqlState(error: unknown): string | undefined {
 }
 
 export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void {
-  const { db, limiters, failureDelayMs } = deps;
+  const { db, limiters, failureDelayMs, requestLimit } = deps;
 
   app.get('/api/setup/status', async () => ({ needsSetup: await needsSetup(db) }));
 
   app.post(
     '/api/setup',
     {
+      config: { rateLimit: requestLimit },
       schema: {
         body: {
           type: 'object',

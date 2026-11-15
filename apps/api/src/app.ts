@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely, Transaction } from 'kysely';
@@ -37,8 +38,10 @@ export interface AppOptions {
   trustProxy?: TrustProxy;
   /** Pause after a failed sign-in or setup attempt, in milliseconds. */
   failureDelayMs?: number;
-  /** Clock for the rate limiters (tests). */
+  /** Clock for the failure limiters (tests). */
   now?: () => number;
+  /** Most requests per minute and IP address to sign-in and setup, successful or not. */
+  loginRequestsPerMinute?: number;
 }
 
 export interface Limiters {
@@ -55,7 +58,7 @@ export interface Limiters {
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 export function buildApp(options: AppOptions): FastifyInstance {
-  const { db, version, logLevel = 'info', sessions, failureDelayMs = 300 } = options;
+  const { db, version, logLevel = 'info', sessions, failureDelayMs = 300, loginRequestsPerMinute = 30 } = options;
   const app = Fastify({
     logger: { level: logLevel },
     trustProxy: options.trustProxy ?? false,
@@ -73,6 +76,16 @@ export function buildApp(options: AppOptions): FastifyInstance {
   };
 
   void app.register(cookie);
+  // A plain cap on how often one address may try to sign in or set up, on top of the failure limits
+  // above: every attempt costs an argon2 check (19 MiB, tens of milliseconds), successful or not.
+  void app.register(rateLimit, {
+    global: false,
+    errorResponseBuilder: (_request, context) => ({
+      statusCode: 429,
+      error: 'rate_limited',
+      retryAfterSeconds: Math.max(1, Math.ceil(context.ttl / 1000)),
+    }),
+  });
 
   app.decorateRequest('user', null);
   app.decorateRequest('sessionTokenHash', null);
@@ -104,6 +117,13 @@ export function buildApp(options: AppOptions): FastifyInstance {
     // Mistakes by the caller (bad JSON, empty body, too large, wrong shape) stay 4xx; anything else is ours.
     const status =
       typeof error === 'object' && error !== null && 'statusCode' in error ? Number(error.statusCode) : 500;
+    if (status === 429) {
+      const retry =
+        typeof error === 'object' && error !== null && 'retryAfterSeconds' in error
+          ? Number(error.retryAfterSeconds)
+          : 60;
+      return reply.code(429).send({ error: 'rate_limited', retryAfterSeconds: retry });
+    }
     const invalidShape =
       typeof error === 'object' && error !== null && 'validation' in error && Boolean(error.validation);
     if (invalidShape || (status >= 400 && status < 500)) {
@@ -137,8 +157,12 @@ export function buildApp(options: AppOptions): FastifyInstance {
     return { ...version, schema };
   });
 
-  registerSetupRoutes(app, { db, sessions, limiters, failureDelayMs });
-  registerAuthRoutes(app, { db, sessions, limiters, failureDelayMs });
+  // Registered after the rate-limit plugin, so the routes below can use its per-route settings.
+  const requestLimit = { max: loginRequestsPerMinute, timeWindow: '1 minute' };
+  void app.register(async (routes) => {
+    registerSetupRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
+    registerAuthRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
+  });
 
   return app;
 }
