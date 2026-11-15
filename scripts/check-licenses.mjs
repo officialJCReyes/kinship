@@ -25,6 +25,25 @@ export const ALLOWED = new Set([
 ]);
 
 /**
+ * Named exceptions (decided by JC, 2026-11-15). An exception only applies to
+ * the exact package, the exact license and the scope listed, so it cannot
+ * quietly cover a different package, a new license, or a production use.
+ */
+export const EXCEPTIONS = [
+  {
+    name: 'caniuse-lite',
+    license: 'CC-BY-4.0',
+    scope: 'development',
+    reason:
+      'Browser-support data used only by build and lint tooling (via eslint-plugin-react-hooks, babel, browserslist). Not part of any shipped file.',
+  },
+];
+
+export function exceptionFor(row) {
+  return EXCEPTIONS.find((e) => e.name === row.name && e.license === row.license && e.scope === row.scope);
+}
+
+/**
  * Is an SPDX license expression acceptable? "A OR B" needs one allowed side,
  * "A AND B" needs both, parentheses group. Anything we cannot read (a "WITH"
  * exception, a made-up name, "UNKNOWN") is not acceptable.
@@ -104,11 +123,16 @@ function main() {
   );
 
   const rows = all
-    .map((row) => ({
-      ...row,
-      scope: shipped.has(`${row.name}@${row.version}`) ? 'production' : 'development',
-      allowed: isAllowed(row.license),
-    }))
+    .map((row) => {
+      const scope = shipped.has(`${row.name}@${row.version}`) ? 'production' : 'development';
+      const exception = exceptionFor({ ...row, scope });
+      return {
+        ...row,
+        scope,
+        allowed: isAllowed(row.license) || exception !== undefined,
+        ...(exception ? { exception: exception.reason } : {}),
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version));
   const rejected = rows.filter((row) => !row.allowed);
 
@@ -133,6 +157,15 @@ function main() {
       .sort((a, b) => b[1] - a[1])
       .map(([license, n]) => `  ${String(n).padStart(4)}  ${license}`),
     '',
+    ...(rows.some((r) => r.exception)
+      ? [
+          'Exceptions used (see EXCEPTIONS in scripts/check-licenses.mjs):',
+          ...rows
+            .filter((r) => r.exception)
+            .map((r) => `  ${r.name}@${r.version}  ${r.license}  (${r.scope}): ${r.exception}`),
+          '',
+        ]
+      : []),
     rejected.length === 0
       ? 'Result: PASS, every package has an allowed license.'
       : `Result: FAIL, ${rejected.length} package(s) without an allowed license:\n${rejected.map((r) => `  ${r.name}@${r.version}  ${r.license}  (${r.scope})`).join('\n')}`,
