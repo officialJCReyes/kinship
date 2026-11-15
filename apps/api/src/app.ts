@@ -13,9 +13,13 @@ import type { SessionUser } from './auth/store.js';
 import { hashToken } from './auth/tokens.js';
 import type { TrustProxy } from './config.js';
 import type { Database } from './db.js';
+import { ApiError, fromDatabaseError } from './errors.js';
 import { withUserTransaction } from './request-context.js';
 import { registerAuthRoutes, SESSION_COOKIE, setSessionCookie } from './routes/auth.js';
+import { registerPeopleRoutes } from './routes/people.js';
 import { registerSetupRoutes } from './routes/setup.js';
+import { registerTreeRoutes } from './routes/tree.js';
+import { registerUnionRoutes } from './routes/unions.js';
 import type { VersionInfo } from './version.js';
 
 declare module 'fastify' {
@@ -115,6 +119,9 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
 
   app.setErrorHandler((error, request, reply) => {
+    // Rules the API (or the database) enforces answer with their own code.
+    const known = error instanceof ApiError ? error : fromDatabaseError(error);
+    if (known) return reply.code(known.status).send({ error: known.code, ...known.extra });
     // Mistakes by the caller (bad JSON, empty body, too large, wrong shape) stay 4xx; anything else is ours.
     const status =
       typeof error === 'object' && error !== null && 'statusCode' in error ? Number(error.statusCode) : 500;
@@ -164,6 +171,16 @@ export function buildApp(options: AppOptions): FastifyInstance {
   void app.register(async (routes) => {
     registerSetupRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
     registerAuthRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
+  });
+
+  // People, relationships and the tree: everything here needs a signed-in account.
+  void app.register(async (routes) => {
+    routes.addHook('onRequest', async (request) => {
+      if (!request.user) throw new ApiError(401, 'unauthenticated');
+    });
+    registerPeopleRoutes(routes);
+    registerUnionRoutes(routes);
+    registerTreeRoutes(routes);
   });
 
   return app;

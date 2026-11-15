@@ -4,6 +4,8 @@ import type { FastifyInstance } from 'fastify';
 import { checkSetupToken, completeSetup, needsSetup, SETUP_ALREADY_DONE, SETUP_INVALID_TOKEN } from '../auth/store.js';
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwords.js';
 import { hashToken } from '../auth/tokens.js';
+import { ApiError } from '../errors.js';
+import { cleanName } from '../people/names.js';
 import { readMe, startSession } from './auth.js';
 import { isValidEmail, normalizeEmail, retrySeconds, sleep } from './shared.js';
 import type { RouteDeps } from './shared.js';
@@ -36,6 +38,15 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
             displayName: { type: 'string', maxLength: 200 },
             password: { type: 'string', maxLength: MAX_PASSWORD_LENGTH },
             treeName: { type: 'string', maxLength: 200 },
+            person: {
+              type: 'object',
+              required: ['givenName', 'surname'],
+              additionalProperties: false,
+              properties: {
+                givenName: { type: 'string', maxLength: 400 },
+                surname: { type: 'string', maxLength: 400 },
+              },
+            },
           },
         },
       },
@@ -79,6 +90,19 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
         return reply.code(400).send({ error: 'password_too_short', minLength: MIN_PASSWORD_LENGTH });
       }
 
+      let person: { givenName: string; surname: string } | undefined;
+      if (body.person) {
+        try {
+          person = {
+            givenName: cleanName(body.person.givenName, 'invalid_given_name'),
+            surname: cleanName(body.person.surname, 'invalid_surname'),
+          };
+        } catch (error) {
+          if (error instanceof ApiError) return reply.code(error.status).send({ error: error.code });
+          throw error;
+        }
+      }
+
       let userId: string;
       try {
         userId = await completeSetup(db, {
@@ -87,6 +111,7 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
           displayName,
           passwordHash: await hashPassword(body.password),
           treeName,
+          person,
         });
       } catch (error) {
         const code = sqlState(error);

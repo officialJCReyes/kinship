@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Kysely, PostgresDialect } from 'kysely';
+import type { ColumnType, Generated } from 'kysely';
 import pg from 'pg';
+import type { DatePrecision, UnionStatus } from '@kinship/shared';
 import type { DbConfig } from './config.js';
 
 /**
@@ -15,6 +17,9 @@ import type { DbConfig } from './config.js';
 export type AnySchema = any;
 export type UntypedDb = Kysely<AnySchema>;
 
+type DatePrecisionCode = DatePrecision;
+type UnionStatusCode = UnionStatus;
+
 export interface Database {
   schema_info: {
     id: boolean;
@@ -27,8 +32,46 @@ export interface Database {
     email: string;
     display_name: string;
     role: 'superadmin' | 'familyadmin' | 'member' | 'user';
+    /** The person this account is linked to (0005). */
+    person_id: string | null;
     created_at: Date;
     updated_at: Date;
+  };
+  people: {
+    id: Generated<string>;
+    given_name: string;
+    surname: string;
+    gender: 'male' | 'female' | 'other' | null;
+    /** As typed: YYYY, YYYY-MM or YYYY-MM-DD. The generated *_from and *_to columns exist but are only used in SQL. */
+    birth_date: string | null;
+    birth_precision: Generated<DatePrecisionCode>;
+    deceased: Generated<boolean>;
+    death_date: string | null;
+    death_precision: Generated<DatePrecisionCode>;
+    search_name: ColumnType<string, never, never>;
+    created_by: string | null;
+    created_at: ColumnType<Date, never, never>;
+    updated_at: ColumnType<Date, never, never>;
+  };
+  unions: {
+    id: Generated<string>;
+    partner_a_id: string;
+    partner_b_id: string;
+    status: UnionStatusCode;
+    start_date: string | null;
+    start_precision: Generated<DatePrecisionCode>;
+    end_date: string | null;
+    end_precision: Generated<DatePrecisionCode>;
+    created_by: string | null;
+    created_at: ColumnType<Date, never, never>;
+    updated_at: ColumnType<Date, never, never>;
+  };
+  person_parents: {
+    child_id: string;
+    union_id: string | null;
+    parent_id: string | null;
+    created_by: string | null;
+    created_at: ColumnType<Date, never, never>;
   };
   /** Readable only when someone is signed in. */
   family_tree: {

@@ -118,7 +118,7 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
   const result = await withUserTransaction(db, userId, async (trx) => {
     const user = await trx
       .selectFrom('users')
-      .select(['id', 'email', 'display_name', 'role'])
+      .select(['id', 'email', 'display_name', 'role', 'person_id'])
       .where('id', '=', userId)
       .executeTakeFirst();
     const tree = await trx.selectFrom('family_tree').select('name').executeTakeFirst();
@@ -131,6 +131,7 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       email: result.user.email,
       displayName: result.user.display_name,
       role: result.user.role,
+      personId: result.user.person_id,
     },
     treeName: result.treeName,
   };
