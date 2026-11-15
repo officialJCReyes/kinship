@@ -2,19 +2,17 @@
 
 Self-hosted family tree for families: relationships, sources, photos, private health history and DNA results. Runs with Docker Compose (PostgreSQL, a TypeScript API, a React UI behind nginx). Licensed under AGPL-3.0-or-later.
 
-> **Status: pre-alpha, not usable yet.** The development stack runs (setup, sign-in, an About page), but there is no family tree yet and no published release or install guide. Release 0.1 ("It runs") is being built first. Do not enter real family data.
+> **Status: alpha.** You can install it, set up an account and sign in, but there is no family tree yet (people and relationships are next). Release 0.1 ("It runs") is being finished. **Data may be wiped between 0.1.x releases: do not enter real family data.**
 
-## First run
+## Install
 
-1. Start KinShip (for now, the development stack: `docker compose -f compose.dev.yml up --build`, then open <http://localhost:5173>).
-2. A fresh install shows the **setup page**. It needs a **one-time setup token**, which the `api` container prints in its log when it starts with no accounts:
+Install it with Docker Compose from the published images: see **[INSTALL.md](INSTALL.md)** (install, first run, recovery, update, backup). The first run needs a one-time setup token that the `api` container prints in its log:
 
-   ```sh
-   docker compose -f compose.dev.yml logs api
-   ```
+```sh
+docker compose logs api     # look for "KinShip is not set up yet"
+```
 
-   Look for the box that says "KinShip is not set up yet". If you restart before finishing, a new token is made. The token only works until the first account exists.
-3. Enter the token, your name, email, a password of at least 12 characters, and a name for your tree. You become the SuperAdmin and are signed in. The setup page never appears again.
+To work on KinShip itself, use the development stack instead: `docker compose -f compose.dev.yml up --build`, then open <http://localhost:5173> (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Locked out? Set a new password
 
@@ -22,7 +20,6 @@ There is no email yet, so whoever runs the server can set a new password from th
 
 ```sh
 docker compose exec -it api kinship set-password you@example.com
-# in the development stack: docker compose -f compose.dev.yml exec -it api kinship set-password you@example.com
 ```
 
 For scripts, pipe the password in instead: `printf '%s' "$NEW_PASSWORD" | docker compose exec -T api kinship set-password you@example.com --password-stdin`. The command exists only inside the container; it is not reachable over HTTP.
@@ -31,7 +28,8 @@ For scripts, pipe the password in instead: `printf '%s' "$NEW_PASSWORD" | docker
 
 - [`design/`](design/) holds the approved UI mockup (`kinship-mockup.html`, with a fictional sample family) and the requirement docs. Start with [`design/kinship-v2-requirements.md`](design/kinship-v2-requirements.md).
 - [`design/kinship-release-and-deployment-plan.md`](design/kinship-release-and-deployment-plan.md) says what ships in which version, how images are built and how upgrades work.
-- [`docs/decisions/`](docs/decisions/) records the technical decisions (the stack is in [0001](docs/decisions/0001-stack.md)).
+- [`docs/decisions/`](docs/decisions/) records the technical decisions (the stack is in [0001](docs/decisions/0001-stack.md); releases and images in [0004](docs/decisions/0004-release-and-images.md)).
+- [CHANGELOG.md](CHANGELOG.md) lists what each release includes.
 
 ## Contributing and security
 
