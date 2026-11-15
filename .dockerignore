@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+.git
+.github
+**/node_modules
+**/dist
+.env
+.env.*
+!.env.example
+data
+secrets
+design
+docs
+*.md
+!apps/api/README.md

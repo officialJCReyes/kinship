@@ -10,6 +10,11 @@
   },
   "bugs": "https://github.com/officialJCReyes/kinship/issues",
   "homepage": "https://github.com/officialJCReyes/kinship#readme",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
   "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=26",

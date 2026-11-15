@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# For contributors: builds from source, API restarts when you save a file.
+#   docker compose -f compose.dev.yml up --build
+# The passwords below are for this local, throwaway setup only. The database is
+# published on 127.0.0.1:5433 so the API tests (pnpm test) can reach it.
+name: kinship-dev
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: kinship
+      POSTGRES_PASSWORD: dev-owner-password
+      POSTGRES_DB: kinship
+    ports:
+      - '127.0.0.1:5433:5432'
+    # Postgres 18 images keep data in a version folder under /var/lib/postgresql.
+    volumes:
+      - kinship-dev-db:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kinship -d kinship']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: dev
+    environment:
+      LOG_LEVEL: debug
+      DB_HOST: db
+      DB_NAME: kinship
+      DB_OWNER_USER: kinship
+      DB_OWNER_PASSWORD: dev-owner-password
+      DB_APP_USER: kinship_app
+      DB_APP_PASSWORD: dev-app-password
+      GIT_COMMIT: dev
+    ports:
+      - '127.0.0.1:3000:3000'
+    volumes:
+      - ./apps/api/src:/app/apps/api/src
+      - ./apps/api/migrations:/app/apps/api/migrations
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kinship-dev-db: {}

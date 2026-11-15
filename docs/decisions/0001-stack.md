@@ -42,6 +42,14 @@ Reasons:
 - **Own SVG tree.** The mockup already draws the tree as SVG. Pedigree, fan and descendants views, the spouse's-family leaf flip and print output all need control that a diagram library would fight.
 - **Vitest and Playwright.** Vitest shares config with Vite. Playwright is the smoke-test tool the CI plan already names.
 
+### Implementation notes (api skeleton, 2026-11-15)
+
+- The app role's name reaches the migrations through a transaction-local setting, `kinship.app_role`, which the provider sets before each file runs. The `.sql` files therefore never hard-code the role, and their checksums do not depend on `.env`.
+- The app role itself is created (or its password refreshed) by the API at every start, before the migrations, as the owner role. The password is a secret and cannot live in a `.sql` file. `CREATE/ALTER ROLE ... PASSWORD` sends the password in the statement text, so a server that logs all statements would log it; the default Postgres configuration does not.
+- `schema_info` holds the schema number. The provider updates it in the same transaction as each migration, so it cannot disagree with the migration history.
+- **The owner role is a superuser, on purpose, and only for migrations.** In the official `postgres` image the `POSTGRES_USER` account is created as a superuser; we use it as the owner role (`DB_OWNER_USER`). That is acceptable because (1) only the migration runner and role setup use it, once at startup, and the process closes its connections before it starts serving requests; (2) it never serves a request: every request runs as the separate app role, which is `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB`, owns no objects and cannot create any (tests assert all of this); (3) superusers bypass row-level security, so privacy must hold for the app role, and it does because the API is built so that code paths with user data cannot use the owner connection; (4) a non-superuser owner would need extra setup by every self-hoster (creating the database, the role and its privileges by hand) for little gain in a single-database container whose only client is this API. The trade-off is that a bug allowing arbitrary SQL under the *owner* connection at startup would be serious; it runs only our own migration files, whose checksums are verified. A self-hoster who wants more can point `DB_OWNER_USER` at a non-superuser with `CREATEROLE` and ownership of the database; nothing in the code requires superuser.
+- Each request's database work runs through `withUserTransaction`, which sets `kinship.user_id` with `set_config(..., true)` (transaction-local). Row-level security policies read it with `nullif(current_setting('kinship.user_id', true), '')::uuid`.
+
 ## 3. Consequences
 
 - **Monorepo:** `apps/web`, `apps/api`, `packages/` (shared types, translation keys), `docs/`, `design/`. Shared types come from `packages/`, which is the main reason for TypeScript on both sides.

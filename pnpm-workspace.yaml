@@ -1,3 +1,10 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
+
+# Dependency install scripts are off unless allowed here on purpose.
+# esbuild (used by tsx and vitest) ships its binary as a platform package; its
+# install script is only an optional speed-up, so it stays off.
+allowBuilds:
+  esbuild: false
