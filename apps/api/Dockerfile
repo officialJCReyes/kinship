@@ -18,11 +18,15 @@ WORKDIR /app
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --filter @kinship/api...
 
 # ---- dev: source is bind-mounted by compose.dev.yml; tsx restarts on change ----
 FROM deps AS dev
+COPY packages/shared packages/shared
 COPY apps/api apps/api
+# The API imports the shared package as compiled JavaScript.
+RUN pnpm --filter @kinship/shared build
 WORKDIR /app/apps/api
 USER node
 EXPOSE 3000
@@ -30,7 +34,9 @@ CMD ["node_modules/.bin/tsx", "watch", "src/main.ts"]
 
 # ---- build: TypeScript to JavaScript ----
 FROM deps AS build
+COPY packages/shared packages/shared
 COPY apps/api apps/api
+# Builds the shared package first (the api's build script does), then the api.
 RUN pnpm --filter @kinship/api build
 
 # ---- prod-deps: production dependencies only, for the TARGET architecture ----
@@ -41,6 +47,7 @@ RUN npm install -g corepack@0.34.6 && corepack enable
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
+COPY packages/shared/package.json packages/shared/
 RUN pnpm install --frozen-lockfile --prod --filter @kinship/api...
 
 # ---- runtime ----
@@ -60,6 +67,9 @@ ENV NODE_ENV=production \
 WORKDIR /app/apps/api
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/api/node_modules ./node_modules
+# The shared package, linked by the workspace as apps/api/node_modules/@kinship/shared.
+COPY --from=build /app/packages/shared/package.json /app/packages/shared/package.json
+COPY --from=build /app/packages/shared/dist /app/packages/shared/dist
 COPY --from=build /app/apps/api/dist ./dist
 COPY apps/api/migrations ./migrations
 COPY apps/api/package.json ./

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { ApiHealth, ApiVersion } from '@kinship/shared';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
@@ -138,10 +139,10 @@ export function buildApp(options: AppOptions): FastifyInstance {
   app.get('/api/health', async (request, reply) => {
     try {
       await sql`select 1`.execute(db);
-      return { status: 'ok', database: 'ok' };
+      return { status: 'ok', database: 'ok' } satisfies ApiHealth;
     } catch (error) {
       request.log.error({ err: error }, 'health check: database unreachable');
-      return reply.code(503).send({ status: 'unavailable', database: 'unreachable' });
+      return reply.code(503).send({ status: 'unavailable', database: 'unreachable' } satisfies ApiHealth);
     }
   });
 
@@ -154,7 +155,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
     } catch (error) {
       request.log.warn({ err: error }, 'version: could not read the schema number');
     }
-    return { ...version, schema };
+    const body: ApiVersion = { ...version, schema };
+    return body;
   });
 
   // Registered after the rate-limit plugin, so the routes below can use its per-route settings.

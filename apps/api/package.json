@@ -10,14 +10,15 @@
   },
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm --filter @kinship/shared build && tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "pnpm --filter @kinship/shared build && tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
     "@fastify/rate-limit": "^11.2.2",
+    "@kinship/shared": "workspace:*",
     "@node-rs/argon2": "^2.2.2",
     "fastify": "^5.12.8",
     "kysely": "^0.29.9",

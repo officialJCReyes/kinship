@@ -208,6 +208,9 @@ importers:
       '@fastify/rate-limit':
         specifier: ^11.2.2
         version: 11.2.2
+      '@kinship/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@node-rs/argon2':
         specifier: ^2.2.2
         version: 2.2.2

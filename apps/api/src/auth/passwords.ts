@@ -2,8 +2,8 @@
 import { hash, verify } from '@node-rs/argon2';
 import { randomBytes } from 'node:crypto';
 
-/** The only password rule: a minimum length. Keep in sync with packages/shared (MIN_PASSWORD_LENGTH). */
-export const MIN_PASSWORD_LENGTH = 12;
+// The minimum length lives in packages/shared, so the form and the API cannot disagree.
+export { MIN_PASSWORD_LENGTH } from '@kinship/shared';
 /** Upper bound so an absurdly long body cannot be used to burn CPU. */
 export const MAX_PASSWORD_LENGTH = 1024;
 

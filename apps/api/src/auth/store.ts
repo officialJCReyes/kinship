@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { AuthUser, Role } from '@kinship/shared';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { Database } from '../db.js';
@@ -9,14 +10,8 @@ import type { Database } from '../db.js';
  * 0002). The app role cannot read password hashes or sessions directly.
  */
 
-export type Role = 'superadmin' | 'familyadmin' | 'member' | 'user';
-
-export interface SessionUser {
-  id: string;
-  email: string;
-  displayName: string;
-  role: Role;
-}
+export type { Role };
+export type SessionUser = AuthUser;
 
 export interface ResolvedSession {
   user: SessionUser;
