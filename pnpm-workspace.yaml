@@ -8,3 +8,9 @@ packages:
 # install script is only an optional speed-up, so it stays off.
 allowBuilds:
   esbuild: false
+
+# minimatch below 11.0.1 has a known vulnerability. Only a development tool
+# (typescript-eslint's parser) still asked for 10.x; nothing shipped uses it.
+# Remove when typescript-estree allows minimatch 11; drop first if type-aware lint rules misbehave.
+overrides:
+  'minimatch@<11.0.1': '>=11.0.1'
