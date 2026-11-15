@@ -1,0 +1,63 @@
+# 0001. Stack
+
+- Status: **Accepted** (JC confirmed the stack and the library picks, 2026-11-15)
+- Date: 2026-11-15
+- Sources: `design/kinship-v2-requirements.md` (Decisions), `design/kinship-release-and-deployment-plan.md` (section 6, Milestone 0)
+
+## Context
+
+KinShip is a self-hosted family tree for a family of roughly 10 to 50 people. It holds private health history and DNA results, so privacy rules must be enforced by the database and not only by application code. It is deployed by people who are not necessarily developers, from one `compose.yml`, and maintained by one person. It is AGPL-3.0-or-later, so every dependency must be license-compatible. It has no AI features. The previous build (Express, Prisma, React Flow) is scrapped.
+
+## 1. Decided by JC (2026-11-15)
+
+| Part | Choice | Why |
+|---|---|---|
+| Database | PostgreSQL 18 (official `postgres:18` image) | Row-level security for medical privacy. Supported to Nov 2030. |
+| API | TypeScript on Node | One language, shared types with the UI. |
+| Web container | nginx, unprivileged Alpine image | Serves the built UI and proxies `/api`. Only published port (8080). |
+| UI | React | |
+
+Three compose services (`web`, `api`, `db`). `web` and `api` always share one version tag.
+
+## 2. Library picks (accepted by JC, 2026-11-15)
+
+| Concern | Pick | Alternative considered |
+|---|---|---|
+| API framework | **Fastify** | Hono |
+| Database access | **Kysely** (SQL-first query builder) over `pg`, with **plain hand-written, numbered `.sql` migrations** applied through Kysely's `Migrator` with a custom `MigrationProvider` (see below) | Prisma (dropped), Drizzle, raw `pg`, a fully custom runner |
+| UI build | **Vite** (static output served by nginx) | |
+| Tree drawing | **Our own SVG code**, as in the mockup | React Flow or another diagram library (dropped) |
+| Unit and API tests | **Vitest** | |
+| Browser smoke tests | **Playwright** | |
+
+Reasons:
+
+- **Fastify.** Mature plugins for what the plan needs: OIDC, streaming uploads and downloads (encrypted files are decrypted in chunks while streaming), rate limiting, schema validation. It is MIT-licensed.
+- **Kysely and plain SQL migrations.** Row-level security needs two things: the app connects as a non-owner role, and every request runs in a transaction that sets the signed-in user (`set_config('app.user_id', ..., true)`, transaction-local so pooled connections never leak identity). A query builder that lets us own the connection and transaction makes this direct. Migrations are forward-only, hand-written SQL, expand-then-contract, run by an owner role at startup. Kysely types are generated from the real schema.
+- **Migration runner: Kysely `Migrator` with a custom `MigrationProvider`, not a custom runner.** JC asked to check which is simpler. I read the `kysely` 0.29.9 source: for Postgres the `Migrator` already takes a Postgres advisory lock for the run (with a lock timeout), runs the migrations in a transaction (Postgres has transactional DDL), applies them in name order, refuses to run if an already-applied migration is missing or out of order (unless `allowUnorderedMigrations` is set, which we will not set), and keeps its own history table. A custom runner would re-implement all of that. The provider's job is small: read the numbered `.sql` files from the migrations folder and return each as a `Migration` whose `up` executes the file's SQL. `down` is never provided (forward-only).
+- **Checksums are not provided by Kysely, so we add them.** Each migration's `up` also inserts the SHA-256 of its file into a `kinship_migration_checksum` table in the same transaction. Before migrating, the runner compares the checksum of every already-applied file on disk with the stored value; any mismatch stops startup with a clear error naming the file ("migration NNNN was edited after it was applied"). This also protects against a corrupted or hand-edited image. A migration missing from disk but recorded as applied already fails in the `Migrator`.
+- Verified against the source: lock, transaction and ordering behavior above. Not yet verified by running code: the checksum flow and multi-statement `.sql` execution. Both are covered by tests when the runner is written (0.1 step "migrations at startup").
+- **Prisma dropped.** It handles per-request database sessions, RLS and a separate migration owner role awkwardly, and it prefers `db push`-style workflows, which the project forbids.
+- **Vite.** Produces plain static files, so the `web` image is just nginx plus files.
+- **Own SVG tree.** The mockup already draws the tree as SVG. Pedigree, fan and descendants views, the spouse's-family leaf flip and print output all need control that a diagram library would fight.
+- **Vitest and Playwright.** Vitest shares config with Vite. Playwright is the smoke-test tool the CI plan already names.
+
+## 3. Consequences
+
+- **Monorepo:** `apps/web`, `apps/api`, `packages/` (shared types, translation keys), `docs/`, `design/`. Shared types come from `packages/`, which is the main reason for TypeScript on both sides.
+- **Two database roles:** an owner role used only by the migration runner, and a non-owner app role used for all requests. RLS is enabled and forced on tables that need it. Migrations never run as the app role.
+- **Files** are encrypted by the app (AES-256-GCM in chunks) before storage, behind a storage interface so S3 can plug in later (1.1) without changing callers.
+- **Licenses.** My expectation, from memory and **to be verified by the CI license check** (not yet verified): Fastify, Kysely, `pg`, React, Vite and Vitest are MIT; Playwright is Apache-2.0, which is compatible with AGPL-3.0; nginx is BSD-2-Clause; Postgres uses the PostgreSQL License. I checked only that Kysely 0.29.9's `package.json` says MIT. The CI check covers every dependency (including transitive ones), so a new dependency cannot add an incompatible license silently.
+- **Images** stay small (Alpine, non-root, `HEALTHCHECK` in each).
+- **Reversibility.** Each pick can change before 0.1.0 ships at low cost. After that, Kysely and plain SQL are the hardest to change because they shape the migrations, which is why they are confirmed first.
+
+## 4. Tooling choices
+
+- **Package manager:** pnpm workspaces (accepted by JC). The exact version is pinned in the root `package.json` `packageManager` field and activated with corepack, so every contributor and CI run uses the same pnpm.
+- **Node:** 26 (codename Lithium), the newest LTS line as of 2026-11-15 (checked against nodejs.org's release index). Pinned in `.nvmrc` and the root `engines` field, and used as the base of the Dockerfiles.
+- **Lint and format:** ESLint and Prettier (my default, easy to change).
+- **Postgres driver:** `pg`.
+
+## 5. Not decided here
+
+OIDC and email libraries (0.4), password hashing library (0.1 login, chosen when written), PDF output (0.7), the exact file-encryption chunking (0.2). Each gets its own ADR if the choice is not obvious.

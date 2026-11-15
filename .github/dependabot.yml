@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Only npm for now. The docker, github-actions and docker-compose entries are
+# added as the Dockerfiles, workflows and compose files land.
+version: 2
+updates:
+  # JavaScript dependencies (pnpm workspace: root, apps/*, packages/*).
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/apps/*"
+      - "/packages/*"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]

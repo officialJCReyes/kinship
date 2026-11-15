@@ -147,3 +147,30 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# ---- KinShip additions -------------------------------------------------------
+# macOS
+.DS_Store
+
+# Secrets and local runtime data (public repo: never commit these)
+secrets/
+*.pem
+/data/
+
+# Database dumps and backups (migrations are .sql files and stay tracked)
+*.dump
+*.pgdump
+*.backup
+*.sql.gz
+*.sql.enc
+*.tar.enc
+dump.sql
+*_dump.sql
+*-dump.sql
+
+# Real family data: GEDCOM files (the fictional Hale demo file, when it exists,
+# gets an explicit "!" exception next to where it lives)
+*.ged
+*.gedcom
+*.GED
+*.GEDCOM
