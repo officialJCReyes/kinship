@@ -15,15 +15,26 @@ updates:
       npm-minor-and-patch:
         update-types: ['minor', 'patch']
 
-  # Base images in the api and web Dockerfiles.
+  # Base images in the api Dockerfile.
   - package-ecosystem: 'docker'
-    directories:
-      - '/apps/api'
-      - '/apps/web'
+    directory: '/apps/api'
     schedule:
       interval: 'weekly'
     commit-message:
       prefix: 'chore(deps)'
+
+  # Base images in the web Dockerfile. nginx stays on the stable 1.30 branch on purpose (the
+  # image pins an exact patch version), so only 1.30.x patch updates are proposed. Moving to a
+  # newer nginx branch is a decision, made by editing the Dockerfile.
+  - package-ecosystem: 'docker'
+    directory: '/apps/web'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: 'chore(deps)'
+    ignore:
+      - dependency-name: 'nginxinc/nginx-unprivileged'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
 
   # Actions used by the workflows.
   - package-ecosystem: 'github-actions'
