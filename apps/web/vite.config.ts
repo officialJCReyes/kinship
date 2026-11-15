@@ -11,6 +11,7 @@ export default defineConfig({
     // Shown on the About page. GIT_COMMIT is set by the Docker build.
     __WEB_VERSION__: JSON.stringify(pkg.version),
     __WEB_COMMIT__: JSON.stringify(process.env.GIT_COMMIT ?? 'unknown'),
+    __WEB_BUILD_DATE__: JSON.stringify(process.env.BUILD_DATE ?? 'unknown'),
   },
   server: {
     // Development only. In the real stack the nginx web container proxies /api.

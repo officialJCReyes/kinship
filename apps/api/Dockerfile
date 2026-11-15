@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # KinShip API image. Build from the repository root:
-#   docker build -f apps/api/Dockerfile --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) .
+#   docker build -f apps/api/Dockerfile \
+#     --build-arg VERSION=<version> --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) \
+#     --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) .
+# The three build arguments are stamped into the image (shown by /api/version and the About page).
 # Targets: "dev" (hot reload, used by compose.dev.yml) and the default, "runtime".
 
 # ---- base: Node plus the pinned pnpm (Node 26 images do not bundle corepack) ----
-FROM node:26-alpine AS base
+# Everything up to the compiled JavaScript runs on the machine doing the build, whatever the
+# target architecture, so a multi-arch build does not emulate the whole install and compile.
+FROM --platform=$BUILDPLATFORM node:26-alpine AS base
 RUN npm install -g corepack@0.34.6 && corepack enable
 WORKDIR /app
 
@@ -28,20 +33,30 @@ FROM deps AS build
 COPY apps/api apps/api
 RUN pnpm --filter @kinship/api build
 
-# ---- prod-deps: production dependencies only ----
-FROM base AS prod-deps
+# ---- prod-deps: production dependencies only, for the TARGET architecture ----
+# The argon2 library ships a native binary per architecture, so this is the one stage that
+# installs for the platform being built (emulated when it differs from the build machine).
+FROM node:26-alpine AS prod-deps
+RUN npm install -g corepack@0.34.6 && corepack enable
+WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --prod --filter @kinship/api...
 
 # ---- runtime ----
 FROM node:26-alpine AS runtime
+ARG VERSION=unknown
 ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
 LABEL org.opencontainers.image.title="kinship-api" \
       org.opencontainers.image.source="https://github.com/officialJCReyes/kinship" \
-      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+      org.opencontainers.image.licenses="AGPL-3.0-or-later" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 ENV NODE_ENV=production \
-    GIT_COMMIT=${GIT_COMMIT}
+    GIT_COMMIT=${GIT_COMMIT} \
+    BUILD_DATE=${BUILD_DATE}
 WORKDIR /app/apps/api
 COPY --from=prod-deps /app/node_modules /app/node_modules
 COPY --from=prod-deps /app/apps/api/node_modules ./node_modules

@@ -60,6 +60,7 @@ export const en = {
   'about.apiVersion': 'API version',
   'about.schema': 'Database schema',
   'about.build': 'Build',
+  'about.builtOn': 'Built',
   'about.license': 'License',
   'about.sourceCode': 'Source code',
   'about.freeSoftware':

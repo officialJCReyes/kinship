@@ -27,6 +27,8 @@ export interface Config {
   port: number;
   migrationsDir: string;
   gitCommit: string;
+  /** When the image was built (ISO 8601), stamped by the release build; "unknown" from a checkout. */
+  buildDate: string;
   db: DbConfig;
 }
 
@@ -148,6 +150,7 @@ export function loadConfig(env: Env = process.env, readFile: ReadFile = (p) => r
     port: port(env, 'API_PORT', 3000),
     migrationsDir: str(env, 'MIGRATIONS_DIR', fileURLToPath(new URL('../migrations', import.meta.url))),
     gitCommit: str(env, 'GIT_COMMIT', 'unknown'),
+    buildDate: str(env, 'BUILD_DATE', 'unknown'),
     db: {
       host: str(env, 'DB_HOST', 'db'),
       port: port(env, 'DB_PORT', 5432),

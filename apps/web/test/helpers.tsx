@@ -10,7 +10,15 @@ export type MockRoute = MockReply | ((init: RequestInit) => MockReply);
 
 export const ALICE = { id: 'u1', email: 'marcus@example.com', displayName: 'Marcus Hale', role: 'superadmin' } as const;
 export const ME = { user: ALICE, treeName: 'Hale Family' };
-export const VERSION = { name: 'kinship-api', version: '0.0.0', commit: 'abc1234', schema: 2 };
+/** The version the web app was built with (vite.config.ts reads it from package.json). */
+export const WEB_VERSION = __WEB_VERSION__;
+export const VERSION = {
+  name: 'kinship-api',
+  version: WEB_VERSION,
+  commit: 'abc1234',
+  buildDate: '2026-11-15T19:04:05Z',
+  schema: 2,
+};
 export const HEALTH_OK = { status: 'ok', database: 'ok' };
 
 /**

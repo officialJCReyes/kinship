@@ -22,6 +22,7 @@ describe('loadConfig', () => {
       host: '0.0.0.0',
       logLevel: 'info',
       gitCommit: 'unknown',
+      buildDate: 'unknown',
       publicUrl: 'http://localhost:8080',
       trustProxy: false,
       sessionIdleSeconds: 14 * 86_400,
@@ -60,6 +61,11 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ DB_OWNER_PASSWORD: 'same', DB_APP_PASSWORD: 'same' }, noFiles)).toThrow(
       /must be different/,
     );
+  });
+
+  it('reads the build stamp (commit and build date) the release build sets', () => {
+    const config = loadConfig({ ...good, GIT_COMMIT: 'abc1234', BUILD_DATE: '2026-11-15T19:04:05Z' }, noFiles);
+    expect(config).toMatchObject({ gitCommit: 'abc1234', buildDate: '2026-11-15T19:04:05Z' });
   });
 
   it('reads proxy trust and session lengths', () => {

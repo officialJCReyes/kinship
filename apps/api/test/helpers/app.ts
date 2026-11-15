@@ -40,7 +40,7 @@ export async function createTestApp(
   const db = test.track(createAppDb(test.config));
   const app = buildApp({
     db,
-    version: readVersion('abc1234'),
+    version: readVersion('abc1234', '2026-11-15T19:04:05Z'),
     logLevel: 'silent',
     sessions: { idleSeconds: 3600, maxSeconds: 86_400 },
     failureDelayMs: 0,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { HEALTH_OK, VERSION, mockApi, renderApp, signedIn } from './helpers.js';
+import { HEALTH_OK, VERSION, WEB_VERSION, mockApi, renderApp, signedIn } from './helpers.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -14,7 +14,9 @@ describe('About page (signed in)', () => {
 
     expect(await screen.findByRole('heading', { name: 'About KinShip' })).toBeTruthy();
     await screen.findByText('abc1234');
-    expect(screen.getAllByText('0.0.0')).toHaveLength(2); // web and api
+    expect(screen.getAllByText(WEB_VERSION)).toHaveLength(2); // web and api
+    expect(screen.getByText('Built')).toBeTruthy();
+    expect(screen.getByText('2026-11-15')).toBeTruthy(); // the date part of the api's build time
     expect(screen.getByText('Database schema')).toBeTruthy();
     expect(screen.getByText(String(VERSION.schema))).toBeTruthy();
     expect(screen.getByText('AGPL-3.0-or-later')).toBeTruthy();
@@ -49,7 +51,7 @@ describe('About page (signed in)', () => {
     renderApp('/about');
     expect(await screen.findByText('Cannot reach the API.')).toBeTruthy();
     expect(await screen.findByText('Could not load the version of the API.')).toBeTruthy();
-    expect(screen.getAllByText('0.0.0').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(WEB_VERSION).length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows "unknown" for the schema when the API could not read it', async () => {
@@ -58,6 +60,13 @@ describe('About page (signed in)', () => {
     await screen.findByText('abc1234');
     const schemaRow = screen.getByText('Database schema').nextElementSibling;
     expect(schemaRow?.textContent).toBe('unknown');
+  });
+
+  it('shows "unknown" for the build date when the image was not stamped', async () => {
+    mockApi({ ...signedIn, '/api/version': { status: 200, body: { ...VERSION, buildDate: 'unknown' } } });
+    renderApp('/about');
+    await screen.findByText('abc1234');
+    expect(screen.getByText('Built').nextElementSibling?.textContent).toBe('unknown');
   });
 
   it('survives a network error', async () => {

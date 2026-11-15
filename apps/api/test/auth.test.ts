@@ -171,6 +171,26 @@ describe('CSRF protection', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('matches the Origin against X-Forwarded-Host when the proxy is trusted (a proxy that rewrites Host)', async () => {
+    const trusting = await withUser({ trustProxy: true });
+    const viaProxy = await login(trusting.app, 'marcus@example.com', PASSWORD, {
+      host: 'web:8080',
+      origin: 'https://kin.example',
+      'x-forwarded-host': 'kin.example',
+      'x-forwarded-proto': 'https',
+    });
+    expect(viaProxy.statusCode).toBe(200);
+
+    // Without trust, the header means nothing: the Origin must match the real Host.
+    const notTrusting = await withUser();
+    const spoofed = await login(notTrusting.app, 'marcus@example.com', PASSWORD, {
+      host: 'web:8080',
+      origin: 'https://kin.example',
+      'x-forwarded-host': 'kin.example',
+    });
+    expect(spoofed.statusCode).toBe(403);
+  });
+
   it('does not get in the way of reading', async () => {
     const t = await withUser();
     expect((await t.app.inject({ url: '/api/auth/me', headers: { origin: 'https://evil.example' } })).statusCode).toBe(

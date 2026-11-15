@@ -18,6 +18,11 @@ function StatusText({ state }: { state: 'checking' | 'ok' | 'databaseDown' | 'ap
   );
 }
 
+/** The date part of an ISO build time ("2026-11-15T19:04:05Z" becomes "2026-11-15"); anything else is shown as "unknown". */
+function builtOn(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : t('about.unknown');
+}
+
 export function AboutPage() {
   const version = useQuery({ queryKey: ['api', 'version'], queryFn: ({ signal }) => fetchVersion(signal) });
   const health = useQuery({ queryKey: ['api', 'health'], queryFn: ({ signal }) => fetchHealth(signal) });
@@ -47,6 +52,9 @@ export function AboutPage() {
 
         <dt>{t('about.build')}</dt>
         <dd className="mono">{version.isSuccess ? version.data.commit : __WEB_COMMIT__}</dd>
+
+        <dt>{t('about.builtOn')}</dt>
+        <dd className="mono">{builtOn(version.isSuccess ? version.data.buildDate : __WEB_BUILD_DATE__)}</dd>
 
         <dt>{t('about.license')}</dt>
         <dd>{LICENSE_ID}</dd>
