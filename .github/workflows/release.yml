@@ -1,0 +1,261 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Builds and publishes the KinShip images and creates the GitHub Release.
+#
+#   - Push a tag like v0.1.0-alpha.1 (it must match the version in every package.json): the whole
+#     of CI runs again, both images are built for amd64 and arm64 and pushed to GHCR, the pushed
+#     images are smoke-tested as a real installation, and only then is the Release created.
+#   - Run it by hand ("dry run", the default): everything is built and tested the same way, and
+#     nothing is pushed or released. Publishing by hand is only possible when started on a tag.
+#
+# What it does and why is in docs/decisions/0004-release-and-images.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: build and test everything, push and release nothing'
+        type: boolean
+        default: true
+
+# No permissions by default; each job asks for what it needs.
+permissions: {}
+
+# Two releases of the same tag never run at once, and a running one is never cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: Checks (all of CI)
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  prepare:
+    name: Work out what to release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.info.outputs.version }}
+      tag: ${{ steps.info.outputs.tag }}
+      prerelease: ${{ steps.info.outputs.prerelease }}
+      publish: ${{ steps.info.outputs.publish }}
+      shaShort: ${{ steps.info.outputs.shaShort }}
+      buildDate: ${{ steps.info.outputs.buildDate }}
+      apiTags: ${{ steps.info.outputs.apiTags }}
+      webTags: ${{ steps.info.outputs.webTags }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # all tags, to find the previous release
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Check the tag against package.json, the changelog and the trigger, and compute the image tags
+        id: info
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: node scripts/release-info.mjs prepare
+
+  images:
+    name: Build and push ${{ matrix.image }}
+    needs: [checks, prepare]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: true
+      matrix:
+        image: [api, web]
+    permissions:
+      contents: read
+      packages: write # push to GHCR
+      id-token: write # sign the provenance attestation
+      attestations: write # store the provenance attestation
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        if: ${{ needs.prepare.outputs.publish == 'true' }}
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build for amd64 and arm64 (pushed only when publishing)
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/${{ matrix.image }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.prepare.outputs.publish == 'true' }}
+          tags: ${{ matrix.image == 'api' && needs.prepare.outputs.apiTags || needs.prepare.outputs.webTags }}
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            GIT_COMMIT=${{ needs.prepare.outputs.shaShort }}
+            BUILD_DATE=${{ needs.prepare.outputs.buildDate }}
+          # A software bill of materials is stored with the pushed image. The signed provenance
+          # comes from the attestation step below, so BuildKit's own (unsigned) copy is off.
+          sbom: ${{ needs.prepare.outputs.publish == 'true' }}
+          provenance: false
+          cache-from: type=gha,scope=release-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.image }}
+      - name: Attest where the image came from (signed build provenance)
+        if: ${{ needs.prepare.outputs.publish == 'true' }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/officialjcreyes/kinship-${{ matrix.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Both platforms are in the pushed image
+        if: ${{ needs.prepare.outputs.publish == 'true' }}
+        run: |
+          set -euo pipefail
+          ref="ghcr.io/officialjcreyes/kinship-${{ matrix.image }}:${{ needs.prepare.outputs.version }}"
+          docker buildx imagetools inspect "$ref"
+          docker buildx imagetools inspect "$ref" | grep -q 'Platform: *linux/amd64'
+          docker buildx imagetools inspect "$ref" | grep -q 'Platform: *linux/arm64'
+
+  smoke:
+    name: Smoke test the production stack
+    needs: [prepare, images]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read # pull the pushed images
+    env:
+      PUBLISH: ${{ needs.prepare.outputs.publish }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      SHA_SHORT: ${{ needs.prepare.outputs.shaShort }}
+      BUILD_DATE: ${{ needs.prepare.outputs.buildDate }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        if: ${{ env.PUBLISH == 'true' }}
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # A dry run has pushed nothing, so build the same images here for the amd64 runner (the layers
+      # come from the cache of the build above).
+      - name: Build the api image for this runner (dry run only)
+        if: ${{ env.PUBLISH != 'true' }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          load: true
+          tags: ghcr.io/officialjcreyes/kinship-api:dryrun
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            GIT_COMMIT=${{ env.SHA_SHORT }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+          cache-from: type=gha,scope=release-api
+      - name: Build the web image for this runner (dry run only)
+        if: ${{ env.PUBLISH != 'true' }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          load: true
+          tags: ghcr.io/officialjcreyes/kinship-web:dryrun
+          build-args: |
+            VERSION=${{ env.VERSION }}
+            GIT_COMMIT=${{ env.SHA_SHORT }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+          cache-from: type=gha,scope=release-web
+      - name: Install from compose.yml and .env.example, set up, sign in, recover, restart
+        run: |
+          if [ "$PUBLISH" = "true" ]; then
+            ./scripts/smoke-test.sh "$VERSION" "$SHA_SHORT"
+          else
+            EXPECT_VERSION="$VERSION" ./scripts/smoke-test.sh dryrun "$SHA_SHORT"
+          fi
+      # Report only: a known problem in a base image should be seen, but it should not stop a release.
+      - name: Scan the api image for known vulnerabilities (report only)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/officialjcreyes/kinship-api:${{ env.PUBLISH == 'true' && env.VERSION || 'dryrun' }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'
+          output: trivy-api.txt
+      - name: Scan the web image for known vulnerabilities (report only)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/officialjcreyes/kinship-web:${{ env.PUBLISH == 'true' && env.VERSION || 'dryrun' }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'
+          output: trivy-web.txt
+      - name: Show the scan results
+        if: ${{ !cancelled() }}
+        run: |
+          for f in trivy-api.txt trivy-web.txt; do
+            echo "### $f" | tee -a "$GITHUB_STEP_SUMMARY"
+            { echo '```'; cat "$f" 2>/dev/null || echo "(no report)"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Save the scan reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: vulnerability-scan
+          path: trivy-*.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  release:
+    name: Create the GitHub Release
+    # Only after the images are pushed, tested as an installation, and the CI checks passed.
+    if: ${{ needs.prepare.outputs.publish == 'true' }}
+    needs: [checks, prepare, images, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the release and upload its files
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Write the release notes and the manifest from CHANGELOG.md
+        run: node scripts/release-info.mjs notes release-files
+      - name: Create the release
+        run: |
+          set -euo pipefail
+          cp compose.yml .env.example release-files/
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); else flags+=(--latest); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # A re-run of a release that was only half done.
+            gh release edit "$TAG" --title "KinShip ${TAG#v}" --notes-file release-files/release-notes.md "${flags[@]}"
+            gh release upload "$TAG" release-files/compose.yml release-files/.env.example release-files/release-manifest.json --clobber
+          else
+            gh release create "$TAG" release-files/compose.yml release-files/.env.example release-files/release-manifest.json \
+              --verify-tag --title "KinShip ${TAG#v}" --notes-file release-files/release-notes.md "${flags[@]}"
+          fi
