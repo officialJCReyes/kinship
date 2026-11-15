@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# KinShip, for running it for real. Three services:
+#   web  nginx serving the UI and proxying /api. The only published port (plain HTTP, 8080).
+#   api  the TypeScript API. Not reachable from outside; runs the database migrations at start.
+#   db   PostgreSQL 18. Not reachable from outside.
+#
+# Put this file and a filled-in copy of .env.example (named .env) in one folder, then:
+#   docker compose up -d
+# See INSTALL.md. Settings come from .env; this file only wires the services together.
+#
+# KINSHIP_VERSION picks the images for web and api (always the same version for both). It is
+# never "latest": upgrading is a deliberate edit of that one value.
+name: kinship
+
+services:
+  web:
+    image: ghcr.io/officialjcreyes/kinship-web:${KINSHIP_VERSION:-0.1.0-alpha.1}
+    ports:
+      # KINSHIP_BIND=127.0.0.1 keeps it off the network when your reverse proxy runs on this machine.
+      - '${KINSHIP_BIND:-0.0.0.0}:${KINSHIP_PORT:-8080}:8080'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:8080/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    # Runs as the unprivileged nginx user (uid 101), with nothing writable but /tmp.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/officialjcreyes/kinship-api:${KINSHIP_VERSION:-0.1.0-alpha.1}
+    env_file: .env
+    environment:
+      # Always the db service below, whatever .env says.
+      DB_HOST: db
+      # The web container and a reverse proxy on a private network sit in front of the api. Without
+      # this the api would take every visitor for the web container and not see HTTPS.
+      TRUST_PROXY: ${TRUST_PROXY:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      # Migrations run before the api starts listening, so a big upgrade may need a while.
+      start_period: 60s
+    # Runs as the unprivileged "node" user (uid 1000), with nothing writable but /tmp.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: ${DB_OWNER_USER:-kinship}
+      # Only used the first time the database is created; see the note in .env.example.
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD:?Set DB_OWNER_PASSWORD in .env (copy .env.example to .env)}
+      POSTGRES_DB: ${DB_NAME:-kinship}
+    volumes:
+      # Postgres 18 images keep data in a version folder under /var/lib/postgresql.
+      - kinship-db:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  kinship-db: {}
