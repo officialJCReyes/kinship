@@ -32,6 +32,12 @@ Each test file creates its own throwaway database and app role, and drops them a
 
 See [ADR 0003](../../docs/decisions/0003-accounts-and-sessions.md). In short: argon2id passwords, server-side sessions (the cookie holds a random token, the database only its hash), a CSRF header on every state-changing request, sign-in and setup rate limits, and a one-time setup token printed in the log on a fresh install. Every request that touches private data runs in a transaction that sets `kinship.user_id`, so Postgres row-level security decides what it can see.
 
+## People, relationships and the tree
+
+See [ADR 0005](../../docs/decisions/0005-people-and-relationships.md). The routes (`/api/people`, `/api/unions`, `/api/tree/:personId`), who may call each one, and every error code are listed in [packages/shared/src/people.ts](../../packages/shared/src/people.ts); a test checks that the API registers exactly those routes. Every write is checked in the API (a clear `403 forbidden`) and again by row-level security.
+
+The API imports `@kinship/shared` as compiled JavaScript (`pnpm --filter @kinship/shared build`; `pnpm build` and `pnpm typecheck` do it for you). In the dev container it is built once when the image is built, so after changing `packages/shared` run `docker compose -f compose.dev.yml up --build api`. The tests and the web app use the shared TypeScript source directly.
+
 ## The `kinship` command
 
 Inside the container, for whoever runs the server (not reachable over HTTP):

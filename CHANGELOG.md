@@ -4,6 +4,15 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Added
+
+- **API for people and relationships** (no screens yet): create, read, change and delete people; partner relationships with statuses and dates; parents and children (a child hangs from a relationship, or from one parent); name search; and one call that returns the tree around a person. Roles are enforced twice, in the API and by PostgreSQL row-level security. Dates keep the precision they were typed with. See [ADR 0005](docs/decisions/0005-people-and-relationships.md).
+- First-run setup can create the first person and link it to the SuperAdmin account.
+
+### Changed
+
+- The shared API types and the password rule now live in one place (`packages/shared`), compiled and imported by the API.
+
 ## [0.1.0-alpha.1] - 2026-11-15
 
 **This is an alpha. Data may be wiped between 0.1.x releases, so do not enter real family data.** It is the first release that can be installed: it proves the whole delivery chain, but there is no family tree yet.
