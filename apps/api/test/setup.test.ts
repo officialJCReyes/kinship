@@ -98,7 +98,13 @@ describe('POST /api/setup', () => {
     const response = await post(t.app, '/api/setup', body(t.token));
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({
-      user: { id: expect.any(String), email: 'marcus@example.com', displayName: 'Marcus Hale', role: 'superadmin' },
+      user: {
+        id: expect.any(String),
+        email: 'marcus@example.com',
+        displayName: 'Marcus Hale',
+        role: 'superadmin',
+        personId: null,
+      },
       treeName: 'Hale Family',
     });
     expect(JSON.stringify(response.json())).not.toMatch(/password|hash/i);

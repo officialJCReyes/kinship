@@ -11,7 +11,8 @@ import type { Database } from '../db.js';
  */
 
 export type { Role };
-export type SessionUser = AuthUser;
+/** The signed-in account as the session lookup knows it. The linked person is read per request (see people/actor.ts). */
+export type SessionUser = Omit<AuthUser, 'personId'>;
 
 export interface ResolvedSession {
   user: SessionUser;
@@ -40,11 +41,20 @@ export async function checkSetupToken(db: Kysely<Database>, tokenHash: string): 
 
 export async function completeSetup(
   db: Kysely<Database>,
-  input: { tokenHash: string; email: string; displayName: string; passwordHash: string; treeName: string },
+  input: {
+    tokenHash: string;
+    email: string;
+    displayName: string;
+    passwordHash: string;
+    treeName: string;
+    /** The first person, linked to the new account. Both names, or neither. */
+    person?: { givenName: string; surname: string } | undefined;
+  },
 ): Promise<string> {
   const result = await sql<{ id: string }>`
     select kinship_auth.complete_setup(
-      ${input.tokenHash}, ${input.email}, ${input.displayName}, ${input.passwordHash}, ${input.treeName}
+      ${input.tokenHash}, ${input.email}, ${input.displayName}, ${input.passwordHash}, ${input.treeName},
+      ${input.person?.givenName ?? null}::text, ${input.person?.surname ?? null}::text
     ) as id`.execute(db);
   const id = result.rows[0]?.id;
   if (!id) throw new Error('complete_setup returned no user');

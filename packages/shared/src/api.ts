@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { PEOPLE_ERROR_CODES } from './people.js';
 
 /** Response of GET /api/version. `schema` is the database schema number, or null when the database is unreachable. */
 export interface ApiVersion {
@@ -27,6 +28,8 @@ export interface AuthUser {
   email: string;
   displayName: string;
   role: Role;
+  /** The person this account is linked to, or null. Members change only their own person and add children under it. */
+  personId: string | null;
 }
 
 /** Response of GET /api/auth/me, POST /api/auth/login and POST /api/setup. */
@@ -50,22 +53,30 @@ export interface SetupRequest {
   email: string;
   password: string;
   treeName: string;
+  /** The first person on the tree, linked to the new account. Both names, or neither. */
+  person?: { givenName: string; surname: string };
 }
 
-/** Error bodies the API sends, as `{ error: <code> }` (and `retryAfterSeconds` or `minLength` where noted). */
-export type ApiErrorCode =
-  | 'invalid_credentials'
-  | 'rate_limited'
-  | 'unauthenticated'
-  | 'already_set_up'
-  | 'invalid_setup_token'
-  | 'invalid_email'
-  | 'invalid_display_name'
-  | 'invalid_tree_name'
-  | 'password_too_short'
-  | 'invalid_request'
-  | 'csrf'
-  | 'internal_error';
+/** Every error code the API can answer with, as `{ error: <code> }` (and `retryAfterSeconds`, `minLength` or `details` where noted). */
+export const API_ERROR_CODES = [
+  // Sign-in, setup and requests in general.
+  'invalid_credentials',
+  'rate_limited',
+  'unauthenticated',
+  'already_set_up',
+  'invalid_setup_token',
+  'invalid_email',
+  'invalid_display_name',
+  'invalid_tree_name',
+  'password_too_short',
+  'invalid_request',
+  'payload_too_large',
+  'csrf',
+  'internal_error',
+  // People and relationships (see people.ts).
+  ...PEOPLE_ERROR_CODES,
+] as const;
+export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
 /** The only password rule. The API enforces it too (apps/api, MIN_PASSWORD_LENGTH). */
 export const MIN_PASSWORD_LENGTH = 12;

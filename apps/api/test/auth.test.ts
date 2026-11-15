@@ -46,7 +46,13 @@ describe('POST /api/auth/login', () => {
     const response = await login(t.app, 'marcus@example.com');
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
-      user: { id: t.userId, email: 'marcus@example.com', displayName: 'Marcus Hale', role: 'superadmin' },
+      user: {
+        id: t.userId,
+        email: 'marcus@example.com',
+        displayName: 'Marcus Hale',
+        role: 'superadmin',
+        personId: null,
+      },
       treeName: 'Hale Family',
     });
     const cookie = sessionCookie(response);

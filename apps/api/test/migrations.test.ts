@@ -57,11 +57,11 @@ describe('migration runner', () => {
   it('applies only new migrations later, and updates the schema number', async () => {
     const { test, dir, run } = await setup();
     await run();
-    await dir.add('9001_people.sql', 'create table people (id serial primary key, given_name text not null);');
-    expect((await run()).applied).toEqual(['9001_people']);
+    await dir.add('9001_widgets.sql', 'create table widgets (id serial primary key, label text not null);');
+    expect((await run()).applied).toEqual(['9001_widgets']);
     const info = await sql<{ schema_number: number }>`select schema_number from schema_info`.execute(test.owner);
     expect(info.rows[0]?.schema_number).toBe(9001);
-    expect(await tableExists(test, 'people')).toBe(true);
+    expect(await tableExists(test, 'widgets')).toBe(true);
   });
 
   it('fails loudly when an applied migration file was edited', async () => {
