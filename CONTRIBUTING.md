@@ -19,10 +19,22 @@ pnpm install
 
 Newer Node versions may not bundle corepack. If the `corepack` command is not found, run `npm install -g corepack` first.
 
+## Running it and signing in
+
+```sh
+docker compose -f compose.dev.yml up --build     # db, api and web with hot reload; open http://localhost:5173
+docker compose -f compose.dev.yml logs api       # the one-time setup token for a fresh database
+```
+
+A fresh database shows the setup page; use the token from the log. Starting over: `docker compose -f compose.dev.yml down -v` removes the database volume. The dev stack's database passwords are throwaway values in `compose.dev.yml`. Never reuse your real data or passwords there.
+
+For tests that need a signed-in person, use the helpers in `apps/api/test/helpers/app.ts` (`createTestApp`, `insertUser`, `login`). Do not add test-only ways around authentication to the application code.
+
 ## Rules for the public repository
 
 - **Never commit real family data**: no real names, photos, GEDCOM files, database dumps or `.env` files. Test and demo data is the fictional Hale family only.
-- Never put secrets in the repository or in a database. Secrets live in `.env` or `*_FILE` Docker secrets.
+- Never put secrets in the repository or in a database. Secrets live in `.env` or `*_FILE` Docker secrets. (Hashes of random tokens and passwords are not secrets in this sense; plain passwords and tokens are never stored.)
+- Anything that reads or changes private data runs through the per-request transaction (`request.withTransaction`), so row-level security applies. New tables get row-level security and, where they hold secrets, no direct access for the app role (see migration 0002).
 - No AI features.
 - Every UI string is a translation key.
 - Dependencies must be AGPL-3.0-compatible. CI checks this.
