@@ -77,6 +77,18 @@ git commit -s -m "fix: keep date precision"
 
 This adds a `Signed-off-by: Your Name <you@example.com>` line using your git name and email. Commits without it will be asked to add it.
 
+## Releasing (maintainer)
+
+A release is a tag. [ADR 0004](docs/decisions/0004-release-and-images.md) explains how it works.
+
+1. Set the same version in the four `package.json` files (root, `apps/api`, `apps/web`, `packages/shared`) and put a section for it in `CHANGELOG.md` (`## [0.2.0] - 2026-12-01`). Pre-releases look like `0.2.0-rc.1` and never become `latest`.
+2. Merge that to `main` through a pull request, once CI is green.
+3. Optional: run the **Release** workflow by hand on the branch or on `main` with "dry run" on. It builds both images for amd64 and arm64, installs the stack from `compose.yml` and tests it, and pushes nothing.
+4. Tag the merge commit and push the tag: `git tag -s v0.2.0 -m "KinShip 0.2.0" && git push origin v0.2.0`. The tag must match the version in the files, or the workflow stops before building.
+5. Watch the workflow. It re-runs CI, pushes the images, tests the pushed images as a real install, and only then creates the GitHub Release.
+
+You can also test the whole production stack on your own machine: build the images, then `scripts/smoke-test.sh <image-tag>` (see the comment at its top).
+
 ## Security problems
 
 Do not open a public issue for a vulnerability. See [SECURITY.md](SECURITY.md).
