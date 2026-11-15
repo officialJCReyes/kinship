@@ -86,8 +86,10 @@ $fn$;
 --   KS013 the link would make someone their own ancestor
 --   KS014 the partners of a union cannot be changed (delete it and make a new one)
 -- ---------------------------------------------------------------------------
+-- (jit = off: Postgres guesses millions of rows for a recursive walk and would compile the query for
+-- ~140 ms to save microseconds. The same is set on the other recursive walks.)
 CREATE FUNCTION public.kinship_check_parentage() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp SET jit = off
 AS $fn$
 DECLARE
   v_parents uuid[];

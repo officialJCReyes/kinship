@@ -120,6 +120,42 @@ describe('POST /api/setup', () => {
     expect(stored.rows[0]?.password_hash).not.toContain(PASSWORD);
   });
 
+  it('creates and links the first person when asked to', async () => {
+    const t = await freshInstall();
+    const response = await post(
+      t.app,
+      '/api/setup',
+      body(t.token, { person: { givenName: '  Marcus ', surname: 'Hale' } }),
+    );
+    expect(response.statusCode).toBe(201);
+    const { user } = response.json() as { user: { id: string; personId: string } };
+    expect(user.personId).toEqual(expect.any(String));
+    const rows = await sql<{ given_name: string; surname: string; created_by: string; person_id: string }>`
+      select p.given_name, p.surname, p.created_by, u.person_id from people p join users u on u.person_id = p.id`.execute(
+      t.owner,
+    );
+    expect(rows.rows).toEqual([
+      { given_name: 'Marcus', surname: 'Hale', created_by: user.id, person_id: user.personId },
+    ]);
+    const cookie = sessionCookie(response);
+    const me = await t.app.inject({ url: '/api/auth/me', cookies: { [cookie!.name]: cookie!.value } });
+    expect((me.json() as { user: { personId: string } }).user.personId).toBe(user.personId);
+  });
+
+  it('refuses a person with a missing or empty name, and then creates nothing', async () => {
+    const t = await freshInstall();
+    for (const person of [
+      { givenName: 'Marcus' },
+      { givenName: '  ', surname: 'Hale' },
+      { givenName: 'Marcus', surname: '' },
+    ]) {
+      const response = await post(t.app, '/api/setup', body(t.token, { person }));
+      expect(response.statusCode).toBe(400);
+    }
+    expect(await userCount(t)).toBe(0);
+    expect((await sql`select 1 from people`.execute(t.owner)).rows).toHaveLength(0);
+  });
+
   it('refuses a wrong token, creates nothing, and says nothing about other fields', async () => {
     const t = await freshInstall();
     const response = await post(t.app, '/api/setup', body('not-the-token', { email: 'not an email', password: 'x' }));

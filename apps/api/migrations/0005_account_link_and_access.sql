@@ -55,7 +55,7 @@ AS $fn$ SELECT coalesce((SELECT u.role IN ('superadmin', 'familyadmin') FROM pub
 -- when this person is "in my line": me, my children, their children and so on.
 -- It walks UP from the candidate, which is a short walk (a person has few ancestors).
 CREATE FUNCTION public.kinship_in_my_line(p_person uuid) RETURNS boolean
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, pg_temp SET jit = off
 AS $fn$
 DECLARE
   v_me uuid := public.kinship_person_id();
@@ -140,6 +140,11 @@ $fn$;
 -- Policies. Everyone signed in (with a real account) can read the whole tree; writes follow
 -- the rules above. (Medical and DNA data, 0.6 and later, get their own tables and policies.)
 -- Wrapping a helper in (SELECT ...) lets Postgres evaluate it once per statement, not per row.
+--
+-- Row-level security is FORCED on people, unions and person_parents (0003, 0004) but not on users and
+-- family_tree (0002): the SECURITY DEFINER functions that sign people in and run first-run setup act as
+-- the owner, and forcing the policies on the owner would hide every account from them. A test
+-- (non-superuser-owner.test.ts) shows that, and shows the new tables work under a non-superuser owner.
 -- ---------------------------------------------------------------------------
 CREATE POLICY people_select ON people FOR SELECT
   USING ((SELECT public.kinship_role()) IS NOT NULL);

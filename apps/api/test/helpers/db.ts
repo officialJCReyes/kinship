@@ -13,7 +13,7 @@ import type { DbConfig } from '../../src/config.js';
  * The user must be allowed to create databases and roles (the official image's
  * POSTGRES_USER is). Every test file gets its own database and its own app role.
  */
-const server = {
+export const server = {
   host: process.env.TEST_DB_HOST ?? '127.0.0.1',
   port: Number(process.env.TEST_DB_PORT ?? 5433),
   user: process.env.TEST_DB_USER ?? 'kinship',

@@ -336,6 +336,9 @@ export interface TreeQuery {
  * lookups by id). The caller has checked that the focal person exists.
  */
 export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
+  // Postgres cannot estimate how big a recursive walk gets and guesses millions of rows, which makes it
+  // compile the query (JIT) for ~140 ms to save microseconds. This transaction only runs this one read.
+  await sql`set local jit = off`.execute(trx);
   const walk = await sql<{ id: string }>`
     with recursive
     ancestors(id, depth) as (
@@ -359,7 +362,11 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
     ),
     -- id, and how many more generations may be added below it
     collateral(id, remaining) as (
-      select a.id, a.depth + ${q.down}::int from ancestors a where ${q.collateral}::boolean
+      -- Only the topmost ancestors seed this walk: everyone below a lower ancestor is also below
+      -- one of them, and seeding from all of them would walk the same people again and again.
+      select a.id, a.depth + ${q.down}::int from ancestors a
+       where ${q.collateral}::boolean
+         and (a.depth = ${q.up}::int or not exists (select 1 from person_parents pp where pp.child_id = a.id))
       union
       select c.child_id, k.remaining - 1
         from collateral k
