@@ -8,6 +8,7 @@ import { readVersion } from '../src/version.js';
 import { cookieHeader, createTestApp, insertUser, login } from './helpers/app.js';
 import type { TestApp } from './helpers/app.js';
 import { readMigrationFiles } from '../src/migrations/files.js';
+import { packageVersion } from './helpers/package-version.js';
 import { realMigrationsDir } from './helpers/migrations-dir.js';
 
 let t: TestApp;
@@ -61,14 +62,15 @@ describe('GET /api/health', () => {
 });
 
 describe('GET /api/version', () => {
-  it('returns the package version, the git commit and the database schema number, with no sign-in', async () => {
+  it('returns the package version, the git commit, the build date and the database schema number, with no sign-in', async () => {
     const response = await t.app.inject({ method: 'GET', url: '/api/version' });
     const migrations = await readMigrationFiles(realMigrationsDir);
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({
       name: 'kinship-api',
-      version: '0.0.0',
+      version: packageVersion,
       commit: 'abc1234',
+      buildDate: '2026-11-15T19:04:05Z',
       schema: migrations.length,
     });
   });
@@ -84,7 +86,13 @@ describe('GET /api/version', () => {
     try {
       const response = await app.inject({ method: 'GET', url: '/api/version' });
       expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({ name: 'kinship-api', version: '0.0.0', commit: 'abc1234', schema: null });
+      expect(response.json()).toEqual({
+        name: 'kinship-api',
+        version: packageVersion,
+        commit: 'abc1234',
+        buildDate: 'unknown',
+        schema: null,
+      });
     } finally {
       await app.close();
       await broken.destroy();

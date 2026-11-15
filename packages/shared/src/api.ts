@@ -5,6 +5,8 @@ export interface ApiVersion {
   name: 'kinship-api';
   version: string;
   commit: string;
+  /** When the image was built (ISO 8601), or "unknown". */
+  buildDate: string;
   schema: number | null;
 }
 

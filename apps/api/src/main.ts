@@ -13,8 +13,8 @@ function log(message: string): void {
 
 async function main(): Promise<void> {
   const config = loadConfig();
-  const version = readVersion(config.gitCommit);
-  log(`KinShip API ${version.version} (${version.commit}) starting`);
+  const version = readVersion(config.gitCommit, config.buildDate);
+  log(`KinShip API ${version.version} (${version.commit}, built ${version.buildDate}) starting`);
 
   // 1. As the owner role: create/refresh the app role, then migrate. Then let go of the owner.
   const owner = createOwnerDb(config.db);

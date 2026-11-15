@@ -5,10 +5,11 @@ export interface VersionInfo {
   name: 'kinship-api';
   version: string;
   commit: string;
+  buildDate: string;
 }
 
 /** The version comes from apps/api/package.json (one level above src/ and dist/). */
-export function readVersion(gitCommit: string): VersionInfo {
+export function readVersion(gitCommit: string, buildDate = 'unknown'): VersionInfo {
   const packageJson = new URL('../package.json', import.meta.url);
   const parsed: unknown = JSON.parse(readFileSync(packageJson, 'utf8'));
   const version =
@@ -16,5 +17,5 @@ export function readVersion(gitCommit: string): VersionInfo {
       ? parsed.version
       : undefined;
   if (version === undefined) throw new Error('apps/api/package.json has no version');
-  return { name: 'kinship-api', version, commit: gitCommit };
+  return { name: 'kinship-api', version, commit: gitCommit, buildDate };
 }

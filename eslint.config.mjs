@@ -15,7 +15,14 @@ export default tseslint.config(
   {
     // The web app runs in the browser (its tests run in jsdom).
     files: ['apps/web/**/*.{ts,tsx}'],
-    languageOptions: { globals: { ...globals.browser, __WEB_VERSION__: 'readonly', __WEB_COMMIT__: 'readonly' } },
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        __WEB_VERSION__: 'readonly',
+        __WEB_COMMIT__: 'readonly',
+        __WEB_BUILD_DATE__: 'readonly',
+      },
+    },
     plugins: { 'react-hooks': reactHooks },
     rules: { ...reactHooks.configs.recommended.rules },
   },

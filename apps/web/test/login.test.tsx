@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ME, calls, mockApi, renderApp, signedOut } from './helpers.js';
+import { ME, WEB_VERSION, calls, mockApi, renderApp, signedOut } from './helpers.js';
 import type { MockRoute } from './helpers.js';
 
 afterEach(() => {
@@ -31,7 +31,7 @@ describe('login page', () => {
 
   it('shows the version and a source link in the footer', async () => {
     await openLogin();
-    expect(await screen.findByText(/KinShip 0\.0\.0/)).toBeTruthy();
+    expect(await screen.findByText(`KinShip ${WEB_VERSION}`, { exact: false })).toBeTruthy();
     const link = screen.getByRole('link', { name: 'Source code' });
     expect(link.getAttribute('href')).toBe('https://github.com/officialJCReyes/kinship');
   });
