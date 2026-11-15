@@ -56,6 +56,9 @@ Both Dockerfiles run the install and compile stages on the build machine's own a
 - **`TRUST_PROXY` defaults to the private address ranges**, because the api sits behind the web container and usually a reverse proxy: without it the api would take every visitor for the web container, never see HTTPS (no `Secure` cookie) and pool everyone into one rate limit. `.env.example` explains how to widen or narrow it and warns against `true` when the web port is exposed directly. nginx now forwards `X-Forwarded-Host`, so the Origin check also works behind a proxy that rewrites `Host`.
 - The plan's example also has file and backup volumes; those arrive with file storage and backups in 0.2 and are left out.
 
+### Base-image hygiene
+The first dry run's scan found HIGH and CRITICAL advisories that were not in KinShip's own code: the api image carried them in the **npm bundled in `node:26-alpine`** (which nothing at runtime uses), the web image in Alpine packages (brotli, curl, expat, libxslt, musl, zlib) whose fixes were already published. So the api image **removes npm and npx**, and the web image runs **`apk upgrade`** (as root, then back to the unprivileged user) when it is built. The cost of `apk upgrade` is that the same Dockerfile gives slightly different bytes on different days; that is accepted for a security fix, and each release is built once and pushed, so what is published is what was tested.
+
 ### nginx stays on the stable branch
 The web image uses `nginxinc/nginx-unprivileged:1.30.6-alpine`, an exact patch of the stable branch. Dependabot ignores nginx minor and major updates for `/apps/web`, so only 1.30.x patches are proposed; moving to a newer branch is a deliberate edit of the Dockerfile. (A floating `1.30-alpine` tag would have made patch updates invisible to Dependabot.) The automatic PR that proposed 1.31 was closed.
 

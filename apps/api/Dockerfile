@@ -65,6 +65,9 @@ COPY apps/api/migrations ./migrations
 COPY apps/api/package.json ./
 # The owner's command line: docker compose exec -it api kinship set-password <email>
 RUN printf '#!/bin/sh\nexec node /app/apps/api/dist/cli.js "$@"\n' > /usr/local/bin/kinship && chmod +x /usr/local/bin/kinship
+# Nothing in this image runs npm. Removing it also removes the libraries it bundles (and any
+# vulnerabilities reported in them), and a tool an attacker could use.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \
