@@ -6,7 +6,10 @@ import { t } from './i18n.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LoginPage } from './pages/LoginPage.js';
+import { NoticeList, NoticeProvider } from './notices.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
+import { PeoplePage } from './pages/PeoplePage.js';
+import { ProfilePage } from './pages/ProfilePage.js';
 import { SetupPage } from './pages/SetupPage.js';
 
 function Loading() {
@@ -74,8 +77,9 @@ function AccountBar(): ReactNode {
 export function App() {
   const session = useSession(false);
   const signedIn = Boolean(session.data);
+  const personId = session.data?.user.personId ?? null;
   return (
-    <>
+    <NoticeProvider>
       <a className="skip-link" href="#main">
         {t('app.skipToContent')}
       </a>
@@ -89,6 +93,10 @@ export function App() {
               <NavLink to="/" end>
                 {t('nav.home')}
               </NavLink>
+              <NavLink to="/people" end>
+                {t('nav.people')}
+              </NavLink>
+              {personId ? <NavLink to={`/people/${personId}`}>{t('nav.myProfile')}</NavLink> : null}
               <NavLink to="/about">{t('nav.about')}</NavLink>
             </nav>
           ) : null}
@@ -96,16 +104,19 @@ export function App() {
         </div>
       </header>
       <main id="main" className="page-width">
+        <NoticeList />
         <Routes>
           <Route path="/setup" element={<SetupRoute />} />
           <Route path="/login" element={<LoginRoute />} />
           <Route element={<RequireSignIn />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/people" element={<PeoplePage />} />
+            <Route path="/people/:id" element={<ProfilePage />} />
             <Route path="/about" element={<AboutPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-    </>
+    </NoticeProvider>
   );
 }
