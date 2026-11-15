@@ -83,7 +83,7 @@ A release is a tag. [ADR 0004](docs/decisions/0004-release-and-images.md) explai
 
 1. Set the same version in the four `package.json` files (root, `apps/api`, `apps/web`, `packages/shared`) and put a section for it in `CHANGELOG.md` (`## [0.2.0] - 2026-12-01`). Pre-releases look like `0.2.0-rc.1` and never become `latest`.
 2. Merge that to `main` through a pull request, once CI is green.
-3. Optional: run the **Release** workflow by hand on the branch or on `main` with "dry run" on. It builds both images for amd64 and arm64, installs the stack from `compose.yml` and tests it, and pushes nothing.
+3. A pull request that touches the release files (the workflow, Dockerfiles, `compose.yml`, `.env.example`, the release scripts, `CHANGELOG.md`) runs the **Release** workflow as a dry run automatically. Once it is on `main` you can also start it by hand with "dry run" on. Either way it builds both images for amd64 and arm64, installs the stack from `compose.yml` and tests it, and pushes nothing.
 4. Tag the merge commit and push the tag: `git tag -s v0.2.0 -m "KinShip 0.2.0" && git push origin v0.2.0`. The tag must match the version in the files, or the workflow stops before building.
 5. Watch the workflow. It re-runs CI, pushes the images, tests the pushed images as a real install, and only then creates the GitHub Release.
 

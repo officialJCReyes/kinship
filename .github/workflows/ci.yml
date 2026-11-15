@@ -10,7 +10,9 @@ on:
 
 # A new push to a pull request cancels the older run. Runs on main always finish.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # The workflow name is part of the group: when the release workflow calls this one, it is the
+  # release's name, so the two never share a group (and never cancel or wait for each other).
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # No permissions by default; each job asks for what it needs.

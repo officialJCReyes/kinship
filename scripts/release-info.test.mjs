@@ -235,11 +235,25 @@ test('prepare: a manual run on a tag can publish (to repeat a failed release), i
   );
 });
 
+test('prepare: a pull request is always a dry run, whatever the version', () => {
+  const env = {
+    GITHUB_EVENT_NAME: 'pull_request',
+    GITHUB_REF_TYPE: 'branch',
+    GITHUB_REF_NAME: '5/merge',
+    GITHUB_SHA: SHA,
+  };
+  const info = prepare({ env, read: repo('0.1.0-alpha.1'), tags: [] });
+  assert.equal(info.publish, false);
+  assert.equal(info.version, '0.1.0-alpha.1');
+  // The package.json files must still agree, and the changelog must still have the section.
+  assert.throws(() => prepare({ env, read: repo('0.9.0'), tags: [] }), /no section "## \[0\.9\.0\]"/);
+});
+
 test('prepare: other triggers are refused', () => {
   assert.throws(
     () =>
       prepare({
-        env: { GITHUB_EVENT_NAME: 'pull_request', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: 'x', GITHUB_SHA: SHA },
+        env: { GITHUB_EVENT_NAME: 'schedule', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: 'x', GITHUB_SHA: SHA },
         read: repo('0.1.0-alpha.1'),
         tags: [],
       }),

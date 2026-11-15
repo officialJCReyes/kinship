@@ -8,12 +8,26 @@
 #   - Run it by hand ("dry run", the default): everything is built and tested the same way, and
 #     nothing is pushed or released. Publishing by hand is only possible when started on a tag.
 #
+#   - A pull request that touches the release machinery runs it as a dry run too, so a change to it
+#     is rehearsed before it is merged (a workflow can only be started by hand once it is on main).
+#
 # What it does and why is in docs/decisions/0004-release-and-images.md.
 name: Release
 
 on:
   push:
     tags: ['v*']
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - '.github/workflows/ci.yml'
+      - 'apps/*/Dockerfile'
+      - 'apps/web/nginx/**'
+      - 'compose.yml'
+      - '.env.example'
+      - 'scripts/release-info.mjs'
+      - 'scripts/smoke-test.sh'
+      - 'CHANGELOG.md'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -32,6 +46,8 @@ concurrency:
 jobs:
   checks:
     name: Checks (all of CI)
+    # On a pull request, CI is already running as its own workflow.
+    if: ${{ github.event_name != 'pull_request' }}
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
@@ -68,6 +84,8 @@ jobs:
   images:
     name: Build and push ${{ matrix.image }}
     needs: [checks, prepare]
+    # "checks" is skipped on pull requests; anything else but success stops the build.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && (needs.checks.result == 'success' || needs.checks.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
