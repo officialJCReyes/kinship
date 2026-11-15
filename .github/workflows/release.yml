@@ -148,6 +148,8 @@ jobs:
   smoke:
     name: Smoke test the production stack
     needs: [prepare, images]
+    # Spelled out because a skipped ancestor ("checks", on pull requests) would otherwise skip this too.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.images.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
