@@ -1,0 +1,8 @@
+# Not ours, or not code. Prettier only checks .ts, .mjs, .json and .yml here.
+design/
+docs/
+*.md
+LICENSE
+pnpm-lock.yaml
+**/node_modules/
+**/dist/
