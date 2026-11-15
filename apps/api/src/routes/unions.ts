@@ -10,6 +10,7 @@ import { parseDateInput } from '../people/dates.js';
 import { withActor } from '../people/run.js';
 import { countUnionChildren, getPerson, getUnion, isUuid, unionsBetween, withChildren } from '../people/store.js';
 import type { UnionRow } from '../people/store.js';
+import type { RouteLimit } from './shared.js';
 
 type Trx = Transaction<Database>;
 
@@ -57,10 +58,11 @@ async function isDuplicate(
   );
 }
 
-export function registerUnionRoutes(app: FastifyInstance): void {
+export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): void {
   app.post(
     '/api/unions',
     {
+      config: limit,
       schema: {
         body: {
           type: 'object',
@@ -121,19 +123,24 @@ export function registerUnionRoutes(app: FastifyInstance): void {
     },
   );
 
-  app.get('/api/unions/:id', { schema: { params: idParams } }, async (request): Promise<UnionResponse> => {
-    const { id } = request.params as { id: string };
-    if (!isUuid(id)) throw notFound('union_not_found');
-    return withActor(request, async (trx) => {
-      const row = await getUnion(trx, id);
-      if (!row) throw notFound('union_not_found');
-      return respond(trx, row);
-    });
-  });
+  app.get(
+    '/api/unions/:id',
+    { config: limit, schema: { params: idParams } },
+    async (request): Promise<UnionResponse> => {
+      const { id } = request.params as { id: string };
+      if (!isUuid(id)) throw notFound('union_not_found');
+      return withActor(request, async (trx) => {
+        const row = await getUnion(trx, id);
+        if (!row) throw notFound('union_not_found');
+        return respond(trx, row);
+      });
+    },
+  );
 
   app.patch(
     '/api/unions/:id',
     {
+      config: limit,
       schema: {
         params: idParams,
         body: {
@@ -207,7 +214,7 @@ export function registerUnionRoutes(app: FastifyInstance): void {
     },
   );
 
-  app.delete('/api/unions/:id', { schema: { params: idParams } }, async (request, reply) => {
+  app.delete('/api/unions/:id', { config: limit, schema: { params: idParams } }, async (request, reply) => {
     const { id } = request.params as { id: string };
     if (!isUuid(id)) throw notFound('union_not_found');
     await withActor(request, async (trx, actor) => {

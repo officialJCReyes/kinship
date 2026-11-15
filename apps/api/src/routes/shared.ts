@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Limiters } from '../app.js';
 import type { Database } from '../db.js';
@@ -10,6 +11,11 @@ export interface RouteDeps {
   failureDelayMs: number;
   /** Per-address request cap for the routes that check credentials (see @fastify/rate-limit). */
   requestLimit: { max: number; timeWindow: string };
+}
+
+/** The `config` of a route that is limited by @fastify/rate-limit. */
+export interface RouteLimit {
+  rateLimit: { max: number; timeWindow: string; keyGenerator: (request: FastifyRequest) => string };
 }
 
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
