@@ -11,7 +11,8 @@
 //   - images get the exact version and sha-<7 chars>; a stable release also gets MAJOR.MINOR,
 //     `latest` (only if no newer stable tag exists) and, from 1.0, MAJOR; a pre-release gets
 //     only the exact version and the sha tag and never moves `latest`;
-//   - a tag push publishes; a manual run never does, unless it was started on a tag.
+//   - a tag push publishes; a manual run never does, unless it was started on a tag; a pull request
+//     (which only runs when it touches the release machinery) is always a dry run.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -206,6 +207,8 @@ export function prepare({ env, read, tags, now = new Date() }) {
       }
     }
     publish = !dryRun;
+  } else if (event === 'pull_request') {
+    publish = false; // a rehearsal of the release on a pull request: build and test, push nothing
   } else {
     throw new Error(`Unexpected trigger: ${event} on ${refType} ${refName}`);
   }
