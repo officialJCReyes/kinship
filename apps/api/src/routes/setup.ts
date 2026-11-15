@@ -61,6 +61,9 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
       }
 
       const rejectToken = async () => {
+        // Another attempt may have finished setup between our first check and now (the token is
+        // deleted with it). That is "already set up", not a bad guess, and it must not count as one.
+        if (!(await needsSetup(db))) return reply.code(409).send({ error: 'already_set_up' });
         limiters.setupIp.recordFailure(request.ip);
         limiters.setupGlobal.recordFailure(GLOBAL_KEY);
         await sleep(failureDelayMs);

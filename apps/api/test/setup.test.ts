@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { sql } from 'kysely';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as store from '../src/auth/store.js';
 import { prepareSetupToken } from '../src/auth/startup.js';
 import { hashToken } from '../src/auth/tokens.js';
 import { CSRF, PASSWORD, createTestApp, insertUser, post, sessionCookie } from './helpers/app.js';
 import type { TestApp } from './helpers/app.js';
+
+// Wrap needsSetup so a test can make its next answer "yes" (as it was for a request that began before setup finished).
+vi.mock('../src/auth/store.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/auth/store.js')>();
+  return { ...original, needsSetup: vi.fn(original.needsSetup) };
+});
 
 const apps: TestApp[] = [];
 afterEach(async () => {
@@ -173,6 +180,22 @@ describe('POST /api/setup', () => {
     expect(Number((await sql<{ n: string }>`select count(*) as n from family_tree`.execute(t.owner)).rows[0]?.n)).toBe(
       1,
     );
+  });
+
+  it('answers "already set up", not "wrong token", to a loser of a race, and does not count it as a bad guess', async () => {
+    const t = await freshInstall();
+    expect((await post(t.app, '/api/setup', body(t.token))).statusCode).toBe(201);
+
+    // A request that checked "is setup needed?" just before the winner finished: its first check says yes ...
+    vi.mocked(store.needsSetup).mockResolvedValueOnce(true);
+    const late = await post(t.app, '/api/setup', body(t.token, { email: 'late@example.com' }));
+    // ... but by the time it looks at the token, setup is done.
+    expect(late.statusCode).toBe(409);
+    expect(late.json()).toEqual({ error: 'already_set_up' });
+
+    // Nor did it use up the address's allowance of bad guesses.
+    for (let i = 0; i < 9; i++) expect((await post(t.app, '/api/setup', body(`guess-${i}`))).statusCode).toBe(409);
+    expect(await userCount(t)).toBe(1);
   });
 
   it('needs the CSRF header', async () => {
