@@ -1,4 +1,11 @@
-# KinShip
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/kinship-logo-horizontal-reversed.svg">
+    <img src="docs/assets/kinship-logo-horizontal.svg" alt="KinShip: a sailboat with a leaf-shaped sail, and the name KinShip" width="360">
+  </picture>
+</h1>
+
+<p align="center"><strong>Family history without the cloud</strong></p>
 
 Self-hosted family tree for families: relationships, sources, photos, private health history and DNA results. Runs with Docker Compose (PostgreSQL, a TypeScript API, a React UI behind nginx). Licensed under AGPL-3.0-or-later.
 
