@@ -43,6 +43,7 @@ import {
   withChildren,
 } from '../people/store.js';
 import type { PersonValues } from '../people/store.js';
+import type { RouteLimit } from './shared.js';
 
 type Trx = Transaction<Database>;
 
@@ -138,13 +139,14 @@ function parsePersonPatch(patch: PersonPatch, current: { deceased: boolean }): P
   return values;
 }
 
-export function registerPeopleRoutes(app: FastifyInstance): void {
+export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): void {
   const run = withActor;
 
   // --- list and search ------------------------------------------------------
   app.get(
     '/api/people',
     {
+      config: limit,
       schema: {
         querystring: {
           type: 'object',
@@ -171,47 +173,55 @@ export function registerPeopleRoutes(app: FastifyInstance): void {
   );
 
   // --- one person -----------------------------------------------------------
-  app.get('/api/people/:id', { schema: { params: uuidParam('id') } }, async (request): Promise<PersonDetail> => {
-    const { id } = request.params as { id: string };
-    if (!isUuid(id)) throw notFound('person_not_found');
-    return run(request, async (trx, actor) => {
-      const person = await getPerson(trx, id);
-      if (!person) throw notFound('person_not_found');
-      const parentRow = await getParentageRow(trx, id);
-      const unions = await withChildren(trx, await unionsOfPerson(trx, id));
-      const singles = await singleParentChildIds(trx, id);
-      const admin = isAdmin(actor);
-      return {
-        person: toPerson(person),
-        parentage: parentRow ? toParentage(parentRow) : null,
-        unions,
-        singleParentChildIds: singles,
-        permissions: {
-          edit: await canEditPerson(trx, actor, person),
-          delete: admin,
-          addChild: await canAddChildUnder(trx, actor, id),
-        },
-        hasAccount: await personHasAccount(trx, id),
-      };
-    });
-  });
+  app.get(
+    '/api/people/:id',
+    { config: limit, schema: { params: uuidParam('id') } },
+    async (request): Promise<PersonDetail> => {
+      const { id } = request.params as { id: string };
+      if (!isUuid(id)) throw notFound('person_not_found');
+      return run(request, async (trx, actor) => {
+        const person = await getPerson(trx, id);
+        if (!person) throw notFound('person_not_found');
+        const parentRow = await getParentageRow(trx, id);
+        const unions = await withChildren(trx, await unionsOfPerson(trx, id));
+        const singles = await singleParentChildIds(trx, id);
+        const admin = isAdmin(actor);
+        return {
+          person: toPerson(person),
+          parentage: parentRow ? toParentage(parentRow) : null,
+          unions,
+          singleParentChildIds: singles,
+          permissions: {
+            edit: await canEditPerson(trx, actor, person),
+            delete: admin,
+            addChild: await canAddChildUnder(trx, actor, id),
+          },
+          hasAccount: await personHasAccount(trx, id),
+        };
+      });
+    },
+  );
 
   // --- create (admins; a Member adds people only as children, below) ---------
-  app.post('/api/people', { schema: { body: personInputSchema } }, async (request, reply): Promise<PersonResponse> => {
-    const body = request.body as PersonInput;
-    const result = await run(request, async (trx, actor) => {
-      if (!isAdmin(actor)) throw forbidden();
-      const row = await insertPerson(trx, actor.id, parsePersonInput(body));
-      return { person: toPerson(row), warnings: [] };
-    });
-    void reply.code(201);
-    return result;
-  });
+  app.post(
+    '/api/people',
+    { config: limit, schema: { body: personInputSchema } },
+    async (request, reply): Promise<PersonResponse> => {
+      const body = request.body as PersonInput;
+      const result = await run(request, async (trx, actor) => {
+        if (!isAdmin(actor)) throw forbidden();
+        const row = await insertPerson(trx, actor.id, parsePersonInput(body));
+        return { person: toPerson(row), warnings: [] };
+      });
+      void reply.code(201);
+      return result;
+    },
+  );
 
   // --- change ---------------------------------------------------------------
   app.patch(
     '/api/people/:id',
-    { schema: { params: uuidParam('id'), body: personPatchSchema } },
+    { config: limit, schema: { params: uuidParam('id'), body: personPatchSchema } },
     async (request): Promise<PersonResponse> => {
       const { id } = request.params as { id: string };
       const body = request.body as PersonPatch;
@@ -232,6 +242,7 @@ export function registerPeopleRoutes(app: FastifyInstance): void {
   app.delete(
     '/api/people/:id',
     {
+      config: limit,
       schema: {
         params: uuidParam('id'),
         querystring: {
@@ -264,6 +275,7 @@ export function registerPeopleRoutes(app: FastifyInstance): void {
   app.post(
     '/api/people/:id/children',
     {
+      config: limit,
       schema: {
         params: uuidParam('id'),
         body: {
@@ -313,6 +325,7 @@ export function registerPeopleRoutes(app: FastifyInstance): void {
   app.post(
     '/api/people/:id/parents',
     {
+      config: limit,
       schema: {
         params: uuidParam('id'),
         body: {
@@ -379,6 +392,7 @@ export function registerPeopleRoutes(app: FastifyInstance): void {
   app.delete(
     '/api/people/:id/parents/:parentId',
     {
+      config: limit,
       schema: {
         params: {
           type: 'object',

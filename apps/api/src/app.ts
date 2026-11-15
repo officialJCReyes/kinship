@@ -17,6 +17,7 @@ import { ApiError, fromDatabaseError } from './errors.js';
 import { withUserTransaction } from './request-context.js';
 import { registerAuthRoutes, SESSION_COOKIE, setSessionCookie } from './routes/auth.js';
 import { registerPeopleRoutes } from './routes/people.js';
+import type { RouteLimit } from './routes/shared.js';
 import { registerSetupRoutes } from './routes/setup.js';
 import { registerTreeRoutes } from './routes/tree.js';
 import { registerUnionRoutes } from './routes/unions.js';
@@ -47,6 +48,8 @@ export interface AppOptions {
   now?: () => number;
   /** Most requests per minute and IP address to sign-in and setup, successful or not. */
   loginRequestsPerMinute?: number;
+  /** Most requests per minute and signed-in account to the people, relationship and tree routes. */
+  apiRequestsPerMinute?: number;
 }
 
 export interface Limiters {
@@ -63,7 +66,15 @@ export interface Limiters {
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
 export function buildApp(options: AppOptions): FastifyInstance {
-  const { db, version, logLevel = 'info', sessions, failureDelayMs = 300, loginRequestsPerMinute = 30 } = options;
+  const {
+    db,
+    version,
+    logLevel = 'info',
+    sessions,
+    failureDelayMs = 300,
+    loginRequestsPerMinute = 30,
+    apiRequestsPerMinute = 600,
+  } = options;
   const app = Fastify({
     logger: { level: logLevel },
     trustProxy: options.trustProxy ?? false,
@@ -178,9 +189,17 @@ export function buildApp(options: AppOptions): FastifyInstance {
     routes.addHook('onRequest', async (request) => {
       if (!request.user) throw new ApiError(401, 'unauthenticated');
     });
-    registerPeopleRoutes(routes);
-    registerUnionRoutes(routes);
-    registerTreeRoutes(routes);
+    // Per account, not per address: behind a reverse proxy every visitor can share one address.
+    const limit: RouteLimit = {
+      rateLimit: {
+        max: apiRequestsPerMinute,
+        timeWindow: '1 minute',
+        keyGenerator: (request) => request.user?.id ?? request.ip,
+      },
+    };
+    registerPeopleRoutes(routes, limit);
+    registerUnionRoutes(routes, limit);
+    registerTreeRoutes(routes, limit);
   });
 
   return app;

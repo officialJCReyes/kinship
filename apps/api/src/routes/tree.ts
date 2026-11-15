@@ -5,16 +5,18 @@ import type { FastifyInstance } from 'fastify';
 import { notFound } from '../errors.js';
 import { withActor } from '../people/run.js';
 import { getPerson, isUuid, loadTree } from '../people/store.js';
+import type { RouteLimit } from './shared.js';
 
 const generations = { type: 'string', pattern: '^[0-9]{1,2}$' };
 
-export function registerTreeRoutes(app: FastifyInstance): void {
+export function registerTreeRoutes(app: FastifyInstance, limit: RouteLimit): void {
   // The people and links needed to draw a tree around one person: `up` generations of ancestors,
   // `down` of descendants, everyone's partners, and (collateral=true) the other descendants of
   // those ancestors, which is what the Family tree view draws.
   app.get(
     '/api/tree/:personId',
     {
+      config: limit,
       schema: {
         params: { type: 'object', required: ['personId'], properties: { personId: { type: 'string', maxLength: 64 } } },
         querystring: {
