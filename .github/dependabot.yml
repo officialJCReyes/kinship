@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Only npm for now. The docker, github-actions and docker-compose entries are
-# added as the Dockerfiles, workflows and compose files land.
+# Not listed yet, added when the files exist: docker for /apps/web.
 version: 2
 updates:
   # JavaScript dependencies (pnpm workspace: root, apps/*, packages/*).
@@ -16,3 +15,30 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: ['minor', 'patch']
+
+  # Base images in the api Dockerfile.
+  - package-ecosystem: 'docker'
+    directory: '/apps/api'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: 'chore(deps)'
+
+  # Actions used by the workflows.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      actions:
+        patterns: ['*']
+
+  # Images in compose.dev.yml (compose.yml is added when it exists).
+  - package-ecosystem: 'docker-compose'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    commit-message:
+      prefix: 'chore(deps)'

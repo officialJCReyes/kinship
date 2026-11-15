@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to a pull request cancels the older run. Runs on main always finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# No permissions by default; each job asks for what it needs.
+permissions: {}
+
+jobs:
+  check:
+    name: Lint, format, typecheck, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Node 26 does not bundle corepack. Same pinned version as the Dockerfile.
+      - name: Enable pnpm (pinned in package.json)
+        run: npm install --global corepack@0.34.6 && corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm test:scripts
+      - run: pnpm build
+
+  test:
+    name: Tests (Postgres 18)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: kinship
+          POSTGRES_PASSWORD: dev-owner-password
+          POSTGRES_DB: kinship
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U kinship -d kinship"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DB_HOST: 127.0.0.1
+      TEST_DB_PORT: '5433'
+      TEST_DB_USER: kinship
+      TEST_DB_PASSWORD: dev-owner-password
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Enable pnpm (pinned in package.json)
+        run: npm install --global corepack@0.34.6 && corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+
+  licenses:
+    name: Dependency licenses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Enable pnpm (pinned in package.json)
+        run: npm install --global corepack@0.34.6 && corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Check licenses against the allow list
+        run: pnpm licenses:check
+      - name: Save the license report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: license-report
+          path: reports/
+          if-no-files-found: error
+          retention-days: 30
+
+  docker:
+    name: Build api image (not pushed)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          load: true
+          tags: kinship-api:ci
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Image does not run as root
+        run: test "$(docker run --rm --entrypoint id kinship-api:ci -u)" != "0"

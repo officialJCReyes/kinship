@@ -4,10 +4,8 @@
 #   docker build -f apps/api/Dockerfile --build-arg GIT_COMMIT=$(git rev-parse --short HEAD) .
 # Targets: "dev" (hot reload, used by compose.dev.yml) and the default, "runtime".
 
-ARG NODE_IMAGE=node:26-alpine
-
 # ---- base: Node plus the pinned pnpm (Node 26 images do not bundle corepack) ----
-FROM ${NODE_IMAGE} AS base
+FROM node:26-alpine AS base
 RUN npm install -g corepack@0.34.6 && corepack enable
 WORKDIR /app
 
@@ -37,7 +35,7 @@ COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --prod --filter @kinship/api...
 
 # ---- runtime ----
-FROM ${NODE_IMAGE} AS runtime
+FROM node:26-alpine AS runtime
 ARG GIT_COMMIT=unknown
 LABEL org.opencontainers.image.title="kinship-api" \
       org.opencontainers.image.source="https://github.com/officialJCReyes/kinship" \
