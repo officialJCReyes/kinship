@@ -36,6 +36,11 @@ export interface Database {
     person_id: string | null;
     /** Which family this account's charts follow for an adopted person (0006). */
     lineage_view: Generated<'adoptive' | 'birth'>;
+    /** This account's own display settings (0010). They change nothing for anyone else. */
+    color_scheme: Generated<'forest' | 'sand' | 'slate' | 'graphite'>;
+    theme: Generated<'device' | 'light' | 'dark'>;
+    date_format: Generated<'mdy' | 'dmy' | 'dmy2' | 'long' | 'iso' | 'us' | 'eu'>;
+    surname_choice: Generated<'married' | 'birth'>;
     created_at: Date;
     updated_at: Date;
   };

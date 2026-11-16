@@ -105,6 +105,10 @@ describe('POST /api/setup', () => {
         role: 'superadmin',
         personId: null,
         lineageView: 'adoptive',
+        colorScheme: 'forest',
+        theme: 'device',
+        dateFormat: 'mdy',
+        surnameChoice: 'married',
       },
       treeName: 'Hale Family',
     });
@@ -289,5 +293,41 @@ describe('POST /api/setup', () => {
       remoteAddress: '10.2.0.1',
     });
     expect(blocked.statusCode).toBe(429);
+  });
+});
+
+describe('POST /api/setup with the new account’s own display settings', () => {
+  it('saves them on the new account (for example the color scheme picked in the wizard)', async () => {
+    const t = await freshInstall();
+    const response = await post(
+      t.app,
+      '/api/setup',
+      body(t.token, { settings: { colorScheme: 'slate', theme: 'dark', dateFormat: 'iso', surnameChoice: 'birth' } }),
+    );
+    expect(response.statusCode).toBe(201);
+    expect(response.json().user).toMatchObject({
+      colorScheme: 'slate',
+      theme: 'dark',
+      dateFormat: 'iso',
+      surnameChoice: 'birth',
+      lineageView: 'adoptive',
+    });
+    const stored = await sql`select color_scheme, theme, date_format, surname_choice from users`.execute(t.owner);
+    expect(stored.rows).toEqual([
+      { color_scheme: 'slate', theme: 'dark', date_format: 'iso', surname_choice: 'birth' },
+    ]);
+  });
+
+  it('refuses a bad setting before anything is created, and the token still works', async () => {
+    const t = await freshInstall();
+    const bad = await post(t.app, '/api/setup', body(t.token, { settings: { colorScheme: 'neon' } }));
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json()).toEqual({ error: 'invalid_color_scheme' });
+    expect(await userCount(t)).toBe(0);
+    for (const settings of [{}, { role: 'superadmin' }, { theme: 5 }]) {
+      expect((await post(t.app, '/api/setup', body(t.token, { settings }))).statusCode).toBe(400);
+    }
+    expect(await userCount(t)).toBe(0);
+    expect((await post(t.app, '/api/setup', body(t.token))).statusCode).toBe(201);
   });
 });

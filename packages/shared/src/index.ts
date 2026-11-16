@@ -5,3 +5,4 @@ export * from './names.js';
 export { en } from './messages/en.js';
 export type { MessageKey } from './messages/en.js';
 export * from './people.js';
+export * from './settings.js';

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { LINEAGE_VIEWS } from '@kinship/shared';
-import type { LoginRequest, MeResponse, UpdateMeRequest } from '@kinship/shared';
+import { parseUserSettings } from '@kinship/shared';
+import type { LoginRequest, MeResponse, UpdateMeRequest, UserSettings } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db.js';
@@ -110,33 +110,39 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
     return me;
   });
 
-  // The account's own display setting: which family its charts follow for an adopted person. It changes
-  // nothing for anyone else, and nothing about who can see what.
+  // The account's own settings (My settings): which family its charts follow for an adopted person, the color
+  // scheme, light or dark, the date format and which surname shows. Any non-empty subset. It changes nothing for
+  // anyone else, and nothing about who can see what.
   app.patch(
     '/api/auth/me',
     {
       config: { rateLimit: requestLimit },
-      schema: {
-        body: {
-          type: 'object',
-          required: ['lineageView'],
-          additionalProperties: false,
-          properties: { lineageView: { type: 'string', enum: [...LINEAGE_VIEWS] } },
-        },
-      },
+      schema: { body: { type: 'object', minProperties: 1, additionalProperties: true } },
     },
     async (request, reply) => {
       if (!request.user) return reply.code(401).send({ error: 'unauthenticated' });
-      const { lineageView } = request.body as UpdateMeRequest;
+      const parsed = parseUserSettings(request.body as UpdateMeRequest);
+      if (!parsed.ok) return reply.code(400).send({ error: parsed.code });
       const userId = request.user.id;
       await withUserTransaction(db, userId, (trx) =>
-        trx.updateTable('users').set({ lineage_view: lineageView }).where('id', '=', userId).execute(),
+        trx.updateTable('users').set(settingsColumns(parsed.settings)).where('id', '=', userId).execute(),
       );
       const me = await readMe(db, userId);
       if (!me) return reply.code(401).send({ error: 'unauthenticated' });
       return me;
     },
   );
+}
+
+/** The users columns for a set of settings. */
+export function settingsColumns(settings: Partial<UserSettings>) {
+  return {
+    ...(settings.lineageView !== undefined ? { lineage_view: settings.lineageView } : {}),
+    ...(settings.colorScheme !== undefined ? { color_scheme: settings.colorScheme } : {}),
+    ...(settings.theme !== undefined ? { theme: settings.theme } : {}),
+    ...(settings.dateFormat !== undefined ? { date_format: settings.dateFormat } : {}),
+    ...(settings.surnameChoice !== undefined ? { surname_choice: settings.surnameChoice } : {}),
+  };
 }
 
 /**
@@ -147,7 +153,18 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
   const result = await withUserTransaction(db, userId, async (trx) => {
     const user = await trx
       .selectFrom('users')
-      .select(['id', 'email', 'display_name', 'role', 'person_id', 'lineage_view'])
+      .select([
+        'id',
+        'email',
+        'display_name',
+        'role',
+        'person_id',
+        'lineage_view',
+        'color_scheme',
+        'theme',
+        'date_format',
+        'surname_choice',
+      ])
       .where('id', '=', userId)
       .executeTakeFirst();
     const tree = await trx.selectFrom('family_tree').select('name').executeTakeFirst();
@@ -162,6 +179,10 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       role: result.user.role,
       personId: result.user.person_id,
       lineageView: result.user.lineage_view,
+      colorScheme: result.user.color_scheme,
+      theme: result.user.theme,
+      dateFormat: result.user.date_format,
+      surnameChoice: result.user.surname_choice,
     },
     treeName: result.treeName,
   };

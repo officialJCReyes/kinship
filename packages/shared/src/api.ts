@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { PEOPLE_ERROR_CODES } from './people.js';
+import type { ColorScheme, DateFormat, SurnameChoice, Theme, UserSettings } from './settings.js';
 import type { LineageView } from './people.js';
 
 /** Response of GET /api/version. `schema` is the database schema number, or null when the database is unreachable. */
@@ -33,12 +34,15 @@ export interface AuthUser {
   personId: string | null;
   /** Which family this account's charts follow for an adopted person (the account's own setting). */
   lineageView: LineageView;
+  /** The account's own display settings (My settings). They change nothing for anyone else. */
+  colorScheme: ColorScheme;
+  theme: Theme;
+  dateFormat: DateFormat;
+  surnameChoice: SurnameChoice;
 }
 
-/** Body of PATCH /api/auth/me: the account's own display setting. */
-export interface UpdateMeRequest {
-  lineageView: LineageView;
-}
+/** Body of PATCH /api/auth/me: any non-empty subset of the account's own settings. */
+export type UpdateMeRequest = Partial<UserSettings>;
 
 /** Response of GET /api/auth/me, POST /api/auth/login and POST /api/setup. */
 export interface MeResponse {
@@ -63,6 +67,8 @@ export interface SetupRequest {
   treeName: string;
   /** The first person on the tree, linked to the new account. Both names, or neither. */
   person?: { givenName: string; surname: string };
+  /** The new account's own display settings, for example the color scheme picked in the wizard. Same rules as PATCH /api/auth/me. */
+  settings?: Partial<UserSettings>;
 }
 
 /** Every error code the API can answer with, as `{ error: <code> }` (and `retryAfterSeconds`, `minLength` or `details` where noted). */
@@ -81,6 +87,11 @@ export const API_ERROR_CODES = [
   'payload_too_large',
   'csrf',
   'internal_error',
+  // An account's own settings (see settings.ts). invalid_lineage is listed with the people codes.
+  'invalid_color_scheme',
+  'invalid_theme',
+  'invalid_date_format',
+  'invalid_surname_choice',
   // People and relationships (see people.ts).
   ...PEOPLE_ERROR_CODES,
 ] as const;

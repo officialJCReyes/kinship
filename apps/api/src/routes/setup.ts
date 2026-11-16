@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { SetupRequest } from '@kinship/shared';
+import { parseUserSettings } from '@kinship/shared';
+import type { SetupRequest, UserSettings } from '@kinship/shared';
 import type { FastifyInstance } from 'fastify';
 import { checkSetupToken, completeSetup, needsSetup, SETUP_ALREADY_DONE, SETUP_INVALID_TOKEN } from '../auth/store.js';
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwords.js';
 import { hashToken } from '../auth/tokens.js';
 import { ApiError } from '../errors.js';
 import { cleanName } from '../people/names.js';
-import { readMe, startSession } from './auth.js';
+import { withUserTransaction } from '../request-context.js';
+import { readMe, settingsColumns, startSession } from './auth.js';
 import { isValidEmail, normalizeEmail, retrySeconds, sleep } from './shared.js';
 import type { RouteDeps } from './shared.js';
 
@@ -47,6 +49,7 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
                 surname: { type: 'string', maxLength: 400 },
               },
             },
+            settings: { type: 'object', additionalProperties: true },
           },
         },
       },
@@ -103,6 +106,14 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
         }
       }
 
+      // The new account's own display settings (for example the color scheme picked in the wizard).
+      let settings: Partial<UserSettings> | undefined;
+      if (body.settings !== undefined) {
+        const parsed = parseUserSettings(body.settings);
+        if (!parsed.ok) return reply.code(400).send({ error: parsed.code });
+        settings = parsed.settings;
+      }
+
       let userId: string;
       try {
         userId = await completeSetup(db, {
@@ -120,6 +131,11 @@ export function registerSetupRoutes(app: FastifyInstance, deps: RouteDeps): void
         throw error;
       }
 
+      if (settings) {
+        await withUserTransaction(db, userId, (trx) =>
+          trx.updateTable('users').set(settingsColumns(settings)).where('id', '=', userId).execute(),
+        );
+      }
       await startSession(deps, request, reply, userId);
       return reply.code(201).send(await readMe(db, userId));
     },

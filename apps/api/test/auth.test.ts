@@ -53,6 +53,10 @@ describe('POST /api/auth/login', () => {
         role: 'superadmin',
         personId: null,
         lineageView: 'adoptive',
+        colorScheme: 'forest',
+        theme: 'device',
+        dateFormat: 'mdy',
+        surnameChoice: 'married',
       },
       treeName: 'Hale Family',
     });

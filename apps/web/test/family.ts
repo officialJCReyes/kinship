@@ -132,6 +132,10 @@ export const ADMIN: AuthUser = {
   role: 'superadmin',
   personId: null,
   lineageView: 'adoptive',
+  colorScheme: 'forest',
+  theme: 'device',
+  dateFormat: 'mdy',
+  surnameChoice: 'married',
 };
 export const MEMBER: AuthUser = {
   id: 'u-member',
@@ -140,6 +144,10 @@ export const MEMBER: AuthUser = {
   role: 'member',
   personId: 'marcus',
   lineageView: 'adoptive',
+  colorScheme: 'forest',
+  theme: 'device',
+  dateFormat: 'mdy',
+  surnameChoice: 'married',
 };
 export const READER: AuthUser = {
   id: 'u-user',
@@ -148,6 +156,10 @@ export const READER: AuthUser = {
   role: 'user',
   personId: null,
   lineageView: 'adoptive',
+  colorScheme: 'forest',
+  theme: 'device',
+  dateFormat: 'mdy',
+  surnameChoice: 'married',
 };
 
 /** What the API would say a signed-in account may do with a person (a Member: themselves only, here). */
