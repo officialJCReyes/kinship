@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type {
   AuthUser,
   ChildLink,
@@ -20,7 +21,7 @@ import { t } from '../i18n.js';
 import { formatDate, formatYear } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
 import { childLabel, parentLabel, relativeLabel, statusName, unionLabel } from '../lib/labels.js';
-import { lifespan, mergeTrees, parentIdsOf, peopleById, personName, siblingsOf } from '../lib/people.js';
+import { lifespan, mergeTrees, parentIdsOf, peopleById, siblingsOf } from '../lib/people.js';
 import { useNotices } from '../notices.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
@@ -44,7 +45,7 @@ type Open =
 function PersonLink({ person, label }: { person: Person; label?: string | undefined }) {
   return (
     <Link to={`/people/${person.id}`}>
-      {personName(person)}
+      {displayName(person)}
       {person.deceased ? ' †' : ''}
       {label ? <span className="muted"> · {label}</span> : null}
     </Link>
@@ -76,7 +77,7 @@ function RemoveParentDialog({ child, parent, onClose }: { child: Person; parent:
   const remove = useMutation({ mutationFn: () => api.removeParent(child.id, parent.id) });
   return (
     <Dialog title={t('parents.removeTitle')} onClose={onClose}>
-      <p>{t('parents.removeBody', { parent: personName(parent), child: personName(child) })}</p>
+      <p>{t('parents.removeBody', { parent: displayName(parent), child: displayName(child) })}</p>
       {remove.isError ? (
         <div className="alert" role="alert">
           {errorMessage(remove.error)}
@@ -120,7 +121,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
   const close = () => setOpen(null);
   const nameOf = (id: string) => {
     const found = people.get(id);
-    return found ? personName(found) : t('person.unknown');
+    return found ? displayName(found) : t('person.unknown');
   };
 
   // Adoptive family first, then the birth family; a person with only a birth set has just "Parents".
@@ -155,7 +156,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
       <section className="card">
         <div className="profile-head">
           <div>
-            <h1>{personName(person)}</h1>
+            <h1>{displayName(person)}</h1>
             <div className="muted">{lifespan(person)}</div>
             <div className="pills">
               <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
@@ -182,8 +183,20 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         <dl className="facts">
           <dt>{t('person.givenName')}</dt>
           <dd>{person.givenName}</dd>
-          <dt>{t('person.surname')}</dt>
+          <dt>{t('person.birthSurname')}</dt>
           <dd>{person.surname}</dd>
+          {person.secondSurname ? (
+            <>
+              <dt>{t('person.secondSurname')}</dt>
+              <dd>{person.secondSurname}</dd>
+            </>
+          ) : null}
+          {person.marriedSurname ? (
+            <>
+              <dt>{t('person.marriedSurname')}</dt>
+              <dd>{person.marriedSurname}</dd>
+            </>
+          ) : null}
           <dt>{t('person.born')}</dt>
           <dd>{formatDate(person.birth) || t('person.notRecorded')}</dd>
           <dt>{person.deceased ? t('person.died') : t('person.status')}</dt>
@@ -216,7 +229,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                   <PersonLink person={parent} label={parentLabel(kind, adoptedPerson, parent.gender)} />{' '}
                   {admin ? (
                     <ActionButton small onClick={() => setOpen({ kind: 'removeParent', parent })}>
-                      {t('parents.remove', { name: personName(parent) })}
+                      {t('parents.remove', { name: displayName(parent) })}
                     </ActionButton>
                   ) : null}
                 </li>
@@ -363,6 +376,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         <EditUnionDialog
           union={open.union}
           names={[nameOf(open.union.partnerIds[0]), nameOf(open.union.partnerIds[1])]}
+          partners={open.union.partnerIds.map((id) => people.get(id))}
           onClose={close}
         />
       ) : null}

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import { LINK_KINDS } from '@kinship/shared';
 import type { AuthUser, Gender, LinkKind, MessageKey, Person, PersonDetail, TreeResponse } from '@kinship/shared';
 import { useState } from 'react';
@@ -15,7 +16,7 @@ import { emptyDateDraft, draftToInput } from '../lib/dates.js';
 import type { DateDraft } from '../lib/dates.js';
 import { errorMessage, warningTexts } from '../lib/errors.js';
 import { statusName } from '../lib/labels.js';
-import { lifespan, parentIdsOf, peopleById, personName } from '../lib/people.js';
+import { lifespan, parentIdsOf, peopleById } from '../lib/people.js';
 import { useNotices } from '../notices.js';
 import { CreatedButNotLinked, createThenLink, linkParents, newPartnerLink, sortedPair } from './relatives.js';
 import type { Added } from './relatives.js';
@@ -23,7 +24,7 @@ import { isAdmin } from './permissions.js';
 import { checkPersonDraft, emptyPersonDraft, PersonFields } from './PersonForm.js';
 import type { PersonDraft } from './PersonForm.js';
 import { usePersonDetail, useRefreshPeople } from './queries.js';
-import { checkUnionDraft, emptyUnionDraft, UnionFields } from './UnionForm.js';
+import { asksMarriedSurname, checkUnionDraft, emptyUnionDraft, MarriedSurnames, UnionFields } from './UnionForm.js';
 import type { UnionDraft } from './UnionForm.js';
 
 export type RelativeKind = 'father' | 'mother' | 'brother' | 'sister' | 'partner' | 'son' | 'daughter';
@@ -102,7 +103,7 @@ export function AddRelativeDialog({ detail, tree, me, onClose }: Context & { onC
       <Dialog
         title={t('addRelative.formTitle', {
           relative: t(`addRelative.relative.${kind}` as MessageKey),
-          name: personName(person),
+          name: displayName(person),
         })}
         onClose={onClose}
       >
@@ -112,7 +113,7 @@ export function AddRelativeDialog({ detail, tree, me, onClose }: Context & { onC
   }
 
   return (
-    <Dialog title={t('addRelative.title', { name: personName(person) })} onClose={onClose} full>
+    <Dialog title={t('addRelative.title', { name: displayName(person) })} onClose={onClose} full>
       <div className="arstage">
         {parentCards.length > 0 ? (
           <div className="arrow parents" data-testid="ar-parents">
@@ -126,8 +127,8 @@ export function AddRelativeDialog({ detail, tree, me, onClose }: Context & { onC
             <RelativeCard kind="brother" disabledReason={siblingReason} onPick={setKind} />
             <RelativeCard kind="sister" disabledReason={siblingReason} onPick={setKind} />
           </div>
-          <div className="arself" aria-label={personName(person)}>
-            <b>{personName(person)}</b>
+          <div className="arself" aria-label={displayName(person)}>
+            <b>{displayName(person)}</b>
             <small>{lifespan(person)}</small>
           </div>
           <div className="arcol">
@@ -190,6 +191,8 @@ function RelativeForm({
   const [draft, setDraft] = useState<PersonDraft>(emptyPersonDraft(GENDER_OF[kind]));
   const [existing, setExisting] = useState<Person | null>(null);
   const [union, setUnion] = useState<UnionDraft>(emptyUnionDraft());
+  // The person's own married surname, asked for next to a Married or Widowed partner (when they may be changed).
+  const [ownMarried, setOwnMarried] = useState(person.marriedSurname ?? '');
   // The other parent of a new child: a relationship id, or '' for "not on the tree".
   const [otherParent, setOtherParent] = useState(detail.unions[0]?.id ?? '');
   const [chosenUnion, setChosenUnion] = useState('');
@@ -250,13 +253,22 @@ function RelativeForm({
     if (isPartner) {
       if (!unionChecked.ok) return null;
       const link = { status: union.status, start: unionChecked.start, end: unionChecked.end };
+      const saveOwnSurname = async () => {
+        const next = ownMarried.trim();
+        if (detail.permissions.edit && asksMarriedSurname(union.status) && next !== (person.marriedSurname ?? '')) {
+          await api.updatePerson(person.id, { marriedSurname: next || null });
+        }
+      };
       if (useExisting) {
         if (!existing) return null;
         await api.createUnion({ ...link, partnerIds: sortedPair(person.id, existing.id) });
+        await saveOwnSurname();
         return { person: existing, warnings: [] };
       }
       if (!input) return null;
-      return createThenLink(input, newPartnerLink(person.id, link));
+      const added = await createThenLink(input, newPartnerLink(person.id, link));
+      await saveOwnSurname();
+      return added;
     }
     // A brother or sister: a new person with the same parents.
     if (!input || linkInput === undefined) return null;
@@ -276,7 +288,7 @@ function RelativeForm({
       if (!added) return;
       await refresh();
       for (const text of warningTexts(added.warnings)) notify('warning', text);
-      notify('success', t('notice.addedRelative', { name: personName(added.person) }));
+      notify('success', t('notice.addedRelative', { name: displayName(added.person) }));
       onDone();
     } catch (caught) {
       setError(caught);
@@ -289,7 +301,7 @@ function RelativeForm({
 
   const partnerNames = (id: string) => {
     const other = detail.unions.find((u) => u.id === id)?.partnerIds.find((p) => p !== person.id);
-    return other ? (people.get(other) ? personName(people.get(other) as Person) : '') : '';
+    return other ? (people.get(other) ? displayName(people.get(other) as Person) : '') : '';
   };
 
   return (
@@ -348,7 +360,13 @@ function RelativeForm({
           ) : null}
         </>
       ) : (
-        <PersonFields draft={draft} onChange={setDraft} showErrors={submitted} problems={problems} />
+        <PersonFields
+          draft={draft}
+          onChange={setDraft}
+          showErrors={submitted}
+          problems={problems}
+          showMarriedSurname={isPartner && asksMarriedSurname(union.status)}
+        />
       )}
 
       {isChild ? (
@@ -371,6 +389,13 @@ function RelativeForm({
       ) : null}
 
       {isPartner ? <UnionFields draft={union} onChange={setUnion} showErrors={submitted} /> : null}
+      {isPartner && detail.permissions.edit ? (
+        <MarriedSurnames
+          status={union.status}
+          partners={[{ id: person.id, name: displayName(person), value: ownMarried }]}
+          onChange={(_id, value) => setOwnMarried(value)}
+        />
+      ) : null}
 
       {needsUnionChoice ? (
         <SelectField
@@ -400,7 +425,7 @@ function RelativeForm({
 
       {error instanceof CreatedButNotLinked ? (
         <div className="alert" role="alert">
-          {t('addRelative.notLinked', { name: personName(error.person) })}{' '}
+          {t('addRelative.notLinked', { name: displayName(error.person) })}{' '}
           <Link to={`/people/${error.person.id}`} onClick={onDone}>
             {t('addRelative.openProfile')}
           </Link>

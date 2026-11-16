@@ -2,10 +2,10 @@
 //
 // What the Family tree chart does with a tree response besides drawing it: the "family view" of a person
 // (the view the spouse's-family leaf flips to) and what each leaf does when it is clicked.
+import { displayName, displaySurname } from '@kinship/shared';
 import type { LineageView, LinkKind, Parentage, Person, TreePerson, TreeResponse } from '@kinship/shared';
 import { t } from '../i18n.js';
 import { formatYear } from '../lib/dates.js';
-import { personName } from '../lib/people.js';
 
 /** The people a parentage points at (a relationship's two partners, or the single parent). */
 export function parentsIn(tree: Pick<TreeResponse, 'unions'>, link: Parentage | undefined): string[] {
@@ -159,7 +159,7 @@ export function leafLabel(person: Pick<Person, 'givenName' | 'surname'>, count: 
 
 /** "Marcus Hale, born 1988, male" for screen readers and tooltips. */
 export function nodeLabel(person: Person): string {
-  const parts: string[] = [personName(person)];
+  const parts: string[] = [displayName(person)];
   const born = formatYear(person.birth);
   const died = formatYear(person.death);
   if (born) parts.push(t('tree.node.born', { year: born }));
@@ -168,9 +168,9 @@ export function nodeLabel(person: Person): string {
   return parts.join(t('tree.node.separator'));
 }
 
-export function initials(person: Pick<Person, 'givenName' | 'surname'>): string {
+export function initials(person: Pick<Person, 'givenName' | 'surname' | 'secondSurname' | 'marriedSurname'>): string {
   const first = Array.from(person.givenName.trim())[0] ?? '';
-  const last = Array.from(person.surname.trim())[0] ?? '';
+  const last = Array.from(displaySurname(person).trim())[0] ?? '';
   return `${first}${last}`.toUpperCase();
 }
 

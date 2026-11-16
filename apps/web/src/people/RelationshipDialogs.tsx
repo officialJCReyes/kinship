@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { Person, UnionWithChildren } from '@kinship/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -9,10 +10,12 @@ import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
 import { t } from '../i18n.js';
 import { errorMessage } from '../lib/errors.js';
-import { personName } from '../lib/people.js';
+
+import { useSession } from '../auth.js';
 import { useNotices } from '../notices.js';
 import { useRefreshPeople } from './queries.js';
-import { checkUnionDraft, draftFromUnion, UnionFields } from './UnionForm.js';
+import { asksMarriedSurname, checkUnionDraft, draftFromUnion, MarriedSurnames, UnionFields } from './UnionForm.js';
+import { isAdmin } from './permissions.js';
 
 function FormError({ error }: { error: unknown }) {
   return error ? (
@@ -26,17 +29,38 @@ function FormError({ error }: { error: unknown }) {
 export function EditUnionDialog({
   union,
   names,
+  partners,
   onClose,
 }: {
   union: UnionWithChildren;
   names: [string, string];
+  /** The two people, so the married surname of each one the signed-in account may change can be edited here. */
+  partners?: Array<Person | undefined>;
   onClose: () => void;
 }) {
   const refresh = useRefreshPeople();
+  const me = useSession(false).data?.user;
   const [draft, setDraft] = useState(draftFromUnion(union));
   const [submitted, setSubmitted] = useState(false);
+  // An admin may change either partner; anyone else only their own person (the API checks again).
+  const editable = (partners ?? []).filter(
+    (p): p is Person => p !== undefined && (isAdmin(me) || (me?.personId ?? null) === p.id),
+  );
+  const [married, setMarried] = useState<Record<string, string>>(() =>
+    Object.fromEntries(editable.map((p) => [p.id, p.marriedSurname ?? ''])),
+  );
   const save = useMutation({
-    mutationFn: (patch: Parameters<typeof api.updateUnion>[1]) => api.updateUnion(union.id, patch),
+    mutationFn: async (patch: Parameters<typeof api.updateUnion>[1]) => {
+      const result = await api.updateUnion(union.id, patch);
+      // Married surnames are person data: saved only while the status asks for them, and only when changed.
+      if (asksMarriedSurname(patch.status ?? union.status)) {
+        for (const p of editable) {
+          const next = (married[p.id] ?? '').trim();
+          if (next !== (p.marriedSurname ?? '')) await api.updatePerson(p.id, { marriedSurname: next || null });
+        }
+      }
+      return result;
+    },
   });
   const checked = checkUnionDraft(draft);
   const onSubmit = async (event: FormEvent) => {
@@ -46,14 +70,19 @@ export function EditUnionDialog({
     const result = await save
       .mutateAsync({ status: draft.status, start: checked.start, end: checked.end })
       .catch(() => null);
-    if (!result) return;
     await refresh();
+    if (!result) return;
     onClose();
   };
   return (
     <Dialog title={t('union.editTitle', { a: names[0], b: names[1] })} onClose={onClose}>
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
         <UnionFields draft={draft} onChange={setDraft} showErrors={submitted} />
+        <MarriedSurnames
+          status={draft.status}
+          partners={editable.map((p) => ({ id: p.id, name: displayName(p), value: married[p.id] ?? '' }))}
+          onChange={(id, value) => setMarried({ ...married, [id]: value })}
+        />
         <FormError error={save.error} />
         <div className="actions">
           <ActionButton onClick={onClose}>{t('common.cancel')}</ActionButton>
@@ -117,7 +146,7 @@ export function DeletePersonDialog({ person, onClose }: { person: Person; onClos
     remove.mutate(confirm, {
       onSuccess: async () => {
         await refresh();
-        notify('success', t('notice.deleted', { name: personName(person) }));
+        notify('success', t('notice.deleted', { name: displayName(person) }));
         onClose();
         void navigate('/people');
       },
@@ -131,7 +160,7 @@ export function DeletePersonDialog({ person, onClose }: { person: Person; onClos
   const showError = remove.isError && !counts;
 
   return (
-    <Dialog title={t('delete.title', { name: personName(person) })} onClose={onClose}>
+    <Dialog title={t('delete.title', { name: displayName(person) })} onClose={onClose}>
       {counts ? (
         <>
           <p role="alert">{t('delete.confirmCounts', { unions: counts.unions, children: counts.children })}</p>

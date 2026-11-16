@@ -23,6 +23,7 @@
 //  - A very wide set of siblings does not wrap.
 //  - There is no crossing minimisation beyond keeping partners adjacent, siblings contiguous and children in
 //    birth order. It is "good enough", not crossing-free.
+import { displayName } from '@kinship/shared';
 import type { Parentage, TreePerson, Union, UnionStatus } from '@kinship/shared';
 
 export const NODE_W = 184;
@@ -41,7 +42,10 @@ export const MARGIN = 40;
 /** What the layout needs from a tree response. */
 export interface LayoutInput {
   focalId: string;
-  people: ReadonlyArray<Pick<TreePerson, 'id' | 'givenName' | 'surname' | 'birth'>>;
+  people: ReadonlyArray<
+    Pick<TreePerson, 'id' | 'givenName' | 'surname' | 'birth'> &
+      Partial<Pick<TreePerson, 'secondSurname' | 'marriedSurname'>>
+  >;
   unions: ReadonlyArray<Pick<Union, 'id' | 'partnerIds' | 'status' | 'start'>>;
   parentage: Readonly<Record<string, Parentage>>;
 }
@@ -219,7 +223,7 @@ export function layoutTree(input: LayoutInput): Layout {
   const birthOf = (id: string) => birthKey(people.get(id)?.birth?.value);
   const nameOf = (id: string) => {
     const p = people.get(id);
-    return p ? `${p.givenName} ${p.surname}` : '';
+    return p ? displayName(p) : '';
   };
   const byBirth = (a: string, b: string) =>
     compareBirth(birthOf(a), birthOf(b)) || nameOf(a).localeCompare(nameOf(b)) || (a < b ? -1 : a > b ? 1 : 0);

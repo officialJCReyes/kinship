@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { Person } from '@kinship/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -9,7 +10,7 @@ import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
 import { t } from '../i18n.js';
 import { errorMessage, warningTexts } from '../lib/errors.js';
-import { personName } from '../lib/people.js';
+
 import { useNotices } from '../notices.js';
 import { checkPersonDraft, draftFromPerson, emptyPersonDraft, PersonFields } from './PersonForm.js';
 import type { PersonDraft } from './PersonForm.js';
@@ -45,7 +46,7 @@ function PersonFormDialog({ title, initial, submitLabel, onClose, run, error, pe
   return (
     <Dialog title={title} onClose={onClose}>
       <form onSubmit={onSubmit} noValidate>
-        <PersonFields draft={draft} onChange={setDraft} showErrors={submitted} problems={problems} />
+        <PersonFields draft={draft} onChange={setDraft} showErrors={submitted} problems={problems} showMarriedSurname />
         <FormError error={error} />
         <div className="actions">
           <ActionButton onClick={onClose}>{t('common.cancel')}</ActionButton>
@@ -67,7 +68,7 @@ export function EditPersonDialog({ person, onClose }: { person: Person; onClose:
   });
   return (
     <PersonFormDialog
-      title={t('edit.title', { name: personName(person) })}
+      title={t('edit.title', { name: displayName(person) })}
       initial={draftFromPerson(person)}
       submitLabel={t('common.save')}
       onClose={onClose}
@@ -103,7 +104,7 @@ export function AddPersonDialog({ onClose }: { onClose: () => void }) {
         if (!result) return;
         await refresh();
         for (const text of warningTexts(result.warnings)) notify('warning', text);
-        notify('success', t('notice.added', { name: personName(result.person) }));
+        notify('success', t('notice.added', { name: displayName(result.person) }));
         onClose();
         void navigate(`/people/${result.person.id}`);
       }}

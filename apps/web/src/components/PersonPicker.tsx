@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { Person } from '@kinship/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import * as api from '../api.js';
 import { t } from '../i18n.js';
-import { lifespan, personName } from '../lib/people.js';
+import { lifespan } from '../lib/people.js';
 import { useDebounced } from '../lib/useDebounced.js';
 import { peopleKey } from '../people/queries.js';
 
@@ -38,7 +39,7 @@ export function PersonPicker({ label, value, onChange, excludeIds = [] }: Person
         <span className="label">{label}</span>
         <div className="picked">
           <span>
-            {personName(value)} <span className="muted">{lifespan(value)}</span>
+            {displayName(value)} <span className="muted">{lifespan(value)}</span>
           </span>
           <button
             className="button small"
@@ -109,7 +110,7 @@ export function PersonPicker({ label, value, onChange, excludeIds = [] }: Person
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => choose(person)}
           >
-            {personName(person)} <span className="muted">{lifespan(person)}</span>
+            {displayName(person)} <span className="muted">{lifespan(person)}</span>
           </li>
         ))}
       </ul>

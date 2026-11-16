@@ -19,7 +19,7 @@ test('add a partner with a status and a date', async ({ adminPage: page }) => {
   await page.getByRole('button', { name: /^Add partner/ }).click();
   const dialog = page.getByRole('dialog', { name: `Add partner to ${named('Daniel')}` });
   await dialog.getByLabel('Given name').fill('Elena');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Gender').selectOption('female');
   await dialog.getByLabel('Relationship status').selectOption('married');
   await dialog.getByLabel('Marriage or start date', { exact: true }).fill('1985-05');
@@ -39,7 +39,7 @@ test('add a child with that partner as the other parent', async ({ adminPage: pa
   await page.getByRole('button', { name: 'Add son' }).click();
   const dialog = page.getByRole('dialog', { name: `Add son to ${named('Daniel')}` });
   await dialog.getByLabel('Given name').fill('Marcus');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await expect(dialog.getByLabel('Other parent')).toHaveValue(/.+/); // the partner is chosen already
   await expect(dialog.getByRole('option', { name: `${named('Elena')} (Married)` })).toBeAttached();
   await dialog.getByRole('button', { name: 'Save' }).click();
@@ -54,7 +54,7 @@ test('add a child whose other parent is not on the tree', async ({ adminPage: pa
   await page.getByRole('button', { name: 'Add daughter' }).click();
   const dialog = page.getByRole('dialog', { name: `Add daughter to ${named('Daniel')}` });
   await dialog.getByLabel('Given name').fill('Carla');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Other parent').selectOption({ label: 'The other parent is not on the tree' });
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
@@ -77,7 +77,7 @@ test('a second parent who is not linked gets a relationship with status Unknown'
   await expect(dialog.getByRole('radio', { name: 'Birth' })).toBeChecked();
   await expect(dialog.getByText(/a relationship with status Unknown will be created/)).toBeVisible();
   await dialog.getByLabel('Given name').fill('Priya');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
   const parents = page.getByRole('heading', { name: 'Parents' }).locator('..');
@@ -100,7 +100,7 @@ test('add a sibling, and tell full siblings from half-siblings', async ({ adminP
   await page.getByRole('button', { name: 'Add sister' }).click();
   const dialog = page.getByRole('dialog', { name: `Add sister to ${named('Marcus')}` });
   await dialog.getByLabel('Given name').fill('Sofia');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
 
