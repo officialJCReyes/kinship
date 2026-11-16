@@ -44,7 +44,18 @@ test('setup creates the tree, signs in and opens you; then sign out, sign in and
 }) => {
   await fillAccount(page);
   await page.getByRole('button', { name: 'Next' }).click();
+  // Partner, Parents and Children can each be skipped.
+  for (const title of ['Add your spouse or partner', 'Add your parents', 'Add your children']) {
+    await expect(page.getByRole('heading', { name: title })).toBeVisible();
+    await page.getByRole('button', { name: 'Skip this step' }).click();
+  }
   await expect(page.getByRole('heading', { name: 'Check your tree' })).toBeVisible();
+  // The update-check note (it names Admin → Updates, which arrives in step 17).
+  await expect(
+    page.getByText(
+      'Once a day KinShip reads the public release list on GitHub and tells the SuperAdmin when a new version is out. It sends nothing about your install. Turn it off any time in Admin → Updates.',
+    ),
+  ).toBeVisible();
   await page.getByRole('button', { name: 'Create my tree' }).click();
 
   // Setup signs the new SuperAdmin in and opens their own place on the tree.
