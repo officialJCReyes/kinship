@@ -79,6 +79,8 @@ export const en = {
   'error.union_not_found': 'That relationship was not found.',
   'error.invalid_given_name': 'Enter a given name (up to 100 characters).',
   'error.invalid_surname': 'Enter a surname (up to 100 characters).',
+  'error.invalid_second_surname': 'A second surname can be up to 100 characters, or left empty.',
+  'error.invalid_married_surname': 'A married surname can be up to 100 characters, or left empty.',
   'error.invalid_gender': 'Choose male, female or other, or leave gender empty.',
   'error.invalid_date': 'Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.',
   'error.invalid_precision': 'Choose exactly, about, before or after.',

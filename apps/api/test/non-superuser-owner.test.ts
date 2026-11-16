@@ -178,6 +178,52 @@ describe('migrations and flows run as a role that is not a superuser', () => {
     expect((await asMember('PATCH', `/api/people/${sofia}`, { surname: 'Hale-Ruiz' })).statusCode).toBe(200);
     expect((await asMember('POST', '/api/people', { givenName: 'No', surname: 'Way' })).statusCode).toBe(403);
   });
+
+  it('sets and reverts Widowed from a Member marking their descendant deceased, in a relationship the Member is not in', async () => {
+    const adminCookie = cookieHeader(await login(app, 'marcus@example.com'));
+    const memberCookie = cookieHeader(await login(app, 'member@example.com'));
+    const call = async (cookie: string, method: 'GET' | 'POST' | 'PATCH', url: string, payload?: unknown) => {
+      const r = await app.inject({
+        method,
+        url,
+        headers: { ...CSRF, cookie },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+      return r.json() as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    };
+    const sofia = (await call(memberCookie, 'GET', '/api/auth/me')).user.personId as string;
+    const kid = (
+      await call(memberCookie, 'POST', `/api/people/${sofia}/children`, {
+        child: { givenName: 'Widow', surname: 'Test' },
+      })
+    ).person.id as string;
+    const spouse = (await call(adminCookie, 'POST', '/api/people', { givenName: 'Out', surname: 'Law' })).person
+      .id as string;
+    const union = (await call(adminCookie, 'POST', '/api/unions', { partnerIds: [kid, spouse], status: 'married' }))
+      .union.id as string;
+    // The Member cannot edit that relationship: it does not include them.
+    expect(
+      (
+        await app.inject({
+          method: 'PATCH',
+          url: `/api/unions/${union}`,
+          headers: { ...CSRF, cookie: memberCookie },
+          payload: { status: 'divorced' },
+        })
+      ).statusCode,
+    ).toBe(403);
+
+    await call(memberCookie, 'PATCH', `/api/people/${kid}`, { deceased: true });
+    expect((await call(adminCookie, 'GET', `/api/unions/${union}`)).union).toMatchObject({
+      status: 'widowed',
+      statusAuto: true,
+    });
+    await call(memberCookie, 'PATCH', `/api/people/${kid}`, { deceased: false });
+    expect((await call(adminCookie, 'GET', `/api/unions/${union}`)).union).toMatchObject({
+      status: 'married',
+      statusAuto: false,
+    });
+  });
 });
 
 describe('why row-level security is not forced on users and family_tree', () => {

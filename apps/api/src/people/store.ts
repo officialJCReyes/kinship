@@ -28,6 +28,8 @@ export const PERSON_COLUMNS = [
   'id',
   'given_name',
   'surname',
+  'second_surname',
+  'married_surname',
   'gender',
   'birth_date',
   'birth_precision',
@@ -49,6 +51,7 @@ export const UNION_COLUMNS = [
   'start_precision',
   'end_date',
   'end_precision',
+  'status_auto',
   'created_at',
   'updated_at',
 ] as const;
@@ -59,6 +62,8 @@ export function toPerson(row: PersonRow): Person {
     id: row.id,
     givenName: row.given_name,
     surname: row.surname,
+    secondSurname: row.second_surname,
+    marriedSurname: row.married_surname,
     gender: row.gender,
     birth: toPartialDate(row.birth_date, row.birth_precision),
     deceased: row.deceased,
@@ -75,6 +80,7 @@ export function toUnion(row: UnionRow): Union {
     status: row.status,
     start: toPartialDate(row.start_date, row.start_precision),
     end: toPartialDate(row.end_date, row.end_precision),
+    statusAuto: row.status_auto,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -91,6 +97,8 @@ export function getPerson(trx: Trx, id: string): Promise<PersonRow | undefined> 
 export interface PersonValues {
   given_name: string;
   surname: string;
+  second_surname: string | null;
+  married_surname: string | null;
   gender: 'male' | 'female' | 'other' | null;
   birth_date: string | null;
   birth_precision: PartialDate['precision'];
@@ -119,7 +127,7 @@ export interface PeopleQuery {
   /** Words from the search box. Every word has to match, ignoring case and accents. */
   words: string[];
   limit: number;
-  after: { surname: string; givenName: string; id: string } | undefined;
+  after: { surname: string; secondSurname: string; givenName: string; id: string } | undefined;
 }
 
 /** `%`, `_` and `\` mean something to LIKE; a name search treats them as plain characters. */
@@ -128,14 +136,17 @@ const likeEscape = (word: string): string => word.replace(/[\\%_]/g, (c) => `\\$
 export async function listPeople(trx: Trx, query: PeopleQuery): Promise<{ rows: PersonRow[]; hasMore: boolean }> {
   let q = trx.selectFrom('people').select(PERSON_COLUMNS);
   for (const word of query.words) {
-    q = q.where(sql<boolean>`search_name like ${'%' + likeEscape(word) + '%'} escape '\\'`);
+    q = q.where(sql<boolean>`search_names like ${'%' + likeEscape(word) + '%'} escape '\\'`);
   }
   if (query.after) {
-    const { surname, givenName, id } = query.after;
-    q = q.where(sql<boolean>`(surname, given_name, id) > (${surname}, ${givenName}, ${id}::uuid)`);
+    const { surname, secondSurname, givenName, id } = query.after;
+    q = q.where(
+      sql<boolean>`(surname, coalesce(second_surname, ''), given_name, id) > (${surname}, ${secondSurname}, ${givenName}, ${id}::uuid)`,
+    );
   }
   const rows = await q
     .orderBy('surname')
+    .orderBy(sql`coalesce(second_surname, '')`)
     .orderBy('given_name')
     .orderBy('id')
     .limit(query.limit + 1)
@@ -152,25 +163,38 @@ export async function normalizeSearchWords(trx: Trx, q: string): Promise<string[
   return result.rows.map((r) => r.w);
 }
 
-export function encodeCursor(row: { surname: string; given_name: string; id: string }): string {
-  return Buffer.from(JSON.stringify([row.surname, row.given_name, row.id]), 'utf8').toString('base64url');
+export function encodeCursor(row: {
+  surname: string;
+  second_surname: string | null;
+  given_name: string;
+  id: string;
+}): string {
+  return Buffer.from(JSON.stringify([row.surname, row.second_surname ?? '', row.given_name, row.id]), 'utf8').toString(
+    'base64url',
+  );
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: string): boolean => UUID.test(value);
 
-export function decodeCursor(cursor: string): { surname: string; givenName: string; id: string } {
+export function decodeCursor(cursor: string): {
+  surname: string;
+  secondSurname: string;
+  givenName: string;
+  id: string;
+} {
   try {
     const parsed: unknown = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
     if (
       Array.isArray(parsed) &&
-      parsed.length === 3 &&
+      parsed.length === 4 &&
       typeof parsed[0] === 'string' &&
       typeof parsed[1] === 'string' &&
       typeof parsed[2] === 'string' &&
-      isUuid(parsed[2])
+      typeof parsed[3] === 'string' &&
+      isUuid(parsed[3])
     ) {
-      return { surname: parsed[0], givenName: parsed[1], id: parsed[2] };
+      return { surname: parsed[0], secondSurname: parsed[1], givenName: parsed[2], id: parsed[3] };
     }
   } catch {
     // fall through

@@ -64,6 +64,8 @@ const peopleColumns = [
   'id',
   'given_name',
   'surname',
+  'second_surname',
+  'married_surname',
   'gender',
   'birth_date',
   'birth_precision',
@@ -71,6 +73,7 @@ const peopleColumns = [
   'death_date',
   'death_precision',
   'search_name',
+  'search_names',
   'created_by',
   'created_at',
   'updated_at',
@@ -84,6 +87,7 @@ const unionColumns = [
   'start_precision',
   'end_date',
   'end_precision',
+  'status_auto',
   'created_by',
   'created_at',
   'updated_at',
@@ -124,7 +128,7 @@ describe('database types', () => {
       await sql<{ column_name: string }>`
         select column_name from information_schema.columns
          where table_schema = 'public' and table_name = ${table} and column_name <> 'password_hash'
-           and not (is_generated = 'ALWAYS' and column_name <> 'search_name')
+           and not (is_generated = 'ALWAYS' and column_name not in ('search_name', 'search_names'))
          order by column_name`.execute(t.owner)
     ).rows.map((r) => r.column_name);
 
