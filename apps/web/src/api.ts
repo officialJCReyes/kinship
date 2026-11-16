@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { CSRF_HEADER, CSRF_VALUE } from '@kinship/shared';
 import type {
+  AccountsResponse,
   AddChildRequest,
   AddParentRequest,
   ApiErrorCode,
   ApiHealth,
   ApiVersion,
   ChildResponse,
+  InvitationInput,
+  LinkCreated,
   LabelInput,
   LabelPatch,
   LabelResponse,
@@ -272,4 +275,39 @@ export async function updateParentLink(
   const reply = await send('PATCH', path, request);
   if (!succeeded(reply)) fail(path, reply);
   return reply.body as ParentageResponse;
+}
+
+// --- Admin: accounts, invitations and set-password links. Every path here is in ACCOUNT_ROUTES (a test checks it). ---
+
+export async function fetchAccounts(signal?: AbortSignal): Promise<AccountsResponse> {
+  const reply = await send('GET', '/api/admin/accounts', undefined, signal);
+  if (reply.status !== 200) fail('/api/admin/accounts', reply);
+  return reply.body as AccountsResponse;
+}
+
+/** The only answers that carry a link token. Callers keep them in component state only, never in a cache. */
+export async function createInvitation(input: InvitationInput): Promise<LinkCreated> {
+  const reply = await send('POST', '/api/admin/invitations', input);
+  if (reply.status !== 201) fail('/api/admin/invitations', reply);
+  return reply.body as LinkCreated;
+}
+
+export async function regenerateLink(linkId: string): Promise<LinkCreated> {
+  const path = `/api/admin/links/${encodeURIComponent(linkId)}/regenerate`;
+  const reply = await send('POST', path, {});
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as LinkCreated;
+}
+
+export async function revokeLink(linkId: string): Promise<void> {
+  const path = `/api/admin/links/${encodeURIComponent(linkId)}/revoke`;
+  const reply = await send('POST', path, {});
+  if (reply.status !== 204) fail(path, reply);
+}
+
+export async function createSetPasswordLink(accountId: string): Promise<LinkCreated> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/set-password-link`;
+  const reply = await send('POST', path, {});
+  if (reply.status !== 201) fail(path, reply);
+  return reply.body as LinkCreated;
 }

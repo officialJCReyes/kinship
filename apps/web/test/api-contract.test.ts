@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { CSRF_HEADER, PEOPLE_ROUTES } from '@kinship/shared';
+import { ACCOUNT_ROUTES, CSRF_HEADER, PEOPLE_ROUTES } from '@kinship/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../src/api.js';
 
@@ -12,7 +12,7 @@ function matches(route: { method: string; path: string }, method: string, path: 
 }
 
 describe('the web API client and the shared route table', () => {
-  it('only calls routes that exist in PEOPLE_ROUTES, and sends the CSRF header on every change', async () => {
+  it('only calls routes that exist in PEOPLE_ROUTES and ACCOUNT_ROUTES, and sends the CSRF header on every change', async () => {
     const seen: { method: string; path: string; csrf: boolean }[] = [];
     vi.stubGlobal(
       'fetch',
@@ -42,11 +42,17 @@ describe('the web API client and the shared route table', () => {
     await api.createUnion({ partnerIds: ['a', 'b'], status: 'married' });
     await api.updateUnion('u1', { status: 'divorced' });
     await api.deleteUnion('u1');
+    await api.fetchAccounts();
+    // The stub answers 200 to everything; these three expect 201 or 204, so the failure is ignored: only the call is checked.
+    await api.createInvitation({ email: 'a@b.cc', role: 'user' }).catch(() => undefined);
+    await api.regenerateLink('l1');
+    await api.revokeLink('l1').catch(() => undefined);
+    await api.createSetPasswordLink('u1').catch(() => undefined);
 
-    expect(seen).toHaveLength(13);
+    expect(seen).toHaveLength(18);
     for (const call of seen) {
       expect(
-        PEOPLE_ROUTES.some((route) => matches(route, call.method, call.path)),
+        [...PEOPLE_ROUTES, ...ACCOUNT_ROUTES].some((route) => matches(route, call.method, call.path)),
         `${call.method} ${call.path}`,
       ).toBe(true);
       if (call.method !== 'GET') expect(call.csrf, `${call.method} ${call.path}`).toBe(true);

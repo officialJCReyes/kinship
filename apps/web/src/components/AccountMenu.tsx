@@ -5,6 +5,7 @@ import type { KeyboardEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useLogout } from '../auth.js';
 import { t } from '../i18n.js';
+import { isAdmin } from '../people/permissions.js';
 
 function initialsOf(name: string): string {
   const letters = name
@@ -15,7 +16,7 @@ function initialsOf(name: string): string {
 }
 
 /**
- * The account menu: My profile (only when the account is linked to a person), My settings, About KinShip and Sign out.
+ * The account menu: My profile (only when the account is linked to a person), My settings, Admin (admins only), About KinShip and Sign out.
  * A button that opens a menu; arrow keys move, Home and End jump, Escape closes and gives the focus back, Tab and a click
  * outside close it.
  */
@@ -102,6 +103,11 @@ export function AccountMenu({ user }: { user: AuthUser }) {
           <Link role="menuitem" className="menu-item" to="/settings">
             {t('account.menu.settings')}
           </Link>
+          {isAdmin(user) ? (
+            <Link role="menuitem" className="menu-item" to="/admin">
+              {t('account.menu.admin')}
+            </Link>
+          ) : null}
           <Link role="menuitem" className="menu-item" to="/about">
             {t('account.menu.about')}
           </Link>
