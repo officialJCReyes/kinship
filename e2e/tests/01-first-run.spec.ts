@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Journey 1: a fresh install. The first test only looks at the setup form (so it does not use up the
 // one-time token); the second finishes setup; the rest run on the installed stack.
-import { expect, test } from '@playwright/test';
-import { insertTestAccount } from '../support/stack.js';
+import { createAccount } from '../support/accounts.js';
 import { ADMIN, password, uniq } from '../support/data.js';
+import { expect, test } from '../support/fixtures.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -61,14 +61,15 @@ test('setup with the You names, then sign out, sign in and see the linked profil
   await expect(page.getByRole('menuitem', { name: 'My profile' })).toBeVisible();
 });
 
-test('an account that is not linked to a person has no profile to open', async ({ page }) => {
-  const email = `unlinked-${uniq()}@hale.example`;
-  // TEST-ONLY: there is no way to make a second account in the app yet.
-  insertTestAccount({ email, displayName: 'Una Linked', role: 'familyadmin', password: password() });
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password());
-  await page.getByRole('button', { name: 'Sign in' }).click();
+test('an account that is not linked to a person has no profile to open', async ({ page, adminApi }) => {
+  // Invited by the SuperAdmin and accepted over the API; the accepted link signs the account in.
+  const account = await createAccount(adminApi, {
+    email: `unlinked-${uniq()}@hale.example`,
+    role: 'familyadmin',
+    displayName: 'Una Linked',
+  });
+  await page.context().addCookies(account.cookies);
+  await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Welcome, Una Linked' })).toBeVisible();
   await expect(page.getByText('Your account is not linked to a person on the tree yet.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open my profile' })).toHaveCount(0);

@@ -2,12 +2,13 @@
 // Journey 9: My settings. The SuperAdmin chooses Slate blue, Dark, ISO dates and birth names; the page, a profile date and
 // a name follow at once, survive a reload, and show up in a second browser that has never seen the account; a Member's
 // changes never touch the admin's; the login page keeps the look after sign-out. Fictional Hale-style data only.
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { APIRequestContext, Browser, BrowserContext, Page } from '@playwright/test';
 import { createPerson } from '../support/api.js';
 import type { Made } from '../support/api.js';
-import { password, surname, uniq } from '../support/data.js';
+import { surname, uniq } from '../support/data.js';
 import { expect, test } from '../support/fixtures.js';
-import { BASE_URL, insertTestAccount } from '../support/stack.js';
+import { createAccount } from '../support/accounts.js';
+import { BASE_URL } from '../support/stack.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -111,25 +112,27 @@ test('a second browser that has never seen the account gets the same settings fr
   await other.close();
 });
 
-async function signInAsMember(browser: Browser) {
-  const email = `settings-${uniq()}@hale.example`;
-  // TEST-ONLY: there is no way to make a second account in the app yet (invitations are step 14).
-  insertTestAccount({ email, displayName: 'Mara Settings', role: 'member', password: password() });
+async function signInAsMember(browser: Browser, adminApi: APIRequestContext) {
+  // Invited by the admin and accepted over the API; the accepted link signs the account in.
+  const account = await createAccount(adminApi, {
+    email: `settings-${uniq()}@hale.example`,
+    role: 'member',
+    displayName: 'Mara Settings',
+  });
   const context = await browser.newContext({ baseURL: BASE_URL });
+  await context.addCookies(account.cookies);
   const page = await context.newPage();
   await page.addInitScript(RECORD_ATTRIBUTES_AT_DOMCONTENTLOADED);
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password());
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Welcome, Mara Settings' })).toBeVisible();
   return { context, page };
 }
 
 test('a Member changes only their own settings; the admin keeps theirs; the login page keeps the Member’s look after sign-out', async ({
   browser,
+  adminApi,
 }) => {
-  const { context, page } = await signInAsMember(browser);
+  const { context, page } = await signInAsMember(browser, adminApi);
   // A new account starts with the defaults.
   expect((await attributes(page))[0]).toBe('forest');
   await page.getByRole('button', { name: 'Account menu' }).click();

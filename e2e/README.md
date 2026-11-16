@@ -12,7 +12,7 @@ Needs Docker. Rebuild the images after changing the api or the web app: `pnpm --
 
 - `tests/01-first-run.spec.ts` uses the one-time setup token from the api log, like a real first run; every other file waits for it.
 - Each test makes its own people (random surname), so tests do not depend on each other. `03-relatives` and `05-roles` are one story each and run in order.
-- Members and Users cannot be invited through the app yet (0.2), so `support/stack.ts` has a clearly marked **test-only** helper that inserts them into the database as the owner role.
+- Members, Users and Family Admins are made the way the product does it (`support/accounts.ts`): the SuperAdmin invites them over the API and the helper accepts the link, keeping the new account's session cookie. No SQL, no command line, and no sign-in. `10-invitations` does the same through the screens: invite, copy the link, open it in a second browser, accept, change the password, make a set-password link, and check that no secret reached a server log.
 - Only fictional, Hale-style data. Nothing here is a secret: passwords are made fresh for every run.
 - On a failed CI run the traces, screenshots and the web, api and db logs are uploaded as the `e2e-failure` artifact.
 

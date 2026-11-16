@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { expect, test as base } from '@playwright/test';
-import type { BrowserContext, Locator, Page } from '@playwright/test';
+import { expect, request, test as base } from '@playwright/test';
+import type { APIRequestContext, BrowserContext, Locator, Page } from '@playwright/test';
 import { signIn } from './api.js';
 import { ADMIN, password } from './data.js';
 import { BASE_URL } from './stack.js';
@@ -8,8 +8,12 @@ import { BASE_URL } from './stack.js';
 export { expect };
 
 type Cookies = Parameters<BrowserContext['addCookies']>[0];
+type StorageCookies = Exclude<
+  NonNullable<Parameters<typeof request.newContext>[0]>['storageState'],
+  string | undefined
+>['cookies'];
 
-export const test = base.extend<{ adminPage: Page }, { adminCookies: Cookies }>({
+export const test = base.extend<{ adminPage: Page; adminApi: APIRequestContext }, { adminCookies: Cookies }>({
   /**
    * The SuperAdmin's session cookies, signed in ONCE per worker. The sign-in route allows 30 requests a minute for
    * the whole run, and a sign-in per test used to bring the suite close to that.
@@ -24,6 +28,15 @@ export const test = base.extend<{ adminPage: Page }, { adminCookies: Cookies }>(
     },
     { scope: 'worker' },
   ],
+  /** API calls as the SuperAdmin, with their own cookies (for making accounts, see support/accounts.ts). No extra sign-in. */
+  adminApi: async ({ adminCookies }, use) => {
+    const context = await request.newContext({
+      baseURL: BASE_URL,
+      storageState: { cookies: adminCookies as unknown as StorageCookies, origins: [] },
+    });
+    await use(context);
+    await context.dispose();
+  },
   /** A page signed in as the SuperAdmin made by the first-run journey. */
   adminPage: async ({ page, adminCookies }, use) => {
     await page.context().addCookies(adminCookies);

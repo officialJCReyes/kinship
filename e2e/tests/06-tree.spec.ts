@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Journey 6: the Family tree chart. One family is built through the API (the chart is what is being tested, not
 // the forms), then looked at through the screens.
-import { createChild, createPerson, createUnion, signIn } from '../support/api.js';
+import { createAccount } from '../support/accounts.js';
+import { createChild, createPerson, createUnion } from '../support/api.js';
 import type { Made } from '../support/api.js';
-import { password, surname, uniq } from '../support/data.js';
+import { surname, uniq } from '../support/data.js';
 import { expect, tabTo, test } from '../support/fixtures.js';
-import { insertTestAccount } from '../support/stack.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -150,10 +150,14 @@ test('keyboard: one tab stop, arrows move between people, Enter selects', async 
   await expect.poll(() => page.locator('.tree-canvas > svg > g').getAttribute('transform')).not.toBe(before);
 });
 
-test('an account linked to nobody is asked who to start from', async ({ page }) => {
+test('an account linked to nobody is asked who to start from', async ({ page, adminApi }) => {
   const who = { email: `viewer-${uniq()}@hale.example`, name: 'Vera' };
-  insertTestAccount({ email: who.email, displayName: `${who.name} ${family}`, role: 'member', password: password() });
-  await signIn(page, who.email, password());
+  const account = await createAccount(adminApi, {
+    email: who.email,
+    role: 'member',
+    displayName: `${who.name} ${family}`,
+  });
+  await page.context().addCookies(account.cookies);
   await page.goto('/tree');
   await expect(page.getByRole('heading', { name: 'Choose who to start from' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Starting person' }).fill(`Daniel ${family}`);

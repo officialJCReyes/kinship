@@ -34,9 +34,9 @@ docker compose logs api     # look for "KinShip is not set up yet"
 
 To work on KinShip itself, use the development stack instead: `docker compose -f compose.dev.yml up --build`, then open <http://localhost:5173> (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-## Locked out? Set a new password
+## Inviting people, and locked out?
 
-There is no email yet, so whoever runs the server can set a new password from the command line. It asks for the password twice (nothing is shown) and signs that account out everywhere:
+Admins invite people under **account menu → Admin → Users** by copying a link (see [INSTALL.md](INSTALL.md)); an admin can also make a set-password link for someone who is locked out, and the account shows that an admin set it. A SuperAdmin who is locked out, or anyone when no admin can sign in, uses the command line: there is no email yet, so whoever runs the server can set a new password from the command line. It asks for the password twice (nothing is shown) and signs that account out everywhere:
 
 ```sh
 docker compose exec -it api kinship set-password you@example.com
