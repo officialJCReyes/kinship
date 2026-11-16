@@ -137,20 +137,27 @@ describe('theme-init.js', () => {
 });
 
 describe('how the page loads the script', () => {
-  const html = readFileSync(join(import.meta.dirname, '../index.html'), 'utf8');
-  const head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
+  const page = new DOMParser().parseFromString(
+    readFileSync(join(import.meta.dirname, '../index.html'), 'utf8'),
+    'text/html',
+  );
 
   it('loads it from <head>, synchronously, from the same origin, before the app', () => {
-    const tag = /<script\s+src="\/theme-init\.js"\s*><\/script>/.exec(head);
-    expect(tag, 'a plain <script src="/theme-init.js"> in <head>').not.toBeNull();
-    expect(tag![0]).not.toMatch(/defer|async|type=/);
-    expect(head.indexOf('theme-init.js')).toBeLessThan(html.indexOf('/src/main.tsx'));
+    const tag = page.head.querySelector('script[src="/theme-init.js"]');
+    expect(tag, 'a <script src="/theme-init.js"> in <head>').not.toBeNull();
+    // Plain and blocking: nothing but src, so it runs before the first paint.
+    expect([...tag!.attributes].map((a) => a.name)).toEqual(['src']);
+    const app = page.querySelector('script[type="module"]');
+    expect(app?.getAttribute('src')).toBe('/src/main.tsx');
+    expect(tag!.compareDocumentPosition(app!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('has no inline script anywhere (the CSP allows only same-origin scripts)', () => {
-    for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
-      expect(match[1], 'every script has a src').toMatch(/\bsrc=/);
-      expect(match[2]!.trim(), 'and no body').toBe('');
+    const scripts = [...page.querySelectorAll('script')];
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const script of scripts) {
+      expect(script.getAttribute('src'), 'every script has a src').toMatch(/^\//);
+      expect(script.textContent?.trim(), 'and no body').toBe('');
     }
   });
 });
