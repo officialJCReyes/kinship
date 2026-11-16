@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 import { App } from '../src/App.js';
 
 export type MockReply = { status: number; body?: unknown; text?: string } | 'network-error' | 'never';
-export type MockRoute = MockReply | ((init: RequestInit) => MockReply);
+export type MockRoute = MockReply | ((init: RequestInit, path: string) => MockReply);
 
 export const ALICE = {
   id: 'u1',
@@ -35,8 +35,12 @@ export function mockApi(routes: Record<string, MockRoute>) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => {
     const path = String(input);
     const method = (init.method ?? 'GET').toUpperCase();
-    const route = routes[`${method} ${path}`] ?? routes[path];
-    const reply = typeof route === 'function' ? route(init) : route;
+    // A key ending in * matches any path with that start (for example "GET /api/tree/*").
+    const wildcard = Object.keys(routes).find(
+      (key) => key.endsWith('*') && `${method} ${path}`.startsWith(key.slice(0, -1)),
+    );
+    const route = routes[`${method} ${path}`] ?? routes[path] ?? (wildcard ? routes[wildcard] : undefined);
+    const reply = typeof route === 'function' ? route(init, path) : route;
     if (reply === undefined || reply === 'network-error') return Promise.reject(new TypeError('Failed to fetch'));
     if (reply === 'never') return new Promise<Response>(() => undefined);
     if (reply.status === 204) return Promise.resolve(new Response(null, { status: 204 }));

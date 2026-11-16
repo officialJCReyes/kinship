@@ -115,12 +115,12 @@ describe('errorMessage', () => {
 
 describe('siblingsOf', () => {
   it('separates full siblings from half-siblings', () => {
-    const siblings = siblingsOf(treeFor('marcus'), 'marcus');
+    const siblings = siblingsOf(treeFor('marcus', { up: 1, down: 1, collateral: true }), 'marcus');
     expect(siblings.full.map((p) => p.id)).toEqual(['sofia']);
     expect(siblings.half.map((p) => p.id).sort()).toEqual(['ben', 'carla']);
   });
   it('treats two children of the same single parent as full siblings, and nobody as a sibling without parents', () => {
-    const tree = treeFor('ben');
+    const tree = treeFor('ben', { up: 1, down: 1, collateral: true });
     tree.parentage['x'] = { unionId: null, parentId: 'daniel' };
     tree.people.push({ ...tree.people[0]!, id: 'x', hasParents: true });
     expect(siblingsOf(tree, 'ben').full.map((p) => p.id)).toEqual(['x']);
