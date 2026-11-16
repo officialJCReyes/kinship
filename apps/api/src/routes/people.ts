@@ -96,7 +96,7 @@ const personPatchSchema = {
   properties: personProperties,
 };
 
-function parseGender(raw: unknown): 'male' | 'female' | 'other' | null {
+export function parseGender(raw: unknown): 'male' | 'female' | 'other' | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'string' && (GENDERS as readonly string[]).includes(raw))
     return raw as 'male' | 'female' | 'other';

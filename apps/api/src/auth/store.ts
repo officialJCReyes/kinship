@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { AuthUser, Role } from '@kinship/shared';
+import type { AuthUser, Role, UserSettings } from '@kinship/shared';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
 import type { Database } from '../db.js';
+import type { SetupFamilyRows } from '../people/setup-family.js';
 
 /**
  * Everything the API does with accounts before anyone is signed in goes
@@ -68,6 +69,31 @@ export async function completeSetup(
     ) as id`.execute(db);
   const id = result.rows[0]?.id;
   if (!id) throw new Error('complete_setup returned no user');
+  return id;
+}
+
+/** The wizard's single write: the account, the tree and the family in one transaction (migration 0012, ADR 0013). */
+export async function completeSetupFamily(
+  db: Kysely<Database>,
+  input: {
+    tokenHash: string;
+    email: string;
+    displayName: string;
+    passwordHash: string;
+    treeName: string;
+    /** The account's display settings (already checked); an empty object means the defaults. */
+    settings: Partial<UserSettings>;
+    /** The cleaned family (see people/setup-family.ts). */
+    family: SetupFamilyRows;
+  },
+): Promise<string> {
+  const result = await sql<{ id: string }>`
+    select kinship_auth.complete_setup_family(
+      ${input.tokenHash}, ${input.email}, ${input.displayName}, ${input.passwordHash}, ${input.treeName},
+      ${JSON.stringify(input.settings)}::jsonb, ${JSON.stringify(input.family)}::jsonb
+    ) as id`.execute(db);
+  const id = result.rows[0]?.id;
+  if (!id) throw new Error('complete_setup_family returned no user');
   return id;
 }
 

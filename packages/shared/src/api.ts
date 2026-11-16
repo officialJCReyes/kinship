@@ -2,6 +2,8 @@
 import { ACCOUNT_ERROR_CODES } from './accounts.js';
 import type { PasswordChangeCode } from './accounts.js';
 import { PEOPLE_ERROR_CODES } from './people.js';
+import { SETUP_ERROR_CODES } from './setup.js';
+import type { SetupFamily } from './setup.js';
 import type { ColorScheme, DateFormat, SurnameChoice, Theme, UserSettings } from './settings.js';
 import type { LineageView } from './people.js';
 
@@ -72,6 +74,11 @@ export interface SetupRequest {
   treeName: string;
   /** The first person on the tree, linked to the new account. Both names, or neither. */
   person?: { givenName: string; surname: string };
+  /**
+   * The first-run wizard's family: you, a partner, parents and children, created with the account in one transaction
+   * (ADR 0013). Not allowed together with `person`. An error names the field: `{ error, field: 'family.children.1.birth' }`.
+   */
+  family?: SetupFamily;
   /** The new account's own display settings, for example the color scheme picked in the wizard. Same rules as PATCH /api/auth/me. */
   settings?: Partial<UserSettings>;
 }
@@ -101,6 +108,8 @@ export const API_ERROR_CODES = [
   ...ACCOUNT_ERROR_CODES,
   // People and relationships (see people.ts).
   ...PEOPLE_ERROR_CODES,
+  // The first-run wizard (see setup.ts).
+  ...SETUP_ERROR_CODES,
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
