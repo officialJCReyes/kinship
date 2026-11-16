@@ -5,6 +5,7 @@ import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'rea
 import { useLogout, useSession, useSetupStatus } from './auth.js';
 import { t } from './i18n.js';
 import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
+import { applyTheme } from './lib/theme.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LoginPage } from './pages/LoginPage.js';
@@ -87,6 +88,13 @@ export function App() {
   const surnameChoice = session.data?.user.surnameChoice ?? DEFAULT_DISPLAY.surnameChoice;
   useLayoutEffect(() => setDisplay({ dateFormat, surnameChoice }), [dateFormat, surnameChoice]);
   const display = useDisplay();
+  // The account's color scheme and theme: applied to the page and written to the browser's mirror (signed out, the
+  // mirror from the last visit stays, so the login page keeps the look).
+  const colorScheme = session.data?.user.colorScheme;
+  const theme = session.data?.user.theme;
+  useLayoutEffect(() => {
+    if (colorScheme && theme) applyTheme({ colorScheme, theme });
+  }, [colorScheme, theme]);
   // The tree chart is the one page that fills the window; every other page stays centred at 880 px.
   const fullWidth = /^\/tree\/[^/]+/.test(useLocation().pathname);
   return (
