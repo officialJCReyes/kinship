@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { formatPartialDate } from '@kinship/shared';
 import type { DatePrecision, PartialDate, PartialDateInput } from '@kinship/shared';
+import { getDisplay } from './display.js';
 import { t } from '../i18n.js';
 import type { MessageKey } from '@kinship/shared';
 
@@ -43,18 +45,11 @@ export function draftToInput(draft: DateDraft): PartialDateInput | null | undefi
 }
 
 /**
- * The one place a date becomes text for people to read. Today it is always "March 3, 1955"; the per-user
- * display setting (0.2) changes only this function. A year or a month with a year is shown as typed.
+ * The one place a date becomes text for people to read, in THIS account's date format (My settings). The stored text
+ * is never changed. A bare year stays a year in every format.
  */
 export function formatDate(date: PartialDate | PartialDateInput | null | undefined): string {
-  if (!date) return '';
-  const precision = date.precision ?? 'exactly';
-  const [year, month, day] = date.value.split('-');
-  const monthName = month ? t(`date.month.${Number(month)}` as MessageKey) : '';
-  let text = year ?? '';
-  if (month && !day) text = `${monthName} ${year}`;
-  if (month && day) text = `${monthName} ${Number(day)}, ${year}`;
-  return precision === 'exactly' ? text : t(`date.${precision}` as MessageKey, { date: text });
+  return formatPartialDate(date, getDisplay().dateFormat, t);
 }
 
 /** The birth year (or "about 1955"), for compact lists. */

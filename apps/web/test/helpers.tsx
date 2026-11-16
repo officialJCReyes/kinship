@@ -78,11 +78,12 @@ export const needsSetup: Record<string, MockRoute> = {
 export function renderApp(path: string) {
   // No retries and no caching between tests, so errors show up at once.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return Object.assign(view, { client });
 }

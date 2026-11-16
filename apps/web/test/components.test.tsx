@@ -90,9 +90,9 @@ describe('DateInput', () => {
     render(<DateHost />);
     const input = screen.getByLabelText('Birth date');
     fireEvent.change(input, { target: { value: '1955-03' } });
-    expect(screen.getByText('Reads as: March 1955')).toBeTruthy();
+    expect(screen.getByText('Reads as: Mar 1955')).toBeTruthy();
     fireEvent.change(screen.getByLabelText('How sure: Birth date'), { target: { value: 'about' } });
-    expect(screen.getByText('Reads as: about March 1955')).toBeTruthy();
+    expect(screen.getByText('Reads as: about Mar 1955')).toBeTruthy();
   });
 
   it('says what is wrong after leaving the field, tied to the field', () => {

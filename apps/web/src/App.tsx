@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { useLayoutEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useLogout, useSession, useSetupStatus } from './auth.js';
 import { t } from './i18n.js';
+import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LoginPage } from './pages/LoginPage.js';
@@ -79,6 +81,12 @@ export function App() {
   const session = useSession(false);
   const signedIn = Boolean(session.data);
   const personId = session.data?.user.personId ?? null;
+  // The account's date format and surname choice feed the display store (signed out: the defaults). The page content
+  // is keyed by them, so changing one remounts the page once, memoized chart nodes included.
+  const dateFormat = session.data?.user.dateFormat ?? DEFAULT_DISPLAY.dateFormat;
+  const surnameChoice = session.data?.user.surnameChoice ?? DEFAULT_DISPLAY.surnameChoice;
+  useLayoutEffect(() => setDisplay({ dateFormat, surnameChoice }), [dateFormat, surnameChoice]);
+  const display = useDisplay();
   // The tree chart is the one page that fills the window; every other page stays centred at 880 px.
   const fullWidth = /^\/tree\/[^/]+/.test(useLocation().pathname);
   return (
@@ -109,7 +117,7 @@ export function App() {
       </header>
       <main id="main" className={fullWidth ? 'tree-main' : 'page-width'}>
         <NoticeList />
-        <Routes>
+        <Routes key={`${display.dateFormat}|${display.surnameChoice}`}>
           <Route path="/setup" element={<SetupRoute />} />
           <Route path="/login" element={<LoginRoute />} />
           <Route element={<RequireSignIn />}>

@@ -14,13 +14,13 @@ test('add a person, find them in People, open the profile and edit the details',
   await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Gender').selectOption('male');
   await dialog.getByLabel('Birth date', { exact: true }).fill('1930-03');
-  await expect(dialog.getByText('Reads as: March 1930')).toBeVisible();
+  await expect(dialog.getByText('Reads as: Mar 1930')).toBeVisible();
   await dialog.getByRole('button', { name: 'Add person' }).click();
 
   // The new profile opens, with a message.
   await expect(page.getByRole('heading', { name: `Walter ${family}`, level: 1 })).toBeVisible();
   await expect(page.getByText(`Walter ${family} was added.`)).toBeVisible();
-  await expect(page.getByText('March 1930')).toBeVisible();
+  await expect(page.getByText('Mar 1930')).toBeVisible();
 
   // The same person is found by searching for the surname.
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'People' }).click();
@@ -36,7 +36,7 @@ test('add a person, find them in People, open the profile and edit the details',
   await edit.getByRole('button', { name: 'Save' }).click();
   await expect(edit).toBeHidden();
   const facts = page.getByRole('main');
-  await expect(facts.getByText('November 2, 2005')).toBeVisible();
+  await expect(facts.getByText('Nov 2, 2005')).toBeVisible();
   await expect(facts.getByText('Deceased', { exact: true })).toBeVisible();
   await expect(facts.getByText('1930 – 2005')).toBeVisible();
 });
@@ -53,7 +53,7 @@ test('a bad date is explained and nothing is saved', async ({ adminPage: page })
   await dialog.getByLabel('Birth date', { exact: true }).fill('1955-02-28');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText('February 28, 1955')).toBeVisible();
+  await expect(page.getByText('Feb 28, 1955')).toBeVisible();
 });
 
 test('a parent who is too young is warned about, and the child is still saved', async ({ adminPage: page }) => {
