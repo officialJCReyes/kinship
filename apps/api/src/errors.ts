@@ -48,8 +48,12 @@ export function fromDatabaseError(error: unknown): ApiError | undefined {
     case '23514': // check violation
       if (constraint === 'unions_end_date_status') return badRequest('end_date_not_allowed');
       if (constraint.startsWith('unions_partners_')) return badRequest('partners_identical');
+      if (constraint.startsWith('relationship_labels_')) return badRequest('invalid_label');
       if (constraint.startsWith('people_death')) return badRequest('invalid_date');
       if (constraint.includes('precision') || constraint.endsWith('_check')) return badRequest('invalid_request');
+      return undefined;
+    case '23505': // unique violation
+      if (constraint === 'relationship_labels_unique') return conflict('duplicate_label');
       return undefined;
     case '23503': // foreign key: someone was deleted while this request ran
       return notFound('person_not_found');

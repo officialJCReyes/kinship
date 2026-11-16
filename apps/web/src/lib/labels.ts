@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { UNION_STATUSES } from '@kinship/shared';
-import type { ChildLink, Gender, LinkKind, MessageKey, UnionStatus } from '@kinship/shared';
+import type { ChildLink, Gender, LinkKind, MessageKey, PersonLabel, UnionStatus } from '@kinship/shared';
 import { t } from '../i18n.js';
 
 /**
@@ -46,4 +46,30 @@ export function childLabel(link: Pick<ChildLink, 'kind' | 'adopted'>, gender: Ge
   const side = gender === 'male' || gender === 'female' ? gender : 'neutral';
   if (link.kind === 'adoptive') return t(`relative.adoptedChild.${side}` as MessageKey);
   return link.adopted ? t(`relative.birthChild.${side}` as MessageKey) : relativeLabel('child', gender);
+}
+
+/**
+ * What a custom label says on one profile, as the words before the other person's name:
+ *  - this person is the `from` side: the other person IS their `label` ("Godmother:");
+ *  - this person is the `to` side and a reverse label was given: "Godchild:";
+ *  - this person is the `to` side with no reverse label: "Godmother of" (then the name).
+ */
+export function customLabelPrefix(entry: Pick<PersonLabel, 'direction' | 'label' | 'reverseLabel'>): string {
+  if (entry.direction === 'from') return t('label.rowFrom', { label: entry.label });
+  return entry.reverseLabel
+    ? t('label.rowFrom', { label: entry.reverseLabel })
+    : t('label.rowTo', { label: entry.label });
+}
+
+/**
+ * Derived titles for a profile ("Stepmother", added in the next step) with the custom labels applied: where the same
+ * other person carries a custom label, only the custom one is shown, so the derived row for that pair is dropped.
+ * (Family rows, parents, partners, children and siblings, are the structure of the tree and are never dropped.)
+ */
+export function withoutOverriddenTitles<T extends { otherId: string }>(
+  derived: readonly T[],
+  custom: readonly Pick<PersonLabel, 'otherId'>[],
+): T[] {
+  const overridden = new Set(custom.map((entry) => entry.otherId));
+  return derived.filter((row) => !overridden.has(row.otherId));
 }

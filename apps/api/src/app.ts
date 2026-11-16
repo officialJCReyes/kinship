@@ -16,6 +16,7 @@ import type { Database } from './db.js';
 import { ApiError, fromDatabaseError } from './errors.js';
 import { withUserTransaction } from './request-context.js';
 import { registerAuthRoutes, SESSION_COOKIE, setSessionCookie } from './routes/auth.js';
+import { registerLabelRoutes } from './routes/labels.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import type { RouteLimit } from './routes/shared.js';
 import { registerSetupRoutes } from './routes/setup.js';
@@ -199,6 +200,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     };
     registerPeopleRoutes(routes, limit);
     registerUnionRoutes(routes, limit);
+    registerLabelRoutes(routes, limit);
     registerTreeRoutes(routes, limit);
   });
 

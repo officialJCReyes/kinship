@@ -7,6 +7,9 @@ import type {
   ApiHealth,
   ApiVersion,
   ChildResponse,
+  LabelInput,
+  LabelPatch,
+  LabelResponse,
   LineageView,
   LoginRequest,
   MeResponse,
@@ -232,6 +235,25 @@ export async function updateUnion(id: string, patch: UnionPatch): Promise<UnionR
   const reply = await send('PATCH', path, patch);
   if (!succeeded(reply)) fail(path, reply);
   return reply.body as UnionResponse;
+}
+
+export async function createLabel(input: LabelInput): Promise<LabelResponse> {
+  const reply = await send('POST', '/api/labels', input);
+  if (!succeeded(reply)) fail('/api/labels', reply);
+  return reply.body as LabelResponse;
+}
+
+export async function updateLabel(id: string, patch: LabelPatch): Promise<LabelResponse> {
+  const path = `/api/labels/${encodeURIComponent(id)}`;
+  const reply = await send('PATCH', path, patch);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as LabelResponse;
+}
+
+export async function deleteLabel(id: string): Promise<void> {
+  const path = `/api/labels/${encodeURIComponent(id)}`;
+  const reply = await send('DELETE', path);
+  if (!succeeded(reply)) fail(path, reply);
 }
 
 export async function deleteUnion(id: string): Promise<void> {
