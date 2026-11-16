@@ -6,3 +6,5 @@ LICENSE
 pnpm-lock.yaml
 **/node_modules/
 **/dist/
+e2e/artifacts/
+e2e/.stack/

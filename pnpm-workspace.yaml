@@ -2,6 +2,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'e2e'
 
 # Dependency install scripts are off unless allowed here on purpose.
 # esbuild (used by tsx and vitest) ships its binary as a platform package; its
