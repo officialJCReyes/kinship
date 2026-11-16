@@ -126,6 +126,17 @@ export const en = {
   'about.unknown': 'unknown',
 
   'error.forbidden': 'You are not allowed to do that.',
+  'error.invalid_link':
+    'This link does not work. It may have expired, been used already or been replaced. Ask the person who sent it for a new one.',
+  'error.link_not_found': 'That link is no longer open. Refresh the list.',
+  'error.link_exists': 'This account already has a set-password link. Make a new link instead.',
+  'error.email_taken': 'An account with that email address already exists.',
+  'error.invitation_exists':
+    'There is already an open invitation for that email address or that person. Revoke it or make a new link.',
+  'error.person_already_linked': 'That person already has an account.',
+  'error.role_not_allowed': 'Your role cannot do that for this role.',
+  'error.account_not_found': 'That account was not found.',
+  'error.invalid_current_password': 'The current password is not right.',
   'error.person_not_found': 'That person was not found.',
   'error.union_not_found': 'That relationship was not found.',
   'error.invalid_given_name': 'Enter a given name (up to 100 characters).',

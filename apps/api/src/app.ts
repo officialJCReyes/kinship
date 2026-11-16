@@ -15,8 +15,10 @@ import type { TrustProxy } from './config.js';
 import type { Database } from './db.js';
 import { ApiError, fromDatabaseError } from './errors.js';
 import { withUserTransaction } from './request-context.js';
+import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes, SESSION_COOKIE, setSessionCookie } from './routes/auth.js';
 import { registerLabelRoutes } from './routes/labels.js';
+import { registerLinkRoutes } from './routes/links.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import type { RouteLimit } from './routes/shared.js';
 import { registerSetupRoutes } from './routes/setup.js';
@@ -62,6 +64,9 @@ export interface Limiters {
   setupIp: FailureLimiter;
   /** Failed setup attempts from anywhere. */
   setupGlobal: FailureLimiter;
+  /** Links (invitations, set-password links) that did not work, per IP address and from anywhere. */
+  linkIp: FailureLimiter;
+  linkGlobal: FailureLimiter;
 }
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -90,6 +95,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
     loginAccount: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
     setupIp: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
     setupGlobal: new FailureLimiter({ maxFailures: 30, windowMs: FIFTEEN_MINUTES, ...clock }),
+    linkIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
+    linkGlobal: new FailureLimiter({ maxFailures: 200, windowMs: FIFTEEN_MINUTES, ...clock }),
   };
 
   void app.register(cookie);
@@ -184,6 +191,10 @@ export function buildApp(options: AppOptions): FastifyInstance {
     registerSetupRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
     registerAuthRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
   });
+  // Own scope: the links routes set their own hooks (never cached).
+  void app.register(async (routes) => {
+    registerLinkRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
+  });
 
   // People, relationships and the tree: everything here needs a signed-in account.
   void app.register(async (routes) => {
@@ -198,6 +209,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
         keyGenerator: (request) => request.user?.id ?? request.ip,
       },
     };
+    // Own scope: the admin routes add an admin-only check and "never cache" to every route registered with them.
+    void routes.register(async (admin) => registerAdminRoutes(admin, limit));
     registerPeopleRoutes(routes, limit);
     registerUnionRoutes(routes, limit);
     registerLabelRoutes(routes, limit);

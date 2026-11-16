@@ -41,6 +41,10 @@ export interface Database {
     theme: Generated<'device' | 'light' | 'dark'>;
     date_format: Generated<'mdy' | 'dmy' | 'dmy2' | 'long' | 'iso' | 'us' | 'eu'>;
     surname_choice: Generated<'married' | 'birth'>;
+    /** When the account last signed in, and how its password last changed (0011). null: unknown (older than 0011). */
+    last_sign_in_at: Date | null;
+    password_changed_at: Date | null;
+    password_changed_via: 'setup' | 'self' | 'admin_link' | 'cli' | 'invitation' | null;
     created_at: Date;
     updated_at: Date;
   };

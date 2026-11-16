@@ -246,4 +246,25 @@ describe('why row-level security is not forced on users and family_tree', () => 
     }>`select count(*) as n from kinship_auth.find_login('marcus@example.com')`.execute(db);
     expect(restored.rows[0]?.n).toBe('1');
   });
+
+  it('invites and accepts, with row-level security on account_links but not forced (the definer functions are the owner)', async () => {
+    const flags = await sql<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>`
+      select relrowsecurity, relforcerowsecurity from pg_class where relname = 'account_links'`.execute(owner);
+    expect(flags.rows).toEqual([{ relrowsecurity: true, relforcerowsecurity: false }]);
+    const cookie = cookieHeader(await login(app, 'marcus@example.com'));
+    const made = await app.inject({
+      method: 'POST',
+      url: '/api/admin/invitations',
+      headers: { ...CSRF, cookie },
+      payload: { email: 'guest@example.com', role: 'user' },
+    });
+    expect(made.statusCode).toBe(201);
+    const accepted = await post(app, '/api/links/accept', {
+      token: (made.json() as { token: string }).token,
+      password: PASSWORD,
+      displayName: 'Guest Hale',
+    });
+    expect(accepted.statusCode).toBe(201);
+    expect((accepted.json() as { user: { role: string } }).user.role).toBe('user');
+  });
 });
