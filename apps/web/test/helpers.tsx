@@ -14,6 +14,11 @@ export const ALICE = {
   displayName: 'Marcus Hale',
   role: 'superadmin',
   personId: null,
+  lineageView: 'adoptive',
+  colorScheme: 'forest',
+  theme: 'device',
+  dateFormat: 'mdy',
+  surnameChoice: 'married',
 } as const;
 export const ME = { user: ALICE, treeName: 'Hale Family' };
 /** The version the web app was built with (vite.config.ts reads it from package.json). */

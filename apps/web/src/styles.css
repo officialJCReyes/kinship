@@ -1,11 +1,17 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 
 /*
- * Tokens from the approved mockup (design/kinship-mockup.html), Forest scheme.
- * Light or dark follows the device. The other three colour schemes and the
- * per-person theme choice come with My settings (release 0.2).
+ * Tokens from the approved mockup (design/kinship-mockup.html) and design/kinship-color-schemes.md.
+ * Four color schemes, each light and dark. <html data-scheme="..." data-theme="light|dark"> is set before the first
+ * paint by /theme-init.js from the account's settings ("Device" is resolved to light or dark there); with neither
+ * attribute the page is Forest, light.
+ *
+ * A scheme changes the page, panel, ink, muted, line, accent and accent tint. The status colors, the gender colors,
+ * the amber and info tints and the logo-green leaf are the same in every scheme (only light or dark changes them),
+ * so green still means "good" in Slate blue or Graphite. test/theme.test.ts reads this file: keep one token per line.
  */
 :root {
+  /* Forest, light (also the fixed tokens for every scheme in light mode) */
   --bg: #f6f4ec;
   --panel: #ffffff;
   --ink: #17231f;
@@ -15,8 +21,18 @@
   --accent-ink: #ffffff;
   --accent-soft: #e0ede1;
   --warn: #8f5a08;
+  --warn-soft: #fbeed6;
   --crit: #a3322c;
+  --crit-soft: #f9e1de;
   --ok: #2a7a3b;
+  --ok-soft: #e0f1e3;
+  --leaf: #4f8a4b;
+  --amber: #f2a541;
+  --amber-soft: #fdf0d8;
+  --info-soft: #e6eef0;
+  --g-male: #2f6db5;
+  --g-female: #cf4f3b;
+  --g-other: #6f7f79;
   --shadow: 0 1px 2px rgba(23, 35, 31, 0.06), 0 4px 14px rgba(23, 35, 31, 0.06);
   /* System fonts only: nothing is fetched from a third party. */
   --display: Georgia, 'Times New Roman', serif;
@@ -25,22 +41,99 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e1b19;
-    --panel: #152624;
-    --ink: #e5eeea;
-    --muted: #92a39c;
-    --line: #27352f;
-    --accent: #8cc488;
-    --accent-ink: #10302c;
-    --accent-soft: #1b3430;
-    --warn: #e3b45e;
-    --crit: #ef8a82;
-    --ok: #79d08a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
-    color-scheme: dark;
-  }
+/* Dark: the fixed tokens for every scheme, and Forest's own */
+:root[data-theme='dark'] {
+  --bg: #0e1b19;
+  --panel: #152624;
+  --ink: #e5eeea;
+  --muted: #92a39c;
+  --line: #27352f;
+  --accent: #8cc488;
+  --accent-ink: #10302c;
+  --accent-soft: #1b3430;
+  --warn: #e3b45e;
+  --warn-soft: #33270f;
+  --crit: #ef8a82;
+  --crit-soft: #3a1c1a;
+  --ok: #79d08a;
+  --ok-soft: #173222;
+  --leaf: #8cc488;
+  --amber-soft: #3a2d12;
+  --info-soft: #1b2e2c;
+  --g-male: #79aef0;
+  --g-female: #f08f7c;
+  --g-other: #8d9f98;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+}
+
+/* Warm sand */
+:root[data-scheme='sand'] {
+  --bg: #f4efe4;
+  --panel: #fffdf8;
+  --ink: #2a2620;
+  --muted: #6b6458;
+  --line: #e0d8c7;
+  --accent: #1e4d4a;
+  --accent-ink: #ffffff;
+  --accent-soft: #ece4d1;
+}
+
+:root[data-scheme='sand'][data-theme='dark'] {
+  --bg: #1b1812;
+  --panel: #26221b;
+  --ink: #efe9dc;
+  --muted: #a79f8f;
+  --line: #3a342a;
+  --accent: #7fc1b8;
+  --accent-ink: #10302c;
+  --accent-soft: #322d22;
+}
+
+/* Slate blue */
+:root[data-scheme='slate'] {
+  --bg: #f3f5f9;
+  --panel: #ffffff;
+  --ink: #1b2433;
+  --muted: #5a6678;
+  --line: #d8dee8;
+  --accent: #2f4b7c;
+  --accent-ink: #ffffff;
+  --accent-soft: #e1e8f3;
+}
+
+:root[data-scheme='slate'][data-theme='dark'] {
+  --bg: #0f1520;
+  --panel: #18202d;
+  --ink: #e6ebf3;
+  --muted: #94a0b4;
+  --line: #29323f;
+  --accent: #8fb0e8;
+  --accent-ink: #0f1c33;
+  --accent-soft: #1e2a3f;
+}
+
+/* Graphite */
+:root[data-scheme='graphite'] {
+  --bg: #f4f4f2;
+  --panel: #ffffff;
+  --ink: #1d1f23;
+  --muted: #5f636b;
+  --line: #dcdddf;
+  --accent: #2a2e35;
+  --accent-ink: #ffffff;
+  --accent-soft: #e7e8ea;
+}
+
+:root[data-scheme='graphite'][data-theme='dark'] {
+  --bg: #111214;
+  --panel: #1b1c1f;
+  --ink: #e8e9eb;
+  --muted: #9a9da3;
+  --line: #2d2f33;
+  --accent: #c9ccd2;
+  --accent-ink: #16171a;
+  --accent-soft: #26282c;
 }
 
 *,
@@ -268,21 +361,7 @@ main {
   margin-bottom: 0;
 }
 
-/* --- People and relationships --- */
-:root {
-  --leaf: #4f8a4b;
-  --amber: #f2a541;
-  --amber-soft: #fdf0d8;
-  --info-soft: #e6eef0;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --leaf: #8cc488;
-    --amber-soft: #3a2d12;
-    --info-soft: #1b2e2c;
-  }
-}
+/* --- People and relationships --- (the leaf, amber and info tokens are with the others at the top) */
 
 .sr-only {
   position: absolute;
@@ -715,20 +794,6 @@ fieldset.choice label {
 }
 
 /* --- The family tree chart --- */
-:root {
-  --g-male: #2f6db5;
-  --g-female: #cf4f3b;
-  --g-other: #6f7f79;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --g-male: #79aef0;
-    --g-female: #f08f7c;
-    --g-other: #8d9f98;
-  }
-}
-
 #root {
   display: flex;
   min-height: 100vh;
