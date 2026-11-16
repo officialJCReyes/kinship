@@ -104,6 +104,7 @@ describe('POST /api/setup', () => {
         displayName: 'Marcus Hale',
         role: 'superadmin',
         personId: null,
+        lineageView: 'adoptive',
       },
       treeName: 'Hale Family',
     });

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { LoginRequest, MeResponse } from '@kinship/shared';
+import { LINEAGE_VIEWS } from '@kinship/shared';
+import type { LoginRequest, MeResponse, UpdateMeRequest } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db.js';
@@ -108,6 +109,34 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
     if (!me) return reply.code(401).send({ error: 'unauthenticated' });
     return me;
   });
+
+  // The account's own display setting: which family its charts follow for an adopted person. It changes
+  // nothing for anyone else, and nothing about who can see what.
+  app.patch(
+    '/api/auth/me',
+    {
+      config: { rateLimit: requestLimit },
+      schema: {
+        body: {
+          type: 'object',
+          required: ['lineageView'],
+          additionalProperties: false,
+          properties: { lineageView: { type: 'string', enum: [...LINEAGE_VIEWS] } },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!request.user) return reply.code(401).send({ error: 'unauthenticated' });
+      const { lineageView } = request.body as UpdateMeRequest;
+      const userId = request.user.id;
+      await withUserTransaction(db, userId, (trx) =>
+        trx.updateTable('users').set({ lineage_view: lineageView }).where('id', '=', userId).execute(),
+      );
+      const me = await readMe(db, userId);
+      if (!me) return reply.code(401).send({ error: 'unauthenticated' });
+      return me;
+    },
+  );
 }
 
 /**
@@ -118,7 +147,7 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
   const result = await withUserTransaction(db, userId, async (trx) => {
     const user = await trx
       .selectFrom('users')
-      .select(['id', 'email', 'display_name', 'role', 'person_id'])
+      .select(['id', 'email', 'display_name', 'role', 'person_id', 'lineage_view'])
       .where('id', '=', userId)
       .executeTakeFirst();
     const tree = await trx.selectFrom('family_tree').select('name').executeTakeFirst();
@@ -132,6 +161,7 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       displayName: result.user.display_name,
       role: result.user.role,
       personId: result.user.person_id,
+      lineageView: result.user.lineage_view,
     },
     treeName: result.treeName,
   };

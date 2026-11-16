@@ -9,6 +9,7 @@ import type { Family } from './helpers/family.js';
 let t: TestApp;
 let f: Family;
 let as: Awaited<ReturnType<typeof signInAll>>;
+const ids = (list: Array<{ id: string }> | undefined) => (list ?? []).map((c) => c.id);
 
 beforeAll(async () => {
   t = await createTestApp();
@@ -39,7 +40,7 @@ describe('people: create, read, change', () => {
     const read = await as('user', 'GET', `/api/people/${created.body?.person.id}`);
     expect(read.status).toBe(200);
     expect(read.body?.person.birth).toEqual({ value: '1950-03', precision: 'about' });
-    expect(read.body?.parentage).toBeNull();
+    expect(read.body?.parents).toEqual({ birth: null, adoptive: null });
     expect(read.body?.unions).toEqual([]);
   });
 
@@ -244,7 +245,7 @@ describe('relationships (unions)', () => {
       status: 'engaged',
       start: { value: '2020-05', precision: 'about' },
       end: null,
-      childIds: [],
+      children: [],
     });
   });
 
@@ -310,9 +311,9 @@ describe('relationships (unions)', () => {
 
   it('never removes children when the status changes, and refuses to delete a union that has children', async () => {
     const before = await as('user', 'GET', `/api/unions/${f.union.danielElena}`);
-    expect(before.body?.union.childIds).toEqual(expect.arrayContaining([f.person.marcus, f.person.sofia]));
+    expect(ids(before.body?.union.children)).toEqual(expect.arrayContaining([f.person.marcus, f.person.sofia]));
     const changed = await as(admin, 'PATCH', `/api/unions/${f.union.danielElena}`, { status: 'separated' });
-    expect(changed.body?.union.childIds.sort()).toEqual([f.person.marcus, f.person.sofia].sort());
+    expect(ids(changed.body?.union.children).sort()).toEqual([f.person.marcus, f.person.sofia].sort());
     const refused = await as(admin, 'DELETE', `/api/unions/${f.union.danielElena}`);
     expect(refused).toMatchObject({ status: 409, body: { error: 'union_has_children' } });
     await as(admin, 'PATCH', `/api/unions/${f.union.danielElena}`, { status: 'divorced' });
@@ -332,33 +333,39 @@ describe('relationships (unions)', () => {
     const daniel = await as('user', 'GET', `/api/people/${f.person.daniel}`);
     expect(daniel.body?.unions).toHaveLength(2);
     const byId = Object.fromEntries(
-      (daniel.body?.unions as Array<{ id: string; childIds: string[] }>).map((u) => [u.id, u.childIds]),
+      (daniel.body?.unions as Array<{ id: string; children: Array<{ id: string }> }>).map((u) => [
+        u.id,
+        ids(u.children),
+      ]),
     );
     expect(byId[f.union.danielElena]?.sort()).toEqual([f.person.marcus, f.person.sofia].sort());
     expect(byId[f.union.danielBeatriz]).toEqual([f.person.gabriel]);
     const beatriz = await as('user', 'GET', `/api/people/${f.person.beatriz}`);
-    expect(beatriz.body?.singleParentChildIds).toEqual([f.person.tomas]);
+    expect(ids(beatriz.body?.singleParentChildren)).toEqual([f.person.tomas]);
     expect(beatriz.body?.unions.map((u: { id: string }) => u.id)).toEqual([f.union.danielBeatriz]);
   });
 });
 
 describe('parents', () => {
-  const parentage = async (id: string) => (await as('user', 'GET', `/api/people/${id}`)).body?.parentage;
+  const parentage = async (id: string) => {
+    const birth = (await as('user', 'GET', `/api/people/${id}`)).body?.parents.birth;
+    return birth ? { unionId: birth.unionId, parentId: birth.parentId } : null;
+  };
 
   it('adds a child under a person alone, or under one of their unions', async () => {
     const alone = await as(admin, 'POST', `/api/people/${f.person.sofia}/children`, {
       child: { givenName: 'Alma', surname: 'Hale' },
     });
     expect(alone.status).toBe(201);
-    expect(alone.body?.parentage).toEqual({ unionId: null, parentId: f.person.sofia });
+    expect(alone.body?.parentage).toMatchObject({ unionId: null, parentId: f.person.sofia });
 
     const withUnion = await as(admin, 'POST', `/api/people/${f.person.daniel}/children`, {
       child: { givenName: 'Ines', surname: 'Hale', birth: { value: '2010' } },
       unionId: f.union.danielBeatriz,
     });
-    expect(withUnion.body?.parentage).toEqual({ unionId: f.union.danielBeatriz, parentId: null });
+    expect(withUnion.body?.parentage).toMatchObject({ unionId: f.union.danielBeatriz, parentId: null });
     const union = await as('user', 'GET', `/api/unions/${f.union.danielBeatriz}`);
-    expect(union.body?.union.childIds).toContain(withUnion.body?.person.id);
+    expect(ids(union.body?.union.children)).toContain(withUnion.body?.person.id);
   });
 
   it('refuses a union that does not include the parent the child is added under', async () => {
@@ -383,7 +390,7 @@ describe('parents', () => {
     const unionId = added.body?.parentage.unionId as string;
     expect(added.body?.parentage.parentId).toBeNull();
     const union = await as('user', 'GET', `/api/unions/${unionId}`);
-    expect(union.body?.union).toMatchObject({ status: 'unknown', childIds: [lone] });
+    expect(union.body?.union).toMatchObject({ status: 'unknown', children: [{ id: lone }] });
     expect(union.body?.union.partnerIds.sort()).toEqual([f.person.priya, other].sort());
   });
 
@@ -495,7 +502,7 @@ describe('parents', () => {
       })
     ).body?.person.id as string;
     const one = await as(admin, 'DELETE', `/api/people/${kid}/parents/${f.person.daniel}`);
-    expect(one.body?.parentage).toEqual({ unionId: null, parentId: f.person.beatriz });
+    expect(one.body?.parentage).toMatchObject({ unionId: null, parentId: f.person.beatriz });
     expect(await parentage(kid)).toEqual({ unionId: null, parentId: f.person.beatriz });
     expect((await as(admin, 'DELETE', `/api/people/${kid}/parents/${f.person.daniel}`)).body?.error).toBe(
       'parent_not_found',
@@ -569,9 +576,15 @@ describe('deleting a person', () => {
     expect((await as(admin, 'DELETE', `/api/people/${dad}?confirm=true`)).status).toBe(204);
 
     expect((await as(admin, 'GET', `/api/people/${dad}`)).status).toBe(404);
-    expect((await as(admin, 'GET', `/api/people/${kidA}`)).body?.parentage).toEqual({ unionId: null, parentId: mum });
-    expect((await as(admin, 'GET', `/api/people/${kidB}`)).body?.parentage).toEqual({ unionId: null, parentId: ex });
-    expect((await as(admin, 'GET', `/api/people/${kidC}`)).body?.parentage).toBeNull();
+    expect((await as(admin, 'GET', `/api/people/${kidA}`)).body?.parents.birth).toMatchObject({
+      unionId: null,
+      parentId: mum,
+    });
+    expect((await as(admin, 'GET', `/api/people/${kidB}`)).body?.parents.birth).toMatchObject({
+      unionId: null,
+      parentId: ex,
+    });
+    expect((await as(admin, 'GET', `/api/people/${kidC}`)).body?.parents.birth).toBeNull();
     expect((await as(admin, 'GET', `/api/unions/${together}`)).status).toBe(404);
     expect((await as(admin, 'GET', `/api/unions/${earlier}`)).status).toBe(404);
     for (const id of [kidA, kidB, kidC, mum, ex])
@@ -607,8 +620,8 @@ describe('the tree around a person', () => {
     expect(names).not.toContain('Sofia');
     expect(names).not.toContain('Gabriel');
     expect(tree.body?.focalId).toBe(f.person.marcus);
-    expect(tree.body?.parentage[f.person.marcus]).toEqual({ unionId: f.union.danielElena, parentId: null });
-    expect(tree.body?.parentage[f.person.leo]).toEqual({ unionId: f.union.marcusPriya, parentId: null });
+    expect(tree.body?.parentage[f.person.marcus]).toMatchObject({ unionId: f.union.danielElena, parentId: null });
+    expect(tree.body?.parentage[f.person.leo]).toMatchObject({ unionId: f.union.marcusPriya, parentId: null });
     const unionIds = (tree.body?.unions as Array<{ id: string }>).map((u) => u.id);
     expect(unionIds).toEqual(expect.arrayContaining([f.union.danielElena, f.union.walterRosa, f.union.marcusPriya]));
     const byName = Object.fromEntries(

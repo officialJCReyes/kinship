@@ -109,8 +109,8 @@ describe('a remarried in-law (the bug found with a probe)', () => {
     expect(present.has(c)).toBe(true);
     expect(present.has(q)).toBe(false);
     expect(body.unions.map((u: Json) => u.id)).not.toContain(before);
-    expect(body.parentage[c]).toEqual({ unionId: null, parentId: p });
-    expect(body.parentage[z]).toEqual({ unionId: now, parentId: null });
+    expect(body.parentage[c]).toMatchObject({ unionId: null, parentId: p });
+    expect(body.parentage[z]).toMatchObject({ unionId: now, parentId: null });
   });
 });
 
@@ -205,6 +205,7 @@ async function generateFamily(owner: UntypedDb, seed: number): Promise<string[]>
   const couple = async (a: string, b: string, status = 'married'): Promise<string> =>
     insertUnionRow(owner, a, b, status);
 
+  const unionLog: Array<{ id: string; level: number }> = [];
   let generation: string[] = [await person(), await person(), await person(), await person()];
   for (let level = 0; level < 4; level += 1) {
     const next: string[] = [];
@@ -238,12 +239,29 @@ async function generateFamily(owner: UntypedDb, seed: number): Promise<string[]>
         }
         married.add(`${one}|${partner}`);
         const union = await couple(one, partner, pick(['married', 'divorced', 'partner', 'separated', 'unknown']));
+        unionLog.push({ id: union, level });
         const children = Math.floor(rnd() * 4);
         for (let c = 0; c < children; c += 1) {
           const child = await person();
           await linkChild(owner, child, rnd() < 0.8 ? { union } : { parent: rnd() < 0.5 ? one : partner });
           next.push(child);
+          // Some children are also (or only) adopted, by another couple of the same generation.
+          if (rnd() < 0.2) {
+            const others = unionLog.filter((x) => x.level === level && x.id !== union);
+            if (others.length > 0) {
+              try {
+                await linkChild(owner, child, { union: pick(others).id }, 'adoptive', String(1950 + level));
+              } catch {
+                // the same person in both sets is refused by the database: that is the rule under test elsewhere
+              }
+            }
+          }
         }
+      }
+      if (rnd() < 0.15) {
+        const adopted = await person(); // adopted, with no birth parents recorded
+        await linkChild(owner, adopted, { parent: one }, 'adoptive');
+        next.push(adopted);
       }
       if (rnd() < 0.25) {
         const solo = await person(); // a single-parent child
@@ -256,30 +274,53 @@ async function generateFamily(owner: UntypedDb, seed: number): Promise<string[]>
   return everyone;
 }
 
-/** Brute force: how many distinct blood ancestors a person has, from the tables. */
-async function bruteAncestors(owner: UntypedDb, personId: string): Promise<number> {
-  const rows = await sql<{ child_id: string; union_id: string | null; parent_id: string | null }>`
-    select child_id, union_id, parent_id from person_parents`.execute(owner);
+interface LinkRow {
+  child_id: string;
+  kind: string;
+  union_id: string | null;
+  parent_id: string | null;
+}
+
+/** Brute force from the tables: the parents of each child in one view, and each child's other set. */
+async function loadLinks(owner: UntypedDb) {
+  const rows = await sql<LinkRow>`select child_id, kind, union_id, parent_id from person_parents`.execute(owner);
   const partners = await sql<{ id: string; a: string; b: string }>`
     select id, partner_a_id as a, partner_b_id as b from unions`.execute(owner);
-  const unionPartners = new Map(partners.rows.map((u) => [u.id, [u.a, u.b]]));
-  const parentsOf = new Map<string, string[]>();
-  for (const row of rows.rows) {
-    parentsOf.set(row.child_id, row.union_id ? (unionPartners.get(row.union_id) ?? []) : [row.parent_id!]);
-  }
-  const seen = new Set<string>();
-  const stack = [...(parentsOf.get(personId) ?? [])];
-  while (stack.length > 0) {
-    const next = stack.pop()!;
-    if (seen.has(next)) continue;
-    seen.add(next);
-    stack.push(...(parentsOf.get(next) ?? []));
-  }
-  return seen.size;
+  const unionPartners = new Map(partners.rows.map((x) => [x.id, [x.a, x.b]]));
+  const setOf = (row: LinkRow) => (row.union_id ? (unionPartners.get(row.union_id) ?? []) : [row.parent_id!]);
+  const byChild = new Map<string, LinkRow[]>();
+  for (const row of rows.rows) byChild.set(row.child_id, [...(byChild.get(row.child_id) ?? []), row]);
+  const effective = (child: string, view: string): string[] => {
+    const mine = byChild.get(child) ?? [];
+    const kind = view === 'adoptive' && mine.some((r) => r.kind === 'adoptive') ? 'adoptive' : 'birth';
+    const row = mine.find((r) => r.kind === kind);
+    return row ? setOf(row) : [];
+  };
+  const ancestors = (starts: string[], view: string): Set<string> => {
+    const seen = new Set<string>();
+    const stack = [...starts];
+    while (stack.length > 0) {
+      const next = stack.pop()!;
+      if (seen.has(next)) continue;
+      seen.add(next);
+      stack.push(...effective(next, view));
+    }
+    return seen;
+  };
+  const other = (child: string, view: string): { kind: string; parents: string[] } | undefined => {
+    const mine = byChild.get(child) ?? [];
+    const kind = view === 'adoptive' && mine.some((r) => r.kind === 'adoptive') ? 'adoptive' : 'birth';
+    const row = mine.find((r) => r.kind !== kind);
+    return row ? { kind: row.kind, parents: setOf(row) } : undefined;
+  };
+  return { effective, ancestors, other };
 }
+
+let adoptedSeen = 0;
 
 describe('generated families keep the invariant', () => {
   const seeds = [1, 2, 3, 4, 5, 6, 7, 8];
+  const lineages = ['adoptive', 'birth'];
   const options = [
     'up=0&down=0&collateral=false',
     'up=1&down=1&collateral=false',
@@ -292,27 +333,52 @@ describe('generated families keep the invariant', () => {
     it(`family ${seed}`, async () => {
       const everyone = await generateFamily(t.owner, seed);
       const rnd = random(seed * 7919);
-      const focals = Array.from({ length: 8 }, () => everyone[Math.floor(rnd() * everyone.length)]!);
+      const focals = Array.from({ length: 6 }, () => everyone[Math.floor(rnd() * everyone.length)]!);
+      const brute = await loadLinks(t.owner);
       let checked = 0;
-      let leaves = 0;
+      let others = 0;
       for (const focal of focals) {
         for (const query of options) {
-          const body = await tree(focal, query);
-          expectInvariant(body);
-          for (const person of body.people as Json[]) {
-            checked += 1;
-            if (person.ancestorCount !== undefined) {
-              leaves += 1;
-              expect(person.ancestorCount, `ancestors of ${person.givenName} (${query})`).toBe(
-                await bruteAncestors(t.owner, person.id),
-              );
+          for (const lineage of lineages) {
+            const body = await tree(focal, `${query}&lineage=${lineage}`);
+            expect(body.lineage).toBe(lineage);
+            expectInvariant(body);
+            for (const person of body.people as Json[]) {
+              checked += 1;
+              // every parent link follows the view
+              const followed = brute.effective(person.id, lineage);
+              expect(person.hasParents, `${person.id} hasParents (${lineage})`).toBe(followed.length > 0);
+              const link = body.parentage[person.id];
+              if (link) {
+                const drawn = link.unionId
+                  ? (body.unions as Json[]).find((x) => x.id === link.unionId)!.partnerIds
+                  : [link.parentId];
+                expect(drawn.every((id: string) => followed.includes(id))).toBe(true);
+              }
+              if (person.ancestorCount !== undefined) {
+                expect(person.ancestorCount, `ancestors of ${person.givenName} (${query}, ${lineage})`).toBe(
+                  brute.ancestors(followed, lineage).size,
+                );
+              }
+              const other = brute.other(person.id, lineage);
+              if (other) {
+                others += 1;
+                expect(person.otherFamily, `otherFamily of ${person.givenName} (${lineage})`).toEqual({
+                  kind: other.kind,
+                  count: brute.ancestors(other.parents, lineage).size,
+                });
+              } else {
+                expect(person.otherFamily).toBeUndefined();
+              }
             }
           }
         }
       }
       expect(checked).toBeGreaterThan(50);
-      // Not every seed has a leaf in every shape, but across the options at least some do.
-      expect(leaves).toBeGreaterThanOrEqual(0);
-    }, 60_000);
+      adoptedSeen += others;
+    }, 120_000);
   }
+  it('the generated families really contained adopted people (otherwise the checks above prove nothing)', () => {
+    expect(adoptedSeen).toBeGreaterThan(20);
+  });
 });

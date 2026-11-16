@@ -97,6 +97,10 @@ export const en = {
   'error.union_parent_mismatch': 'That relationship does not include the parent you chose.',
   'error.parent_not_found': 'That person is not a parent of this child.',
   'error.person_has_account': 'An account is linked to this person. Unlink it first.',
+  'error.same_person_both_kinds':
+    'That person is already a parent of this child in the other family. Only a stepparent adoption may share one parent, and only as a relationship.',
+  'error.invalid_link_kind': 'The type of parent-child link must be birth or adoptive.',
+  'error.invalid_lineage': 'Choose adoptive or birth.',
   'error.confirm_required': 'This person has relationships or children. Confirm to delete them anyway.',
   'warning.parent_too_young': 'The parent is only {years} years older than the child. Please check the birth years.',
 

@@ -43,6 +43,8 @@ export function fromDatabaseError(error: unknown): ApiError | undefined {
       return badRequest('child_is_partner');
     case 'KS013':
       return conflict('would_create_cycle');
+    case 'KS015':
+      return conflict('same_person_both_kinds');
     case '23514': // check violation
       if (constraint === 'unions_end_date_status') return badRequest('end_date_not_allowed');
       if (constraint.startsWith('unions_partners_')) return badRequest('partners_identical');

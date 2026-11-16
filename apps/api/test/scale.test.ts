@@ -204,13 +204,27 @@ describe('ancestorCount at scale', () => {
       return sql<{ 'QUERY PLAN': string }>`
         explain analyze
         with recursive anc(origin, id) as (
-          select o.id, x.pid from unnest(${ids}::uuid[]) as o(id), lateral public.kinship_parent_ids(o.id) as x(pid)
+          select o.id, x.pid from unnest(${ids}::uuid[]) as o(id), lateral public.kinship_parent_ids_in(o.id, 'adoptive') as x(pid)
           union
-          select a.origin, x.pid from anc a, lateral public.kinship_parent_ids(a.id) as x(pid)
+          select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, 'adoptive') as x(pid)
         ) select origin, count(*) from anc group by origin`.execute(trx);
     });
     const time = /Execution Time: ([0-9.]+) ms/.exec(plan.rows.map((r) => r['QUERY PLAN']).join('\n'))?.[1];
     console.log(`ancestorCount query alone, ${ids.length} leaves: ${time} ms`);
     expect(Number(time)).toBeLessThan(1000);
+    // The all-kinds walk (what the cycle check and "my line" use) over the same people, for comparison.
+    const allKinds = await t.owner.transaction().execute(async (trx) => {
+      await sql`set local jit = off`.execute(trx);
+      return sql<{ 'QUERY PLAN': string }>`
+        explain analyze
+        with recursive anc(origin, id) as (
+          select o.id, x.pid from unnest(${ids}::uuid[]) as o(id), lateral public.kinship_parent_ids(o.id) as x(pid)
+          union
+          select a.origin, x.pid from anc a, lateral public.kinship_parent_ids(a.id) as x(pid)
+        ) select origin, count(*) from anc group by origin`.execute(trx);
+    });
+    console.log(
+      `all-kinds walk, same ${ids.length} people: ${/Execution Time: ([0-9.]+) ms/.exec(allKinds.rows.map((r) => r['QUERY PLAN']).join('\n'))?.[1]} ms`,
+    );
   }, 120_000);
 });

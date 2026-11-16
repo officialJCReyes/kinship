@@ -90,8 +90,11 @@ const unionColumns = [
 ] as const satisfies ReadonlyArray<keyof Database['unions']>;
 const parentColumns = [
   'child_id',
+  'kind',
   'union_id',
   'parent_id',
+  'link_date',
+  'link_precision',
   'created_by',
   'created_at',
 ] as const satisfies ReadonlyArray<keyof Database['person_parents']>;
@@ -101,6 +104,7 @@ const userColumns = [
   'display_name',
   'role',
   'person_id',
+  'lineage_view',
   'created_at',
   'updated_at',
 ] as const satisfies ReadonlyArray<keyof Database['users']>;

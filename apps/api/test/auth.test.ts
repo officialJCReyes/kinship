@@ -52,6 +52,7 @@ describe('POST /api/auth/login', () => {
         displayName: 'Marcus Hale',
         role: 'superadmin',
         personId: null,
+        lineageView: 'adoptive',
       },
       treeName: 'Hale Family',
     });

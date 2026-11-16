@@ -12,7 +12,7 @@ import type { Database } from '../db.js';
 
 export type { Role };
 /** The signed-in account as the session lookup knows it. The linked person is read per request (see people/actor.ts). */
-export type SessionUser = Omit<AuthUser, 'personId'>;
+export type SessionUser = Omit<AuthUser, 'personId' | 'lineageView'>;
 
 export interface ResolvedSession {
   user: SessionUser;

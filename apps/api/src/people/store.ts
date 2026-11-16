@@ -2,8 +2,13 @@
 import { MIN_PARENT_AGE_YEARS } from '@kinship/shared';
 import type {
   ApiWarning,
+  ChildLink,
+  DatePrecision,
   DeletePreview,
+  LineageView,
+  LinkKind,
   Parentage,
+  ParentSets,
   PartialDate,
   Person,
   TreePerson,
@@ -177,16 +182,53 @@ export function decodeCursor(cursor: string): { surname: string; givenName: stri
 // Parents and unions
 // ---------------------------------------------------------------------------
 
-export function toParentage(row: { union_id: string | null; parent_id: string | null }): Parentage {
-  return { unionId: row.union_id, parentId: row.parent_id };
+export interface ParentageRow {
+  child_id: string;
+  kind: LinkKind;
+  union_id: string | null;
+  parent_id: string | null;
+  link_date: string | null;
+  link_precision: DatePrecision;
 }
 
-export function getParentageRow(trx: Trx, childId: string) {
+const PARENTAGE_COLUMNS = ['child_id', 'kind', 'union_id', 'parent_id', 'link_date', 'link_precision'] as const;
+
+export function toParentage(row: Omit<ParentageRow, 'child_id'>): Parentage {
+  return {
+    unionId: row.union_id,
+    parentId: row.parent_id,
+    kind: row.kind,
+    link: toPartialDate(row.link_date, row.link_precision),
+  };
+}
+
+/** One set of a child's parents (birth or adoptive), or undefined when that set is not recorded. */
+export function getParentageRow(trx: Trx, childId: string, kind: LinkKind): Promise<ParentageRow | undefined> {
   return trx
     .selectFrom('person_parents')
-    .select(['child_id', 'union_id', 'parent_id'])
+    .select(PARENTAGE_COLUMNS)
     .where('child_id', '=', childId)
+    .where('kind', '=', kind)
     .executeTakeFirst();
+}
+
+/** Both sets of a child's parents. */
+export async function getParentSets(trx: Trx, childId: string): Promise<ParentSets> {
+  const rows = await trx
+    .selectFrom('person_parents')
+    .select(PARENTAGE_COLUMNS)
+    .where('child_id', '=', childId)
+    .execute();
+  const set = (kind: LinkKind) => {
+    const row = rows.find((r) => r.kind === kind);
+    return row ? toParentage(row) : null;
+  };
+  return { birth: set('birth'), adoptive: set('adoptive') };
+}
+
+/** Which kind a chart follows for a child who has these kinds of links (the rule of kinship_effective_kind). */
+export function effectiveKind(kinds: ReadonlySet<LinkKind>, view: LineageView): LinkKind {
+  return view === 'adoptive' && kinds.has('adoptive') ? 'adoptive' : 'birth';
 }
 
 export function getUnion(trx: Trx, id: string): Promise<UnionRow | undefined> {
@@ -206,32 +248,56 @@ export function unionsBetween(trx: Trx, a: string, b: string): Promise<UnionRow[
     .execute();
 }
 
-/** The children hanging from each of these unions, youngest last (unknown birth dates last), as ids. */
-export async function childIdsByUnion(trx: Trx, unionIds: string[]): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>(unionIds.map((id) => [id, []]));
+/** Whether the child of this link also has an adoptive set. */
+const ADOPTED =
+  sql<boolean>`exists (select 1 from person_parents a where a.child_id = pp.child_id and a.kind = 'adoptive')`.as(
+    'adopted',
+  );
+
+function toChildLink(row: {
+  child_id: string;
+  kind: LinkKind;
+  link_date: string | null;
+  link_precision: DatePrecision;
+  adopted: boolean;
+}): ChildLink {
+  return {
+    id: row.child_id,
+    kind: row.kind,
+    link: toPartialDate(row.link_date, row.link_precision),
+    adopted: row.adopted,
+  };
+}
+
+/** The children hanging from each of these unions (both kinds), youngest last (unknown birth dates last). */
+export async function childLinksByUnion(trx: Trx, unionIds: string[]): Promise<Map<string, ChildLink[]>> {
+  const map = new Map<string, ChildLink[]>(unionIds.map((id) => [id, []]));
   if (unionIds.length === 0) return map;
   const rows = await trx
     .selectFrom('person_parents as pp')
     .innerJoin('people as c', 'c.id', 'pp.child_id')
-    .select(['pp.union_id', 'pp.child_id'])
+    .select(['pp.union_id', 'pp.child_id', 'pp.kind', 'pp.link_date', 'pp.link_precision', ADOPTED])
     .where('pp.union_id', 'in', unionIds)
     .orderBy(sql`c.birth_from nulls last`)
     .orderBy('c.id')
     .execute();
-  for (const row of rows) if (row.union_id) map.get(row.union_id)?.push(row.child_id);
+  for (const row of rows) {
+    if (row.union_id) map.get(row.union_id)?.push(toChildLink(row));
+  }
   return map;
 }
 
-export async function singleParentChildIds(trx: Trx, parentId: string): Promise<string[]> {
+/** Children who hang from this person alone, of either kind. */
+export async function singleParentChildLinks(trx: Trx, parentId: string): Promise<ChildLink[]> {
   const rows = await trx
     .selectFrom('person_parents as pp')
     .innerJoin('people as c', 'c.id', 'pp.child_id')
-    .select('pp.child_id')
+    .select(['pp.child_id', 'pp.kind', 'pp.link_date', 'pp.link_precision', ADOPTED])
     .where('pp.parent_id', '=', parentId)
     .orderBy(sql`c.birth_from nulls last`)
     .orderBy('c.id')
     .execute();
-  return rows.map((r) => r.child_id);
+  return rows.map(toChildLink);
 }
 
 export async function unionsOfPerson(trx: Trx, personId: string): Promise<UnionRow[]> {
@@ -246,11 +312,11 @@ export async function unionsOfPerson(trx: Trx, personId: string): Promise<UnionR
 }
 
 export async function withChildren(trx: Trx, rows: UnionRow[]): Promise<UnionWithChildren[]> {
-  const children = await childIdsByUnion(
+  const children = await childLinksByUnion(
     trx,
     rows.map((r) => r.id),
   );
-  return rows.map((row) => ({ ...toUnion(row), childIds: children.get(row.id) ?? [] }));
+  return rows.map((row) => ({ ...toUnion(row), children: children.get(row.id) ?? [] }));
 }
 
 export async function countUnionChildren(trx: Trx, unionId: string): Promise<number> {
@@ -297,7 +363,7 @@ export async function parentAgeWarnings(trx: Trx, personId: string): Promise<Api
     select c.id as child_id, parents.pid as parent_id,
            substr(c.birth_date, 1, 4)::int - substr(p.birth_date, 1, 4)::int as diff
       from person_parents pp
-      join people c on c.id = pp.child_id
+      join people c on c.id = pp.child_id and pp.kind = 'birth'
       cross join lateral (
         select pp.parent_id as pid where pp.parent_id is not null
         union all select u.partner_a_id from unions u where u.id = pp.union_id
@@ -328,24 +394,30 @@ export interface TreeQuery {
   down: number;
   /** Also include the other descendants of those ancestors (aunts, uncles, cousins...), as far down as the focal person plus `down`. */
   collateral: boolean;
+  /** Which family to follow for adopted people (see kinship_effective_kind in migration 0006). */
+  lineage: LineageView;
 }
 
 /**
- * The people and links needed to draw a tree around one person, in a handful of queries
- * whatever the size of the family (a recursive walk over the indexed parent links, then three
- * lookups by id). The caller has checked that the focal person exists.
+ * The people and links needed to draw a tree around one person, in a handful of queries whatever the size of
+ * the family (a recursive walk over the indexed parent links, then lookups by id). The caller has checked that
+ * the focal person exists.
+ *
+ * Every walk follows one set of parents per child: `kinship_effective_kind(child, lineage)`. In the adoptive
+ * view that is the adoptive set if the child has one, else the birth set; in the birth view the birth set only.
  */
 export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
   // Postgres cannot estimate how big a recursive walk gets and guesses millions of rows, which makes it
   // compile the query (JIT) for ~140 ms to save microseconds. This transaction only runs this one read.
   await sql`set local jit = off`.execute(trx);
+  const view = q.lineage;
   const walk = await sql<{ id: string }>`
     with recursive
     ancestors(id, depth) as (
       select ${q.focalId}::uuid, 0
       union
       select x.pid, a.depth + 1
-        from ancestors a, lateral public.kinship_parent_ids(a.id) as x(pid)
+        from ancestors a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
        where a.depth < ${q.up}::int
     ),
     descendants(id, depth) as (
@@ -354,9 +426,12 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
       select c.child_id, d.depth + 1
         from descendants d
         join lateral (
-          select pp.child_id from person_parents pp where pp.parent_id = d.id
-          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id where u.partner_a_id = d.id
-          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id where u.partner_b_id = d.id
+          select pp.child_id from person_parents pp
+           where pp.parent_id = d.id and pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
+          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id
+           where u.partner_a_id = d.id and pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
+          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id
+           where u.partner_b_id = d.id and pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
         ) c on true
        where d.depth < ${q.down}::int
     ),
@@ -366,14 +441,19 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
       -- one of them, and seeding from all of them would walk the same people again and again.
       select a.id, a.depth + ${q.down}::int from ancestors a
        where ${q.collateral}::boolean
-         and (a.depth = ${q.up}::int or not exists (select 1 from person_parents pp where pp.child_id = a.id))
+         and (a.depth = ${q.up}::int
+              or not exists (select 1 from person_parents pp
+                              where pp.child_id = a.id and pp.kind = public.kinship_effective_kind(a.id, ${view})))
       union
       select c.child_id, k.remaining - 1
         from collateral k
         join lateral (
-          select pp.child_id from person_parents pp where pp.parent_id = k.id
-          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id where u.partner_a_id = k.id
-          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id where u.partner_b_id = k.id
+          select pp.child_id from person_parents pp
+           where pp.parent_id = k.id and pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
+          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id
+           where u.partner_a_id = k.id and pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
+          union all select pp.child_id from unions u join person_parents pp on pp.union_id = u.id
+           where u.partner_b_id = k.id and pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
         ) c on true
        where k.remaining > 0
     )
@@ -405,11 +485,24 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
     .orderBy('id')
     .execute();
   const unionIds = new Set(unions.map((u) => u.id));
-  const links = await trx
+  const allLinks = await trx
     .selectFrom('person_parents')
-    .select(['child_id', 'union_id', 'parent_id'])
+    .select(PARENTAGE_COLUMNS)
     .where('child_id', 'in', ids)
     .execute();
+
+  // The set each child follows in this view, and the set they do not follow (if recorded).
+  const byChild = new Map<string, ParentageRow[]>();
+  for (const row of allLinks) byChild.set(row.child_id, [...(byChild.get(row.child_id) ?? []), row]);
+  const links: ParentageRow[] = [];
+  const otherSets: Array<{ child: string; kind: LinkKind }> = [];
+  for (const [child, rows] of byChild) {
+    const kind = effectiveKind(new Set(rows.map((r) => r.kind)), view);
+    const followed = rows.find((r) => r.kind === kind);
+    if (followed) links.push(followed);
+    const other = rows.find((r) => r.kind !== kind);
+    if (other) otherSets.push({ child, kind: other.kind });
+  }
 
   // A child whose union is not drawn, because one partner is missing, hangs from the drawn partner alone.
   const hiddenUnionIds = [
@@ -433,7 +526,7 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
         parentage[link.child_id] = toParentage(link);
       } else {
         const drawnPartner = hiddenUnions.get(link.union_id)?.find((id) => drawn.has(id));
-        if (drawnPartner) parentage[link.child_id] = { unionId: null, parentId: drawnPartner };
+        if (drawnPartner) parentage[link.child_id] = toParentage({ ...link, union_id: null, parent_id: drawnPartner });
       }
     } else if (link.parent_id !== null && drawn.has(link.parent_id)) {
       parentage[link.child_id] = toParentage(link);
@@ -441,32 +534,57 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
   }
   const withParents = new Set(links.map((l) => l.child_id));
   const needLeaf = people.filter((row) => withParents.has(row.id) && parentage[row.id] === undefined).map((r) => r.id);
-  const counts = await ancestorCounts(trx, needLeaf);
+  const counts = await ancestorCounts(trx, needLeaf, view);
+  const others = await otherFamilyCounts(trx, otherSets, view);
   const treePeople: TreePerson[] = people.map((row) => {
     const count = counts.get(row.id);
+    const other = others.get(row.id);
     return {
       ...toPerson(row),
       hasParents: withParents.has(row.id),
       ...(count === undefined ? {} : { ancestorCount: count }),
+      ...(other === undefined ? {} : { otherFamily: other }),
     };
   });
-  return { focalId: q.focalId, people: treePeople, unions: unions.map(toUnion), parentage };
+  return { lineage: view, focalId: q.focalId, people: treePeople, unions: unions.map(toUnion), parentage };
 }
 
 /**
- * How many known blood ancestors (at any depth, each counted once) each of the given people has. Only asked
- * for the people a chart would give a leaf to. One recursive query for all of them.
+ * How many known blood-or-adoptive ancestors (as this view follows them, at any depth, each counted once) each of
+ * the given people has. Only asked for the people a chart would give a leaf to. One recursive query for all of them.
  */
-async function ancestorCounts(trx: Trx, personIds: string[]): Promise<Map<string, number>> {
+async function ancestorCounts(trx: Trx, personIds: string[], view: LineageView): Promise<Map<string, number>> {
   const result = new Map<string, number>();
   if (personIds.length === 0) return result;
   const rows = await sql<{ origin: string; n: string }>`
     with recursive anc(origin, id) as (
-      select o.id, x.pid from unnest(${personIds}::uuid[]) as o(id), lateral public.kinship_parent_ids(o.id) as x(pid)
+      select o.id, x.pid from unnest(${personIds}::uuid[]) as o(id), lateral public.kinship_parent_ids_in(o.id, ${view}) as x(pid)
       union
-      select a.origin, x.pid from anc a, lateral public.kinship_parent_ids(a.id) as x(pid)
+      select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
     )
     select origin, count(*) as n from anc group by origin`.execute(trx);
   for (const row of rows.rows) result.set(row.origin, Number(row.n));
+  return result;
+}
+
+/** For people who have a parent set this view does not follow: which family it is, and how many people are in it. */
+async function otherFamilyCounts(
+  trx: Trx,
+  sets: Array<{ child: string; kind: LinkKind }>,
+  view: LineageView,
+): Promise<Map<string, { kind: LinkKind; count: number }>> {
+  const result = new Map<string, { kind: LinkKind; count: number }>();
+  if (sets.length === 0) return result;
+  const rows = await sql<{ origin: string; n: string }>`
+    with recursive anc(origin, id) as (
+      select o.child, x.pid
+        from unnest(${sets.map((s) => s.child)}::uuid[], ${sets.map((s) => s.kind)}::text[]) as o(child, kind),
+             lateral public.kinship_parent_ids_of_kind(o.child, o.kind) as x(pid)
+      union
+      select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
+    )
+    select origin, count(*) as n from anc group by origin`.execute(trx);
+  const counts = new Map(rows.rows.map((r) => [r.origin, Number(r.n)]));
+  for (const set of sets) result.set(set.child, { kind: set.kind, count: counts.get(set.child) ?? 0 });
   return result;
 }

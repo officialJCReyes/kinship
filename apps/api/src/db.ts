@@ -34,6 +34,8 @@ export interface Database {
     role: 'superadmin' | 'familyadmin' | 'member' | 'user';
     /** The person this account is linked to (0005). */
     person_id: string | null;
+    /** Which family this account's charts follow for an adopted person (0006). */
+    lineage_view: Generated<'adoptive' | 'birth'>;
     created_at: Date;
     updated_at: Date;
   };
@@ -68,8 +70,12 @@ export interface Database {
   };
   person_parents: {
     child_id: string;
+    /** Birth or adoptive (0006). A child has at most one set of each kind. */
+    kind: Generated<'birth' | 'adoptive'>;
     union_id: string | null;
     parent_id: string | null;
+    link_date: string | null;
+    link_precision: Generated<DatePrecisionCode>;
     created_by: string | null;
     created_at: ColumnType<Date, never, never>;
   };
