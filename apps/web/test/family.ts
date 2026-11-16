@@ -30,6 +30,8 @@ function person(
     id,
     givenName,
     surname,
+    secondSurname: null,
+    marriedSurname: null,
     gender,
     birth: birth ? { value: birth, precision: 'exactly' } : null,
     deceased: death !== null,
@@ -75,6 +77,7 @@ function union(
     status,
     start: start ? { value: start, precision: 'exactly' } : null,
     end: end ? { value: end, precision: 'exactly' } : null,
+    statusAuto: status === 'widowed',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
   };

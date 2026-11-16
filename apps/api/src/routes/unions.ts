@@ -8,7 +8,15 @@ import { badRequest, conflict, forbidden, notFound } from '../errors.js';
 import { canEditUnion, isAdmin } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
 import { withActor } from '../people/run.js';
-import { countUnionChildren, getPerson, getUnion, isUuid, unionsBetween, withChildren } from '../people/store.js';
+import {
+  UNION_COLUMNS,
+  countUnionChildren,
+  getPerson,
+  getUnion,
+  isUuid,
+  unionsBetween,
+  withChildren,
+} from '../people/store.js';
 import type { UnionRow } from '../people/store.js';
 import type { RouteLimit } from './shared.js';
 
@@ -37,6 +45,16 @@ async function respond(trx: Trx, row: UnionRow): Promise<UnionResponse> {
   const [union] = await withChildren(trx, [row]);
   if (!union) throw notFound('union_not_found');
   return { union };
+}
+
+/**
+ * The status the database will store: a Married relationship with a deceased partner is saved as Widowed
+ * (trigger in migration 0007). Worked out here too, so the duplicate check compares what is really stored.
+ */
+async function storedStatus(trx: Trx, a: string, b: string, status: UnionStatus): Promise<UnionStatus> {
+  if (status !== 'married') return status;
+  const [first, second] = await Promise.all([getPerson(trx, a), getPerson(trx, b)]);
+  return first?.deceased || second?.deceased ? 'widowed' : status;
 }
 
 /** The same two people already have a relationship with this status and start date. */
@@ -90,7 +108,8 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
         if (end !== null && !hasEndDate(status)) throw badRequest('end_date_not_allowed');
         if (!(await getPerson(trx, first)) || !(await getPerson(trx, second))) throw notFound('person_not_found');
         const [a, b] = first < second ? [first, second] : [second, first];
-        if (await isDuplicate(trx, a, b, status, start)) throw conflict('duplicate_relationship');
+        if (await isDuplicate(trx, a, b, await storedStatus(trx, a, b, status), start))
+          throw conflict('duplicate_relationship');
         const row = await trx
           .insertInto('unions')
           .values({
@@ -103,18 +122,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
             end_precision: end?.precision ?? 'exactly',
             created_by: actor.id,
           })
-          .returning([
-            'id',
-            'partner_a_id',
-            'partner_b_id',
-            'status',
-            'start_date',
-            'start_precision',
-            'end_date',
-            'end_precision',
-            'created_at',
-            'updated_at',
-          ])
+          .returning(UNION_COLUMNS)
           .executeTakeFirstOrThrow();
         return respond(trx, row);
       });
@@ -177,7 +185,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
             trx,
             current.partner_a_id,
             current.partner_b_id,
-            status,
+            await storedStatus(trx, current.partner_a_id, current.partner_b_id, status),
             startAfter.value === null ? null : { value: startAfter.value, precision: startAfter.precision },
             id,
           )
@@ -195,18 +203,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
             ...(end !== undefined ? { end_date: end?.value ?? null, end_precision: end?.precision ?? 'exactly' } : {}),
           })
           .where('id', '=', id)
-          .returning([
-            'id',
-            'partner_a_id',
-            'partner_b_id',
-            'status',
-            'start_date',
-            'start_precision',
-            'end_date',
-            'end_precision',
-            'created_at',
-            'updated_at',
-          ])
+          .returning(UNION_COLUMNS)
           .executeTakeFirst();
         if (!row) throw forbidden();
         return respond(trx, row);

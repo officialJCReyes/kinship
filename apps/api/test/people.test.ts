@@ -295,9 +295,12 @@ describe('relationships (unions)', () => {
   });
 
   it('changes status and dates, and refuses to keep an end date under a status that has none', async () => {
-    const { union } = (
-      await as(admin, 'POST', '/api/unions', { partnerIds: [f.person.walter, f.person.leo], status: 'friends' })
-    ).body as { union: { id: string } };
+    // Two new, living people: Walter (deceased in the test family) would turn Married into Widowed.
+    const one = (await as(admin, 'POST', '/api/people', { givenName: 'Status', surname: 'One' })).body?.person.id;
+    const two = (await as(admin, 'POST', '/api/people', { givenName: 'Status', surname: 'Two' })).body?.person.id;
+    const { union } = (await as(admin, 'POST', '/api/unions', { partnerIds: [one, two], status: 'friends' })).body as {
+      union: { id: string };
+    };
     const divorced = await as(admin, 'PATCH', `/api/unions/${union.id}`, {
       status: 'divorced',
       end: { value: '2010-07-01' },

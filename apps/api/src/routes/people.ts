@@ -22,8 +22,9 @@ import { canAddChildUnder, canEditPerson, isAdmin } from '../people/actor.js';
 import type { Actor } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
 import { withActor } from '../people/run.js';
-import { cleanName } from '../people/names.js';
+import { cleanName, cleanOptionalName } from '../people/names.js';
 import {
+  UNION_COLUMNS,
   decodeCursor,
   deletePreview,
   encodeCursor,
@@ -73,6 +74,8 @@ const dateSchema = {
 const personProperties = {
   givenName: { type: 'string', maxLength: 400 },
   surname: { type: 'string', maxLength: 400 },
+  secondSurname: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 400 }] },
+  marriedSurname: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 400 }] },
   gender: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 16 }] },
   birth: dateSchema,
   deceased: { type: 'boolean' },
@@ -107,6 +110,8 @@ export function parsePersonInput(input: PersonInput): PersonValues {
   return {
     given_name: cleanName(input.givenName, 'invalid_given_name'),
     surname: cleanName(input.surname, 'invalid_surname'),
+    second_surname: cleanOptionalName(input.secondSurname, 'invalid_second_surname'),
+    married_surname: cleanOptionalName(input.marriedSurname, 'invalid_married_surname'),
     gender: parseGender(input.gender),
     birth_date: birth?.value ?? null,
     birth_precision: birth?.precision ?? 'exactly',
@@ -121,6 +126,12 @@ function parsePersonPatch(patch: PersonPatch, current: { deceased: boolean }): P
   const values: Partial<PersonValues> = {};
   if (patch.givenName !== undefined) values.given_name = cleanName(patch.givenName, 'invalid_given_name');
   if (patch.surname !== undefined) values.surname = cleanName(patch.surname, 'invalid_surname');
+  if (patch.secondSurname !== undefined) {
+    values.second_surname = cleanOptionalName(patch.secondSurname, 'invalid_second_surname');
+  }
+  if (patch.marriedSurname !== undefined) {
+    values.married_surname = cleanOptionalName(patch.marriedSurname, 'invalid_married_surname');
+  }
   if (patch.gender !== undefined) values.gender = parseGender(patch.gender);
   if (patch.birth !== undefined) {
     const birth = parseDateInput(patch.birth);
@@ -551,17 +562,6 @@ async function unionForNewParent(
   return trx
     .insertInto('unions')
     .values({ partner_a_id: a, partner_b_id: b, status: 'unknown', created_by: actor.id })
-    .returning([
-      'id',
-      'partner_a_id',
-      'partner_b_id',
-      'status',
-      'start_date',
-      'start_precision',
-      'end_date',
-      'end_precision',
-      'created_at',
-      'updated_at',
-    ])
+    .returning(UNION_COLUMNS)
     .executeTakeFirstOrThrow();
 }

@@ -59,7 +59,12 @@ export const MIN_PARENT_AGE_YEARS = 12;
 /** What a client sends to create a person, and (every field optional) to change one. */
 export interface PersonInput {
   givenName: string;
+  /** The birth surname (the first or paternal surname). */
   surname: string;
+  /** The second (maternal) surname. Null or blank means none. */
+  secondSurname?: string | null;
+  /** The surname taken at marriage. Null or blank means none. */
+  marriedSurname?: string | null;
   gender?: Gender | null;
   birth?: PartialDateInput | null;
   deceased?: boolean;
@@ -70,7 +75,10 @@ export type PersonPatch = Partial<PersonInput>;
 export interface Person {
   id: string;
   givenName: string;
+  /** The birth surname (the first or paternal surname). */
   surname: string;
+  secondSurname: string | null;
+  marriedSurname: string | null;
   gender: Gender | null;
   birth: PartialDate | null;
   deceased: boolean;
@@ -113,6 +121,8 @@ export interface Union {
   status: UnionStatus;
   start: PartialDate | null;
   end: PartialDate | null;
+  /** True when the server set Widowed itself (a partner died). A status changed by hand makes it false. */
+  statusAuto: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -258,6 +268,8 @@ export const PEOPLE_ERROR_CODES = [
   'union_not_found',
   'invalid_given_name',
   'invalid_surname',
+  'invalid_second_surname',
+  'invalid_married_surname',
   'invalid_gender',
   'invalid_date',
   'invalid_precision',

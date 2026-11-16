@@ -43,6 +43,10 @@ export interface Database {
     id: Generated<string>;
     given_name: string;
     surname: string;
+    /** The second (maternal) surname, optional (0007). */
+    second_surname: string | null;
+    /** The surname taken at marriage, optional (0007). */
+    married_surname: string | null;
     gender: 'male' | 'female' | 'other' | null;
     /** As typed: YYYY, YYYY-MM or YYYY-MM-DD. The generated *_from and *_to columns exist but are only used in SQL. */
     birth_date: string | null;
@@ -51,6 +55,8 @@ export interface Database {
     death_date: string | null;
     death_precision: Generated<DatePrecisionCode>;
     search_name: ColumnType<string, never, never>;
+    /** Search text over the given name and all three surnames (0007). Replaces search_name, which is dropped in a later release. */
+    search_names: ColumnType<string, never, never>;
     created_by: string | null;
     created_at: ColumnType<Date, never, never>;
     updated_at: ColumnType<Date, never, never>;
@@ -64,6 +70,8 @@ export interface Database {
     start_precision: Generated<DatePrecisionCode>;
     end_date: string | null;
     end_precision: Generated<DatePrecisionCode>;
+    /** True when the database set Widowed itself (0007). Only the triggers write it. */
+    status_auto: ColumnType<boolean, never, never>;
     created_by: string | null;
     created_at: ColumnType<Date, never, never>;
     updated_at: ColumnType<Date, never, never>;

@@ -482,6 +482,7 @@ describe('migration 0006 on data from before it', () => {
     try {
       await ensureAppRole(test.owner, test.config.appUser, test.config.appPassword);
       await rm(join(dir.dir, '0006_adoptive_parentage.sql'));
+      await rm(join(dir.dir, '0007_names_and_widowed.sql')); // this test is about 0006 alone
       await runMigrations(test.owner, { dir: dir.dir, appRole: test.config.appUser });
       // Old data: a user, a family, links in the old shape (one row per child).
       await sql`insert into users (email, display_name, password_hash, role) values ('a@example.com', 'A', 'x', 'superadmin')`.execute(
