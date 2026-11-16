@@ -37,6 +37,24 @@ export function fromDatabaseError(error: unknown): ApiError | undefined {
     case '42501': // permission denied, or a row-level security policy refused the row
     case 'KS010':
       return forbidden();
+    case 'KS020':
+      return new ApiError(403, 'role_not_allowed');
+    case 'KS021':
+      return conflict('email_taken');
+    case 'KS022':
+      return conflict('invitation_exists');
+    case 'KS023':
+      return conflict('person_already_linked');
+    case 'KS024':
+      return notFound('person_not_found');
+    case 'KS025':
+      return notFound('account_not_found');
+    case 'KS026':
+      return notFound('link_not_found');
+    case 'KS027':
+      return conflict('link_exists');
+    case 'KS030': // the one answer for every bad link (see accept_invitation)
+      return notFound('invalid_link');
     case 'KS011':
       return badRequest('parent_is_self');
     case 'KS012':

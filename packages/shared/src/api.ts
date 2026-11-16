@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { ACCOUNT_ERROR_CODES } from './accounts.js';
 import { PEOPLE_ERROR_CODES } from './people.js';
 import type { ColorScheme, DateFormat, SurnameChoice, Theme, UserSettings } from './settings.js';
 import type { LineageView } from './people.js';
@@ -92,6 +93,8 @@ export const API_ERROR_CODES = [
   'invalid_theme',
   'invalid_date_format',
   'invalid_surname_choice',
+  // Invitations, set-password links and passwords (see accounts.ts).
+  ...ACCOUNT_ERROR_CODES,
   // People and relationships (see people.ts).
   ...PEOPLE_ERROR_CODES,
 ] as const;

@@ -11,6 +11,11 @@ export function generateSetupToken(): string {
   return randomBytes(24).toString('base64url');
 }
 
+/** The secret in an invitation or set-password link (256 bits). Shown once; only its hash is stored. */
+export function generateLinkToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
 /**
  * What is stored for a token: its SHA-256 as hex. The tokens are long random
  * values, so a fast hash is enough (there is nothing to brute-force), and the

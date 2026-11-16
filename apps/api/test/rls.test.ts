@@ -26,13 +26,15 @@ const asUser = <T>(userId: string | null, fn: Parameters<typeof withUserTransact
   withUserTransaction(t.db, userId, fn);
 
 describe('users: row-level security', () => {
-  it('shows each signed-in person only their own row', async () => {
+  // 0011 added users_select_admin: an admin (Alice, a SuperAdmin) now reads every account; the other roles still
+  // read only their own row (Bob, a Member). This test used to say a SuperAdmin sees only their own row.
+  it('shows a Member only their own row, and an admin every account', async () => {
     const seen = (userId: string) =>
       asUser(userId, async (trx) =>
-        (await trx.selectFrom('users').select(['id', 'email']).execute()).map((r) => r.email),
+        (await trx.selectFrom('users').select(['id', 'email']).orderBy('email').execute()).map((r) => r.email),
       );
-    expect(await seen(alice)).toEqual(['alice@example.com']);
     expect(await seen(bob)).toEqual(['bob@example.com']);
+    expect(await seen(alice)).toEqual(['alice@example.com', 'bob@example.com']);
   });
 
   it('shows nothing to a request with nobody signed in', async () => {
@@ -40,8 +42,8 @@ describe('users: row-level security', () => {
     expect(rows).toEqual([]);
   });
 
-  it("does not let one person read another's row by asking for it", async () => {
-    const rows = await asUser(alice, (trx) => trx.selectFrom('users').select('id').where('id', '=', bob).execute());
+  it("does not let a Member read another's row by asking for it", async () => {
+    const rows = await asUser(bob, (trx) => trx.selectFrom('users').select('id').where('id', '=', alice).execute());
     expect(rows).toEqual([]);
   });
 
