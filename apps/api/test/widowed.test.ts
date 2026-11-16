@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { buildApp } from '../src/app.js';
+import { createDb } from '../src/db.js';
+import type { Database } from '../src/db.js';
 import { withUserTransaction } from '../src/request-context.js';
+import { readVersion } from '../src/version.js';
 import { createTestApp } from './helpers/app.js';
 import type { TestApp } from './helpers/app.js';
 import { buildFamily, insertPersonRow, insertUnionRow, linkChild, signInAll } from './helpers/family.js';
@@ -284,4 +288,128 @@ describe('automatic Widowed: invariants over random toggles', () => {
     },
     60_000,
   );
+});
+
+// ---------------------------------------------------------------------------
+// A status saved by hand makes an automatic Widowed permanent (migration 0008).
+// ---------------------------------------------------------------------------
+describe('automatic Widowed: a status saved by hand', () => {
+  const admin = 'familyadmin';
+  const SETTING = 'kinship.union_status_by_hand';
+
+  /** A relationship that the database set to Widowed itself, read back through the API. */
+  async function autoWidowed() {
+    const c = await couple('married');
+    const marked = await as(admin, 'PATCH', `/api/people/${c.a}`, { deceased: true });
+    expect(marked.status).toBe(200);
+    const read = await as(admin, 'GET', `/api/unions/${c.union}`);
+    expect(read.body?.union).toMatchObject({ status: 'widowed', statusAuto: true });
+    return c;
+  }
+
+  it('clears status_auto when the saved status equals the current one, and un-marking then reverts nothing', async () => {
+    const c = await autoWidowed();
+    const saved = await as(admin, 'PATCH', `/api/unions/${c.union}`, { status: 'widowed' });
+    expect(saved.body?.union).toMatchObject({ status: 'widowed', statusAuto: false });
+    const living = await as(admin, 'PATCH', `/api/people/${c.a}`, { deceased: false });
+    expect(living.status).toBe(200);
+    expect(await unionState(c.union)).toEqual({ status: 'widowed', status_auto: false });
+  });
+
+  it('leaves status_auto alone when the PATCH has no status (dates)', async () => {
+    const c = await autoWidowed();
+    const saved = await as(admin, 'PATCH', `/api/unions/${c.union}`, { start: { value: '1980-05' } });
+    expect(saved.body?.union).toMatchObject({ status: 'widowed', statusAuto: true, start: { value: '1980-05' } });
+    expect(await unionState(c.union)).toEqual({ status: 'widowed', status_auto: true });
+  });
+
+  it('does not touch a different relationship', async () => {
+    const one = await autoWidowed();
+    const other = await autoWidowed();
+    await as(admin, 'PATCH', `/api/unions/${one.union}`, { status: 'widowed' });
+    expect(await unionState(one.union)).toEqual({ status: 'widowed', status_auto: false });
+    expect(await unionState(other.union)).toEqual({ status: 'widowed', status_auto: true });
+  });
+
+  it('is cleared by a status that differs, as before', async () => {
+    const c = await autoWidowed();
+    const saved = await as(admin, 'PATCH', `/api/unions/${c.union}`, { status: 'divorced', end: null });
+    expect(saved.body?.union).toMatchObject({ status: 'divorced', statusAuto: false });
+  });
+
+  describe('on one pooled connection', () => {
+    // One connection for everything: whatever a request leaves behind, the next request meets it.
+    let single: ReturnType<typeof createDb<Database>>;
+    let one: Awaited<ReturnType<typeof signInAll>>;
+    let app2: ReturnType<typeof buildApp>;
+    beforeAll(async () => {
+      const config = t.test.config;
+      single = t.test.track(createDb<Database>(config, config.appUser, config.appPassword, 1));
+      app2 = buildApp({
+        db: single,
+        version: readVersion('abc1234', '2026-11-15T19:04:05Z'),
+        logLevel: 'silent',
+        sessions: { idleSeconds: 3600, maxSeconds: 86_400 },
+        failureDelayMs: 0,
+        loginRequestsPerMinute: 10_000,
+        apiRequestsPerMinute: 100_000,
+      });
+      await app2.ready();
+      one = await signInAll(app2, f);
+    });
+    afterAll(() => app2.close());
+
+    const setting = (id: string) =>
+      withUserTransaction(single, id, async (trx) => {
+        const r = await sql<{ v: string | null }>`select current_setting(${SETTING}, true) as v`.execute(trx);
+        return r.rows[0]?.v ?? '';
+      });
+
+    it('does not carry the setting from one request to the next', async () => {
+      const a = await autoWidowed();
+      const b = await autoWidowed();
+      const patched = await one(admin, 'PATCH', `/api/unions/${a.union}`, { status: 'widowed' });
+      expect(patched.body?.union).toMatchObject({ statusAuto: false });
+      // The next request on the same connection sees no setting, and a plain same-value update leaves b alone.
+      expect(await setting(f.account.superadmin.id)).not.toBe('on');
+      await asAccount(f.account.superadmin.id, (trx) =>
+        sql`update unions set status = status where id = ${b.union}`.execute(trx),
+      );
+      expect(await unionState(b.union)).toEqual({ status: 'widowed', status_auto: true });
+    });
+
+    it('does not keep a setting that a transaction set locally', async () => {
+      await withUserTransaction(single, f.account.superadmin.id, (trx) =>
+        sql`select set_config(${SETTING}, 'on', true)`.execute(trx),
+      );
+      expect(await setting(f.account.superadmin.id)).not.toBe('on');
+    });
+
+    it('is ignored by the deceased trigger and by the rule for a new relationship', async () => {
+      const c = await couple('married');
+      const gone = await insertPersonRow(t.owner, 'Setting', 'Gone', { deceased: true });
+      await withUserTransaction(single, f.account.superadmin.id, async (trx) => {
+        await sql`select set_config(${SETTING}, 'on', true)`.execute(trx);
+        await sql`update people set deceased = true where id = ${c.a}`.execute(trx);
+      });
+      // Marked deceased with the setting on: Widowed, set automatically (status_auto true), not "by hand".
+      expect(await unionState(c.union)).toEqual({ status: 'widowed', status_auto: true });
+      await withUserTransaction(single, f.account.superadmin.id, async (trx) => {
+        await sql`select set_config(${SETTING}, 'on', true)`.execute(trx);
+        await sql`update people set deceased = false, death_date = null where id = ${c.a}`.execute(trx);
+      });
+      expect(await unionState(c.union)).toEqual({ status: 'married', status_auto: false });
+      // A Married relationship saved with a deceased partner, setting on: Widowed, automatic.
+      const living = await insertPersonRow(t.owner, 'Setting', 'Living');
+      const [pa, pb] = gone < living ? [gone, living] : [living, gone];
+      const inserted = await withUserTransaction(single, f.account.superadmin.id, async (trx) => {
+        await sql`select set_config(${SETTING}, 'on', true)`.execute(trx);
+        const r = await sql<{ id: string }>`
+          insert into unions (partner_a_id, partner_b_id, status, created_by)
+          values (${pa}, ${pb}, 'married', ${f.account.superadmin.id}) returning id`.execute(trx);
+        return r.rows[0]!.id;
+      });
+      expect(await unionState(inserted)).toEqual({ status: 'widowed', status_auto: true });
+    });
+  });
 });

@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { displayName } from '@kinship/shared';
 import { LINK_KINDS } from '@kinship/shared';
-import type { AuthUser, Gender, LinkKind, MessageKey, Person, PersonDetail, TreeResponse } from '@kinship/shared';
-import { useState } from 'react';
+import type {
+  AuthUser,
+  Gender,
+  LinkKind,
+  MessageKey,
+  Person,
+  PersonDetail,
+  TreeResponse,
+  UnionStatus,
+} from '@kinship/shared';
+import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
 import * as api from '../api.js';
@@ -215,7 +224,10 @@ function RelativeForm({
     (!useExisting || (existing !== null && existingDetail.isSuccess && sharedUnions.length === 0));
   const needsUnionChoice = useExisting && sharedUnions.length > 1;
 
+  // What the server stored for a new partner relationship (it can differ from what was asked).
+  const saved = useRef<UnionStatus | null>(null);
   const run = async (): Promise<Added | null> => {
+    saved.current = null;
     if (isChild) {
       if (!input) return null;
       if (linkInput === undefined) return null;
@@ -261,12 +273,18 @@ function RelativeForm({
       };
       if (useExisting) {
         if (!existing) return null;
-        await api.createUnion({ ...link, partnerIds: sortedPair(person.id, existing.id) });
+        const created = await api.createUnion({ ...link, partnerIds: sortedPair(person.id, existing.id) });
+        saved.current = created.union.status;
         await saveOwnSurname();
         return { person: existing, warnings: [] };
       }
       if (!input) return null;
-      const added = await createThenLink(input, newPartnerLink(person.id, link));
+      const added = await createThenLink(
+        input,
+        newPartnerLink(person.id, link, (status) => {
+          saved.current = status;
+        }),
+      );
       await saveOwnSurname();
       return added;
     }
@@ -289,6 +307,8 @@ function RelativeForm({
       await refresh();
       for (const text of warningTexts(added.warnings)) notify('warning', text);
       notify('success', t('notice.addedRelative', { name: displayName(added.person) }));
+      if (isPartner && saved.current !== null && saved.current !== union.status)
+        notify('success', t('notice.unionSavedWidowed'));
       onDone();
     } catch (caught) {
       setError(caught);

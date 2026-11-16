@@ -2,6 +2,7 @@
 import { UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
 import type { UnionInput, UnionPatch, UnionResponse, UnionStatus } from '@kinship/shared';
 import type { FastifyInstance } from 'fastify';
+import { sql } from 'kysely';
 import type { Transaction } from 'kysely';
 import type { Database } from '../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../errors.js';
@@ -33,6 +34,8 @@ const dateSchema = {
     },
   ],
 };
+/** Transaction-local setting the PATCH sets when the body has a status (read by the trigger of migration 0008). */
+const STATUS_BY_HAND_SETTING = 'kinship.union_status_by_hand';
 const idParams = { type: 'object', required: ['id'], properties: { id: { type: 'string', maxLength: 64 } } };
 
 function parseStatus(raw: unknown): UnionStatus {
@@ -193,6 +196,10 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
           throw conflict('duplicate_relationship');
         }
 
+        // A status in the body is a status chosen by hand, even when it equals the current one: it makes an
+        // automatic Widowed permanent (migration 0008). The setting is transaction-local, set right before this
+        // one UPDATE and cleared right after it, and is never set for a PATCH without a status.
+        if (body.status !== undefined) await sql`select set_config(${STATUS_BY_HAND_SETTING}, 'on', true)`.execute(trx);
         const row = await trx
           .updateTable('unions')
           .set({
@@ -205,6 +212,8 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
           .where('id', '=', id)
           .returning(UNION_COLUMNS)
           .executeTakeFirst();
+        if (body.status !== undefined)
+          await sql`select set_config(${STATUS_BY_HAND_SETTING}, 'off', true)`.execute(trx);
         if (!row) throw forbidden();
         return respond(trx, row);
       });

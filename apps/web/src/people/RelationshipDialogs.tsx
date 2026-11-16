@@ -39,6 +39,7 @@ export function EditUnionDialog({
   onClose: () => void;
 }) {
   const refresh = useRefreshPeople();
+  const { notify } = useNotices();
   const me = useSession(false).data?.user;
   const [draft, setDraft] = useState(draftFromUnion(union));
   const [submitted, setSubmitted] = useState(false);
@@ -72,11 +73,14 @@ export function EditUnionDialog({
       .catch(() => null);
     await refresh();
     if (!result) return;
+    // The server stores Married as Widowed when a partner is deceased; say so when it did.
+    if (result.union.status !== draft.status) notify('success', t('notice.unionSavedWidowed'));
     onClose();
   };
   return (
     <Dialog title={t('union.editTitle', { a: names[0], b: names[1] })} onClose={onClose}>
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
+        {union.statusAuto ? <p className="muted">{t('union.autoNote')}</p> : null}
         <UnionFields draft={draft} onChange={setDraft} showErrors={submitted} />
         <MarriedSurnames
           status={draft.status}
