@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {
-  COLOR_SCHEMES,
   MIN_PASSWORD_LENGTH,
   DATE_FORMATS,
   LINEAGE_VIEWS,
@@ -17,6 +16,7 @@ import { Link } from 'react-router';
 import * as api from '../api.js';
 import { ApiError } from '../api.js';
 import { meKey, useSession } from '../auth.js';
+import { ColorSchemePicker } from '../components/ColorSchemePicker.js';
 import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { Loading } from '../components/States.js';
@@ -195,24 +195,11 @@ export function SettingsPage() {
           <span className="label" id="scheme-label">
             {t('settings.colorScheme')}
           </span>
-          <div className="swatches" role="radiogroup" aria-labelledby="scheme-label">
-            {COLOR_SCHEMES.map((scheme) => (
-              <button
-                key={scheme}
-                type="button"
-                role="radio"
-                aria-checked={user.colorScheme === scheme}
-                className={`swatch swatch-${scheme}`}
-                onClick={() => change({ colorScheme: scheme })}
-              >
-                <span className="swatch-chips" aria-hidden="true">
-                  <span className="chip-accent" />
-                  <span className="chip-tint" />
-                </span>
-                {t(`settings.scheme.${scheme}` as MessageKey)}
-              </button>
-            ))}
-          </div>
+          <ColorSchemePicker
+            value={user.colorScheme}
+            onChange={(scheme) => change({ colorScheme: scheme })}
+            labelledBy="scheme-label"
+          />
           <div className="muted field-help">{t('settings.colorSchemeHelp')}</div>
         </div>
         <SelectField

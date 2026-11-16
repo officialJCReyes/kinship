@@ -12,18 +12,20 @@ interface DateInputProps {
   onChange: (draft: DateDraft) => void;
   /** Show a problem at once (a form sets this after a failed save). Otherwise it shows after leaving the field. */
   showError?: boolean;
+  /** A problem found elsewhere (a form's own check, or the server's answer), shown in place of the date's own. */
+  externalError?: string | undefined;
 }
 
 /**
  * A date typed as YYYY, YYYY-MM or YYYY-MM-DD, with how to read it (exactly, about, before, after) and a
  * live preview of what it means. Empty is allowed. Matches the API's `{ value, precision }`.
  */
-export function DateInput({ label, draft, onChange, showError }: DateInputProps) {
+export function DateInput({ label, draft, onChange, showError, externalError }: DateInputProps) {
   const id = useId();
   const [touched, setTouched] = useState(false);
   const parsed = draftToInput(draft);
   const invalid = parsed === undefined;
-  const shownError = invalid && (touched || showError);
+  const shownError = Boolean(externalError) || (invalid && (touched || showError));
   const previewId = `${id}-preview`;
   const errorId = `${id}-error`;
   return (
@@ -58,7 +60,7 @@ export function DateInput({ label, draft, onChange, showError }: DateInputProps)
       </div>
       {shownError ? (
         <div id={errorId} className="field-error">
-          {t('error.invalid_date')}
+          {externalError ?? t('error.invalid_date')}
         </div>
       ) : null}
     </div>

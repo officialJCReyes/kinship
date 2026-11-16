@@ -9,3 +9,8 @@ import type { AuthUser } from '@kinship/shared';
 export function applyTheme(settings: Pick<AuthUser, 'colorScheme' | 'theme'>): void {
   window.kinshipTheme?.apply({ colorScheme: settings.colorScheme, theme: settings.theme }, true);
 }
+
+/** Shows a color scheme at once (the first-run wizard, before there is an account) and keeps it in the browser's mirror. */
+export function applyColorScheme(colorScheme: AuthUser['colorScheme']): void {
+  window.kinshipTheme?.apply({ colorScheme }, true);
+}
