@@ -19,6 +19,8 @@ export const ALICE = {
   theme: 'device',
   dateFormat: 'mdy',
   surnameChoice: 'married',
+  passwordChangedAt: null,
+  passwordChangedVia: null,
 } as const;
 export const ME = { user: ALICE, treeName: 'Hale Family' };
 /** The version the web app was built with (vite.config.ts reads it from package.json). */

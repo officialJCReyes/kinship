@@ -14,7 +14,14 @@ export type { Role };
 /** The signed-in account as the session lookup knows it. The linked person is read per request (see people/actor.ts). */
 export type SessionUser = Omit<
   AuthUser,
-  'personId' | 'lineageView' | 'colorScheme' | 'theme' | 'dateFormat' | 'surnameChoice'
+  | 'personId'
+  | 'lineageView'
+  | 'colorScheme'
+  | 'theme'
+  | 'dateFormat'
+  | 'surnameChoice'
+  | 'passwordChangedAt'
+  | 'passwordChangedVia'
 >;
 
 export interface ResolvedSession {

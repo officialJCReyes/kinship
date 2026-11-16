@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ACCOUNT_ERROR_CODES } from './accounts.js';
+import type { PasswordChangeCode } from './accounts.js';
 import { PEOPLE_ERROR_CODES } from './people.js';
 import type { ColorScheme, DateFormat, SurnameChoice, Theme, UserSettings } from './settings.js';
 import type { LineageView } from './people.js';
@@ -40,6 +41,9 @@ export interface AuthUser {
   theme: Theme;
   dateFormat: DateFormat;
   surnameChoice: SurnameChoice;
+  /** When and how the password last changed (ISO time and a code), or null when it was set before KinShip recorded it. */
+  passwordChangedAt: string | null;
+  passwordChangedVia: PasswordChangeCode | null;
 }
 
 /** Body of PATCH /api/auth/me: any non-empty subset of the account's own settings. */

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {
   COLOR_SCHEMES,
+  MIN_PASSWORD_LENGTH,
   DATE_FORMATS,
   LINEAGE_VIEWS,
   SURNAME_CHOICES,
@@ -9,15 +10,20 @@ import {
   formatPartialDate,
 } from '@kinship/shared';
 import type { AuthUser, MessageKey, UserSettings } from '@kinship/shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
-import { useSession } from '../auth.js';
+import * as api from '../api.js';
+import { ApiError } from '../api.js';
+import { meKey, useSession } from '../auth.js';
+import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { errorMessage } from '../lib/errors.js';
 import { displayName } from '../lib/names.js';
+import { passwordTrace } from '../lib/password-trace.js';
 import { useUpdateSettings } from '../lib/settings.js';
 import { usePersonDetail } from '../people/queries.js';
 
@@ -32,6 +38,95 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2>{title}</h2>
       {children}
     </section>
+  );
+}
+
+/** Change your own password: the current one, the new one twice. The other devices are signed out; this one stays in. */
+function PasswordForm() {
+  const client = useQueryClient();
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [wrongCurrent, setWrongCurrent] = useState(false);
+  const [failure, setFailure] = useState<unknown>(null);
+
+  const tooShort = next.length < MIN_PASSWORD_LENGTH;
+  const mismatch = next !== again;
+  const missingCurrent = current === '';
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSubmitted(true);
+    setSaved(false);
+    setFailure(null);
+    setWrongCurrent(false);
+    if (missingCurrent || tooShort || mismatch) return;
+    setBusy(true);
+    try {
+      await api.changePassword({ currentPassword: current, newPassword: next });
+      setCurrent('');
+      setNext('');
+      setAgain('');
+      setSubmitted(false);
+      setSaved(true);
+      await client.invalidateQueries({ queryKey: meKey });
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'invalid_current_password') setWrongCurrent(true);
+      else setFailure(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form
+      className="password-form"
+      onSubmit={(event) => void onSubmit(event)}
+      noValidate
+      aria-labelledby="password-title"
+    >
+      <h3 id="password-title">{t('settings.password.title')}</h3>
+      <Field
+        label={t('settings.password.current')}
+        type="password"
+        name="current-password"
+        autoComplete="current-password"
+        value={current}
+        onChange={(event) => setCurrent(event.target.value)}
+        error={wrongCurrent ? t('error.invalid_current_password') : undefined}
+      />
+      <Field
+        label={t('settings.password.new')}
+        type="password"
+        name="new-password"
+        autoComplete="new-password"
+        value={next}
+        onChange={(event) => setNext(event.target.value)}
+        help={t('settings.password.help', { min: MIN_PASSWORD_LENGTH })}
+        error={submitted && tooShort ? t('settings.password.help', { min: MIN_PASSWORD_LENGTH }) : undefined}
+      />
+      <Field
+        label={t('settings.password.confirm')}
+        type="password"
+        name="confirm-password"
+        autoComplete="new-password"
+        value={again}
+        onChange={(event) => setAgain(event.target.value)}
+        error={submitted && mismatch ? t('settings.password.mismatch') : undefined}
+      />
+      {failure ? (
+        <div className="alert" role="alert">
+          {errorMessage(failure)}
+        </div>
+      ) : null}
+      <div role="status">{saved ? t('settings.password.saved') : ''}</div>
+      <button className="button" type="submit" disabled={busy}>
+        {busy ? t('settings.password.saving') : t('settings.password.submit')}
+      </button>
+    </form>
   );
 }
 
@@ -60,7 +155,10 @@ function AccountCard({ user }: { user: AuthUser }) {
         <dd>{t(`role.${user.role}` as MessageKey)}</dd>
         <dt>{t('settings.account.signIn')}</dt>
         <dd>{t('settings.account.localPassword')}</dd>
+        <dt>{t('settings.account.password')}</dt>
+        <dd>{passwordTrace(user.passwordChangedAt, user.passwordChangedVia)}</dd>
       </dl>
+      <PasswordForm />
     </Section>
   );
 }

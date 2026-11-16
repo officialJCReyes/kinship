@@ -109,10 +109,12 @@ describe('POST /api/setup', () => {
         theme: 'device',
         dateFormat: 'mdy',
         surnameChoice: 'married',
+        passwordChangedAt: expect.any(String), // the first account records that its password was set at setup
+        passwordChangedVia: 'setup',
       },
       treeName: 'Hale Family',
     });
-    expect(JSON.stringify(response.json())).not.toMatch(/password|hash/i);
+    expect(JSON.stringify(response.json())).not.toMatch(/"password"|hash/i);
 
     const cookie = sessionCookie(response);
     expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Lax', path: '/' });

@@ -136,6 +136,8 @@ export const ADMIN: AuthUser = {
   theme: 'device',
   dateFormat: 'mdy',
   surnameChoice: 'married',
+  passwordChangedAt: null,
+  passwordChangedVia: null,
 };
 export const MEMBER: AuthUser = {
   id: 'u-member',
@@ -148,6 +150,8 @@ export const MEMBER: AuthUser = {
   theme: 'device',
   dateFormat: 'mdy',
   surnameChoice: 'married',
+  passwordChangedAt: null,
+  passwordChangedVia: null,
 };
 export const READER: AuthUser = {
   id: 'u-user',
@@ -160,6 +164,8 @@ export const READER: AuthUser = {
   theme: 'device',
   dateFormat: 'mdy',
   surnameChoice: 'married',
+  passwordChangedAt: null,
+  passwordChangedVia: null,
 };
 
 /** What the API would say a signed-in account may do with a person (a Member: themselves only, here). */

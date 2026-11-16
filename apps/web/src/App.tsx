@@ -10,6 +10,7 @@ import { AboutPage } from './pages/AboutPage.js';
 import { AdminLayout } from './pages/AdminLayout.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { HomePage } from './pages/HomePage.js';
+import { LinkPage } from './pages/LinkPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { NoticeList, NoticeProvider } from './notices.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
@@ -114,6 +115,9 @@ export function App() {
         <Routes key={onSettings ? 'settings' : `${display.dateFormat}|${display.surnameChoice}`}>
           <Route path="/setup" element={<SetupRoute />} />
           <Route path="/login" element={<LoginRoute />} />
+          {/* Invitations and set-password links: for people who are not signed in, so outside RequireSignIn. */}
+          <Route path="/invite" element={<LinkPage />} />
+          <Route path="/reset" element={<LinkPage />} />
           <Route element={<RequireSignIn />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/tree" element={<TreeIndexPage />} />
