@@ -152,6 +152,13 @@ describe('the Hale family', () => {
     expect(link.d.startsWith(`M${x(layout, 'beatriz')} ${layout.byId.get('beatriz')!.y + 58}`)).toBe(true);
   });
 
+  it("draws a partner's own son from before (Tomas) under her, beside the child of her marriage", () => {
+    const link = layout.links.find((l) => l.parentId === 'beatriz')!;
+    expect(link.childIds).toEqual(['tomas']);
+    expect(layout.byId.get('tomas')!.row).toBe(layout.byId.get('beatriz')!.row + 1);
+    expect(Math.abs(x(layout, 'tomas') - x(layout, 'beatriz'))).toBeLessThan(400);
+  });
+
   it('orders siblings by birth', () => {
     expect(x(layout, 'marcus')).toBeLessThan(x(layout, 'sofia'));
   });

@@ -464,7 +464,28 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
   const partners = await sql<{ id: string }>`
     select partner_a_id as id from unions where partner_b_id = any(${core}::uuid[])
     union select partner_b_id from unions where partner_a_id = any(${core}::uuid[])`.execute(trx);
-  const ids = [...new Set([...core, ...partners.rows.map((r) => r.id)])];
+  const coreSet = new Set(core);
+  const inLaws = [...new Set(partners.rows.map((r) => r.id))].filter((id) => !coreSet.has(id));
+
+  // One more hop: the children of an in-law (someone drawn only because they are a partner) that they had apart
+  // from the people already drawn: hanging from them alone, or from a relationship with someone who is not on the
+  // chart (those children then hang from the in-law alone) or with another in-law. Children of the in-law's
+  // relationship with a person in the walk are left to the walk, so the `down` limit holds. Nothing else of theirs
+  // is pulled in: not their other parent, nor their partners or descendants.
+  const partnerChildren =
+    inLaws.length === 0
+      ? { rows: [] as Array<{ id: string }> }
+      : await sql<{ id: string }>`
+    select pp.child_id as id from person_parents pp
+     where pp.kind = public.kinship_effective_kind(pp.child_id, ${view})
+       and (pp.parent_id = any(${inLaws}::uuid[])
+            or pp.union_id in (
+              select u.id from unions u
+               where (u.partner_a_id = any(${inLaws}::uuid[]) and not u.partner_b_id = any(${core}::uuid[]))
+                  or (u.partner_b_id = any(${inLaws}::uuid[]) and not u.partner_a_id = any(${core}::uuid[]))))`.execute(
+          trx,
+        );
+  const ids = [...new Set([...core, ...inLaws, ...partnerChildren.rows.map((r) => r.id)])];
   const drawn = new Set(ids);
 
   const people = await trx

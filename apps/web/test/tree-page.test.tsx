@@ -15,7 +15,9 @@ describe('the fixture follows the API rules', () => {
   it('stops at the generation limits and gives a leaf only to a cut-off person', () => {
     const tree = treeFor('marcus', { up: 1, down: 0, collateral: false });
     const ids = tree.people.map((p) => p.id).sort();
-    expect(ids).toEqual(['daniel', 'elena', 'marcus', 'priya']);
+    // Priya is Daniel's ex-partner, drawn as a partner; her own son Tomas comes with her (one hop)
+    expect(ids).toEqual(['daniel', 'elena', 'marcus', 'priya', 'tomas']);
+    expect(tree.parentage['tomas']).toMatchObject({ unionId: null, parentId: 'priya' });
     // Daniel's parents are beyond the limit: no parentage, hasParents, and a count.
     const daniel = tree.people.find((p) => p.id === 'daniel')!;
     expect(daniel.hasParents).toBe(true);
@@ -27,6 +29,12 @@ describe('the fixture follows the API rules', () => {
 });
 
 describe('the chart', () => {
+  it("draws a partner's own child hanging from the partner alone (Tomas under Priya)", async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    expect(await screen.findByRole('button', { name: /^Tomas Nair/ })).toBeTruthy();
+  });
+
   it('draws everyone with an accessible name, solid and dotted lines, and one leaf for the in-law', async () => {
     const fetchMock = mockApi(haleRoutes(ADMIN));
     renderApp('/tree/marcus');
