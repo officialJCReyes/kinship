@@ -1,12 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ALICE, ME, calls, mockApi, needsSetup, renderApp } from './helpers.js';
-import type { MockRoute } from './helpers.js';
-
-const GOOD = 'correct horse battery staple';
-const TOKEN = 'tok-secret-123';
-const SIGNED_IN_ME = { ...ME, user: { ...ALICE, personId: 'p-marcus' } };
+import { calls, mockApi, renderApp } from './helpers.js';
+import {
+  GOOD,
+  TOKEN,
+  SIGNED_IN_ME,
+  back,
+  create,
+  field,
+  fillAccount,
+  next,
+  openSetup,
+  progress,
+  skipToReview,
+  toReview,
+  toYou,
+  type,
+} from './setup-helpers.js';
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -16,72 +27,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement;
-const type = (label: string, value: string) => fireEvent.change(field(label), { target: { value } });
-const next = () => fireEvent.click(screen.getByRole('button', { name: 'Next' }));
-const back = () => fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-const progress = () => screen.getByText(/^Step \d of 7/).textContent;
-
-function fillAccount(overrides: Partial<Record<string, string>> = {}) {
-  const values: Record<string, string> = {
-    'Setup token': TOKEN,
-    'Your name': 'Marcus Hale',
-    Email: 'marcus@example.com',
-    Password: GOOD,
-    'Confirm password': GOOD,
-    ...overrides,
-  } as Record<string, string>;
-  for (const [label, value] of Object.entries(values)) type(label, value);
-}
-
-/** An install that is set up once POST /api/setup has been answered. */
-function installRoutes(extra: Record<string, MockRoute> = {}) {
-  let done = false;
-  let account: typeof SIGNED_IN_ME = SIGNED_IN_ME;
-  return {
-    ...needsSetup,
-    '/api/setup/status': () => ({ status: 200, body: { needsSetup: !done } }),
-    '/api/auth/me': () => (done ? { status: 200, body: account } : { status: 401, body: {} }),
-    'POST /api/setup/check': { status: 204 },
-    'POST /api/setup': (init: RequestInit) => {
-      done = true;
-      // The account comes back with the settings that were sent, as the real server does.
-      const sent = JSON.parse(String(init.body)) as { settings?: { colorScheme?: string } };
-      account = { ...SIGNED_IN_ME, user: { ...SIGNED_IN_ME.user, ...sent.settings } } as typeof SIGNED_IN_ME;
-      return { status: 201, body: account };
-    },
-    '/api/tree/*': { status: 404, body: { error: 'person_not_found' } },
-    '/api/people/*': { status: 404, body: { error: 'person_not_found' } },
-    ...extra,
-  } satisfies Record<string, MockRoute>;
-}
-
-async function openSetup(extra: Record<string, MockRoute> = {}) {
-  const fetchMock = mockApi(installRoutes(extra));
-  renderApp('/setup');
-  await screen.findByRole('heading', { name: 'Welcome to KinShip' });
-  return fetchMock;
-}
-
-/** Steps 1 and 2 done: on the "You" step. */
-async function toYou(extra: Record<string, MockRoute> = {}) {
-  const fetchMock = await openSetup(extra);
-  fillAccount();
-  next();
-  await screen.findByRole('heading', { name: 'Name your first tree' });
-  next();
-  await screen.findByRole('heading', { name: 'Start with you' });
-  return fetchMock;
-}
-
-async function toReview(extra: Record<string, MockRoute> = {}) {
-  const fetchMock = await toYou(extra);
-  next();
-  await screen.findByRole('heading', { name: 'Check your tree' });
-  return fetchMock;
-}
-const create = () => fireEvent.click(screen.getByRole('button', { name: 'Create my tree' }));
 
 describe('the progress list', () => {
   it('lists the seven steps in order, marks the current one, and says it in words', async () => {
@@ -336,8 +281,7 @@ describe('step 3, You', () => {
     ).toBeTruthy();
     expect(document.activeElement).toBe(field('Birth date'));
     type('Birth date', '1986-07-31');
-    next();
-    await screen.findByRole('heading', { name: 'Check your tree' });
+    await skipToReview();
   });
 });
 
@@ -346,8 +290,7 @@ describe('Review and Create my tree', () => {
     const fetchMock = await toYou();
     type('Birth date', '1986-07-31');
     fireEvent.change(field('Gender'), { target: { value: 'male' } });
-    next();
-    await screen.findByRole('heading', { name: 'Check your tree' });
+    await skipToReview();
     expect(progress()).toBe('Step 7 of 7 · Review');
     expect(screen.getAllByText('Marcus Hale')).toHaveLength(2); // the account, and you on the tree
     expect(screen.getByText(/born Jul 31, 1986/)).toBeTruthy();
@@ -369,8 +312,7 @@ describe('Review and Create my tree', () => {
     await screen.findByRole('heading', { name: 'Start with you' });
     type('Birth date', '1986-07-31');
     fireEvent.change(field('Gender'), { target: { value: 'male' } });
-    next();
-    await screen.findByRole('heading', { name: 'Check your tree' });
+    await skipToReview();
     create();
     await waitFor(() => expect(calls(fetchMock).some((c) => c.startsWith('GET /api/tree/p-marcus'))).toBe(true));
 
@@ -412,8 +354,7 @@ describe('Review and Create my tree', () => {
     next();
     await screen.findByRole('heading', { name: 'Start with you' });
     type('Birth date', '1986-07-31');
-    next();
-    await screen.findByRole('heading', { name: 'Check your tree' });
+    await skipToReview();
     const stored = () => JSON.stringify({ ...window.localStorage, ...window.sessionStorage });
     for (const secret of [TOKEN, GOOD, 'Marcus', 'Hale', 'marcus@example.com', '1986'])
       expect(stored()).not.toContain(secret);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { MIN_PASSWORD_LENGTH, setupStepOfField } from '@kinship/shared';
+import { MIN_PASSWORD_LENGTH, SETUP_STEPS, setupStepOfField } from '@kinship/shared';
 import type { SetupStepId } from '@kinship/shared';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -10,13 +10,21 @@ import { useSetup } from '../auth.js';
 import { t } from '../i18n.js';
 import { errorMessage } from '../lib/errors.js';
 import { applyColorScheme } from '../lib/theme.js';
-import { FIELD_OF, buildSetupRequest, initialWizardState, validateStep, youNamesOf } from '../lib/setup-wizard.js';
+import {
+  FIELD_OF,
+  buildSetupRequest,
+  clearStep,
+  initialWizardState,
+  newChild,
+  validateStep,
+  youNamesOf,
+} from '../lib/setup-wizard.js';
 import type { WizardState } from '../lib/setup-wizard.js';
 import { Stepper } from '../setup/Stepper.js';
-import { AccountStep, ReviewStep, TreeStep, YouStep } from '../setup/steps.js';
+import { AccountStep, ChildrenStep, ParentsStep, PartnerStep, ReviewStep, TreeStep, YouStep } from '../setup/steps.js';
 
-/** The steps that exist, in order. Partner, Parents and Children join in the next PR; the progress still counts all seven. */
-const FLOW: readonly SetupStepId[] = ['account', 'tree', 'you', 'review'];
+/** The seven steps, in order. */
+const FLOW: readonly SetupStepId[] = SETUP_STEPS.map((step) => step.id);
 
 type Banner = { text: string } | { alreadyDone: true };
 
@@ -73,9 +81,11 @@ export function SetupPage() {
       return next;
     });
     setErrors((previous) => {
-      if (!(FIELD_OF[key] in previous)) return previous;
+      const base = FIELD_OF[key];
+      const hit = Object.keys(previous).filter((path) => path === base || path.startsWith(`${base}.`));
+      if (hit.length === 0) return previous;
       const rest = { ...previous };
-      delete rest[FIELD_OF[key]];
+      for (const path of hit) delete rest[path];
       return rest;
     });
   };
@@ -85,6 +95,48 @@ export function SetupPage() {
     setStep(target);
     setBanner(null);
   };
+
+  const skip = () => {
+    setState((previous) => clearStep(previous, step));
+    setErrors({});
+    goTo(FLOW[flowIndex + 1] ?? 'review');
+  };
+
+  // Where focus goes after the next render: a new row's first field, or the Add button after a removal.
+  const focusChild = useRef<number | null>(null);
+  const addChild = () => {
+    const key = state.nextChildKey;
+    setState((previous) => ({
+      ...previous,
+      children: [...previous.children, newChild(key)],
+      nextChildKey: key + 1,
+    }));
+    focusChild.current = key;
+  };
+  const removeChild = (key: number) => {
+    setState((previous) => {
+      const children = previous.children.filter((child) => child.key !== key);
+      return {
+        ...previous,
+        children: children.length > 0 ? children : [newChild(previous.nextChildKey)],
+        nextChildKey: previous.nextChildKey + 1,
+      };
+    });
+    setErrors((previous) =>
+      Object.fromEntries(Object.entries(previous).filter(([path]) => !path.startsWith('family.children'))),
+    );
+    focusChild.current = -1;
+  };
+  useEffect(() => {
+    const wanted = focusChild.current;
+    if (wanted === null) return;
+    focusChild.current = null;
+    const target =
+      wanted === -1
+        ? card.current?.querySelector<HTMLElement>('#add-child')
+        : card.current?.querySelector<HTMLElement>(`[data-child-key="${wanted}"] input`);
+    target?.focus();
+  }, [state.children]);
 
   /** Puts the server's answer where the person can fix it: the step and the field it names, or a message here. */
   const showServerError = (error: unknown) => {
@@ -148,6 +200,7 @@ export function SetupPage() {
   };
 
   const isReview = step === 'review';
+  const skippable = SETUP_STEPS.find((candidate) => candidate.id === step)?.skippable ?? false;
   const creating = setup.isPending;
   return (
     <section className="card setup-card" ref={card} aria-label={t('setup.title')}>
@@ -156,6 +209,11 @@ export function SetupPage() {
         {step === 'account' ? <AccountStep state={state} errors={errors} set={set} /> : null}
         {step === 'tree' ? <TreeStep state={state} errors={errors} set={set} /> : null}
         {step === 'you' ? <YouStep state={state} errors={errors} set={set} /> : null}
+        {step === 'partner' ? <PartnerStep state={state} errors={errors} set={set} /> : null}
+        {step === 'parents' ? <ParentsStep state={state} errors={errors} set={set} /> : null}
+        {step === 'children' ? (
+          <ChildrenStep state={state} errors={errors} set={set} onAdd={addChild} onRemove={removeChild} />
+        ) : null}
         {isReview ? <ReviewStep state={state} onChange={goTo} /> : null}
         {banner ? (
           <div className="alert" role="alert">
@@ -181,6 +239,11 @@ export function SetupPage() {
           ) : (
             <span />
           )}
+          {skippable ? (
+            <button type="button" className="button" onClick={skip}>
+              {t('setup.skip')}
+            </button>
+          ) : null}
           <button className="button primary" type="submit" disabled={creating || checking}>
             {isReview
               ? creating

@@ -1594,3 +1594,84 @@ main.tree-main {
     grid-template-columns: 1fr;
   }
 }
+
+.callout {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.setup-note {
+  margin: 4px 0 10px;
+}
+
+.setup-form fieldset {
+  min-width: 0;
+  margin: 0 0 14px;
+  padding: 10px 12px 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.setup-form legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.child-row .button.small {
+  margin: 0 0 10px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow-wrap: anywhere;
+}
+
+.chip .avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.review-warnings {
+  margin-bottom: 12px;
+}
+
+.review-warnings h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.setup-update-note {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.setup-nav .setup-nav-end {
+  display: flex;
+  gap: 8px;
+}
