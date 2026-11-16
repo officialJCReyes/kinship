@@ -46,7 +46,15 @@ A fresh install must be set up before anyone can sign in, and setup needs a one-
 docker compose logs api
 ```
 
-Look for the box that says **"KinShip is not set up yet"** and copy the token. Open your site (for example `http://localhost:8080`), and the setup page appears. Enter the token, your name, your email, a password of at least 12 characters, and a name for your tree. Under "You on the tree" you can also give your own given name and surname: that creates you as the first person and links your account to them (give both or neither; without them the account is not linked to anyone, and there is no screen to link it later in 0.1). You become the SuperAdmin and are signed in. The setup page never appears again once an account exists.
+Look for the box that says **"KinShip is not set up yet"** and copy the token. Open your site (for example `http://localhost:8080`), and the setup wizard appears. It has seven steps, with a progress bar:
+
+1. **Account**: the setup token, your name, your email (also your sign-in name) and a password of at least 12 characters. The token is checked when you press **Next**.
+2. **Tree**: a name for your tree (suggested from your surname, like "Hale Family") and the color scheme.
+3. **You**: your given name and surname (suggested from your name), your birth date and gender. This creates you as the first person on the tree and links your account to you.
+4. **Partner**, 5. **Parents** and 6. **Children**: optional. Press **Skip this step** to leave one out, or fill in what you know. You can add everyone else from the tree afterwards.
+7. **Review**: a list of the people who will be created. Press **Create my tree**.
+
+**Nothing is created until the last step**, and then everything is created at once: if anything fails, nothing is kept and your token still works. If you refresh the page or close the tab before then, the wizard starts again from step 1 (nothing you typed is stored in the browser). The shortest way through is steps 1 to 3 and then Review. You become the SuperAdmin and are signed in, and your own place on the family tree opens. The setup page never appears again once an account exists; if the connection drops right after you press **Create my tree**, open the sign-in page and use the email and password you chose.
 
 ## 5. Add your family
 
