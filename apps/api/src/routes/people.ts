@@ -38,6 +38,7 @@ import {
   listPeople,
   normalizeSearchWords,
   parentAgeWarnings,
+  partnerChildrenOf,
   personHasAccount,
   singleParentChildLinks,
   toParentage,
@@ -215,6 +216,12 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
           },
           hasAccount: await personHasAccount(trx, id),
           labels: await labelsOfPerson(trx, id),
+          partnerChildren: await partnerChildrenOf(
+            trx,
+            id,
+            [...new Set(unions.map((u) => u.partnerIds.find((p) => p !== id) ?? u.partnerIds[0]))],
+            actor.lineageView,
+          ),
         };
       });
     },

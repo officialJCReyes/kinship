@@ -21,7 +21,16 @@ import { ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { formatDate, formatYear } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
-import { childLabel, customLabelPrefix, parentLabel, relativeLabel, statusName, unionLabel } from '../lib/labels.js';
+import {
+  childLabel,
+  customLabelPrefix,
+  parentLabel,
+  relativeLabel,
+  statusName,
+  unionLabel,
+  withoutOverriddenTitles,
+} from '../lib/labels.js';
+import { givesStepTitles, stepChildrenOf, stepParentsOf, stepTitleKey } from '../lib/step.js';
 import { lifespan, mergeTrees, parentIdsOf, peopleById, siblingsOf } from '../lib/people.js';
 import { useNotices } from '../notices.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
@@ -145,6 +154,12 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
       : [];
   });
   const siblings = siblingsOf(tree, person.id);
+  // Derived step titles; a custom label for the same pair replaces the derived one (on both profiles of the pair).
+  const stepRows = withoutOverriddenTitles(
+    [...stepParentsOf(tree, person.id), ...stepChildrenOf(detail)],
+    detail.labels,
+  );
+  const customFor = new Set(detail.labels.map((entry) => entry.otherId));
   const withLinks = (links: ChildLink[]) =>
     links.flatMap((link) => {
       const child = people.get(link.id);
@@ -268,6 +283,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
             const partner = people.get(partnerId);
             const canEdit = canEditUnion(me, union);
             const children = withLinks(union.children);
+            const otherChildren = detail.partnerChildren.filter((entry) => entry.partnerId === partnerId);
             return (
               <article
                 key={union.id}
@@ -306,6 +322,36 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                       <span className="muted">{t('union.noChildren')}</span>
                     )}
                   </dd>
+                  {otherChildren.length > 0 ? (
+                    <>
+                      <dt>{t('union.partnerChildren', { name: partner?.givenName ?? t('person.unknown') })}</dt>
+                      <dd>
+                        <ul className="plain">
+                          {otherChildren.map((entry) => {
+                            const withText = entry.otherParent
+                              ? t('union.childWith', { name: displayName(entry.otherParent) })
+                              : t('union.childOtherNotOnTree');
+                            // "your stepson" only for a Married or Widowed relationship, and not where a custom label
+                            // already names this pair. The child is listed either way.
+                            const step =
+                              givesStepTitles(union.status) && !customFor.has(entry.child.id)
+                                ? `, ${t('union.childStep', { title: t(stepTitleKey('stepchild', entry.child.gender)).toLowerCase() })}`
+                                : '';
+                            return (
+                              <li key={entry.child.id}>
+                                <PersonLink person={entry.child} />
+                                <span className="muted">
+                                  {' '}
+                                  · {withText}
+                                  {step}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </dd>
+                    </>
+                  ) : null}
                 </dl>
                 <div className="actions wrap">
                   <ActionButton
@@ -364,6 +410,19 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
           </>
         ) : null}
       </Section>
+
+      {stepRows.length > 0 ? (
+        <Section title={t('profile.stepRelatives')}>
+          <p className="muted">{t('profile.stepHelp')}</p>
+          <ul className="plain" aria-label={t('profile.stepRelatives')}>
+            {stepRows.map((row) => (
+              <li key={`${row.kind}-${row.otherId}`}>
+                <PersonLink person={row.person} label={t(stepTitleKey(row.kind, row.person.gender))} />
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
 
       {admin || detail.labels.length > 0 ? (
         <Section title={t('label.section')}>
