@@ -25,18 +25,24 @@ const USAGE = `Usage:
   kinship set-password <email>                  ask for a new password (typed twice, not shown)
   kinship set-password <email> --password-stdin  read the new password from standard input
 
-Sets a new password for an account and signs it out everywhere. For when someone
+Sets a new password for an account, signs it out everywhere and retires its open set-password link. For when someone
 is locked out and email recovery is not available.`;
 
 /** Sets a new password hash and removes all of the account's sessions. Returns false when no such account. */
 export async function setUserPassword(db: UntypedDb, email: string, passwordHash: string): Promise<boolean> {
   const result = await sql<{ id: string }>`
     with changed as (
-      update users set password_hash = ${passwordHash}, updated_at = now()
-      where email = lower(${email.trim()})
+      update users
+         set password_hash = ${passwordHash}, password_changed_at = now(), password_changed_via = 'cli',
+             updated_at = now()
+       where email = lower(${email.trim()})
       returning id
     ), signed_out as (
       delete from sessions where user_id in (select id from changed)
+    ), links_retired as (
+      update account_links set revoked_at = now()
+       where kind = 'reset' and accepted_at is null and revoked_at is null
+         and user_id in (select id from changed)
     )
     select id from changed`.execute(db);
   return result.rows.length > 0;

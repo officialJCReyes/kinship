@@ -9,7 +9,14 @@ import type {
   Role,
 } from '@kinship/shared';
 import type { FastifyInstance } from 'fastify';
-import { createInvitation, listInviters, listOpenLinks, regenerateLink, revokeLink } from '../auth/links.js';
+import {
+  createInvitation,
+  createResetLink,
+  listInviters,
+  listOpenLinks,
+  regenerateLink,
+  revokeLink,
+} from '../auth/links.js';
 import { generateLinkToken, hashToken } from '../auth/tokens.js';
 import { ApiError, badRequest, forbidden, notFound } from '../errors.js';
 import { isUuid } from '../people/store.js';
@@ -172,4 +179,17 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
     await request.withTransaction((trx) => revokeLink(trx, id));
     return reply.code(204).send();
   });
+
+  app.post(
+    '/api/admin/accounts/:id/set-password-link',
+    { config: limit, schema: { params: idParams } },
+    async (request, reply): Promise<LinkCreated> => {
+      const { id } = request.params as { id: string };
+      if (!isUuid(id)) throw notFound('account_not_found');
+      const token = generateLinkToken();
+      const created = await request.withTransaction((trx) => createResetLink(trx, id, hashToken(token)));
+      void reply.code(201);
+      return { linkId: created.id, kind: 'reset', token, expiresAt: created.expiresAt.toISOString() };
+    },
+  );
 }

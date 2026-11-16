@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { AcceptLinkRequest, LinkLookup, LinkLookupRequest } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { acceptInvitation, lookupLink } from '../auth/links.js';
+import { acceptInvitation, acceptReset, lookupLink } from '../auth/links.js';
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwords.js';
 import { hashToken } from '../auth/tokens.js';
 import { ApiError, fromDatabaseError } from '../errors.js';
@@ -122,7 +122,9 @@ export function registerLinkRoutes(app: FastifyInstance, deps: RouteDeps): void 
             passwordHash: await hashPassword(body.password),
           });
         } else {
-          return invalidLink(request, reply);
+          // A set-password link: the password changes, every old session of the account is deleted, and this
+          // browser gets a fresh one.
+          userId = await acceptReset(db, tokenHash, await hashPassword(body.password));
         }
       } catch (error) {
         // Lost a race (another accept, a revoke, the email or the person taken meanwhile): the same generic answer.

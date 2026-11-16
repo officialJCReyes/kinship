@@ -120,3 +120,15 @@ export async function deleteExpiredSessions(db: Kysely<Database>): Promise<numbe
   const result = await sql<{ n: number }>`select kinship_auth.delete_expired_sessions() as n`.execute(db);
   return result.rows[0]?.n ?? 0;
 }
+
+/**
+ * Changes the signed-in account's own password (migration 0011): the other sessions are deleted and the current one
+ * gets a new token. Must run in that account's own transaction.
+ */
+export async function changePassword(
+  trx: Kysely<Database>,
+  input: { userId: string; passwordHash: string; currentTokenHash: string; newTokenHash: string },
+): Promise<void> {
+  await sql`select kinship_auth.change_password(
+    ${input.userId}::uuid, ${input.passwordHash}, ${input.currentTokenHash}, ${input.newTokenHash})`.execute(trx);
+}
