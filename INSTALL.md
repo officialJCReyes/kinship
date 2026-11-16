@@ -1,6 +1,6 @@
 # Installing KinShip
 
-> **Release 0.1 is an alpha.** It installs and runs, you can set up and sign in, but there is no family tree yet. **Data may be wiped between 0.1.x releases: do not enter real family data.** A data-safe upgrade path (and a built-in backup) starts with 0.2.
+> **Release 0.1 is an alpha.** It installs and runs, you can set up and sign in, add people and relationships (with birth and adoptive parents) and see them on a family tree chart. **Data may be wiped between 0.1.x releases: do not enter real family data.** A data-safe upgrade path (and a built-in backup) starts with 0.2.
 
 You need a machine that runs Docker (Linux, a Raspberry Pi, a NAS, or a cloud server) with Docker Compose v2. You do not need to build anything.
 
@@ -46,7 +46,11 @@ A fresh install must be set up before anyone can sign in, and setup needs a one-
 docker compose logs api
 ```
 
-Look for the box that says **"KinShip is not set up yet"** and copy the token. Open your site (for example `http://localhost:8080`), and the setup page appears. Enter the token, your name, your email, a password of at least 12 characters, and a name for your tree. You become the SuperAdmin and are signed in. The setup page never appears again once an account exists.
+Look for the box that says **"KinShip is not set up yet"** and copy the token. Open your site (for example `http://localhost:8080`), and the setup page appears. Enter the token, your name, your email, a password of at least 12 characters, and a name for your tree. Under "You on the tree" you can also give your own given name and surname: that creates you as the first person and links your account to them (give both or neither; without them the account is not linked to anyone, and there is no screen to link it later in 0.1). You become the SuperAdmin and are signed in. The setup page never appears again once an account exists.
+
+## 5. Add your family
+
+Open **People** and **Add person**, or open your profile (**My profile**) and use **Add relative** to add parents, partners, children and brothers and sisters. **Family tree** draws them: drag to pan, scroll or pinch to zoom, and click a person to see their details. A small green leaf on someone opens their own family (a spouse's parents, or an adopted person's other family).
 
 If you restart before finishing, a new token is made (look in the log again). The token stops working once setup is done.
 
