@@ -635,8 +635,11 @@ describe('the tree around a person', () => {
   it('stops at the generations asked for, and leaves out links to people who are not drawn', async () => {
     const tree = await as('user', 'GET', `/api/tree/${f.person.marcus}?up=1&down=0`);
     const names = (tree.body?.people as Array<{ givenName: string }>).map((p) => p.givenName).sort();
-    // Daniel's partners come along so couples are whole
-    expect(names).toEqual(['Beatriz', 'Daniel', 'Elena', 'Marcus', 'Priya'].sort());
+    // Daniel's partners come along so couples are whole, and Tomas, Beatriz's own son from before (one hop)
+    expect(names).toEqual(expect.arrayContaining(['Beatriz', 'Daniel', 'Elena', 'Marcus', 'Priya', 'Tomas']));
+    // but not Marcus's own child (below the limit), nor Gabriel (Daniel's child, not on this line)
+    expect(names).not.toContain('Leo');
+    expect(names).not.toContain('Gabriel');
     expect(tree.body?.parentage[f.person.daniel]).toBeUndefined();
     expect(
       (tree.body?.people as Array<{ id: string; hasParents: boolean }>).find((p) => p.id === f.person.daniel)

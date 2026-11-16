@@ -13,6 +13,8 @@ Release 0.1 needs one tree view. This is the Family tree chart: everyone around 
 
 `GET /api/tree/:id?up=3&down=2&collateral=true`, with no generation control. A spouse's family view asks `up=3&down=1&collateral=true` and the browser then keeps only the person's ancestors, full siblings, partners and the partners' children (`familyView` in `apps/web/src/tree/family.ts`). Half-siblings are drawn on the main chart and dropped in a family view.
 
+**A partner's own children (added in the step that fixed #22).** The walk includes everyone below the focal person and the top ancestors, and their partners. One more hop is added for an in-law (a person drawn only because they are someone's partner): their children that hang from them alone, or from a relationship with a person who is not in the walk (an ex who is not drawn, or another in-law). Those children follow the viewer's lineage like every other link. A child whose relationship has an undrawn partner hangs from the drawn parent alone. Children of the in-law's relationship with someone in the walk are left to the walk, so the `down` limit holds, and nothing else of the child is pulled in (not the other parent, nor their partners or descendants).
+
 Two changes to the response, both tested in `apps/api/test/tree.test.ts`:
 
 - **Every relationship in the response has both partners in it**, and every parent link points at a relationship or a parent that is in it. The query used to filter relationships on one partner only, so an in-law with earlier marriages came back with a line to somebody who was not drawn (or lost a line between two who were), depending on id order. If a child's relationship is dropped because one partner is not drawn, the child stays and hangs from its drawn parent alone.

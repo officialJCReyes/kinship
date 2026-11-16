@@ -58,6 +58,7 @@ export const PEOPLE: Person[] = [
   person('anna', 'Anna', 'Hale', 'female', '1908'),
   person('frank', 'Frank', 'Doyle', 'male', '1910'),
   person('ruth', 'Ruth', 'Doyle', 'female', '1912'),
+  person('tomas', 'Tomas', 'Nair', 'male', '1990'),
 ];
 
 function union(
@@ -98,6 +99,7 @@ export const PARENTAGE: Record<string, { unionId?: string; parentId?: string }> 
   ben: { parentId: 'daniel' },
   lena: { unionId: 'u3' },
   femi: { parentId: 'ade' },
+  tomas: { parentId: 'priya' },
   samuel: { unionId: 'u6' },
 };
 
@@ -241,6 +243,18 @@ export function treeFor(
   const core = [...ids];
   for (const u of UNIONS) {
     for (const p of u.partnerIds) if (core.includes(p)) u.partnerIds.forEach((q) => ids.add(q));
+  }
+  // One more hop: the children of an in-law (drawn only as a partner) that hang from them alone, or from a
+  // relationship with somebody who is not a core person (the same rule as the API).
+  const inLaws = [...ids].filter((id) => !core.includes(id));
+  for (const child of PEOPLE.map((p) => p.id)) {
+    const row = (followedKind(child, view) === 'adoptive' ? ADOPTIVE : PARENTAGE)[child];
+    if (!row) continue;
+    if (row.parentId && inLaws.includes(row.parentId)) ids.add(child);
+    const union = row.unionId ? UNIONS.find((u) => u.id === row.unionId) : undefined;
+    if (union && union.partnerIds.some((p) => inLaws.includes(p)) && !union.partnerIds.some((p) => core.includes(p))) {
+      ids.add(child);
+    }
   }
   const unions = UNIONS.filter((u) => u.partnerIds.every((p) => ids.has(p)));
   const unionIds = new Set(unions.map((u) => u.id));

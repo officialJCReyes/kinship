@@ -27,6 +27,8 @@ const tree = async (focal: string, query = 'up=3&down=2&collateral=true'): Promi
   return response.body as Json;
 };
 
+const idsOf = (body: Json) => (body.people as Json[]).map((x) => x.id as string);
+
 /** Everything a chart relies on, checked against the people the response itself contains. */
 function expectInvariant(body: Json): void {
   const ids = new Set<string>(body.people.map((p: Json) => p.id));
@@ -87,8 +89,11 @@ describe('a remarried in-law (the bug found with a probe)', () => {
       expect(present.has(x1)).toBe(false);
       expect(present.has(x2)).toBe(false);
       expect(body.unions.map((u: Json) => u.id)).toEqual([mine]);
-      // B's single-parent child is not below the focal person, so is not drawn either.
-      expect(present.has(d)).toBe(false);
+      // B's own children by people who are not drawn come along, hanging from B alone (one hop).
+      expect(present.has(d)).toBe(true);
+      expect(present.has(half)).toBe(true);
+      expect(body.parentage[d]).toMatchObject({ unionId: null, parentId: b });
+      expect(body.parentage[half]).toMatchObject({ unionId: null, parentId: b });
     });
   }
 
@@ -111,6 +116,78 @@ describe('a remarried in-law (the bug found with a probe)', () => {
     expect(body.unions.map((u: Json) => u.id)).not.toContain(before);
     expect(body.parentage[c]).toMatchObject({ unionId: null, parentId: p });
     expect(body.parentage[z]).toMatchObject({ unionId: now, parentId: null });
+  });
+});
+
+describe("a partner's own children (issue #22)", () => {
+  it('draws Tomas, Beatriz’s son from before, hanging from her alone, and nothing of his own', async () => {
+    // Tomas has a partner and a child: they are not part of the one hop.
+    const zoe = await insertPersonRow(t.owner, 'Zoe', 'Navarro');
+    const kid = await insertPersonRow(t.owner, 'Zed', 'Navarro');
+    const tomasUnion = await insertUnionRow(t.owner, f.person.tomas, zoe, 'married');
+    await linkChild(t.owner, kid, { union: tomasUnion });
+    const body = await tree(f.person.marcus);
+    expectInvariant(body);
+    expect(body.parentage[f.person.tomas]).toMatchObject({ unionId: null, parentId: f.person.beatriz });
+    const ids = idsOf(body);
+    expect(ids).not.toContain(zoe);
+    expect(ids).not.toContain(kid);
+  });
+
+  it('includes children of a partner and an undrawn ex, hanging from the partner alone; the ex stays undrawn', async () => {
+    const focal = await insertPersonRow(t.owner, 'Fia', 'Lone');
+    const partner = await insertPersonRow(t.owner, 'Pat', 'Lone');
+    const ex = await insertPersonRow(t.owner, 'Ex', 'Lone');
+    const child = await insertPersonRow(t.owner, 'Cleo', 'Lone');
+    await insertUnionRow(t.owner, focal, partner, 'married');
+    const old = await insertUnionRow(t.owner, ex, partner, 'divorced');
+    await linkChild(t.owner, child, { union: old });
+    const body = await tree(focal, 'up=0&down=0&collateral=false');
+    expectInvariant(body);
+    expect(idsOf(body).sort()).toEqual([focal, partner, child].sort());
+    expect(body.parentage[child]).toMatchObject({ unionId: null, parentId: partner });
+    expect(body.unions).toHaveLength(1);
+  });
+
+  it('leaves the children of a drawn couple to the walk, so the down limit holds', async () => {
+    const focal = await insertPersonRow(t.owner, 'Gil', 'Limit');
+    const kid = await insertPersonRow(t.owner, 'Kai', 'Limit');
+    const inLaw = await insertPersonRow(t.owner, 'Ina', 'Limit');
+    const grandchild = await insertPersonRow(t.owner, 'Gus', 'Limit');
+    const apart = await insertPersonRow(t.owner, 'Abe', 'Limit');
+    await linkChild(t.owner, kid, { parent: focal });
+    const couple = await insertUnionRow(t.owner, kid, inLaw, 'married');
+    await linkChild(t.owner, grandchild, { union: couple });
+    await linkChild(t.owner, apart, { parent: inLaw });
+    const body = await tree(focal, 'up=0&down=1&collateral=false');
+    expectInvariant(body);
+    expect(idsOf(body)).toContain(apart);
+    expect(idsOf(body)).not.toContain(grandchild);
+  });
+
+  it('draws a union between two in-laws, and follows the viewer’s family for an adopted-away child', async () => {
+    const focal = await insertPersonRow(t.owner, 'Hal', 'Two');
+    const a = await insertPersonRow(t.owner, 'Ann', 'Two');
+    const b = await insertPersonRow(t.owner, 'Bob', 'Two');
+    const c = await insertPersonRow(t.owner, 'Cat', 'Two');
+    await insertUnionRow(t.owner, focal, a, 'married');
+    await insertUnionRow(t.owner, focal, b, 'married');
+    // Ann and Bob had a child together; Ann had Cat alone, but Cat was adopted by two people not on the chart.
+    const ab = await insertUnionRow(t.owner, a, b, 'divorced');
+    const abKid = await insertPersonRow(t.owner, 'Dot', 'Two');
+    await linkChild(t.owner, abKid, { union: ab });
+    const adopter1 = await insertPersonRow(t.owner, 'Ada', 'Two');
+    const adopter2 = await insertPersonRow(t.owner, 'Aldo', 'Two');
+    await linkChild(t.owner, c, { parent: a });
+    await linkChild(t.owner, c, { union: await insertUnionRow(t.owner, adopter1, adopter2, 'married') }, 'adoptive');
+    const adoptive = await tree(focal, 'up=0&down=0&collateral=false&lineage=adoptive');
+    expectInvariant(adoptive);
+    expect(adoptive.parentage[abKid]).toMatchObject({ unionId: ab });
+    expect(idsOf(adoptive)).not.toContain(c); // in the adoptive view Cat belongs to her adoptive parents
+    const birth = await tree(focal, 'up=0&down=0&collateral=false&lineage=birth');
+    expectInvariant(birth);
+    expect(birth.parentage[c]).toMatchObject({ unionId: null, parentId: a, kind: 'birth' });
+    expect(birth.parentage[abKid]).toMatchObject({ unionId: ab });
   });
 });
 
@@ -230,6 +307,7 @@ async function generateFamily(owner: UntypedDb, seed: number): Promise<string[]>
             await linkChild(owner, partner, { union: parents });
             if (rnd() < 0.5) await linkChild(owner, await person(), { union: parents }); // …and a sibling
           }
+          if (rnd() < 0.3) await linkChild(owner, await person(), { parent: partner }); // …a child of their own…
           if (rnd() < 0.4) {
             // …or a marriage of their own before this one, with a child.
             const earlier = await person();

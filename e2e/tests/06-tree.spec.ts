@@ -28,6 +28,8 @@ test('build a family: two partners, children, an in-law with parents', async ({ 
   await createChild(request, daniel.id, { givenName: 'Marcus', surname: family, gender: 'male' }, married);
   sofia = await createChild(request, daniel.id, { givenName: 'Sofia', surname: family, gender: 'female' }, married);
   await createChild(request, daniel.id, { givenName: 'Ben', surname: family, gender: 'male' }, divorced);
+  // Carla's own son from before: hangs from her alone, and the chart draws him under her (issue #22).
+  await createChild(request, carla.id, { givenName: 'Nico', surname: family, gender: 'male' });
   // Lena is Sofia's fiancée; her parents are on the tree but belong to her side.
   const femi = await createPerson(request, { givenName: 'Femi', surname: lenaFamily, gender: 'male', birth: '1960' });
   const nora = await createPerson(request, { givenName: 'Nora', surname: lenaFamily, gender: 'female', birth: '1962' });
@@ -59,6 +61,19 @@ test('open the chart, select a person and read the panel', async ({ adminPage: p
   await expect(panel.getByRole('heading', { name: `Sofia ${family}` })).toBeVisible();
   await page.goBack();
   await expect(panel.getByRole('heading', { name: `Marcus ${family}` })).toBeVisible();
+});
+
+test('a partner’s own child from before is drawn under her, and her ex-partner’s family is not pulled in', async ({
+  adminPage: page,
+}) => {
+  await page.goto(`/tree/${daniel.id}`);
+  await expect(person(page, 'Nico')).toBeVisible();
+  await expect(person(page, 'Carla')).toBeVisible();
+  const nico = await person(page, 'Nico').boundingBox();
+  const carla = await person(page, 'Carla').boundingBox();
+  expect(nico!.y).toBeGreaterThan(carla!.y);
+  // He is below her and hangs from her alone, not from the relationship with Daniel.
+  await expect(page.locator(`[data-union="${unions.carla}"]`)).toHaveCount(1);
 });
 
 test('lines: solid for a marriage, dotted for a divorce, and a couple line opens its relationship', async ({
