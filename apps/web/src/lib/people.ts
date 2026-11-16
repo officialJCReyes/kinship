@@ -63,3 +63,19 @@ export function mergeTrees(mine: TreeResponse, other: TreeResponse | undefined):
   for (const u of other.unions) if (!unions.has(u.id)) unions.set(u.id, u);
   return { ...mine, people: [...people.values()], unions: [...unions.values()] };
 }
+
+/**
+ * How many relationships the SERVER set to Widowed between two readings of the same person's relationships: they
+ * are Widowed and automatic now, and were not both before. Only what the server reports counts; nothing is guessed.
+ */
+export function newlyAutoWidowed(
+  before: ReadonlyArray<Pick<Union, 'id' | 'status' | 'statusAuto'>>,
+  after: ReadonlyArray<Pick<Union, 'id' | 'status' | 'statusAuto'>>,
+): number {
+  const was = new Map(before.map((u) => [u.id, u]));
+  return after.filter((u) => {
+    if (u.status !== 'widowed' || !u.statusAuto) return false;
+    const old = was.get(u.id);
+    return !(old && old.status === 'widowed' && old.statusAuto);
+  }).length;
+}

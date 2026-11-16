@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { ApiWarning, LinkKind, PartialDateInput, Person, PersonInput, UnionInput } from '@kinship/shared';
+import type {
+  ApiWarning,
+  LinkKind,
+  PartialDateInput,
+  Person,
+  PersonInput,
+  UnionInput,
+  UnionStatus,
+} from '@kinship/shared';
 import * as api from '../api.js';
 
 /** A person was created but linking them failed, and removing them again failed too. */
@@ -59,9 +67,15 @@ export async function linkParents(
   return warnings;
 }
 
-export function newPartnerLink(focalId: string, union: Omit<UnionInput, 'partnerIds'>) {
+export function newPartnerLink(
+  focalId: string,
+  union: Omit<UnionInput, 'partnerIds'>,
+  /** Told what the server stored (it may differ from what was asked: Married with a deceased partner is Widowed). */
+  onSaved?: (saved: UnionStatus) => void,
+) {
   return async (partner: Person): Promise<ApiWarning[]> => {
-    await api.createUnion({ ...union, partnerIds: sortedPair(focalId, partner.id) });
+    const created = await api.createUnion({ ...union, partnerIds: sortedPair(focalId, partner.id) });
+    onSaved?.(created.union.status);
     return [];
   };
 }

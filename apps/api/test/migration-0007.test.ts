@@ -20,6 +20,7 @@ describe('migration 0007 on data from before it (the 0.1.0 baseline: migrations 
     try {
       await ensureAppRole(test.owner, test.config.appUser, test.config.appPassword);
       await rm(join(dir.dir, '0007_names_and_widowed.sql'));
+      await rm(join(dir.dir, '0008_union_status_by_hand.sql')); // later than 0007: this test is about 0007 alone
       await runMigrations(test.owner, { dir: dir.dir, appRole: test.config.appUser });
 
       // A family in the old shape.
@@ -103,6 +104,7 @@ describe('migration 0007 when the owner role is not a superuser', () => {
     try {
       await ensureAppRole(owner, appUser, 'app-pw');
       await rm(join(dir.dir, '0007_names_and_widowed.sql'));
+      await rm(join(dir.dir, '0008_union_status_by_hand.sql')); // later than 0007: this test is about 0007 alone
       await runMigrations(owner, { dir: dir.dir, appRole: appUser });
       // Rows in the people tables are invisible to a non-superuser owner under forced row-level security
       // unless a policy lets it in, so the old data is arranged with that protection switched off for a moment.

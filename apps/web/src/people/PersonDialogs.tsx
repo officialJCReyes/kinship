@@ -10,6 +10,7 @@ import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
 import { t } from '../i18n.js';
 import { errorMessage, warningTexts } from '../lib/errors.js';
+import { newlyAutoWidowed } from '../lib/people.js';
 
 import { useNotices } from '../notices.js';
 import { checkPersonDraft, draftFromPerson, emptyPersonDraft, PersonFields } from './PersonForm.js';
@@ -75,10 +76,18 @@ export function EditPersonDialog({ person, onClose }: { person: Person; onClose:
       error={save.error}
       pending={save.isPending}
       run={async (_draft, input) => {
+        // Marking someone deceased (or living) can make the server change their relationships. Read them before and
+        // after, and tell what the server reports; nothing is worked out here.
+        const watch = input.deceased !== undefined && input.deceased !== person.deceased;
+        const before = watch ? await api.fetchPerson(person.id).catch(() => null) : null;
         const result = await save.mutateAsync(input).catch(() => null);
         if (!result) return;
+        const after = before ? await api.fetchPerson(person.id).catch(() => null) : null;
         await refresh();
         for (const text of warningTexts(result.warnings)) notify('warning', text);
+        const count = before && after ? newlyAutoWidowed(before.unions, after.unions) : 0;
+        if (count > 0)
+          notify('success', t(count === 1 ? 'notice.widowedAuto.one' : 'notice.widowedAuto.many', { count }));
         onClose();
       }}
     />

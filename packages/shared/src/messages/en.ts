@@ -207,6 +207,9 @@ export const en = {
   'notice.added': '{name} was added.',
   'notice.addedRelative': '{name} was added to the tree.',
   'notice.deleted': '{name} was deleted.',
+  'notice.widowedAuto.one': '1 marriage was set to Widowed automatically.',
+  'notice.widowedAuto.many': '{count} marriages were set to Widowed automatically.',
+  'notice.unionSavedWidowed': 'Saved as Widowed, because a partner is deceased.',
   'notice.relationshipDeleted': 'The relationship was deleted.',
   'notice.parentRemoved': 'The parent link was removed.',
   'delete.title': 'Delete {name}?',
@@ -217,6 +220,7 @@ export const en = {
   'delete.confirmExplain':
     'Their relationships are deleted. Children keep their other parent, or have no parent left on the tree. Nobody else is deleted.',
   'union.status': 'Relationship status',
+  'union.autoNote': 'Set automatically; saving a status here makes it permanent.',
   'union.surnames.title': 'Surnames at marriage',
   'union.surnames.help': 'Leave blank if unchanged. Both surnames stay on the profile under Facts.',
   'union.surnames.field': 'Married surname: {name}',
