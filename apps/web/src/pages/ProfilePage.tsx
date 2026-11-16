@@ -224,7 +224,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
             </ul>
             {kind === 'adoptive' || set.link ? (
               <p className="muted">
-                {set.link ? `${formatDate(set.link)} ` : ''}
+                {set.link ? `${t(`link.shown.${kind}`, { date: formatDate(set.link) })} ` : ''}
                 {admin ? (
                   <ActionButton small onClick={() => setOpen({ kind: 'editLink', linkKind: kind })}>
                     {t('link.edit')}
