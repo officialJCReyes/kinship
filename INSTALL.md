@@ -63,9 +63,15 @@ KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HT
 - `TRUST_PROXY` tells KinShip which proxies to believe about those headers. The default trusts private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), which covers a proxy on the same machine, in Docker, or on your home or office network. If your proxy reaches KinShip from a public address, add that address. Do not set it to `true` if the web port can be reached directly from the internet.
 - If this is wrong you will see it: sign-in cookies are not marked `Secure` over HTTPS, every visitor shares one rate limit, or signing in fails with a "csrf" error.
 
+## Inviting people
+
+Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link: copy it and send it yourself, because KinShip sends no email yet. The link works once and lasts 7 days. It is shown only once; if you lose it, make a new link (that cancels the old one). Whoever opens it chooses a password and is signed in.
+
 ## Locked out? Set a new password
 
-There is no email yet. Whoever runs the server can set a new password from the command line; it asks twice, shows nothing, and signs that account out everywhere:
+**Anyone who is not a SuperAdmin:** ask an admin. On **Admin → Users**, **Set-password link** makes a 24-hour link for that account (a Family Admin can do this for Members and Users; a SuperAdmin for anyone but themselves). Using it signs the account out everywhere, and the account's **My settings** page shows that an admin set the password.
+
+**A SuperAdmin who is locked out:** whoever runs the server sets a new password from the command line; it asks twice, shows nothing, and signs that account out everywhere:
 
 ```sh
 docker compose exec -it api kinship set-password you@example.com

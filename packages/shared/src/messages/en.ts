@@ -81,7 +81,8 @@ export const en = {
   'login.submitting': 'Signing in…',
   'login.invalidCredentials': 'The email or password is not correct.',
   'login.rateLimited': 'Too many attempts. Try again in {minutes} minute(s).',
-  'login.forgot': 'Forgot your password? Ask the person who runs this server to set a new one.',
+  'login.forgot':
+    'Forgot your password? Ask an admin for a set-password link. If you are the only admin, ask the person who runs this server.',
   'login.footer': 'KinShip {version}',
 
   'setup.title': 'Welcome to KinShip',

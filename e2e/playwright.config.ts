@@ -29,7 +29,7 @@ export default defineConfig({
     { name: 'first-run', testMatch: /01-first-run\.spec\.ts/, retries: 0, use: { ...devices['Desktop Chrome'] } },
     {
       name: 'journeys',
-      testMatch: /0[2-9]-.*\.spec\.ts/,
+      testMatch: /(0[2-9]|[1-9][0-9])-.*\.spec\.ts/,
       dependencies: ['first-run'],
       use: { ...devices['Desktop Chrome'] },
     },

@@ -86,28 +86,12 @@ export function readSetupToken(): string {
   return match[1];
 }
 
-function sqlString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
+/** The web container's log (nginx's access log), for checking that nothing secret reaches a server log. */
+export function webLog(): string {
+  return compose(['logs', '--no-color', '--no-log-prefix', 'web'], { allowFailure: true });
 }
 
-/**
- * TEST-ONLY. Inserts an account straight into the database as the owner role, because the app cannot
- * invite members or users yet (that comes with 0.2). The password is set the way a server owner would,
- * with `kinship set-password` inside the api container. Never use this outside the end-to-end stack.
- */
-export function insertTestAccount(account: {
-  email: string;
-  displayName: string;
-  role: 'superadmin' | 'familyadmin' | 'member' | 'user';
-  password: string;
-  personId?: string;
-}): void {
-  const person = account.personId ? `${sqlString(account.personId)}::uuid` : 'NULL';
-  const sql =
-    `INSERT INTO users (email, display_name, password_hash, role, person_id) VALUES ` +
-    `(${sqlString(account.email)}, ${sqlString(account.displayName)}, 'placeholder', ${sqlString(account.role)}, ${person})`;
-  compose(['exec', '-T', 'db', 'psql', '-U', 'kinship', '-d', 'kinship', '-v', 'ON_ERROR_STOP=1', '-c', sql]);
-  compose(['exec', '-T', 'api', 'kinship', 'set-password', account.email, '--password-stdin'], {
-    input: account.password,
-  });
+/** The api container's log. */
+export function apiLog(): string {
+  return compose(['logs', '--no-color', '--no-log-prefix', 'api'], { allowFailure: true });
 }

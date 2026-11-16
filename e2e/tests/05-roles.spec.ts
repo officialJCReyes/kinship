@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Journey 5: a Member and a User. They cannot be invited through the app yet (0.2), so the accounts are
-// inserted by the TEST-ONLY helper in support/stack.ts, linked to a person.
-import { createPerson, signIn } from '../support/api.js';
-import { password, surname, uniq } from '../support/data.js';
+// Journey 5: a Member and a User, each linked to a person. They are invited by the SuperAdmin and accept the link over
+// the API (support/accounts.ts), so no SQL, no command line and no sign-in is needed to have them.
+import { createAccount } from '../support/accounts.js';
+import type { Account } from '../support/accounts.js';
+import { createPerson } from '../support/api.js';
+import { surname, uniq } from '../support/data.js';
 import { expect, tabTo, test } from '../support/fixtures.js';
-import { insertTestAccount } from '../support/stack.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -12,8 +13,9 @@ const family = surname('Hale');
 const member = { email: `member-${uniq()}@hale.example`, name: 'Maren' };
 const reader = { email: `reader-${uniq()}@hale.example`, name: 'Rae' };
 let ids: { member: string; reader: string; other: string };
+let accounts: { member: Account; reader: Account };
 
-test('set up a Member and a User, each linked to a person', async ({ adminPage: page }) => {
+test('set up a Member and a User, each linked to a person', async ({ adminPage: page, adminApi }) => {
   const m = await createPerson(page.request, {
     givenName: member.name,
     surname: family,
@@ -27,26 +29,25 @@ test('set up a Member and a User, each linked to a person', async ({ adminPage: 
     birth: '1985',
   });
   const other = await createPerson(page.request, { givenName: 'Otto', surname: family, gender: 'male', birth: '1950' });
-  // TEST-ONLY: direct database inserts, as the owner role.
-  insertTestAccount({
-    email: member.email,
-    displayName: `${member.name} ${family}`,
-    role: 'member',
-    password: password(),
-    personId: m.id,
-  });
-  insertTestAccount({
-    email: reader.email,
-    displayName: `${reader.name} ${family}`,
-    role: 'user',
-    password: password(),
-    personId: r.id,
-  });
+  accounts = {
+    member: await createAccount(adminApi, {
+      email: member.email,
+      role: 'member',
+      displayName: member.name,
+      personId: m.id,
+    }),
+    reader: await createAccount(adminApi, {
+      email: reader.email,
+      role: 'user',
+      displayName: reader.name,
+      personId: r.id,
+    }),
+  };
   ids = { member: m.id, reader: r.id, other: other.id };
 });
 
 test('a Member may add children to themselves, and can do nothing else', async ({ page }) => {
-  await signIn(page, member.email, password());
+  await page.context().addCookies(accounts.member.cookies);
 
   // Someone else's profile: everything is disabled, with the reason.
   await page.goto(`/people/${ids.other}`);
@@ -94,7 +95,7 @@ test('a Member may add children to themselves, and can do nothing else', async (
 });
 
 test('a User can read everything and change nothing', async ({ page }) => {
-  await signIn(page, reader.email, password());
+  await page.context().addCookies(accounts.reader.cookies);
   await page.goto(`/people/${ids.reader}`);
   await expect(page.getByRole('heading', { name: `${reader.name} ${family}`, level: 1 })).toBeVisible();
   for (const name of ['Edit details', 'Add relative']) {

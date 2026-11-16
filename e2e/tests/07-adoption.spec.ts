@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Journey 7: adoption. A person with birth parents is given adoptive parents through Add relative, the profile
 // lists both families, each viewer chooses which one the charts follow, and the leaf opens the other.
-import { createChild, createPerson, createUnion, signIn } from '../support/api.js';
+import { createAccount } from '../support/accounts.js';
+import { createChild, createPerson, createUnion } from '../support/api.js';
 import type { Made } from '../support/api.js';
-import { password, surname, uniq } from '../support/data.js';
+import { surname, uniq } from '../support/data.js';
 import { expect, test } from '../support/fixtures.js';
 import type { Page } from '@playwright/test';
-import { ADMIN } from '../support/data.js';
 import { BASE_URL } from '../support/stack.js';
-import { insertTestAccount } from '../support/stack.js';
 
 test.describe.configure({ mode: 'serial' });
 
 const adopters = surname('Hale');
 const birthFamily = surname('Doyle');
 let samuel: Made;
-// One signed-in admin session for the whole journey (the sign-in route is rate limited, and this is one story).
+// One signed-in admin session for the whole journey: the worker's SuperAdmin cookies, so there is no sign-in of its own.
 let admin: Page;
-test.beforeAll(async ({ browser }) => {
-  admin = await (await browser.newContext({ baseURL: BASE_URL })).newPage();
-  await signIn(admin, ADMIN.email, password());
+test.beforeAll(async ({ browser, adminCookies }) => {
+  const context = await browser.newContext({ baseURL: BASE_URL });
+  await context.addCookies(adminCookies);
+  admin = await context.newPage();
 });
 test.afterAll(async () => {
   await admin.context().close();
@@ -132,17 +132,19 @@ test('the chart follows the adoptive family, and the leaf (or the panel button) 
   await expect(page.getByText('Samuel’s birth family', { exact: true })).toBeVisible();
 });
 
-test('a Member adding a child gets no choice of link type, and the child is a birth child', async ({ page }) => {
+test('a Member adding a child gets no choice of link type, and the child is a birth child', async ({
+  page,
+  adminApi,
+}) => {
   const who = { email: `member-${uniq()}@hale.example`, name: 'Mara' };
   const own = await createPersonAsAdmin();
-  insertTestAccount({
+  const account = await createAccount(adminApi, {
     email: who.email,
-    displayName: `${who.name} ${adopters}`,
     role: 'member',
-    password: password(),
+    displayName: `${who.name} ${adopters}`,
     personId: own.id,
   });
-  await signIn(page, who.email, password());
+  await page.context().addCookies(account.cookies);
   await page.goto(`/people/${own.id}`);
   await page.getByRole('button', { name: 'Add relative' }).click();
   await page.getByRole('button', { name: 'Add son' }).click();
