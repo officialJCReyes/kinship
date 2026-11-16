@@ -1472,3 +1472,22 @@ main.tree-main {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* Invitation and set-password pages, the password form */
+.note {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+}
+
+.password-form {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.password-form h3 {
+  margin: 0 0 8px;
+}

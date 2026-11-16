@@ -97,15 +97,19 @@ describe('changing your own password', () => {
       Record<string, unknown>
     >`select password_changed_via, password_changed_at from users where id = ${id}`.execute(t.owner);
     expect(before.rows[0]).toEqual({ password_changed_via: null, password_changed_at: null });
-    await change(cookie, { currentPassword: PASSWORD, newPassword: NEW });
+    const changed = await change(cookie, { currentPassword: PASSWORD, newPassword: NEW });
     const after = await sql<{
       password_changed_via: string;
       password_changed_at: Date;
     }>`select password_changed_via, password_changed_at from users where id = ${id}`.execute(t.owner);
     expect(after.rows[0]?.password_changed_via).toBe('self');
     expect(Date.now() - (after.rows[0]?.password_changed_at.getTime() ?? 0)).toBeLessThan(10_000);
-    const mine = (await me(cookie)).json() as { user: Record<string, unknown> };
-    expect(JSON.stringify(mine)).not.toContain('password');
+    // The account sees the trace on its own record (the Account card), and never a hash.
+    const mine = (await me(`kinship_session=${sessionCookie(changed)?.value}`)).json() as {
+      user: Record<string, unknown>;
+    };
+    expect(mine.user).toMatchObject({ passwordChangedVia: 'self', passwordChangedAt: expect.any(String) });
+    expect(JSON.stringify(mine)).not.toMatch(/password_?hash|argon2/i);
   });
 
   it('retires an open set-password link for the account', async () => {

@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { CSRF_HEADER, CSRF_VALUE } from '@kinship/shared';
 import type {
+  AcceptLinkRequest,
   AccountsResponse,
   AddChildRequest,
   AddParentRequest,
   ApiErrorCode,
   ApiHealth,
   ApiVersion,
+  ChangePasswordRequest,
   ChildResponse,
   InvitationInput,
   LinkCreated,
+  LinkLookup,
   LabelInput,
   LabelPatch,
   LabelResponse,
@@ -310,4 +313,26 @@ export async function createSetPasswordLink(accountId: string): Promise<LinkCrea
   const reply = await send('POST', path, {});
   if (reply.status !== 201) fail(path, reply);
   return reply.body as LinkCreated;
+}
+
+// --- Public links and passwords. ---
+
+/** What a link is. The token goes in the BODY, never in the URL, so it reaches no access log. */
+export async function lookupLink(token: string, signal?: AbortSignal): Promise<LinkLookup> {
+  const reply = await send('POST', '/api/links/lookup', { token }, signal);
+  if (reply.status !== 200) fail('/api/links/lookup', reply);
+  return reply.body as LinkLookup;
+}
+
+/** Accepts an invitation or a set-password link; the answer is the new, signed-in account. */
+export async function acceptLink(request: AcceptLinkRequest): Promise<MeResponse> {
+  const reply = await send('POST', '/api/links/accept', request);
+  if (reply.status !== 201) fail('/api/links/accept', reply);
+  return reply.body as MeResponse;
+}
+
+/** Changes the signed-in account's own password. The other devices are signed out; this one gets a new cookie. */
+export async function changePassword(request: ChangePasswordRequest): Promise<void> {
+  const reply = await send('POST', '/api/auth/password', request);
+  if (reply.status !== 204) fail('/api/auth/password', reply);
 }

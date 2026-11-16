@@ -239,6 +239,8 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
         'theme',
         'date_format',
         'surname_choice',
+        'password_changed_at',
+        'password_changed_via',
       ])
       .where('id', '=', userId)
       .executeTakeFirst();
@@ -258,6 +260,8 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       theme: result.user.theme,
       dateFormat: result.user.date_format,
       surnameChoice: result.user.surname_choice,
+      passwordChangedAt: result.user.password_changed_at?.toISOString() ?? null,
+      passwordChangedVia: result.user.password_changed_via,
     },
     treeName: result.treeName,
   };

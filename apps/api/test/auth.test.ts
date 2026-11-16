@@ -57,6 +57,8 @@ describe('POST /api/auth/login', () => {
         theme: 'device',
         dateFormat: 'mdy',
         surnameChoice: 'married',
+        passwordChangedAt: null, // set directly in the database by the test, so how it changed is unknown
+        passwordChangedVia: null,
       },
       treeName: 'Hale Family',
     });
@@ -141,7 +143,7 @@ describe('POST /api/auth/login', () => {
   it('never returns a password hash or token hash', async () => {
     const t = await withUser();
     const response = await login(t.app, 'marcus@example.com');
-    expect(response.body).not.toMatch(/argon2|password|token|hash/i);
+    expect(response.body).not.toMatch(/argon2|token|hash|"password"/i);
   });
 });
 
