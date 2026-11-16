@@ -11,7 +11,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "e2e": "playwright test",
-    "e2e:build-images": "node support/build-images.mjs"
+    "e2e:build-images": "node support/build-images.mjs",
+    "screenshots": "playwright test -c screenshots/playwright.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.1",

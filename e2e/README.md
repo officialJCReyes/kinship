@@ -15,3 +15,5 @@ Needs Docker. Rebuild the images after changing the api or the web app: `pnpm --
 - Members and Users cannot be invited through the app yet (0.2), so `support/stack.ts` has a clearly marked **test-only** helper that inserts them into the database as the owner role.
 - Only fictional, Hale-style data. Nothing here is a secret: passwords are made fresh for every run.
 - On a failed CI run the traces, screenshots and the web, api and db logs are uploaded as the `e2e-failure` artifact.
+
+- `screenshots/` is not a test: `pnpm --filter @kinship/e2e screenshots` rebuilds the README pictures (see [docs/assets/README.md](../docs/assets/README.md)). CI never runs it.
