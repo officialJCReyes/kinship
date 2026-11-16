@@ -1,5 +1,7 @@
 # 0005. People, relationships and who may change them
 
+Partly superseded by [ADR 0008](0008-names-and-widowed.md) (married surname, automatic Widowed).
+
 - Status: **Accepted** (the approach and eleven open points were proposed to JC and approved as recommended, 2026-11-15)
 - Date: 2026-11-15
 - Builds on: [0001 Stack](0001-stack.md), [0003 Accounts and sessions](0003-accounts-and-sessions.md)

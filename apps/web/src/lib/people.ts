@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { Parentage, Person, TreeResponse, Union } from '@kinship/shared';
 import { t } from '../i18n.js';
 import { formatYear } from './dates.js';
-
-export function personName(person: Pick<Person, 'givenName' | 'surname'>): string {
-  return `${person.givenName} ${person.surname}`;
-}
 
 /** "1955 – 2020", "b. 1955", or "" when no years are known. */
 export function lifespan(person: Person): string {
@@ -48,7 +45,7 @@ export function siblingsOf(tree: TreeResponse | undefined, personId: string): Si
     if (!person || shared === 0) continue;
     (shared === mine.length && shared === theirs.length ? result.full : result.half).push(person);
   }
-  const byName = (a: Person, b: Person) => personName(a).localeCompare(personName(b));
+  const byName = (a: Person, b: Person) => displayName(a).localeCompare(displayName(b));
   result.full.sort(byName);
   result.half.sort(byName);
   return result;

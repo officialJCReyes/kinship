@@ -12,6 +12,8 @@ import type { DateDraft } from '../lib/dates.js';
 export interface PersonDraft {
   givenName: string;
   surname: string;
+  secondSurname: string;
+  marriedSurname: string;
   gender: Gender | '';
   birth: DateDraft;
   deceased: boolean;
@@ -19,13 +21,24 @@ export interface PersonDraft {
 }
 
 export function emptyPersonDraft(gender: Gender | '' = ''): PersonDraft {
-  return { givenName: '', surname: '', gender, birth: emptyDateDraft, deceased: false, death: emptyDateDraft };
+  return {
+    givenName: '',
+    surname: '',
+    secondSurname: '',
+    marriedSurname: '',
+    gender,
+    birth: emptyDateDraft,
+    deceased: false,
+    death: emptyDateDraft,
+  };
 }
 
 export function draftFromPerson(person: Person): PersonDraft {
   return {
     givenName: person.givenName,
     surname: person.surname,
+    secondSurname: person.secondSurname ?? '',
+    marriedSurname: person.marriedSurname ?? '',
     gender: person.gender ?? '',
     birth: draftFromDate(person.birth),
     deceased: person.deceased,
@@ -55,6 +68,8 @@ export function checkPersonDraft(draft: PersonDraft): { input: PersonInput | nul
     input: {
       givenName: draft.givenName.trim(),
       surname: draft.surname.trim(),
+      secondSurname: draft.secondSurname.trim() || null,
+      marriedSurname: draft.marriedSurname.trim() || null,
       gender: draft.gender === '' ? null : draft.gender,
       birth: birth ?? null,
       deceased: draft.deceased,
@@ -70,9 +85,14 @@ interface PersonFieldsProps {
   /** Show the problems now (after a failed save), not just after leaving a field. */
   showErrors: boolean;
   problems: PersonProblems;
+  /**
+   * Show the married surname. Always on in Edit details and Add person; in the relationship forms the caller
+   * turns it on while the status is Married or Widowed (what was typed stays in the draft when it is hidden).
+   */
+  showMarriedSurname?: boolean;
 }
 
-export function PersonFields({ draft, onChange, showErrors, problems }: PersonFieldsProps) {
+export function PersonFields({ draft, onChange, showErrors, problems, showMarriedSurname = false }: PersonFieldsProps) {
   return (
     <>
       <div className="grid2">
@@ -96,6 +116,29 @@ export function PersonFields({ draft, onChange, showErrors, problems }: PersonFi
           error={showErrors && problems.surname ? t('error.invalid_surname') : undefined}
           required
         />
+      </div>
+      <div className="grid2">
+        <Field
+          label={t('person.secondSurname')}
+          name="secondSurname"
+          autoComplete="off"
+          maxLength={NAME_MAX_LENGTH}
+          help={t('person.secondSurnameHelp')}
+          value={draft.secondSurname}
+          onChange={(event) => onChange({ ...draft, secondSurname: event.target.value })}
+        />
+        {showMarriedSurname ? (
+          <Field
+            label={t('person.marriedSurname')}
+            name="marriedSurname"
+            autoComplete="off"
+            maxLength={NAME_MAX_LENGTH}
+            value={draft.marriedSurname}
+            onChange={(event) => onChange({ ...draft, marriedSurname: event.target.value })}
+          />
+        ) : (
+          <div />
+        )}
       </div>
       <div className="grid2">
         <SelectField

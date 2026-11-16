@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { AuthUser, Person, UnionWithChildren } from '@kinship/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ActionButton } from '../components/ActionButton.js';
 import { t } from '../i18n.js';
-import { lifespan, peopleById, personName } from '../lib/people.js';
+import { lifespan, peopleById } from '../lib/people.js';
 import { statusName, unionLabel } from '../lib/labels.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
@@ -56,7 +57,7 @@ export function TreePanel({
           »
         </button>
         {person ? (
-          <span className="rail-initials" aria-hidden="true" title={personName(person)}>
+          <span className="rail-initials" aria-hidden="true" title={displayName(person)}>
             {initials(person)}
           </span>
         ) : null}
@@ -71,7 +72,7 @@ export function TreePanel({
   const names = peopleById(around.data);
   const nameOf = (id: string) => {
     const found = names.get(id);
-    return found ? personName(found) : t('person.unknown');
+    return found ? displayName(found) : t('person.unknown');
   };
 
   return (
@@ -90,7 +91,7 @@ export function TreePanel({
       </div>
       {person ? (
         <>
-          <h2 className="panel-name">{personName(person)}</h2>
+          <h2 className="panel-name">{displayName(person)}</h2>
           <div className="muted">{lifespan(person)}</div>
           <div className="pills">
             <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>

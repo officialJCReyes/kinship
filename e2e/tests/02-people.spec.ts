@@ -11,7 +11,7 @@ test('add a person, find them in People, open the profile and edit the details',
   await page.getByRole('button', { name: 'Add person' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add person' });
   await dialog.getByLabel('Given name').fill('Walter');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Gender').selectOption('male');
   await dialog.getByLabel('Birth date', { exact: true }).fill('1930-03');
   await expect(dialog.getByText('Reads as: March 1930')).toBeVisible();
@@ -69,7 +69,7 @@ test('a parent who is too young is warned about, and the child is still saved', 
   await page.getByRole('button', { name: 'Add son' }).click();
   const dialog = page.getByRole('dialog', { name: `Add son to Pia ${family}` });
   await dialog.getByLabel('Given name').fill('Tomas');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Birth date', { exact: true }).fill('1958');
   await dialog.getByRole('button', { name: 'Save' }).click();
 

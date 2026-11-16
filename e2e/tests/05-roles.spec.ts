@@ -83,7 +83,7 @@ test('a Member may add children to themselves, and can do nothing else', async (
   await page.getByRole('button', { name: 'Add daughter' }).click();
   const dialog = page.getByRole('dialog', { name: `Add daughter to ${member.name} ${family}` });
   await dialog.getByLabel('Given name').fill('Ida');
-  await dialog.getByLabel('Surname').fill(family);
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('link', { name: new RegExp(`Ida ${family}.*Daughter`) })).toBeVisible();

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
+import { NAME_MAX_LENGTH, UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
 import type { PartialDateInput, Union, UnionStatus } from '@kinship/shared';
 import { DateInput } from '../components/DateInput.js';
+import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { t } from '../i18n.js';
 import { draftFromDate, draftToInput, emptyDateDraft } from '../lib/dates.js';
@@ -74,5 +75,51 @@ export function UnionFields({
         />
       ) : null}
     </>
+  );
+}
+
+/** A partner whose married surname the relationship form can change. */
+export interface PartnerSurname {
+  id: string;
+  /** For the field label: the partner's name. */
+  name: string;
+  value: string;
+}
+
+/** True for the statuses where married surnames are asked for. */
+export function asksMarriedSurname(status: UnionStatus): boolean {
+  return status === 'married' || status === 'widowed';
+}
+
+/**
+ * "Surnames at marriage": one married-surname field per partner the signed-in account may change. Shown
+ * while the status is Married or Widowed; what was typed stays in the caller's state when it is hidden.
+ */
+export function MarriedSurnames({
+  status,
+  partners,
+  onChange,
+}: {
+  status: UnionStatus;
+  partners: PartnerSurname[];
+  onChange: (id: string, value: string) => void;
+}) {
+  if (!asksMarriedSurname(status) || partners.length === 0) return null;
+  return (
+    <fieldset className="choice">
+      <legend>{t('union.surnames.title')}</legend>
+      {partners.map((partner) => (
+        <Field
+          key={partner.id}
+          label={t('union.surnames.field', { name: partner.name })}
+          name={`marriedSurname-${partner.id}`}
+          autoComplete="off"
+          maxLength={NAME_MAX_LENGTH}
+          value={partner.value}
+          onChange={(event) => onChange(partner.id, event.target.value)}
+        />
+      ))}
+      <div className="muted field-help">{t('union.surnames.help')}</div>
+    </fieldset>
   );
 }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { LinkKind, Person } from '@kinship/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -11,7 +12,7 @@ import { t } from '../i18n.js';
 import { draftFromDate, draftToInput } from '../lib/dates.js';
 import type { DateDraft } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
-import { personName } from '../lib/people.js';
+
 import { useNotices } from '../notices.js';
 import { useRefreshPeople } from './queries.js';
 
@@ -52,7 +53,7 @@ export function EditLinkDialog({
       title={t('link.editTitle', {
         kind: t(`link.kind.${kind}`).toLowerCase(),
         parent: parentNames,
-        child: personName(child),
+        child: displayName(child),
       })}
       onClose={onClose}
     >

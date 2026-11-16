@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { LineageView, Person, UnionWithChildren } from '@kinship/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -10,7 +11,7 @@ import { t } from '../i18n.js';
 import { canEditUnion } from '../people/permissions.js';
 import { chartQuery, familyQuery } from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
-import { personName } from '../lib/people.js';
+
 import { familyView, findLeaves, findOtherLeaves } from './family.js';
 import type { Leaf } from './family.js';
 import { layoutTree, relationsOf } from './layout.js';
@@ -190,7 +191,7 @@ export function TreePage() {
 
   const owner = people.get(focalId);
   const names = editing
-    ? (editing.partnerIds.map((p) => (people.get(p) ? personName(people.get(p)!) : t('person.unknown'))) as [
+    ? (editing.partnerIds.map((p) => (people.get(p) ? displayName(people.get(p)!) : t('person.unknown'))) as [
         string,
         string,
       ])
@@ -238,7 +239,14 @@ export function TreePage() {
           }
         />
       </div>
-      {editing && names ? <EditUnionDialog union={editing} names={names} onClose={() => setEditing(null)} /> : null}
+      {editing && names ? (
+        <EditUnionDialog
+          union={editing}
+          names={names}
+          partners={editing.partnerIds.map((p) => people.get(p))}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
     </div>
   );
 }

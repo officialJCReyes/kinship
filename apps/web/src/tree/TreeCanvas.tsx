@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import type { Person, UnionStatus } from '@kinship/shared';
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { t } from '../i18n.js';
-import { lifespan, personName } from '../lib/people.js';
+import { lifespan } from '../lib/people.js';
 import { statusName } from '../lib/labels.js';
 import { initials, leafLabel, nodeLabel, otherLeafLabel, shortName } from './family.js';
 import type { Leaf } from './family.js';
@@ -99,7 +100,7 @@ const TreeNode = memo(function TreeNode({
   onFocus,
   onLeaf,
 }: NodeProps) {
-  const full = personName(person);
+  const full = displayName(person);
   const label = nodeLabel(person);
   const name = shortName(full, person.deceased ? 15 : 17) + (person.deceased ? ' †' : '');
   const gender = person.gender === 'male' || person.gender === 'female' ? person.gender : 'other';
@@ -537,7 +538,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
 
   // Tell screen readers what was selected.
   const selectedPerson = people.get(selectedId);
-  const announce = selectedPerson ? t('tree.selected', { name: personName(selectedPerson) }) : '';
+  const announce = selectedPerson ? t('tree.selected', { name: displayName(selectedPerson) }) : '';
 
   const onFocusNode = useCallback((id: string) => setFocusId(id), []);
   const focusableId = layout.byId.has(focusId) ? focusId : layout.byId.has(selectedId) ? selectedId : focalId;
@@ -588,8 +589,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
         const b = people.get(couple.right);
         const title = t('tree.couple', {
           status: statusName(couple.status),
-          a: a ? personName(a) : t('person.unknown'),
-          b: b ? personName(b) : t('person.unknown'),
+          a: a ? displayName(a) : t('person.unknown'),
+          b: b ? displayName(b) : t('person.unknown'),
         });
         return (
           <CoupleLine

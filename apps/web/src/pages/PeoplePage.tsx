@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { displayName } from '@kinship/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useSession } from '../auth.js';
 import { ActionButton } from '../components/ActionButton.js';
 import { EmptyState, ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
-import { lifespan, personName } from '../lib/people.js';
+import { lifespan } from '../lib/people.js';
 import { useDebounced } from '../lib/useDebounced.js';
 import { isAdmin } from '../people/permissions.js';
 import { AddPersonDialog } from '../people/PersonDialogs.js';
@@ -44,7 +45,7 @@ export function PeoplePage() {
         <ul className="people-list" aria-label={t('people.title')}>
           {items.map((person) => (
             <li key={person.id}>
-              <Link to={`/people/${person.id}`}>{personName(person)}</Link>
+              <Link to={`/people/${person.id}`}>{displayName(person)}</Link>
               <span className="muted">{lifespan(person)}</span>
             </li>
           ))}

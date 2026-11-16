@@ -214,6 +214,8 @@ describe('edit details', () => {
     expect(bodyOf(fetchMock, 'PATCH /api/people/marcus')).toEqual({
       givenName: 'Marcus',
       surname: 'Hale',
+      secondSurname: null,
+      marriedSurname: null,
       gender: 'male',
       birth: { value: '1951-02', precision: 'exactly' },
       deceased: true,
@@ -355,7 +357,16 @@ describe('add relative', () => {
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(bodyOf(fetchMock, 'POST /api/people/marcus/children')).toEqual({
-      child: { givenName: 'Ida', surname: 'Hale', gender: 'female', birth: null, deceased: false, death: null },
+      child: {
+        givenName: 'Ida',
+        surname: 'Hale',
+        secondSurname: null,
+        marriedSurname: null,
+        gender: 'female',
+        birth: null,
+        deceased: false,
+        death: null,
+      },
     });
   });
 
