@@ -111,6 +111,10 @@ const userColumns = [
   'role',
   'person_id',
   'lineage_view',
+  'color_scheme',
+  'theme',
+  'date_format',
+  'surname_choice',
   'created_at',
   'updated_at',
 ] as const satisfies ReadonlyArray<keyof Database['users']>;

@@ -3,12 +3,8 @@
 // How a person's name is shown. The ONE place that decides it, for the web app now and for reports and
 // exports later (they will read both surnames separately and not use this).
 
-/** Which surname a viewer sees: the married one when a person has one, or always the birth surname(s). */
-export const SURNAME_CHOICES = ['married', 'birth'] as const;
-export type SurnameChoice = (typeof SURNAME_CHOICES)[number];
-
-/** Until My settings has a control for it (step 13) every viewer gets this. */
-export const DEFAULT_SURNAME_CHOICE: SurnameChoice = 'married';
+import { DEFAULT_SURNAME_CHOICE } from './settings.js';
+import type { SurnameChoice } from './settings.js';
 
 /** The parts of a person that make up their name. The second and married surnames may be left out. */
 export interface NameParts {
