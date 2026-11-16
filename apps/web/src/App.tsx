@@ -7,6 +7,8 @@ import { t } from './i18n.js';
 import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
 import { applyTheme } from './lib/theme.js';
 import { AboutPage } from './pages/AboutPage.js';
+import { AdminLayout } from './pages/AdminLayout.js';
+import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { NoticeList, NoticeProvider } from './notices.js';
@@ -120,6 +122,11 @@ export function App() {
             <Route path="/people/:id" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/users" replace />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

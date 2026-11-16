@@ -33,7 +33,7 @@ describe('the account menu', () => {
       within(menu)
         .getAllByRole('menuitem')
         .map((i) => i.textContent),
-    ).toEqual(['My settings', 'About KinShip', 'Sign out']);
+    ).toEqual(['My settings', 'Admin', 'About KinShip', 'Sign out']); // the default account is a SuperAdmin
     cleanup();
     vi.unstubAllGlobals();
     mockApi(haleRoutes(MEMBER));
@@ -72,12 +72,12 @@ describe('the account menu', () => {
     fireEvent.keyDown(items[0]!, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(items[1]);
     fireEvent.keyDown(items[1]!, { key: 'End' });
-    expect(document.activeElement).toBe(items[2]);
-    fireEvent.keyDown(items[2]!, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(items[3]);
+    fireEvent.keyDown(items[3]!, { key: 'ArrowDown' });
     expect(document.activeElement).toBe(items[0]);
     fireEvent.keyDown(items[0]!, { key: 'ArrowUp' });
-    expect(document.activeElement).toBe(items[2]);
-    fireEvent.keyDown(items[2]!, { key: 'Escape' });
+    expect(document.activeElement).toBe(items[3]);
+    fireEvent.keyDown(items[3]!, { key: 'Escape' });
     expect(screen.queryByRole('menu')).toBeNull();
     expect(document.activeElement).toBe(button);
     fireEvent.click(button);
