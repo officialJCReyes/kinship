@@ -62,7 +62,9 @@ function SetupRoute() {
   if (setup.data.needsSetup) return <SetupPage />;
   // Just finished setup (signed in) or setup was already done earlier.
   if (session.isPending) return <Loading />;
-  return <Navigate to={session.data ? '/' : '/login'} replace />;
+  // Setup just finished: the wizard created the signed-in person's own place on the tree, so go there.
+  const personId = session.data?.user.personId;
+  return <Navigate to={session.data ? (personId ? `/tree/${personId}` : '/') : '/login'} replace />;
 }
 
 export function App() {

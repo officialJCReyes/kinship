@@ -7,36 +7,48 @@ import { expect, test } from '../support/fixtures.js';
 
 test.describe.configure({ mode: 'serial' });
 
-async function fillAccount(page: import('@playwright/test').Page, fields: { given?: string; surname?: string }) {
+async function fillAccount(page: import('@playwright/test').Page) {
   await page.goto('/');
   // A fresh install sends everyone to the setup page.
   await expect(page.getByRole('heading', { name: 'Welcome to KinShip' })).toBeVisible();
+  await expect(page.getByText('Step 1 of 7 · Account')).toBeVisible();
   await page.getByLabel('Setup token').fill(process.env['E2E_SETUP_TOKEN'] ?? '');
   await page.getByLabel('Your name', { exact: true }).fill(ADMIN.displayName);
   await page.getByLabel('Email').fill(ADMIN.email);
   await page.getByLabel('Password', { exact: true }).fill(password());
   await page.getByLabel('Confirm password').fill(password());
-  await page.getByLabel('Name your first tree').fill('Hale Family');
-  if (fields.given) await page.getByLabel('Your given name').fill(fields.given);
-  if (fields.surname) await page.getByLabel('Your surname').fill(fields.surname);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Name your first tree' })).toBeVisible();
+  await expect(page.getByLabel('Tree name')).toHaveValue('Hale Family');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Start with you' })).toBeVisible();
 }
 
-test('setup asks for both names of the first person, or neither', async ({ page }) => {
-  await fillAccount(page, { given: ADMIN.givenName });
-  await page.getByRole('button', { name: 'Create account and continue' }).click();
-  const surname = page.getByLabel('Your surname');
+test('setup checks each step before it moves on, and asks for both of your names', async ({ page }) => {
+  await fillAccount(page);
+  // The names are prefilled from the account name; both are required.
+  await expect(page.getByLabel('Given name')).toHaveValue('Marcus');
+  await expect(page.getByLabel('Surname')).toHaveValue('Hale');
+  await page.getByLabel('Surname').fill('');
+  await page.getByRole('button', { name: 'Next' }).click();
+  const surname = page.getByLabel('Surname');
   await expect(page.getByText('Enter a surname (up to 100 characters).')).toBeVisible();
   await expect(surname).toHaveAttribute('aria-invalid', 'true');
-  // Nothing was created: still on the setup page.
-  await expect(page.getByRole('heading', { name: 'Welcome to KinShip' })).toBeVisible();
+  await expect(surname).toBeFocused();
+  // Nothing was created: still in the wizard, on step 3 of 7.
+  await expect(page.getByText('Step 3 of 7 · You')).toBeVisible();
 });
 
-test('setup with the You names, then sign out, sign in and see the linked profile', async ({ page }) => {
-  await fillAccount(page, { given: ADMIN.givenName, surname: ADMIN.surname });
-  await page.getByRole('button', { name: 'Create account and continue' }).click();
+test('setup creates the tree, signs in and opens you; then sign out, sign in and see the linked profile', async ({
+  page,
+}) => {
+  await fillAccount(page);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Check your tree' })).toBeVisible();
+  await page.getByRole('button', { name: 'Create my tree' }).click();
 
-  // Setup signs the new SuperAdmin in.
-  await expect(page.getByRole('heading', { name: 'Welcome, Marcus Hale' })).toBeVisible();
+  // Setup signs the new SuperAdmin in and opens their own place on the tree.
+  await expect(page).toHaveURL(/\/tree\/[0-9a-f-]+$/);
   await expect(page.getByRole('button', { name: 'Account menu' })).toContainText('Marcus Hale');
 
   await page.getByRole('button', { name: 'Account menu' }).click();

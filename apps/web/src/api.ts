@@ -48,6 +48,12 @@ export class ApiError extends Error {
     super(message);
   }
 
+  /** The path of the request field the API says is wrong (`family.children.1.birth`), when it names one. */
+  get field(): string | undefined {
+    const value = this.details.field;
+    return typeof value === 'string' ? value : undefined;
+  }
+
   get retryAfterSeconds(): number | undefined {
     const value = this.details.retryAfterSeconds;
     return typeof value === 'number' ? value : undefined;
@@ -138,6 +144,12 @@ export async function updateMe(request: UpdateMeRequest): Promise<MeResponse> {
   const reply = await send('PATCH', '/api/auth/me', request);
   if (reply.status !== 200) fail('/api/auth/me', reply);
   return reply.body as MeResponse;
+}
+
+/** Is this the setup token? Resolves when it is; throws ApiError (invalid_setup_token, already_set_up, rate_limited) when not. */
+export async function checkSetupToken(token: string): Promise<void> {
+  const reply = await send('POST', '/api/setup/check', { token });
+  if (reply.status !== 204) fail('/api/setup/check', reply);
 }
 
 export async function setup(request: SetupRequest): Promise<MeResponse> {
