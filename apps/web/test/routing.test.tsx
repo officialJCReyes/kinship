@@ -57,10 +57,11 @@ describe('route guards', () => {
   it('shows the person, the navigation and a sign-out button when signed in', async () => {
     mockApi(signedIn);
     renderApp('/');
-    expect(await screen.findByText('Signed in as Marcus Hale')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Account menu' })).toBeTruthy();
     expect(screen.getByText('You are signed in to Hale Family.')).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+    // Sign out is in the account menu now, not on the page.
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
   });
 
   it('says so when the API cannot be reached at all', async () => {

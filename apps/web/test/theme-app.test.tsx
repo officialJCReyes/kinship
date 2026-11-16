@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ALICE, mockApi, needsSetup, renderApp, signedIn, signedOut } from './helpers.js';
+import { ALICE, chooseFromAccountMenu, mockApi, needsSetup, renderApp, signedIn, signedOut } from './helpers.js';
 
 const KEY = 'kinship.display';
 const root = document.documentElement;
@@ -45,10 +45,19 @@ describe('the theme in the app', () => {
   });
 
   it('applies them at sign-in, and keeps the mirror after sign-out', async () => {
+    let signedInNow = false;
     mockApi({
       ...signedOut,
-      'POST /api/auth/login': { status: 200, body: slateDark },
-      'POST /api/auth/logout': { status: 204 },
+      '/api/auth/me': () =>
+        signedInNow ? { status: 200, body: slateDark } : { status: 401, body: { error: 'unauthenticated' } },
+      'POST /api/auth/login': () => {
+        signedInNow = true;
+        return { status: 200, body: slateDark };
+      },
+      'POST /api/auth/logout': () => {
+        signedInNow = false;
+        return { status: 204 };
+      },
     });
     renderApp('/login');
     fireEvent.change(await screen.findByLabelText(/email/i), { target: { value: 'marcus@example.com' } });
@@ -56,7 +65,8 @@ describe('the theme in the app', () => {
     fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
     await waitFor(() => expect(attrs()).toEqual(['slate', 'dark']));
     expect(mirror()).toEqual({ colorScheme: 'slate', theme: 'dark' });
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await screen.findByRole('heading', { name: /Welcome/ }); // on the home page, so the route is settled
+    await chooseFromAccountMenu('Sign out');
     await screen.findByRole('button', { name: /sign in/i });
     expect(mirror()).toEqual({ colorScheme: 'slate', theme: 'dark' });
     expect(attrs()).toEqual(['slate', 'dark']);

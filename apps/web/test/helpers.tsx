@@ -92,3 +92,10 @@ export function renderApp(path: string) {
   );
   return Object.assign(view, { client });
 }
+
+/** Opens the account menu and chooses an item in it (Sign out, My settings, ...). */
+export async function chooseFromAccountMenu(name: string): Promise<void> {
+  const { fireEvent, screen } = await import('@testing-library/react');
+  fireEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name }));
+}

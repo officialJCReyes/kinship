@@ -13,7 +13,14 @@ export function useSetupStatus() {
 
 /** The signed-in person (data is null when signed out). Only asks once setup is done. */
 export function useSession(enabled: boolean) {
-  return useQuery({ queryKey: meKey, queryFn: ({ signal }) => api.fetchMe(signal), enabled, retry: false });
+  return useQuery({
+    queryKey: meKey,
+    queryFn: ({ signal }) => api.fetchMe(signal),
+    enabled,
+    retry: false,
+    // A change made in another browser or tab shows up as soon as this one is looked at again.
+    refetchOnWindowFocus: 'always',
+  });
 }
 
 export function useLogin() {

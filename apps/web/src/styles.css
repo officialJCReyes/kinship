@@ -347,10 +347,168 @@ main {
   cursor: progress;
 }
 
-.account-bar {
+/* The account menu (My profile, My settings, About, Sign out). */
+.account-menu {
+  position: relative;
+}
+
+.account-button {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.account-button[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.account-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+  .account-name {
+    display: none;
+  }
+}
+
+.menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 220px;
+  padding: 6px;
+  box-shadow: var(--shadow);
+}
+
+.menu-head {
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+}
+
+.menu-panel hr {
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* My settings */
+.settings-page {
+  max-width: 640px;
+}
+
+.settings-card h2 {
+  margin-top: 0;
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.swatch[aria-checked='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.swatch-chips {
+  display: inline-flex;
+  flex: none;
+}
+
+.swatch-chips span {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line);
+}
+
+.chip-accent {
+  border-radius: 50% 0 0 50%;
+  background: var(--sw-accent);
+}
+
+.chip-tint {
+  border-radius: 0 50% 50% 0;
+  background: var(--sw-tint);
+}
+
+/* Each swatch shows its own scheme's light colors, whatever scheme is on now (test/theme.test.ts checks them). */
+.swatch-forest {
+  --sw-accent: #1e4d4a;
+  --sw-tint: #e0ede1;
+}
+
+.swatch-sand {
+  --sw-accent: #1e4d4a;
+  --sw-tint: #ece4d1;
+}
+
+.swatch-slate {
+  --sw-accent: #2f4b7c;
+  --sw-tint: #e1e8f3;
+}
+
+.swatch-graphite {
+  --sw-accent: #2a2e35;
+  --sw-tint: #e7e8ea;
 }
 
 .site-header-inner {
