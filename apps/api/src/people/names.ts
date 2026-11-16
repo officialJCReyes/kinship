@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { NAME_MAX_LENGTH } from '@kinship/shared';
+import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH } from '@kinship/shared';
 import { badRequest } from '../errors.js';
 
 // eslint-disable-next-line no-control-regex
@@ -22,4 +22,21 @@ export function cleanOptionalName(raw: unknown, code: NameCode): string | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'string' && raw.trim() === '') return null;
   return cleanName(raw, code);
+}
+
+/** A custom relationship label: Unicode-normalized, trimmed, 1 to 60 characters, no control characters. */
+export function cleanLabel(raw: unknown): string {
+  if (typeof raw !== 'string') throw badRequest('invalid_label');
+  const label = raw.normalize('NFC').trim();
+  if (Array.from(label).length < 1 || Array.from(label).length > LABEL_MAX_LENGTH || CONTROL_CHARACTERS.test(label)) {
+    throw badRequest('invalid_label');
+  }
+  return label;
+}
+
+/** The optional reverse label: null, undefined or blank means none. */
+export function cleanOptionalLabel(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'string' && raw.trim() === '') return null;
+  return cleanLabel(raw);
 }

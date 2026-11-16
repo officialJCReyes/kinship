@@ -60,6 +60,15 @@ async function attempt(
   }
 }
 
+/** A label row put in by the owner, for the cases that change or delete one. */
+async function insertLabelRow(from: string, to: string, label: string): Promise<string> {
+  const result = await sql<{ id: string }>`
+    insert into relationship_labels (from_id, to_id, label) values (${from}, ${to}, ${label}) returning id`.execute(
+    t.owner,
+  );
+  return result.rows[0]!.id;
+}
+
 /** A person added by an account, with their place in the tree, in one transaction (a Member's person needs both at commit). */
 const personCreatedBy = (account: string, parent: string) =>
   t.owner.transaction().execute(async (trx) => {
@@ -428,6 +437,60 @@ function cases(): Case[] {
               : 0,
           ),
       }),
+    },
+    {
+      name: 'POST /api/labels',
+      allowed: ADMINS,
+      prepare: async () => {
+        const a = await insertPersonRow(t.owner, 'Label', 'From');
+        const b = await insertPersonRow(t.owner, 'Label', 'To');
+        return {
+          request: { method: 'POST', url: '/api/labels', payload: { fromId: a, toId: b, label: 'Godmother' } },
+          sql: (u) =>
+            attempt(u, async (trx) => {
+              await trx
+                .insertInto('relationship_labels')
+                .values({ from_id: a, to_id: b, label: 'Godmother', created_by: u })
+                .execute();
+            }),
+        };
+      },
+    },
+    {
+      name: 'PATCH /api/labels/:id',
+      allowed: ADMINS,
+      prepare: async () => {
+        const a = await insertPersonRow(t.owner, 'Label', 'From');
+        const b = await insertPersonRow(t.owner, 'Label', 'To');
+        const id = await insertLabelRow(a, b, 'Godmother');
+        return {
+          request: { method: 'PATCH', url: `/api/labels/${id}`, payload: { label: 'Guardian' } },
+          sql: (u) =>
+            attempt(u, async (trx) =>
+              Number(
+                (
+                  await trx.updateTable('relationship_labels').set({ label: 'Guardian' }).where('id', '=', id).execute()
+                )[0]!.numUpdatedRows,
+              ),
+            ),
+        };
+      },
+    },
+    {
+      name: 'DELETE /api/labels/:id',
+      allowed: ADMINS,
+      prepare: async () => {
+        const a = await insertPersonRow(t.owner, 'Label', 'From');
+        const b = await insertPersonRow(t.owner, 'Label', 'To');
+        const id = await insertLabelRow(a, b, 'Godmother');
+        return {
+          request: { method: 'DELETE', url: `/api/labels/${id}` },
+          sql: (u) =>
+            attempt(u, async (trx) =>
+              Number((await trx.deleteFrom('relationship_labels').where('id', '=', id).execute())[0]!.numDeletedRows),
+            ),
+        };
+      },
     },
     {
       name: "DELETE /api/unions/:id (even the Member's own)",

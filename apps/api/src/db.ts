@@ -76,6 +76,15 @@ export interface Database {
     created_at: ColumnType<Date, never, never>;
     updated_at: ColumnType<Date, never, never>;
   };
+  relationship_labels: {
+    id: Generated<string>;
+    from_id: string;
+    to_id: string;
+    label: string;
+    reverse_label: string | null;
+    created_by: string | null;
+    created_at: ColumnType<Date, never, never>;
+  };
   person_parents: {
     child_id: string;
     /** Birth or adoptive (0006). A child has at most one set of each kind. */

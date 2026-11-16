@@ -11,6 +11,8 @@ import type {
   ParentSets,
   PartialDate,
   Person,
+  PersonLabel,
+  RelationshipLabel,
   TreePerson,
   TreeResponse,
   Union,
@@ -632,4 +634,58 @@ async function otherFamilyCounts(
   const counts = new Map(rows.rows.map((r) => [r.origin, Number(r.n)]));
   for (const set of sets) result.set(set.child, { kind: set.kind, count: counts.get(set.child) ?? 0 });
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Custom relationship labels (0009). Only notes between two people: nothing above reads them.
+// ---------------------------------------------------------------------------
+
+export const LABEL_COLUMNS = ['id', 'from_id', 'to_id', 'label', 'reverse_label', 'created_at'] as const;
+export type LabelRow = Pick<Selectable<Database['relationship_labels']>, (typeof LABEL_COLUMNS)[number]>;
+
+export function toLabel(row: LabelRow): RelationshipLabel {
+  return {
+    id: row.id,
+    fromId: row.from_id,
+    toId: row.to_id,
+    label: row.label,
+    reverseLabel: row.reverse_label,
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+export function getLabel(trx: Trx, id: string): Promise<LabelRow | undefined> {
+  return trx.selectFrom('relationship_labels').select(LABEL_COLUMNS).where('id', '=', id).executeTakeFirst();
+}
+
+/** Every label a person is part of, either side, oldest first. */
+export async function labelsOfPerson(trx: Trx, personId: string): Promise<PersonLabel[]> {
+  const rows = await trx
+    .selectFrom('relationship_labels')
+    .select(LABEL_COLUMNS)
+    .where((eb) => eb.or([eb('from_id', '=', personId), eb('to_id', '=', personId)]))
+    .orderBy('created_at')
+    .orderBy('id')
+    .execute();
+  const otherIds = [...new Set(rows.map((row) => (row.from_id === personId ? row.to_id : row.from_id)))];
+  const others = new Map<string, Person>();
+  if (otherIds.length > 0) {
+    const found = await trx.selectFrom('people').select(PERSON_COLUMNS).where('id', 'in', otherIds).execute();
+    for (const row of found) others.set(row.id, toPerson(row));
+  }
+  return rows.flatMap((row) => {
+    const otherId = row.from_id === personId ? row.to_id : row.from_id;
+    const other = others.get(otherId);
+    if (!other) return [];
+    return [
+      {
+        id: row.id,
+        otherId,
+        other,
+        direction: row.from_id === personId ? ('from' as const) : ('to' as const),
+        label: row.label,
+        reverseLabel: row.reverse_label,
+      },
+    ];
+  });
 }

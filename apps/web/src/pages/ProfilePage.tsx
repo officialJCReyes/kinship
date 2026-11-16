@@ -6,6 +6,7 @@ import type {
   LinkKind,
   Person,
   PersonDetail,
+  PersonLabel,
   TreeResponse,
   UnionWithChildren,
 } from '@kinship/shared';
@@ -20,11 +21,12 @@ import { ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { formatDate, formatYear } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
-import { childLabel, parentLabel, relativeLabel, statusName, unionLabel } from '../lib/labels.js';
+import { childLabel, customLabelPrefix, parentLabel, relativeLabel, statusName, unionLabel } from '../lib/labels.js';
 import { lifespan, mergeTrees, parentIdsOf, peopleById, siblingsOf } from '../lib/people.js';
 import { useNotices } from '../notices.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
+import { DeleteLabelDialog, LabelDialog } from '../people/LabelDialogs.js';
 import { EditLinkDialog } from '../people/LinkDialogs.js';
 import { useSetLineage } from '../people/lineage.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
@@ -40,6 +42,9 @@ type Open =
   | { kind: 'deleteUnion'; union: UnionWithChildren }
   | { kind: 'removeParent'; parent: Person }
   | { kind: 'editLink'; linkKind: LinkKind }
+  | { kind: 'addLabel' }
+  | { kind: 'editLabel'; entry: PersonLabel }
+  | { kind: 'deleteLabel'; entry: PersonLabel }
   | null;
 
 function PersonLink({ person, label }: { person: Person; label?: string | undefined }) {
@@ -360,6 +365,43 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         ) : null}
       </Section>
 
+      {admin || detail.labels.length > 0 ? (
+        <Section title={t('label.section')}>
+          <p className="muted">{t('label.sectionHelp')}</p>
+          {detail.labels.length === 0 ? <p className="muted">{t('label.none')}</p> : null}
+          <ul className="plain" aria-label={t('label.section')}>
+            {detail.labels.map((entry) => (
+              <li key={entry.id}>
+                <span>{customLabelPrefix(entry)} </span>
+                <PersonLink person={entry.other} />
+                <span className="pill gray">{t('label.custom')}</span>
+                {admin ? (
+                  <>
+                    {' '}
+                    <ActionButton small onClick={() => setOpen({ kind: 'editLabel', entry })}>
+                      {t('label.edit')}
+                    </ActionButton>{' '}
+                    <ActionButton small danger onClick={() => setOpen({ kind: 'deleteLabel', entry })}>
+                      {t('label.delete')}
+                    </ActionButton>
+                  </>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {admin ? (
+            <div className="actions">
+              <ActionButton small onClick={() => setOpen({ kind: 'addLabel' })}>
+                {t('label.add')}
+              </ActionButton>
+            </div>
+          ) : null}
+        </Section>
+      ) : null}
+
+      {open?.kind === 'addLabel' ? <LabelDialog person={person} onClose={close} /> : null}
+      {open?.kind === 'editLabel' ? <LabelDialog person={person} existing={open.entry} onClose={close} /> : null}
+      {open?.kind === 'deleteLabel' ? <DeleteLabelDialog person={person} entry={open.entry} onClose={close} /> : null}
       {open?.kind === 'edit' ? <EditPersonDialog person={person} onClose={close} /> : null}
       {open?.kind === 'add' ? <AddRelativeDialog detail={detail} tree={bothTree} me={me} onClose={close} /> : null}
       {open?.kind === 'editLink' ? (

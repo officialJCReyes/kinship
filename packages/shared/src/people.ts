@@ -49,6 +49,8 @@ export type LineageView = (typeof LINEAGE_VIEWS)[number];
 export const DEFAULT_LINEAGE_VIEW: LineageView = 'adoptive';
 
 export const NAME_MAX_LENGTH = 100;
+/** A custom relationship label (Godmother, Guardian) and its optional reverse. */
+export const LABEL_MAX_LENGTH = 60;
 export const SEARCH_MAX_LENGTH = 100;
 export const PEOPLE_PAGE_DEFAULT = 50;
 export const PEOPLE_PAGE_MAX = 100;
@@ -152,6 +154,53 @@ export interface UnionWithChildren extends Union {
   children: ChildLink[];
 }
 
+/**
+ * A custom relationship label: `toId` IS the `label` OF `fromId` ("Carla is Marcus's Godmother": from Marcus, to Carla,
+ * label Godmother, reverse Godchild). It is a note between two people, never a parent or partner link.
+ */
+export interface RelationshipLabel {
+  id: string;
+  fromId: string;
+  toId: string;
+  label: string;
+  /** What `fromId` is to `toId` ("Godchild"); null when none was given. */
+  reverseLabel: string | null;
+  createdAt: string;
+}
+
+export interface LabelInput {
+  fromId: string;
+  toId: string;
+  label: string;
+  reverseLabel?: string | null;
+}
+/** The two people of a label never change; only its wording does. */
+export interface LabelPatch {
+  label?: string;
+  reverseLabel?: string | null;
+}
+
+/** A label as one person's profile sees it. `direction` says which side of the label this person is. */
+export interface PersonLabel {
+  id: string;
+  /** The other person (their id, and the person themselves so a profile can show a name without another request). */
+  otherId: string;
+  other: Person;
+  /**
+   * `from`: this person is `fromId`, so the other person is this person's `label`.
+   * `to`: this person is `toId`, so they are the other person's `label` ("Godmother of Marcus"), or `reverseLabel`
+   * names what the other person is to them ("Godchild") when one was given.
+   */
+  direction: 'from' | 'to';
+  label: string;
+  reverseLabel: string | null;
+}
+
+/** Response of POST and PATCH /api/labels. */
+export interface LabelResponse {
+  label: RelationshipLabel;
+}
+
 export interface PersonDetail {
   person: Person;
   /** Both sets of parents, whatever the viewer's lineage view (the profile always lists both families). */
@@ -163,6 +212,8 @@ export interface PersonDetail {
   permissions: PersonPermissions;
   /** True when an account is linked to this person. */
   hasAccount: boolean;
+  /** Custom relationship labels this person is part of (either side). They never affect the tree. */
+  labels: PersonLabel[];
 }
 
 export interface PeoplePage {
@@ -292,6 +343,9 @@ export const PEOPLE_ERROR_CODES = [
   'same_person_both_kinds',
   'invalid_link_kind',
   'invalid_lineage',
+  'invalid_label',
+  'label_not_found',
+  'duplicate_label',
 ] as const;
 export type PeopleErrorCode = (typeof PEOPLE_ERROR_CODES)[number];
 
@@ -309,7 +363,7 @@ export interface RouteSpec {
   access: RouteAccess;
 }
 
-/** Every people, relationship and tree route. The API registers exactly these (checked by a test). */
+/** Every people, relationship, label and tree route. The API registers exactly these (checked by a test). */
 export const PEOPLE_ROUTES = [
   { method: 'GET', path: '/api/people', access: 'signed-in' },
   { method: 'POST', path: '/api/people', access: 'admin' },
@@ -324,5 +378,8 @@ export const PEOPLE_ROUTES = [
   { method: 'GET', path: '/api/unions/:id', access: 'signed-in' },
   { method: 'PATCH', path: '/api/unions/:id', access: 'admin-or-own-union' },
   { method: 'DELETE', path: '/api/unions/:id', access: 'admin' },
+  { method: 'POST', path: '/api/labels', access: 'admin' },
+  { method: 'PATCH', path: '/api/labels/:id', access: 'admin' },
+  { method: 'DELETE', path: '/api/labels/:id', access: 'admin' },
   { method: 'GET', path: '/api/tree/:personId', access: 'signed-in' },
 ] as const satisfies readonly RouteSpec[];

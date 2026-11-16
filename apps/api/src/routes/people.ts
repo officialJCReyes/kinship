@@ -34,6 +34,7 @@ import {
   getUnion,
   insertPerson,
   isUuid,
+  labelsOfPerson,
   listPeople,
   normalizeSearchWords,
   parentAgeWarnings,
@@ -213,6 +214,7 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
             addChild: await canAddChildUnder(trx, actor, id),
           },
           hasAccount: await personHasAccount(trx, id),
+          labels: await labelsOfPerson(trx, id),
         };
       });
     },

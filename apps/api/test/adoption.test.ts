@@ -2,7 +2,7 @@
 //
 // Birth and adoptive parent links (ADR 0007): the rules, who may add them, what each viewer's chart follows,
 // and the account setting that chooses it.
-import { cp, rm } from 'node:fs/promises';
+import { cp } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -15,7 +15,7 @@ import type { TestApp } from './helpers/app.js';
 import { createTestDatabase } from './helpers/db.js';
 import { buildFamily, insertPersonRow, insertUnionRow, linkChild, signInAll } from './helpers/family.js';
 import type { Family, Json } from './helpers/family.js';
-import { realMigrationsDir, tempMigrationsDir } from './helpers/migrations-dir.js';
+import { realMigrationsDir, removeMigrationsFrom, tempMigrationsDir } from './helpers/migrations-dir.js';
 
 let t: TestApp;
 let f: Family;
@@ -481,10 +481,7 @@ describe('migration 0006 on data from before it', () => {
     const dir = await tempMigrationsDir(true);
     try {
       await ensureAppRole(test.owner, test.config.appUser, test.config.appPassword);
-      await rm(join(dir.dir, '0006_adoptive_parentage.sql'));
-      // This test is about 0006 alone: the migrations after it are left out.
-      await rm(join(dir.dir, '0007_names_and_widowed.sql'));
-      await rm(join(dir.dir, '0008_union_status_by_hand.sql'));
+      await removeMigrationsFrom(dir.dir, 6); // 0006 and everything after it
       await runMigrations(test.owner, { dir: dir.dir, appRole: test.config.appUser });
       // Old data: a user, a family, links in the old shape (one row per child).
       await sql`insert into users (email, display_name, password_hash, role) values ('a@example.com', 'A', 'x', 'superadmin')`.execute(

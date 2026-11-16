@@ -190,6 +190,7 @@ export function detailFor(me: AuthUser, id: string): PersonDetail {
     singleParentChildren: childrenOf({ parentId: id }),
     permissions: permissionsFor(me, id),
     hasAccount: me.personId === id,
+    labels: [],
   };
 }
 
