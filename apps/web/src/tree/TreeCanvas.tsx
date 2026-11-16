@@ -679,41 +679,44 @@ export function TreeCanvas(props: TreeCanvasProps) {
 
 function Legend() {
   return (
-    <div className="legend" aria-label={t('tree.legend.title')} role="group">
-      <div className="legend-row">
-        <svg width="34" height="10" aria-hidden="true">
-          <path d="M0 5H34" className="swatch-solid" />
-        </svg>
-        <span>{t('tree.legend.together')}</span>
+    <details className="legend" open>
+      <summary>{t('tree.legend.title')}</summary>
+      <div role="group" aria-label={t('tree.legend.title')} className="legend-rows">
+        <div className="legend-row">
+          <svg width="34" height="10" aria-hidden="true">
+            <path d="M0 5H34" className="swatch-solid" />
+          </svg>
+          <span>{t('tree.legend.together')}</span>
+        </div>
+        <div className="legend-row">
+          <svg width="34" height="10" aria-hidden="true">
+            <path d="M2 5H34" className="swatch-dotted" />
+          </svg>
+          <span>{t('tree.legend.ended')}</span>
+        </div>
+        <div className="legend-row">
+          <span className="swatch male" aria-hidden="true" />
+          <span>{t('person.gender.male')}</span>
+          <span className="swatch female" aria-hidden="true" />
+          <span>{t('person.gender.female')}</span>
+          <span className="swatch other" aria-hidden="true" />
+          <span>{t('person.gender.other')}</span>
+          <span aria-hidden="true">†</span>
+          <span>{t('tree.legend.deceased')}</span>
+        </div>
+        <div className="legend-row">
+          <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
+            <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
+          </svg>
+          <span>{t('tree.legend.leaf')}</span>
+        </div>
+        <div className="legend-row">
+          <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
+            <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
+          </svg>
+          <span>{t('tree.legend.other')}</span>
+        </div>
       </div>
-      <div className="legend-row">
-        <svg width="34" height="10" aria-hidden="true">
-          <path d="M2 5H34" className="swatch-dotted" />
-        </svg>
-        <span>{t('tree.legend.ended')}</span>
-      </div>
-      <div className="legend-row">
-        <span className="swatch male" aria-hidden="true" />
-        <span>{t('person.gender.male')}</span>
-        <span className="swatch female" aria-hidden="true" />
-        <span>{t('person.gender.female')}</span>
-        <span className="swatch other" aria-hidden="true" />
-        <span>{t('person.gender.other')}</span>
-        <span aria-hidden="true">†</span>
-        <span>{t('tree.legend.deceased')}</span>
-      </div>
-      <div className="legend-row">
-        <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
-          <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
-        </svg>
-        <span>{t('tree.legend.leaf')}</span>
-      </div>
-      <div className="legend-row">
-        <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
-          <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
-        </svg>
-        <span>{t('tree.legend.other')}</span>
-      </div>
-    </div>
+    </details>
   );
 }
