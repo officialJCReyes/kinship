@@ -373,6 +373,8 @@ export const en = {
   'link.date.adoptive': 'Date of the adoption (the year is enough)',
   'link.date.birth': 'Date of this link',
   'link.edit': 'Edit link date',
+  'link.shown.adoptive': 'Adopted {date}',
+  'link.shown.birth': 'Recorded {date}',
   'link.editTitle': 'Date of the {kind} link: {parent} and {child}',
   'link.saved': 'Saved the date of the link.',
   'relative.adoptiveParent.male': 'Adoptive father',

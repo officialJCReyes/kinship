@@ -1081,8 +1081,6 @@ main.tree-main {
   position: absolute;
   bottom: 10px;
   left: 10px;
-  display: grid;
-  gap: 4px;
   max-width: min(520px, calc(100% - 70px));
   padding: 6px 10px;
   border: 1px solid var(--line);
@@ -1165,4 +1163,28 @@ main.tree-main {
     flex-direction: row;
     max-height: none;
   }
+}
+
+.adoption-banner {
+  padding: 14px 16px;
+}
+
+.adoption-banner p {
+  margin: 0 0 8px;
+}
+
+.adoption-banner p:last-of-type {
+  margin-bottom: 10px;
+}
+
+.legend summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.legend-rows {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
 }

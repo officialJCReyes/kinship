@@ -9,7 +9,20 @@
 
 Self-hosted family tree for families: relationships, sources, photos, private health history and DNA results. Runs with Docker Compose (PostgreSQL, a TypeScript API, a React UI behind nginx). Licensed under AGPL-3.0-or-later.
 
-> **Status: alpha.** You can install it, set up an account and sign in, add people and relationships, and see them on a family tree chart you can pan and zoom. Release 0.1 ("It runs") is being finished; the other chart views come later. **Data may be wiped between 0.1.x releases: do not enter real family data.**
+> **Status: alpha.** You can install it, set up an account and sign in, add people and relationships (with birth and adoptive parents), and see them on a family tree chart you can pan and zoom. Release 0.1 ("It runs") is being finished; the other chart views come later. **Data may be wiped between 0.1.x releases: do not enter real family data.**
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screenshots/tree-dark.png">
+    <img src="docs/assets/screenshots/tree-light.png" alt="The KinShip family tree chart for the fictional Hale family: couples joined by solid or dotted lines, children hanging from each relationship, and small green leaves that open a spouse's or an adopted person's other family" width="860">
+  </picture>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/profile-adopted-light.png" alt="The profile of Samuel Hale, adopted in 1938: a banner says the charts follow his adoptive family with a button to show birth families, and the Parents section lists the adoptive and the birth family" width="620">
+</p>
+
+<sub>Screenshots show the fictional Hale family. More are in [`docs/assets/screenshots/`](docs/assets/screenshots/).</sub>
 
 ## Install
 
