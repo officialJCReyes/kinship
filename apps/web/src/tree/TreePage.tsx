@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { displayName } from '@kinship/shared';
+import { displayName } from '../lib/names.js';
 import type { LineageView, Person, UnionWithChildren } from '@kinship/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

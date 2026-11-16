@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { displayName } from '@kinship/shared';
+import { displayName } from '../lib/names.js';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { useSession } from '../auth.js';

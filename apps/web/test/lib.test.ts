@@ -28,11 +28,11 @@ describe('dates', () => {
 
   it('formats every precision and length in one place', () => {
     expect(formatDate({ value: '1955', precision: 'exactly' })).toBe('1955');
-    expect(formatDate({ value: '1955-03', precision: 'exactly' })).toBe('March 1955');
-    expect(formatDate({ value: '1955-03-09', precision: 'exactly' })).toBe('March 9, 1955');
+    expect(formatDate({ value: '1955-03', precision: 'exactly' })).toBe('Mar 1955');
+    expect(formatDate({ value: '1955-03-09', precision: 'exactly' })).toBe('Mar 9, 1955');
     expect(formatDate({ value: '1955', precision: 'about' })).toBe('about 1955');
-    expect(formatDate({ value: '1955-03', precision: 'before' })).toBe('before March 1955');
-    expect(formatDate({ value: '1955-03-09', precision: 'after' })).toBe('after March 9, 1955');
+    expect(formatDate({ value: '1955-03', precision: 'before' })).toBe('before Mar 1955');
+    expect(formatDate({ value: '1955-03-09', precision: 'after' })).toBe('after Mar 9, 1955');
     expect(formatDate(null)).toBe('');
   });
 });

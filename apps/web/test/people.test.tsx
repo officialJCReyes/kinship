@@ -97,7 +97,7 @@ describe('profile', () => {
     expect(within(ex).getByText(/^Ex-wife:/)).toBeTruthy();
     expect(within(ex).getByText('Divorced')).toBeTruthy();
     expect(within(ex).getByText('Divorce date')).toBeTruthy();
-    expect(within(ex).getByText('March 9, 1998')).toBeTruthy();
+    expect(within(ex).getByText('Mar 9, 1998')).toBeTruthy();
     // Children who hang from Daniel alone, and his parents.
     expect(screen.getByText('Children of this person alone')).toBeTruthy();
     expect(screen.getByRole('link', { name: /Ben Hale/ })).toBeTruthy();

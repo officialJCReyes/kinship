@@ -49,7 +49,7 @@ test('edit a relationship: the end date appears only for divorce, separation and
   // Now Elena is the ex-wife, with the end date.
   await expect(card.getByRole('heading', { name: /^Ex-wife:/ })).toBeVisible();
   await expect(card.getByText('Divorced', { exact: true })).toBeVisible();
-  await expect(card.getByText('March 9, 1998')).toBeVisible();
+  await expect(card.getByText('Mar 9, 1998')).toBeVisible();
   // Seen from her side too.
   await page.goto(`/people/${elena.id}`);
   await expect(page.getByRole('heading', { name: /^Ex-husband:/ })).toBeVisible();

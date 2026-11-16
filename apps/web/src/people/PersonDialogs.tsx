@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { displayName } from '@kinship/shared';
+import { displayName } from '../lib/names.js';
 import type { Person } from '@kinship/shared';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';

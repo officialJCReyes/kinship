@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { displayName } from '@kinship/shared';
+import { displayName } from '../lib/names.js';
 import type { Parentage, Person, TreeResponse, Union } from '@kinship/shared';
 import { t } from '../i18n.js';
 import { formatYear } from './dates.js';

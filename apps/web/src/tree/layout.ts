@@ -23,7 +23,7 @@
 //  - A very wide set of siblings does not wrap.
 //  - There is no crossing minimisation beyond keeping partners adjacent, siblings contiguous and children in
 //    birth order. It is "good enough", not crossing-free.
-import { displayName } from '@kinship/shared';
+import { displayName } from '../lib/names.js';
 import type { Parentage, TreePerson, Union, UnionStatus } from '@kinship/shared';
 
 export const NODE_W = 184;

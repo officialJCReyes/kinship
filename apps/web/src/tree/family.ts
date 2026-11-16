@@ -2,7 +2,7 @@
 //
 // What the Family tree chart does with a tree response besides drawing it: the "family view" of a person
 // (the view the spouse's-family leaf flips to) and what each leaf does when it is clicked.
-import { displayName, displaySurname } from '@kinship/shared';
+import { displayName, displaySurname } from '../lib/names.js';
 import type { LineageView, LinkKind, Parentage, Person, TreePerson, TreeResponse } from '@kinship/shared';
 import { t } from '../i18n.js';
 import { formatYear } from '../lib/dates.js';
