@@ -132,3 +132,85 @@ describe('about 2,000 people', () => {
     expect(seen).toBe(total);
   });
 });
+
+describe('ancestorCount at scale', () => {
+  it('stays cheap when many drawn in-laws each have a deep ancestry', async () => {
+    // Give 60 in-laws (partners with no parents) a full five-generation pedigree of their own: 60 x 62 ancestors.
+    const inLaws = await sql<{ id: string }>`
+      select p.id from people p
+       where not exists (select 1 from person_parents pp where pp.child_id = p.id)
+         and exists (select 1 from unions u where u.partner_a_id = p.id or u.partner_b_id = p.id)
+         and p.given_name !~ '^Given([1-9]|1[0-6])$'
+       order by p.id limit 60`.execute(t.owner);
+    let extra = 0;
+    const makePerson = async (): Promise<string> => {
+      extra += 1;
+      const r = await sql<{ id: string }>`
+        insert into people (given_name, surname) values (${'Anc' + extra}, ${'Deep' + (extra % 40)}) returning id`.execute(
+        t.owner,
+      );
+      return r.rows[0]!.id;
+    };
+    const pedigree = async (child: string, depth: number): Promise<void> => {
+      if (depth === 0) return;
+      const a = await makePerson();
+      const b = await makePerson();
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      const u = await sql<{ id: string }>`
+        insert into unions (partner_a_id, partner_b_id, status) values (${lo}, ${hi}, 'married') returning id`.execute(
+        t.owner,
+      );
+      await sql`insert into person_parents (child_id, union_id) values (${child}, ${u.rows[0]!.id})`.execute(t.owner);
+      await pedigree(a, depth - 1);
+      await pedigree(b, depth - 1);
+    };
+    for (const row of inLaws.rows) await pedigree(row.id, 5);
+
+    // One apex couple above the eight oldest couples, so a single response holds the whole family.
+    const apexA = await makePerson();
+    const apexB = await makePerson();
+    const [lo, hi] = apexA < apexB ? [apexA, apexB] : [apexB, apexA];
+    const apex = await sql<{ id: string }>`
+      insert into unions (partner_a_id, partner_b_id, status) values (${lo}, ${hi}, 'married') returning id`.execute(
+      t.owner,
+    );
+    // The eight oldest couples are Given1+Given2, Given3+Given4 and so on.
+    const oldest = await sql<{ id: string }>`
+      select id from people where given_name in ('Given1','Given3','Given5','Given7','Given9','Given11','Given13','Given15')`.execute(
+      t.owner,
+    );
+    for (const row of oldest.rows) {
+      await sql`insert into person_parents (child_id, union_id) values (${row.id}, ${apex.rows[0]!.id})`.execute(
+        t.owner,
+      );
+    }
+
+    const started = performance.now();
+    const response = await get(`/api/tree/${apexA}?up=0&down=10`);
+    const ms = performance.now() - started;
+    const body = response.json() as { people: Array<{ ancestorCount?: number }> };
+    const leaves = body.people.filter((p) => p.ancestorCount !== undefined);
+    console.log(
+      `ancestorCount: ${body.people.length} people, ${leaves.length} leaves of ${leaves[0]?.ancestorCount ?? 0} ancestors each, whole response ${Math.round(ms)} ms`,
+    );
+    expect(leaves.length).toBeGreaterThanOrEqual(inLaws.rows.length);
+    expect(leaves.every((p) => p.ancestorCount === 62)).toBe(true);
+    expect(ms).toBeLessThan(1500);
+
+    const ids = leaves.map((_, i) => inLaws.rows[i]?.id).filter(Boolean) as string[];
+    // The same query the route runs, with JIT off as the route does.
+    const plan = await t.owner.transaction().execute(async (trx) => {
+      await sql`set local jit = off`.execute(trx);
+      return sql<{ 'QUERY PLAN': string }>`
+        explain analyze
+        with recursive anc(origin, id) as (
+          select o.id, x.pid from unnest(${ids}::uuid[]) as o(id), lateral public.kinship_parent_ids(o.id) as x(pid)
+          union
+          select a.origin, x.pid from anc a, lateral public.kinship_parent_ids(a.id) as x(pid)
+        ) select origin, count(*) from anc group by origin`.execute(trx);
+    });
+    const time = /Execution Time: ([0-9.]+) ms/.exec(plan.rows.map((r) => r['QUERY PLAN']).join('\n'))?.[1];
+    console.log(`ancestorCount query alone, ${ids.length} leaves: ${time} ms`);
+    expect(Number(time)).toBeLessThan(1000);
+  }, 120_000);
+});

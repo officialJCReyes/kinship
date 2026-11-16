@@ -135,6 +135,11 @@ export interface PeoplePage {
 export interface TreePerson extends Person {
   /** True when this person has parents on the tree (so a chart can offer to open their family). */
   hasParents: boolean;
+  /**
+   * How many known blood ancestors this person has, at any depth. Set only for a person who has parents that
+   * are not in this response (the people a chart offers a leaf to), so "Show Priya's family (4 people)" can say 4.
+   */
+  ancestorCount?: number;
 }
 
 /** Response of GET /api/tree/:personId. Parentage is keyed by child id. */

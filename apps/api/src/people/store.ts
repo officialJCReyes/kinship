@@ -385,6 +385,7 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
     select partner_a_id as id from unions where partner_b_id = any(${core}::uuid[])
     union select partner_b_id from unions where partner_a_id = any(${core}::uuid[])`.execute(trx);
   const ids = [...new Set([...core, ...partners.rows.map((r) => r.id)])];
+  const drawn = new Set(ids);
 
   const people = await trx
     .selectFrom('people')
@@ -394,10 +395,13 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
     .orderBy('given_name')
     .orderBy('id')
     .execute();
+  // Only relationships whose partners are BOTH drawn. A partner of a drawn in-law who is not drawn
+  // (an earlier marriage of theirs) would otherwise be a line to nobody.
   const unions = await trx
     .selectFrom('unions')
     .select(UNION_COLUMNS)
     .where('partner_a_id', 'in', ids)
+    .where('partner_b_id', 'in', ids)
     .orderBy('id')
     .execute();
   const unionIds = new Set(unions.map((u) => u.id));
@@ -407,13 +411,62 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
     .where('child_id', 'in', ids)
     .execute();
 
+  // A child whose union is not drawn, because one partner is missing, hangs from the drawn partner alone.
+  const hiddenUnionIds = [
+    ...new Set(links.flatMap((l) => (l.union_id && !unionIds.has(l.union_id) ? [l.union_id] : []))),
+  ];
+  const hiddenUnions = new Map<string, [string, string]>();
+  if (hiddenUnionIds.length > 0) {
+    const rows = await trx
+      .selectFrom('unions')
+      .select(['id', 'partner_a_id', 'partner_b_id'])
+      .where('id', 'in', hiddenUnionIds)
+      .execute();
+    for (const row of rows) hiddenUnions.set(row.id, [row.partner_a_id, row.partner_b_id]);
+  }
+
   const parentage: Record<string, Parentage> = {};
   for (const link of links) {
     // A link whose parents are not drawn stays out; the child's hasParents tells the chart it exists.
-    const drawn = link.union_id ? unionIds.has(link.union_id) : link.parent_id !== null && ids.includes(link.parent_id);
-    if (drawn) parentage[link.child_id] = toParentage(link);
+    if (link.union_id) {
+      if (unionIds.has(link.union_id)) {
+        parentage[link.child_id] = toParentage(link);
+      } else {
+        const drawnPartner = hiddenUnions.get(link.union_id)?.find((id) => drawn.has(id));
+        if (drawnPartner) parentage[link.child_id] = { unionId: null, parentId: drawnPartner };
+      }
+    } else if (link.parent_id !== null && drawn.has(link.parent_id)) {
+      parentage[link.child_id] = toParentage(link);
+    }
   }
   const withParents = new Set(links.map((l) => l.child_id));
-  const treePeople: TreePerson[] = people.map((row) => ({ ...toPerson(row), hasParents: withParents.has(row.id) }));
+  const needLeaf = people.filter((row) => withParents.has(row.id) && parentage[row.id] === undefined).map((r) => r.id);
+  const counts = await ancestorCounts(trx, needLeaf);
+  const treePeople: TreePerson[] = people.map((row) => {
+    const count = counts.get(row.id);
+    return {
+      ...toPerson(row),
+      hasParents: withParents.has(row.id),
+      ...(count === undefined ? {} : { ancestorCount: count }),
+    };
+  });
   return { focalId: q.focalId, people: treePeople, unions: unions.map(toUnion), parentage };
+}
+
+/**
+ * How many known blood ancestors (at any depth, each counted once) each of the given people has. Only asked
+ * for the people a chart would give a leaf to. One recursive query for all of them.
+ */
+async function ancestorCounts(trx: Trx, personIds: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (personIds.length === 0) return result;
+  const rows = await sql<{ origin: string; n: string }>`
+    with recursive anc(origin, id) as (
+      select o.id, x.pid from unnest(${personIds}::uuid[]) as o(id), lateral public.kinship_parent_ids(o.id) as x(pid)
+      union
+      select a.origin, x.pid from anc a, lateral public.kinship_parent_ids(a.id) as x(pid)
+    )
+    select origin, count(*) as n from anc group by origin`.execute(trx);
+  for (const row of rows.rows) result.set(row.origin, Number(row.n));
+  return result;
 }
