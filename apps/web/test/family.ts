@@ -9,6 +9,7 @@ import type {
   Parentage,
   ParentSets,
   Person,
+  PartnerChild,
   PersonDetail,
   PersonPermissions,
   TreeResponse,
@@ -176,6 +177,39 @@ function childrenOf(match: { unionId?: string; parentId?: string }): ChildLink[]
   return out;
 }
 
+/**
+ * What GET /api/people/:id answers as `partnerChildren`, by the API's own rule: children of this person's partners who
+ * do not hang from this person, each following the set the viewer's lineage view follows (the adoptive set if there
+ * is one, in the adoptive view; the birth set in the birth view).
+ */
+export function partnerChildrenFor(me: AuthUser, id: string): PartnerChild[] {
+  const partners = [
+    ...new Set(UNIONS.filter((u) => u.partnerIds.includes(id)).map((u) => u.partnerIds.find((p) => p !== id)!)),
+  ];
+  const person = (pid: string) => PEOPLE.find((p) => p.id === pid)!;
+  const out: PartnerChild[] = [];
+  for (const partnerId of partners) {
+    for (const child of PEOPLE.map((p) => p.id)) {
+      if (child === id) continue;
+      const kind = followedKind(child, me.lineageView);
+      const row = (kind === 'adoptive' ? ADOPTIVE : PARENTAGE)[child];
+      if (!row) continue;
+      const union = row.unionId ? UNIONS.find((u) => u.id === row.unionId) : undefined;
+      const parents = row.parentId ? [row.parentId] : (union?.partnerIds ?? []);
+      if (!parents.includes(partnerId) || parents.includes(id)) continue;
+      const other = parents.find((p) => p !== partnerId);
+      out.push({
+        partnerId,
+        child: person(child),
+        kind,
+        adopted: ADOPTIVE[child] !== undefined,
+        otherParent: other && union ? person(other) : null,
+      });
+    }
+  }
+  return out;
+}
+
 export function detailFor(me: AuthUser, id: string): PersonDetail {
   const found = PEOPLE.find((p) => p.id === id);
   if (!found) throw new Error(`no such person ${id}`);
@@ -191,6 +225,7 @@ export function detailFor(me: AuthUser, id: string): PersonDetail {
     permissions: permissionsFor(me, id),
     hasAccount: me.personId === id,
     labels: [],
+    partnerChildren: partnerChildrenFor(me, id),
   };
 }
 

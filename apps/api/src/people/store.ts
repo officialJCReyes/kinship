@@ -10,6 +10,7 @@ import type {
   Parentage,
   ParentSets,
   PartialDate,
+  PartnerChild,
   Person,
   PersonLabel,
   RelationshipLabel,
@@ -685,6 +686,76 @@ export async function labelsOfPerson(trx: Trx, personId: string): Promise<Person
         direction: row.from_id === personId ? ('from' as const) : ('to' as const),
         label: row.label,
         reverseLabel: row.reverse_label,
+      },
+    ];
+  });
+}
+
+// ---------------------------------------------------------------------------
+// A partner's children from another relationship (for the profile's step relatives and relationship cards).
+// ---------------------------------------------------------------------------
+
+/**
+ * Children of the person's partners that do not hang from the person: they hang from the partner alone, or from a
+ * relationship of the partner with somebody else. Each child follows the set the viewer's lineage view follows (as in
+ * the tree), so an adopted-away child appears under the family the viewer sees. One batched query for all partners,
+ * then one for the people it names: nothing per relative.
+ */
+export async function partnerChildrenOf(
+  trx: Trx,
+  personId: string,
+  partnerIds: string[],
+  view: LineageView,
+): Promise<PartnerChild[]> {
+  if (partnerIds.length === 0) return [];
+  // Candidates first, by the indexes on the partner (as a single parent, or as a partner of a relationship); only
+  // then the viewer's rule for which set a child follows, so the rule is never run over the whole table.
+  const found = await sql<{
+    partner_id: string;
+    child_id: string;
+    kind: LinkKind;
+    other_id: string | null;
+    adopted: boolean;
+  }>`
+    with q(id) as (select unnest(${partnerIds}::uuid[])),
+    candidates as (
+      select q.id as partner_id, pp.child_id, pp.kind, null::uuid as other_id
+        from q join person_parents pp on pp.parent_id = q.id
+      union all
+      select q.id, pp.child_id, pp.kind, u.partner_b_id
+        from q join unions u on u.partner_a_id = q.id
+        join person_parents pp on pp.union_id = u.id
+       where u.partner_b_id <> ${personId}::uuid
+      union all
+      select q.id, pp.child_id, pp.kind, u.partner_a_id
+        from q join unions u on u.partner_b_id = q.id
+        join person_parents pp on pp.union_id = u.id
+       where u.partner_a_id <> ${personId}::uuid
+    )
+    select c.partner_id, c.child_id, c.kind, c.other_id,
+           exists (select 1 from person_parents ad where ad.child_id = c.child_id and ad.kind = 'adoptive') as adopted
+      from candidates c
+     where c.child_id <> ${personId}::uuid
+       and c.kind = public.kinship_effective_kind(c.child_id, ${view})
+     order by c.partner_id, c.child_id`.execute(trx);
+  if (found.rows.length === 0) return [];
+  const ids = [...new Set(found.rows.flatMap((r) => [r.child_id, ...(r.other_id ? [r.other_id] : [])]))];
+  const people = new Map(
+    (await trx.selectFrom('people').select(PERSON_COLUMNS).where('id', 'in', ids).execute()).map((row) => [
+      row.id,
+      toPerson(row),
+    ]),
+  );
+  return found.rows.flatMap((r) => {
+    const child = people.get(r.child_id);
+    if (!child) return [];
+    return [
+      {
+        partnerId: r.partner_id,
+        child,
+        kind: r.kind,
+        adopted: r.adopted,
+        otherParent: r.other_id ? (people.get(r.other_id) ?? null) : null,
       },
     ];
   });

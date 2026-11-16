@@ -196,6 +196,22 @@ export interface PersonLabel {
   reverseLabel: string | null;
 }
 
+/**
+ * A child of one of this person's partners that does not hang from this person: "Daniel's children from another
+ * relationship". Followed the way the viewer's charts follow adopted people (their lineage view). `otherParent` is the
+ * child's other parent when the child hangs from a relationship, null when they hang from the partner alone.
+ * (The profile reads these for the relationship cards and, for a Married or Widowed relationship, the step titles.)
+ */
+export interface PartnerChild {
+  /** The partner whose child this is. */
+  partnerId: string;
+  child: Person;
+  kind: LinkKind;
+  /** True when the child has an adoptive set. */
+  adopted: boolean;
+  otherParent: Person | null;
+}
+
 /** Response of POST and PATCH /api/labels. */
 export interface LabelResponse {
   label: RelationshipLabel;
@@ -214,6 +230,8 @@ export interface PersonDetail {
   hasAccount: boolean;
   /** Custom relationship labels this person is part of (either side). They never affect the tree. */
   labels: PersonLabel[];
+  /** Children of this person's partners who do not hang from this person (all relationships; one query, no per-partner requests). */
+  partnerChildren: PartnerChild[];
 }
 
 export interface PeoplePage {

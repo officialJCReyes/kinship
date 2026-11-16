@@ -80,6 +80,31 @@ describe('about 2,000 people', () => {
     }
   });
 
+  it("answers a person's profile data quickly and small (the profile asks for it on every page)", async () => {
+    // A person in the middle of the family, and the oldest couple's first child (many relatives around them).
+    for (const [name, id] of [
+      ['a third-generation person', focal],
+      ['the oldest person', root],
+    ] as const) {
+      const times: number[] = [];
+      let bytes = 0;
+      for (let i = 0; i < 7; i++) {
+        const started = performance.now();
+        const response = await get(`/api/people/${id}`);
+        times.push(performance.now() - started);
+        expect(response.statusCode).toBe(200);
+        bytes = response.body.length;
+      }
+      times.sort((a, b) => a - b);
+      const median = Math.round(times[Math.floor(times.length / 2)]!);
+      console.log(
+        `GET /api/people/:id for ${name}: ${bytes} bytes, median ${median} ms (best ${Math.round(times[0]!)} ms)`,
+      );
+      expect(median).toBeLessThan(250);
+      expect(bytes).toBeLessThan(40_000);
+    }
+  });
+
   it('draws the whole family (every person, from the oldest couple down) quickly too', async () => {
     const started = performance.now();
     const response = await get(`/api/tree/${root}?up=0&down=10`);
@@ -130,6 +155,70 @@ describe('about 2,000 people', () => {
       cursor = page.nextCursor;
     } while (cursor);
     expect(seen).toBe(total);
+  });
+
+  it('answers a profile with many partners and many partner children without a request per relative', async () => {
+    // Six partners in a row, each with five children from other relationships (some alone, some with someone else).
+    const person = await sql<{
+      id: string;
+    }>`insert into people (given_name, surname) values ('Many', 'Partners') returning id`.execute(t.owner);
+    const me = person.rows[0]!.id;
+    let made = 0;
+    for (let p = 0; p < 6; p++) {
+      const partner = (
+        await sql<{
+          id: string;
+        }>`insert into people (given_name, surname) values (${'Partner' + p}, 'Step') returning id`.execute(t.owner)
+      ).rows[0]!.id;
+      const [lo, hi] = me < partner ? [me, partner] : [partner, me];
+      await sql`insert into unions (partner_a_id, partner_b_id, status) values (${lo}, ${hi}, ${p % 2 ? 'widowed' : 'married'})`.execute(
+        t.owner,
+      );
+      const other = (
+        await sql<{
+          id: string;
+        }>`insert into people (given_name, surname) values (${'Other' + p}, 'Step') returning id`.execute(t.owner)
+      ).rows[0]!.id;
+      const [olo, ohi] = partner < other ? [partner, other] : [other, partner];
+      const apart = (
+        await sql<{
+          id: string;
+        }>`insert into unions (partner_a_id, partner_b_id, status) values (${olo}, ${ohi}, 'divorced') returning id`.execute(
+          t.owner,
+        )
+      ).rows[0]!.id;
+      for (let k = 0; k < 5; k++) {
+        const child = (
+          await sql<{
+            id: string;
+          }>`insert into people (given_name, surname) values (${'Kid' + p + '_' + k}, 'Step') returning id`.execute(
+            t.owner,
+          )
+        ).rows[0]!.id;
+        if (k % 2)
+          await sql`insert into person_parents (child_id, union_id) values (${child}, ${apart})`.execute(t.owner);
+        else await sql`insert into person_parents (child_id, parent_id) values (${child}, ${partner})`.execute(t.owner);
+        made += 1;
+      }
+    }
+    const times: number[] = [];
+    let bytes = 0;
+    let body: { partnerChildren: unknown[] } = { partnerChildren: [] };
+    for (let i = 0; i < 7; i++) {
+      const started = performance.now();
+      const response = await get(`/api/people/${me}`);
+      times.push(performance.now() - started);
+      expect(response.statusCode).toBe(200);
+      bytes = response.body.length;
+      body = response.json() as { partnerChildren: unknown[] };
+    }
+    times.sort((a, b) => a - b);
+    const median = Math.round(times[3]!);
+    console.log(
+      `GET /api/people/:id for 6 partners with ${made} partner children: ${bytes} bytes, median ${median} ms`,
+    );
+    expect(body.partnerChildren).toHaveLength(made);
+    expect(median).toBeLessThan(250);
   });
 });
 
