@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useLayoutEffect } from 'react';
-import type { ReactNode } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
-import { useLogout, useSession, useSetupStatus } from './auth.js';
+import { useSession, useSetupStatus } from './auth.js';
+import { AccountMenu } from './components/AccountMenu.js';
 import { t } from './i18n.js';
 import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
 import { applyTheme } from './lib/theme.js';
@@ -13,6 +13,7 @@ import { NoticeList, NoticeProvider } from './notices.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
 import { PeoplePage } from './pages/PeoplePage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
+import { SettingsPage } from './pages/SettingsPage.js';
 import { SetupPage } from './pages/SetupPage.js';
 import { TreeIndexPage, TreePage } from './tree/TreePage.js';
 
@@ -61,27 +62,9 @@ function SetupRoute() {
   return <Navigate to={session.data ? '/' : '/login'} replace />;
 }
 
-function AccountBar(): ReactNode {
-  const session = useSession(false);
-  const logout = useLogout();
-  const me = session.data;
-  if (!me) return null;
-  return (
-    <div className="account-bar">
-      <span className="muted" title={me.user.email}>
-        {t('account.signedInAs', { name: me.user.displayName })}
-      </span>
-      <button className="button" type="button" onClick={() => logout.mutate()} disabled={logout.isPending}>
-        {logout.isPending ? t('account.signingOut') : t('account.signOut')}
-      </button>
-    </div>
-  );
-}
-
 export function App() {
   const session = useSession(false);
   const signedIn = Boolean(session.data);
-  const personId = session.data?.user.personId ?? null;
   // The account's date format and surname choice feed the display store (signed out: the defaults). The page content
   // is keyed by them, so changing one remounts the page once, memoized chart nodes included.
   const dateFormat = session.data?.user.dateFormat ?? DEFAULT_DISPLAY.dateFormat;
@@ -96,7 +79,10 @@ export function App() {
     if (colorScheme && theme) applyTheme({ colorScheme, theme });
   }, [colorScheme, theme]);
   // The tree chart is the one page that fills the window; every other page stays centred at 880 px.
-  const fullWidth = /^\/tree\/[^/]+/.test(useLocation().pathname);
+  const pathname = useLocation().pathname;
+  const fullWidth = /^\/tree\/[^/]+/.test(pathname);
+  // My settings is not remounted by the changes made on it (the focus would be lost); every other page is.
+  const onSettings = pathname === '/settings';
   return (
     <NoticeProvider>
       <a className="skip-link" href="#main">
@@ -116,16 +102,14 @@ export function App() {
               <NavLink to="/people" end>
                 {t('nav.people')}
               </NavLink>
-              {personId ? <NavLink to={`/people/${personId}`}>{t('nav.myProfile')}</NavLink> : null}
-              <NavLink to="/about">{t('nav.about')}</NavLink>
             </nav>
           ) : null}
-          <AccountBar />
+          {session.data ? <AccountMenu user={session.data.user} /> : null}
         </div>
       </header>
       <main id="main" className={fullWidth ? 'tree-main' : 'page-width'}>
         <NoticeList />
-        <Routes key={`${display.dateFormat}|${display.surnameChoice}`}>
+        <Routes key={onSettings ? 'settings' : `${display.dateFormat}|${display.surnameChoice}`}>
           <Route path="/setup" element={<SetupRoute />} />
           <Route path="/login" element={<LoginRoute />} />
           <Route element={<RequireSignIn />}>
@@ -134,6 +118,7 @@ export function App() {
             <Route path="/tree/:id" element={<TreePage />} />
             <Route path="/people" element={<PeoplePage />} />
             <Route path="/people/:id" element={<ProfilePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/about" element={<AboutPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />

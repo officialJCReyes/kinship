@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ME, WEB_VERSION, calls, mockApi, renderApp, signedOut } from './helpers.js';
+import { ME, WEB_VERSION, calls, chooseFromAccountMenu, mockApi, renderApp, signedOut } from './helpers.js';
 import type { MockRoute } from './helpers.js';
 
 afterEach(() => {
@@ -116,19 +116,19 @@ describe('sign out', () => {
       },
     });
     renderApp('/about');
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await chooseFromAccountMenu('Sign out');
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeTruthy();
 
     const logout = fetchMock.mock.calls.find(([url]) => url === '/api/auth/logout');
     expect(logout?.[1]?.method).toBe('POST');
     expect((logout?.[1]?.headers as Record<string, string>)['X-KinShip-Request']).toBe('1');
-    expect(screen.queryByText(/Signed in as/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Account menu' })).toBeNull();
   });
 
   it('shows the sign-in page even if the request to sign out fails', async () => {
     mockApi({ ...signedOut, '/api/auth/me': { status: 200, body: ME }, 'POST /api/auth/logout': 'network-error' });
     renderApp('/about');
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
-    await waitFor(() => expect(screen.queryByText(/Signed in as/)).toBeNull());
+    await chooseFromAccountMenu('Sign out');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Account menu' })).toBeNull());
   });
 });

@@ -37,9 +37,10 @@ test('setup with the You names, then sign out, sign in and see the linked profil
 
   // Setup signs the new SuperAdmin in.
   await expect(page.getByRole('heading', { name: 'Welcome, Marcus Hale' })).toBeVisible();
-  await expect(page.getByText('Signed in as Marcus Hale')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account menu' })).toContainText('Marcus Hale');
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
   // The setup page never comes back.
   await page.goto('/setup');
@@ -54,7 +55,10 @@ test('setup with the You names, then sign out, sign in and see the linked profil
   await expect(page.getByRole('heading', { name: 'Marcus Hale' })).toBeVisible();
   await expect(page.getByText('You', { exact: true })).toBeVisible();
   await expect(page.getByText('Linked', { exact: true })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'My profile' })).toBeVisible();
+  // My profile is in the account menu, not in the top navigation.
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'My profile' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await expect(page.getByRole('menuitem', { name: 'My profile' })).toBeVisible();
 });
 
 test('an account that is not linked to a person has no profile to open', async ({ page }) => {
@@ -68,7 +72,10 @@ test('an account that is not linked to a person has no profile to open', async (
   await expect(page.getByRole('heading', { name: 'Welcome, Una Linked' })).toBeVisible();
   await expect(page.getByText('Your account is not linked to a person on the tree yet.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open my profile' })).toHaveCount(0);
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'My profile' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Account menu' }).click();
+  await expect(page.getByRole('menuitem', { name: 'My settings' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'My profile' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await page.getByRole('link', { name: 'Browse people' }).click();
   await expect(page.getByRole('link', { name: 'Marcus Hale' })).toBeVisible();
 });
