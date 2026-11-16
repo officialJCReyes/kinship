@@ -167,7 +167,7 @@ describe('POST /api/setup', () => {
     const t = await freshInstall();
     const response = await post(t.app, '/api/setup', body('not-the-token', { email: 'not an email', password: 'x' }));
     expect(response.statusCode).toBe(403);
-    expect(response.json()).toEqual({ error: 'invalid_setup_token' });
+    expect(response.json()).toEqual({ error: 'invalid_setup_token', field: 'token' });
     expect(sessionCookie(response)).toBeUndefined();
     expect(await userCount(t)).toBe(0);
   });
@@ -186,15 +186,18 @@ describe('POST /api/setup', () => {
     const t = await freshInstall();
     const short = await post(t.app, '/api/setup', body(t.token, { password: 'only eleven' }));
     expect(short.statusCode).toBe(400);
-    expect(short.json()).toEqual({ error: 'password_too_short', minLength: 12 });
+    expect(short.json()).toEqual({ error: 'password_too_short', field: 'password', minLength: 12 });
     expect((await post(t.app, '/api/setup', body(t.token, { email: 'nope' }))).json()).toEqual({
       error: 'invalid_email',
+      field: 'email',
     });
     expect((await post(t.app, '/api/setup', body(t.token, { displayName: '  ' }))).json()).toEqual({
       error: 'invalid_display_name',
+      field: 'displayName',
     });
     expect((await post(t.app, '/api/setup', body(t.token, { treeName: '' }))).json()).toEqual({
       error: 'invalid_tree_name',
+      field: 'treeName',
     });
     expect(await userCount(t)).toBe(0);
     // The token was not used up by those mistakes.
@@ -324,7 +327,7 @@ describe('POST /api/setup with the new account’s own display settings', () => 
     const t = await freshInstall();
     const bad = await post(t.app, '/api/setup', body(t.token, { settings: { colorScheme: 'neon' } }));
     expect(bad.statusCode).toBe(400);
-    expect(bad.json()).toEqual({ error: 'invalid_color_scheme' });
+    expect(bad.json()).toEqual({ error: 'invalid_color_scheme', field: 'settings.colorScheme' });
     expect(await userCount(t)).toBe(0);
     for (const settings of [{}, { role: 'superadmin' }, { theme: 5 }]) {
       expect((await post(t.app, '/api/setup', body(t.token, { settings }))).statusCode).toBe(400);

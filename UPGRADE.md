@@ -6,6 +6,11 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 Notes are added here as 0.2 changes land and finished at release prep: rename this heading to the version.
 
+### First-run wizard (database change, back up first)
+
+- **No action is needed, and no data changes.** Migration 0012 adds the function the new first-run wizard uses to create the account, the tree and your closest relatives in one step, and drops an old unused one (the five-argument `complete_setup`, issue [#9](https://github.com/officialJCReyes/kinship/issues/9)). An installation that has an account already never sees the wizard.
+- **API:** `POST /api/setup` takes an optional `family` object (you, partner, parents, children) and answers errors with the field that is wrong (`{ "error": "invalid_date", "field": "family.children.1.birth" }`); other setup errors now carry a `field` too. New `POST /api/setup/check` tells whether a setup token is right. A script that sends `person` instead of `family` keeps working. See [ADR 0013](docs/decisions/0013-setup-wizard.md).
+
 ### Invitations, set-password links and Change password (database change, back up first)
 
 - **No action is needed, and every existing account keeps working** (your SuperAdmin, and any Members or Users you made by hand). Migration 0011 adds a table for invitation and set-password links, and three columns to every account: when it last signed in, when its password last changed, and how. For accounts that exist already, "how" is empty and the Account card says "Password change not recorded"; it fills in the next time the password changes.
