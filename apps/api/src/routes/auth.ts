@@ -1,11 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { parseUserSettings } from '@kinship/shared';
-import type { LoginRequest, MeResponse, UpdateMeRequest, UserSettings } from '@kinship/shared';
+import type { ChangePasswordRequest, LoginRequest, MeResponse, UpdateMeRequest, UserSettings } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { Database } from '../db.js';
-import { createSession, deleteSession, findLogin, updatePasswordHash } from '../auth/store.js';
-import { getDummyHash, hashPassword, MAX_PASSWORD_LENGTH, needsRehash, verifyPassword } from '../auth/passwords.js';
+import {
+  changePassword,
+  createSession,
+  deleteSession,
+  findLogin,
+  resolveSession,
+  updatePasswordHash,
+} from '../auth/store.js';
+import {
+  getDummyHash,
+  hashPassword,
+  MAX_PASSWORD_LENGTH,
+  MIN_PASSWORD_LENGTH,
+  needsRehash,
+  verifyPassword,
+} from '../auth/passwords.js';
 import { generateSessionToken, hashToken } from '../auth/tokens.js';
 import { withUserTransaction } from '../request-context.js';
 import { isValidEmail, normalizeEmail, retrySeconds, sleep } from './shared.js';
@@ -109,6 +123,67 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
     if (!me) return reply.code(401).send({ error: 'unauthenticated' });
     return me;
   });
+
+  // Change your own password. The account's other sessions are signed out and this one gets a new cookie, so a stolen
+  // cookie dies with the change. The limits apply before any hashing, and a wrong current password counts as a failure.
+  app.post(
+    '/api/auth/password',
+    {
+      config: { rateLimit: requestLimit },
+      schema: {
+        body: {
+          type: 'object',
+          required: ['currentPassword', 'newPassword'],
+          additionalProperties: false,
+          properties: {
+            currentPassword: { type: 'string', maxLength: MAX_PASSWORD_LENGTH },
+            newPassword: { type: 'string', maxLength: MAX_PASSWORD_LENGTH },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const user = request.user;
+      const currentTokenHash = request.sessionTokenHash;
+      if (!user || !currentTokenHash) return reply.code(401).send({ error: 'unauthenticated' });
+      void reply.header('Cache-Control', 'no-store');
+      const body = request.body as ChangePasswordRequest;
+
+      const wait = Math.max(
+        limiters.passwordIp.retryAfterMs(request.ip),
+        limiters.passwordAccount.retryAfterMs(user.id),
+      );
+      if (wait > 0) {
+        const seconds = retrySeconds(wait);
+        return reply
+          .code(429)
+          .header('Retry-After', String(seconds))
+          .send({ error: 'rate_limited', retryAfterSeconds: seconds });
+      }
+      if (body.newPassword.length < MIN_PASSWORD_LENGTH) {
+        return reply.code(400).send({ error: 'password_too_short', minLength: MIN_PASSWORD_LENGTH });
+      }
+
+      const login = await findLogin(db, user.email);
+      if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, body.currentPassword))) {
+        limiters.passwordIp.recordFailure(request.ip);
+        limiters.passwordAccount.recordFailure(user.id);
+        await sleep(failureDelayMs);
+        return reply.code(400).send({ error: 'invalid_current_password' });
+      }
+      limiters.passwordAccount.reset(user.id);
+
+      const newToken = generateSessionToken();
+      const newTokenHash = hashToken(newToken);
+      const passwordHash = await hashPassword(body.newPassword);
+      await request.withTransaction((trx) =>
+        changePassword(trx, { userId: user.id, passwordHash, currentTokenHash, newTokenHash }),
+      );
+      const session = await resolveSession(db, newTokenHash, deps.sessions.idleSeconds);
+      if (session) setSessionCookie(request, reply, newToken, session.expiresAt);
+      return reply.code(204).send();
+    },
+  );
 
   // The account's own settings (My settings): which family its charts follow for an adopted person, the color
   // scheme, light or dark, the date format and which surname shows. Any non-empty subset. It changes nothing for

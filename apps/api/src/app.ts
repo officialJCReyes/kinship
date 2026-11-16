@@ -67,6 +67,9 @@ export interface Limiters {
   /** Links (invitations, set-password links) that did not work, per IP address and from anywhere. */
   linkIp: FailureLimiter;
   linkGlobal: FailureLimiter;
+  /** Wrong current passwords when changing a password, per account and per IP address. */
+  passwordAccount: FailureLimiter;
+  passwordIp: FailureLimiter;
 }
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -97,6 +100,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
     setupGlobal: new FailureLimiter({ maxFailures: 30, windowMs: FIFTEEN_MINUTES, ...clock }),
     linkIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
     linkGlobal: new FailureLimiter({ maxFailures: 200, windowMs: FIFTEEN_MINUTES, ...clock }),
+    passwordAccount: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
+    passwordIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
   };
 
   void app.register(cookie);

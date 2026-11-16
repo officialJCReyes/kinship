@@ -154,6 +154,8 @@ export const ACCOUNT_ROUTES = [
   { method: 'GET', path: '/api/admin/accounts', access: 'admin' },
   { method: 'POST', path: '/api/admin/links/:id/regenerate', access: 'admin' },
   { method: 'POST', path: '/api/admin/links/:id/revoke', access: 'admin' },
+  { method: 'POST', path: '/api/admin/accounts/:id/set-password-link', access: 'admin' },
   { method: 'POST', path: '/api/links/lookup', access: 'public' },
   { method: 'POST', path: '/api/links/accept', access: 'public' },
+  { method: 'POST', path: '/api/auth/password', access: 'signed-in' },
 ] as const;

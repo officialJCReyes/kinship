@@ -46,6 +46,37 @@ describe('kinship set-password', () => {
     expect((await login(t.app, 'marcus@example.com', 'a brand new password')).statusCode).toBe(200);
   });
 
+  it('records that the server owner did it (cli) and retires an open set-password link', async () => {
+    const t = await createTestApp();
+    apps.push(t);
+    const admin = await insertUser(t.owner, { email: 'root@example.com', role: 'superadmin' });
+    const target = await insertUser(t.owner, { email: 'lost@example.com', role: 'member' });
+    const adminCookie = cookieHeader(await login(t.app, 'root@example.com'));
+    const link = await t.app.inject({
+      method: 'POST',
+      url: `/api/admin/accounts/${target}/set-password-link`,
+      headers: { 'x-kinship-request': '1', cookie: adminCookie },
+    });
+    expect(link.statusCode).toBe(201);
+    expect(await runCli(['set-password', 'lost@example.com'], setup(t, 'a brand new password').deps)).toBe(0);
+    const row = await sql<{ password_changed_via: string; password_changed_at: Date }>`
+      select password_changed_via, password_changed_at from users where id = ${target}`.execute(t.owner);
+    expect(row.rows[0]?.password_changed_via).toBe('cli');
+    expect(row.rows[0]?.password_changed_at).toBeInstanceOf(Date);
+    const token = (link.json() as { token: string }).token;
+    expect(
+      (
+        await t.app.inject({
+          method: 'POST',
+          url: '/api/links/lookup',
+          headers: { 'x-kinship-request': '1' },
+          payload: { token },
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(admin).toBeDefined();
+  });
+
   it('only touches the named account', async () => {
     const t = await createTestApp();
     apps.push(t);
