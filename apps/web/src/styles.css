@@ -713,3 +713,456 @@ fieldset.choice label {
     padding-block: 8px;
   }
 }
+
+/* --- The family tree chart --- */
+:root {
+  --g-male: #2f6db5;
+  --g-female: #cf4f3b;
+  --g-other: #6f7f79;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --g-male: #79aef0;
+    --g-female: #f08f7c;
+    --g-other: #8d9f98;
+  }
+}
+
+#root {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex-direction: column;
+}
+
+/* The chart page is the one that fills the window below the header (every other page is centred at 880 px). */
+main.tree-main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0;
+}
+
+.tree-page {
+  display: flex;
+  flex: 1;
+  min-height: 480px;
+  min-width: 0;
+}
+
+.tree-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 300px;
+  padding: 14px 16px;
+  overflow-y: auto;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.tree-panel.collapsed {
+  align-items: center;
+  width: 56px;
+  padding: 12px 6px;
+}
+
+.rail-initials,
+.panel-top .button {
+  flex: none;
+}
+
+.rail-initials {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 600 13px var(--display);
+}
+
+.panel-top {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.panel-name {
+  margin: 0;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+
+.panel-actions a.button {
+  text-decoration: none;
+}
+
+.panel-heading {
+  margin: 12px 0 2px;
+}
+
+.partner-list li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tree-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  perspective: 1600px;
+}
+
+.tree-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: grab;
+  touch-action: none;
+  transform-origin: center;
+}
+
+.tree-canvas.panning {
+  cursor: grabbing;
+}
+
+.tree-canvas > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+}
+
+.tree-stage.flip-out .tree-canvas {
+  transform: rotateY(90deg);
+  transition: transform 0.25s ease-in;
+}
+
+.tree-stage.flip-in .tree-canvas {
+  animation: tree-flip-in 0.26s ease-out;
+}
+
+@keyframes tree-flip-in {
+  from {
+    transform: rotateY(-90deg);
+  }
+  to {
+    transform: rotateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tree-stage.flip-out .tree-canvas {
+    transform: none;
+    transition: none;
+  }
+
+  .tree-stage.flip-in .tree-canvas {
+    animation: none;
+  }
+}
+
+.tree-canvas .edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+
+.couple .line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.2;
+  opacity: 0.7;
+}
+
+.couple.dotted .line {
+  stroke-dasharray: 0.1 7;
+  stroke-linecap: round;
+  stroke-width: 3.4;
+}
+
+.couple .hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  pointer-events: stroke;
+}
+
+.couple .hit.editable {
+  cursor: pointer;
+}
+
+.tnode {
+  cursor: pointer;
+  outline: none;
+}
+
+.tnode .box {
+  fill: var(--panel);
+  stroke: var(--g-other);
+  stroke-width: 2;
+}
+
+.tnode.male .box {
+  stroke: var(--g-male);
+}
+
+.tnode.female .box {
+  stroke: var(--g-female);
+}
+
+.tnode.deceased .box {
+  fill: var(--bg);
+}
+
+.tnode .ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tnode.selected .ring {
+  opacity: 1;
+}
+
+.tnode:focus-visible .ring {
+  opacity: 1;
+  stroke: var(--ink);
+  stroke-width: 4;
+}
+
+.tnode text {
+  pointer-events: none;
+  user-select: none;
+}
+
+.tnode .avatar {
+  fill: var(--accent-soft);
+}
+
+.tnode .ini {
+  fill: var(--accent);
+  font: 600 12px var(--display);
+}
+
+.tnode .name {
+  fill: var(--ink);
+  font: 600 13px var(--body);
+}
+
+.tnode .years {
+  fill: var(--muted);
+  font: 12px var(--body);
+}
+
+.tnode .glyph {
+  fill: none;
+  stroke: var(--g-other);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.tnode.male .glyph {
+  stroke: var(--g-male);
+}
+
+.tnode.female .glyph {
+  stroke: var(--g-female);
+}
+
+/* The spouse's-family leaf, in the logo's green. */
+.leaf {
+  cursor: pointer;
+  outline: none;
+}
+
+.leaf .hit {
+  fill: transparent;
+}
+
+.leaf .stem {
+  fill: none;
+  stroke: var(--leaf);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.blade {
+  fill: var(--leaf);
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.leaf .blade {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.leaf .vein {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.leaf:hover .blade,
+.leaf:focus-visible .blade {
+  fill: var(--accent);
+}
+
+.leaf:focus-visible .hit {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.tree-overlay {
+  position: absolute;
+  top: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.tree-overlay.top-left {
+  left: 10px;
+}
+
+.tree-overlay.top-right {
+  right: 10px;
+}
+
+.tree-label {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  font: 600 14px var(--display);
+}
+
+.zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.zoom .button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+}
+
+.legend {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  display: grid;
+  gap: 4px;
+  max-width: min(520px, calc(100% - 70px));
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.legend-row svg {
+  flex: none;
+}
+
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend .swatch {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border: 2px solid var(--g-other);
+  border-radius: 3px;
+}
+
+.legend .swatch.male {
+  border-color: var(--g-male);
+}
+
+.legend .swatch.female {
+  border-color: var(--g-female);
+}
+
+.swatch-solid {
+  stroke: var(--ink);
+  stroke-width: 2.2;
+  opacity: 0.7;
+}
+
+.swatch-dotted {
+  stroke: var(--ink);
+  stroke-width: 3.4;
+  stroke-dasharray: 0.1 7;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+.legend-leaf .blade {
+  stroke: none;
+}
+
+.tree-canvas button:focus-visible,
+.tree-panel button:focus-visible,
+.tree-panel a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.choose-root {
+  padding-block: 24px;
+}
+
+@media (max-width: 700px) {
+  .tree-page {
+    flex-direction: column;
+  }
+
+  .tree-panel,
+  .tree-panel.collapsed {
+    width: auto;
+    max-height: 45%;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tree-panel.collapsed {
+    flex-direction: row;
+    max-height: none;
+  }
+}

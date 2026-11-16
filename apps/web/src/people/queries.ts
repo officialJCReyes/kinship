@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as api from '../api.js';
 
 /** Everything people-related is cached under 'people', so one call refreshes it all after a change. */
@@ -35,4 +35,23 @@ export function useFamilyAround(id: string | undefined) {
 export function useRefreshPeople() {
   const client = useQueryClient();
   return () => client.invalidateQueries({ queryKey: peopleKey });
+}
+
+/** What the Family tree chart asks for: three generations up, two down, and the other descendants of the top ancestors. */
+export const CHART_SHAPE = { up: 3, down: 2, collateral: true } as const;
+/** What a spouse's family view asks for (half-siblings and everybody else are then dropped). */
+export const FAMILY_SHAPE = { up: 3, down: 1, collateral: true } as const;
+
+export function chartQuery(id: string) {
+  return queryOptions({
+    queryKey: [...peopleKey, 'chart', id],
+    queryFn: ({ signal }) => api.fetchTree(id, CHART_SHAPE, signal),
+  });
+}
+
+export function familyQuery(id: string) {
+  return queryOptions({
+    queryKey: [...peopleKey, 'family', id],
+    queryFn: ({ signal }) => api.fetchTree(id, FAMILY_SHAPE, signal),
+  });
 }

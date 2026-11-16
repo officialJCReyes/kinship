@@ -46,6 +46,9 @@ export const PEOPLE: Person[] = [
   person('carla', 'Carla', 'Nair', 'female', '1995'),
   person('ben', 'Ben', 'Hale', 'male', '2000'),
   person('lena', 'Lena', 'Okafor', 'other', '1989'),
+  person('femi', 'Femi', 'Okafor', 'male', '1960'),
+  person('nora', 'Nora', 'Okafor', 'female', '1962'),
+  person('ade', 'Ade', 'Okafor', 'male', '1930', '2001'),
 ];
 
 function union(
@@ -71,6 +74,8 @@ export const UNIONS: Union[] = [
   union('u0', 'rosa', 'walter', 'widowed', '1955-06-04'),
   union('u1', 'daniel', 'elena', 'married', '1985-05'),
   union('u2', 'daniel', 'priya', 'divorced', '1993', '1998-03-09'),
+  union('u3', 'femi', 'nora', 'married', '1985'),
+  union('u4', 'lena', 'sofia', 'engaged', '2024'),
 ];
 
 /** Where each child hangs from. */
@@ -80,6 +85,8 @@ export const PARENTAGE: Record<string, { unionId?: string; parentId?: string }> 
   sofia: { unionId: 'u1' },
   carla: { unionId: 'u2' },
   ben: { parentId: 'daniel' },
+  lena: { unionId: 'u3' },
+  femi: { parentId: 'ade' },
 };
 
 function parentageOf(id: string): Parentage | null {
@@ -136,13 +143,81 @@ export function detailFor(me: AuthUser, id: string): PersonDetail {
   };
 }
 
-export function treeFor(focalId: string): TreeResponse {
-  return {
-    focalId,
-    people: PEOPLE.map((p) => ({ ...p, hasParents: PARENTAGE[p.id] !== undefined })),
-    unions: UNIONS,
-    parentage: Object.fromEntries(Object.keys(PARENTAGE).map((child) => [child, parentageOf(child) as Parentage])),
+const parentsOfPerson = (id: string): string[] => {
+  const row = PARENTAGE[id];
+  if (!row) return [];
+  if (row.parentId) return [row.parentId];
+  return [...(UNIONS.find((u) => u.id === row.unionId)?.partnerIds ?? [])];
+};
+const childrenOfPerson = (id: string): string[] =>
+  Object.keys(PARENTAGE).filter((child) => parentsOfPerson(child).includes(id));
+
+/**
+ * What GET /api/tree/:id answers, by the API's own rules: `up` generations of ancestors, `down` of descendants,
+ * with collateral the other descendants of the topmost ancestors, everyone's partners, only relationships with both
+ * partners drawn, parent links only when their parents are drawn, and for a person whose parents are not drawn
+ * (a leaf) the number of known ancestors.
+ */
+export function treeFor(
+  focalId: string,
+  { up = 3, down = 2, collateral = false }: { up?: number; down?: number; collateral?: boolean } = {},
+): TreeResponse {
+  const ids = new Set<string>([focalId]);
+  const depth = new Map<string, number>([[focalId, 0]]);
+  let layer = [focalId];
+  for (let d = 1; d <= up; d += 1) {
+    layer = layer.flatMap(parentsOfPerson);
+    for (const id of layer) {
+      ids.add(id);
+      depth.set(id, d);
+    }
+  }
+  const walkDown = (from: string[], levels: number) => {
+    let current = from;
+    for (let d = 0; d < levels; d += 1) {
+      current = current.flatMap(childrenOfPerson);
+      for (const id of current) ids.add(id);
+    }
   };
+  walkDown([focalId], down);
+  if (collateral) {
+    for (const [id, d] of depth) {
+      if (d === up || parentsOfPerson(id).length === 0) walkDown([id], d + down);
+    }
+  }
+  const core = [...ids];
+  for (const u of UNIONS) {
+    for (const p of u.partnerIds) if (core.includes(p)) u.partnerIds.forEach((q) => ids.add(q));
+  }
+  const unions = UNIONS.filter((u) => u.partnerIds.every((p) => ids.has(p)));
+  const unionIds = new Set(unions.map((u) => u.id));
+  const parentage: Record<string, Parentage> = {};
+  for (const child of Object.keys(PARENTAGE)) {
+    if (!ids.has(child)) continue;
+    const row = PARENTAGE[child]!;
+    if (row.unionId ? unionIds.has(row.unionId) : ids.has(row.parentId!)) parentage[child] = parentageOf(child)!;
+  }
+  const ancestorsOf = (id: string): Set<string> => {
+    const seen = new Set<string>();
+    const stack = parentsOfPerson(id);
+    while (stack.length > 0) {
+      const next = stack.pop()!;
+      if (!seen.has(next)) {
+        seen.add(next);
+        stack.push(...parentsOfPerson(next));
+      }
+    }
+    return seen;
+  };
+  const people = PEOPLE.filter((p) => ids.has(p.id)).map((p) => {
+    const hasParents = PARENTAGE[p.id] !== undefined;
+    return {
+      ...p,
+      hasParents,
+      ...(hasParents && parentage[p.id] === undefined ? { ancestorCount: ancestorsOf(p.id).size } : {}),
+    };
+  });
+  return { focalId, people, unions, parentage };
 }
 
 /** Routes for a signed-in account over the Hale family. Add more (or override) with `extra`. */
@@ -154,7 +229,19 @@ export function haleRoutes(me: AuthUser, extra: Record<string, MockRoute> = {}):
   };
   for (const { id } of PEOPLE) {
     routes[`GET /api/people/${id}`] = { status: 200, body: detailFor(me, id) };
-    routes[`GET /api/tree/${id}?up=1&down=1&collateral=true`] = { status: 200, body: treeFor(id) };
   }
+  routes['GET /api/tree/*'] = (_init, path) => {
+    const url = new URL(path, 'http://x');
+    const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+    if (!PEOPLE.some((p) => p.id === id)) return { status: 404, body: { error: 'person_not_found' } };
+    return {
+      status: 200,
+      body: treeFor(id, {
+        up: Number(url.searchParams.get('up') ?? 3),
+        down: Number(url.searchParams.get('down') ?? 2),
+        collateral: url.searchParams.get('collateral') === 'true',
+      }),
+    };
+  };
   return { ...routes, ...extra };
 }
