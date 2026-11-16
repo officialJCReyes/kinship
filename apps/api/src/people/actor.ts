@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { Role } from '@kinship/shared';
+import type { LineageView, Role } from '@kinship/shared';
 import type { Transaction } from 'kysely';
 import { sql } from 'kysely';
 import type { Database } from '../db.js';
@@ -11,6 +11,8 @@ export interface Actor {
   id: string;
   role: Role;
   personId: string | null;
+  /** The family this account's charts follow for an adopted person. */
+  lineageView: LineageView;
 }
 
 export const isAdmin = (actor: Actor): boolean => actor.role === 'superadmin' || actor.role === 'familyadmin';
@@ -23,11 +25,11 @@ export async function loadActor(trx: Transaction<Database>, user: SessionUser | 
   if (!user) throw new ApiError(401, 'unauthenticated');
   const row = await trx
     .selectFrom('users')
-    .select(['id', 'role', 'person_id'])
+    .select(['id', 'role', 'person_id', 'lineage_view'])
     .where('id', '=', user.id)
     .executeTakeFirst();
   if (!row) throw new ApiError(401, 'unauthenticated');
-  return { id: row.id, role: row.role, personId: row.person_id };
+  return { id: row.id, role: row.role, personId: row.person_id, lineageView: row.lineage_view };
 }
 
 /**

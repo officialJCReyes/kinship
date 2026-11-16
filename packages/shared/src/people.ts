@@ -39,6 +39,15 @@ export type UnionStatus = (typeof UNION_STATUSES)[number];
 /** Only these statuses have an end date (divorce, separation or annulment date). */
 export const UNION_END_STATUSES = ['divorced', 'separated', 'annulment'] as const satisfies readonly UnionStatus[];
 
+/** A parent-child link is a birth link (the default) or an adoptive link. A child has at most one set of each kind. */
+export const LINK_KINDS = ['birth', 'adoptive'] as const;
+export type LinkKind = (typeof LINK_KINDS)[number];
+
+/** Which family a viewer's charts follow for an adopted person. Each account chooses its own; new accounts start on adoptive. */
+export const LINEAGE_VIEWS = ['adoptive', 'birth'] as const;
+export type LineageView = (typeof LINEAGE_VIEWS)[number];
+export const DEFAULT_LINEAGE_VIEW: LineageView = 'adoptive';
+
 export const NAME_MAX_LENGTH = 100;
 export const SEARCH_MAX_LENGTH = 100;
 export const PEOPLE_PAGE_DEFAULT = 50;
@@ -72,11 +81,29 @@ export interface Person {
 
 /**
  * Where a child hangs from: a union (two parents) or a single parent. Exactly one of the two is set.
- * A person with no parents on the tree has no parentage (null).
+ * `kind` says whether this is the birth set or the adoptive set, and `link` is the optional date of the link
+ * (for example the year of the adoption).
  */
 export interface Parentage {
   unionId: string | null;
   parentId: string | null;
+  kind: LinkKind;
+  link: PartialDate | null;
+}
+
+/** Both sets of a person's parents. A person with no adoptive set simply has `adoptive: null`. */
+export interface ParentSets {
+  birth: Parentage | null;
+  adoptive: Parentage | null;
+}
+
+/** A child, and which kind of link they hang from this parent (or union) by. */
+export interface ChildLink {
+  id: string;
+  kind: LinkKind;
+  link: PartialDate | null;
+  /** True when the child has an adoptive set (so a birth link to a parent reads "birth son", not just "son"). */
+  adopted: boolean;
 }
 
 /** A partner relationship ("union"). `partnerIds` is sorted, so the same couple always looks the same. */
@@ -111,16 +138,18 @@ export interface PersonPermissions {
 }
 
 export interface UnionWithChildren extends Union {
-  childIds: string[];
+  /** Everyone hanging from this relationship, birth and adoptive. */
+  children: ChildLink[];
 }
 
 export interface PersonDetail {
   person: Person;
-  parentage: Parentage | null;
+  /** Both sets of parents, whatever the viewer's lineage view (the profile always lists both families). */
+  parents: ParentSets;
   /** Every union this person is a partner in, with the children hanging from it. */
   unions: UnionWithChildren[];
   /** Children who hang from this person alone. */
-  singleParentChildIds: string[];
+  singleParentChildren: ChildLink[];
   permissions: PersonPermissions;
   /** True when an account is linked to this person. */
   hasAccount: boolean;
@@ -136,6 +165,13 @@ export interface TreePerson extends Person {
   /** True when this person has parents on the tree (so a chart can offer to open their family). */
   hasParents: boolean;
   /**
+   * The family behind a second leaf: set when this person has a parent set that this response does NOT follow.
+   * `kind` is the family it opens ("birth" or "adoptive") and `count` the people in it with their ancestors.
+   * In the adoptive view that is the birth set of an adopted person. In the birth view it is their adoptive
+   * set, even when no birth set is recorded.
+   */
+  otherFamily?: { kind: LinkKind; count: number };
+  /**
    * How many known blood ancestors this person has, at any depth. Set only for a person who has parents that
    * are not in this response (the people a chart offers a leaf to), so "Show Priya's family (4 people)" can say 4.
    */
@@ -144,6 +180,8 @@ export interface TreePerson extends Person {
 
 /** Response of GET /api/tree/:personId. Parentage is keyed by child id. */
 export interface TreeResponse {
+  /** The family this response follows for adopted people: the viewer's own setting, or the `lineage` override. */
+  lineage: LineageView;
   focalId: string;
   people: TreePerson[];
   unions: Union[];
@@ -182,6 +220,11 @@ export interface UnionResponse {
   union: UnionWithChildren;
 }
 
+/** Body of PATCH /api/people/:id/parents/:kind: the date of the link (null clears it). */
+export interface UpdateParentLinkRequest {
+  link: PartialDateInput | null;
+}
+
 export interface DeletePreview {
   /** Unions that would be deleted with the person. */
   unions: number;
@@ -191,11 +234,19 @@ export interface DeletePreview {
 
 export interface AddParentRequest {
   parentId: string;
+  /** Birth by default. Adoptive is for admins only. */
+  kind?: LinkKind;
+  /** The date of the link (for an adoption, its year or decree date). Optional. */
+  link?: PartialDateInput | null;
   /** Needed only when the child would have two parents who have more than one union together. */
   unionId?: string;
 }
 export interface AddChildRequest {
   child: PersonInput;
+  /** Birth by default. A Member can only add birth links. */
+  kind?: LinkKind;
+  /** The date of the link, optional. */
+  link?: PartialDateInput | null;
   /** A union that includes the person the child is added under. Omit to hang the child from that person alone. */
   unionId?: string;
 }
@@ -226,6 +277,9 @@ export const PEOPLE_ERROR_CODES = [
   'parent_not_found',
   'person_has_account',
   'confirm_required',
+  'same_person_both_kinds',
+  'invalid_link_kind',
+  'invalid_lineage',
 ] as const;
 export type PeopleErrorCode = (typeof PEOPLE_ERROR_CODES)[number];
 
@@ -253,6 +307,7 @@ export const PEOPLE_ROUTES = [
   { method: 'POST', path: '/api/people/:id/children', access: 'admin-or-own-line' },
   { method: 'POST', path: '/api/people/:id/parents', access: 'admin' },
   { method: 'DELETE', path: '/api/people/:id/parents/:parentId', access: 'admin' },
+  { method: 'PATCH', path: '/api/people/:id/parents/:kind', access: 'admin' },
   { method: 'POST', path: '/api/unions', access: 'admin' },
   { method: 'GET', path: '/api/unions/:id', access: 'signed-in' },
   { method: 'PATCH', path: '/api/unions/:id', access: 'admin-or-own-union' },

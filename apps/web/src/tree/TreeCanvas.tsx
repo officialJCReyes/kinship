@@ -5,7 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 import { t } from '../i18n.js';
 import { lifespan, personName } from '../lib/people.js';
 import { statusName } from '../lib/labels.js';
-import { initials, leafLabel, nodeLabel, shortName } from './family.js';
+import { initials, leafLabel, nodeLabel, otherLeafLabel, shortName } from './family.js';
 import type { Leaf } from './family.js';
 import { NODE_H, NODE_W } from './layout.js';
 import { prefersReducedMotion } from './motion.js';
@@ -78,6 +78,8 @@ interface NodeProps {
   selected: boolean;
   focusable: boolean;
   leaf: Leaf | undefined;
+  /** The second leaf (the person's other family), on the left. */
+  otherLeaf: Leaf | undefined;
   /** Zoomed far out: just the box, since nothing inside it can be read. */
   simple: boolean;
   onSelect: (id: string) => void;
@@ -91,6 +93,7 @@ const TreeNode = memo(function TreeNode({
   selected,
   focusable,
   leaf,
+  otherLeaf,
   simple,
   onSelect,
   onFocus,
@@ -159,6 +162,29 @@ const TreeNode = memo(function TreeNode({
           </g>
         </g>
       ) : null}
+      {otherLeaf?.family ? (
+        <g
+          className="leaf other"
+          data-nopan
+          data-leaf-other={person.id}
+          role="button"
+          tabIndex={-1}
+          aria-label={otherLeafLabel(person, otherLeaf.family, otherLeaf.count ?? 0)}
+          transform="translate(36 0)"
+          onClick={(event) => {
+            event.stopPropagation();
+            onLeaf(otherLeaf);
+          }}
+        >
+          <title>{otherLeafLabel(person, otherLeaf.family, otherLeaf.count ?? 0)}</title>
+          <circle className="hit" cx={0} cy={-9} r={16} />
+          <path className="stem" d="M0 0V-4" />
+          <g transform="translate(0 -3) scale(0.5)">
+            <path className="blade" d="M0 0C-17-5-19-27 0-38C19-27 17-5 0 0Z" />
+            <path className="vein" d="M0-4V-30M0-14L-7-21M0-20L7-27" />
+          </g>
+        </g>
+      ) : null}
     </g>
   );
 });
@@ -196,6 +222,7 @@ export interface TreeCanvasProps {
   focalId: string;
   selectedId: string;
   leaves: ReadonlyMap<string, Leaf>;
+  otherLeaves: ReadonlyMap<string, Leaf>;
   parents: ReadonlyMap<string, string[]>;
   children: ReadonlyMap<string, string[]>;
   canEditUnion: (unionId: string) => boolean;
@@ -207,8 +234,20 @@ export interface TreeCanvasProps {
 }
 
 export function TreeCanvas(props: TreeCanvasProps) {
-  const { layout, people, focalId, selectedId, leaves, parents, children, canEditUnion, onSelect, onLeaf, onCouple } =
-    props;
+  const {
+    layout,
+    people,
+    focalId,
+    selectedId,
+    leaves,
+    otherLeaves,
+    parents,
+    children,
+    canEditUnion,
+    onSelect,
+    onLeaf,
+    onCouple,
+  } = props;
   const helpId = useId();
   const wrap = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -230,7 +269,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
     return regionFor(first, guess, null);
   });
   const cullTimer = useRef(0);
-  const pendingFocus = useRef<{ id: string; selector: 'node' | 'leaf' } | null>(null);
+  const pendingFocus = useRef<{ id: string; selector: 'node' | 'leaf' | 'leaf-other' } | null>(null);
 
   // clientWidth/Height, not getBoundingClientRect: the box is not distorted while the chart is turning.
   const box = useCallback(() => {
@@ -390,7 +429,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
 
   // Keyboard: one tab stop (the focused box); arrows move along the row, to a parent and to a child.
   const focusNode = useCallback(
-    (id: string, selector: 'node' | 'leaf' = 'node') => {
+    (id: string, selector: 'node' | 'leaf' | 'leaf-other' = 'node') => {
       const placed = layout.byId.get(id);
       if (placed) {
         apply(
@@ -438,8 +477,14 @@ export function TreeCanvas(props: TreeCanvasProps) {
   const onKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
     const target = event.target as Element;
     const leafEl = target.closest('[data-leaf]');
+    const otherEl = target.closest('[data-leaf-other]');
     const nodeEl = target.closest('[data-node]');
-    const id = (leafEl ?? nodeEl)?.getAttribute(leafEl ? 'data-leaf' : 'data-node');
+    const onAnyLeaf = Boolean(leafEl ?? otherEl);
+    const id = leafEl
+      ? leafEl.getAttribute('data-leaf')
+      : otherEl
+        ? otherEl.getAttribute('data-leaf-other')
+        : nodeEl?.getAttribute('data-node');
     if (event.key === '+' || event.key === '=') return void (event.preventDefault(), zoomBy(ZOOM_STEP));
     if (event.key === '-' || event.key === '_') return void (event.preventDefault(), zoomBy(1 / ZOOM_STEP));
     if (event.key === '0') return void (event.preventDefault(), fit());
@@ -448,8 +493,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
     if (!placed) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      if (leafEl) {
-        const leaf = leaves.get(id);
+      if (onAnyLeaf) {
+        const leaf = (leafEl ? leaves : otherLeaves).get(id);
         if (leaf) onLeaf(leaf);
       } else {
         onSelect(id);
@@ -457,23 +502,30 @@ export function TreeCanvas(props: TreeCanvasProps) {
       return;
     }
     let next: string | undefined;
-    let asLeaf = false;
+    let as: 'node' | 'leaf' | 'leaf-other' = 'node';
     const row = layout.rows[placed.row] ?? [];
     const at = row.indexOf(id);
-    if (event.key === 'ArrowLeft' && !leafEl) next = row[at - 1];
-    else if (event.key === 'ArrowRight' && !leafEl) next = row[at + 1];
+    if (event.key === 'ArrowLeft' && !onAnyLeaf) next = row[at - 1];
+    else if (event.key === 'ArrowRight' && !onAnyLeaf) next = row[at + 1];
     else if (event.key === 'ArrowUp') {
-      if (leafEl) return;
+      if (onAnyLeaf) return;
       next = nearest(placed, parents.get(id));
       if (!next && leaves.has(id)) {
         next = id;
-        asLeaf = true;
+        as = 'leaf';
+      } else if (!next && otherLeaves.has(id)) {
+        next = id;
+        as = 'leaf-other';
       }
     } else if (event.key === 'ArrowDown') {
-      next = leafEl ? id : nearest(placed, children.get(id));
+      next = onAnyLeaf ? id : nearest(placed, children.get(id));
+    } else if (onAnyLeaf && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+      // Between a person's two leaves, when they have both.
+      if (leafEl && otherLeaves.has(id)) [next, as] = [id, 'leaf-other'];
+      else if (otherEl && leaves.has(id)) [next, as] = [id, 'leaf'];
     } else return;
     event.preventDefault();
-    if (next) focusNode(next, asLeaf ? 'leaf' : 'node');
+    if (next) focusNode(next, as);
   };
 
   const onClickCapture = (event: React.MouseEvent) => {
@@ -518,6 +570,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
             selected={node.id === selectedId}
             focusable={node.id === focusableId}
             leaf={leaves.get(node.id)}
+            otherLeaf={otherLeaves.get(node.id)}
             simple={simple}
             onSelect={onSelect}
             onFocus={onFocusNode}
@@ -525,7 +578,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
           />
         );
       }),
-    [layout, people, selectedId, focusableId, leaves, simple, inView, onSelect, onFocusNode, onLeaf],
+    [layout, people, selectedId, focusableId, leaves, otherLeaves, simple, inView, onSelect, onFocusNode, onLeaf],
   );
   const couples = useMemo(
     () =>
@@ -654,6 +707,12 @@ function Legend() {
           <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
         </svg>
         <span>{t('tree.legend.leaf')}</span>
+      </div>
+      <div className="legend-row">
+        <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
+          <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
+        </svg>
+        <span>{t('tree.legend.other')}</span>
       </div>
     </div>
   );

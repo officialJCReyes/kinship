@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { PEOPLE_ERROR_CODES } from './people.js';
+import type { LineageView } from './people.js';
 
 /** Response of GET /api/version. `schema` is the database schema number, or null when the database is unreachable. */
 export interface ApiVersion {
@@ -30,6 +31,13 @@ export interface AuthUser {
   role: Role;
   /** The person this account is linked to, or null. Members change only their own person and add children under it. */
   personId: string | null;
+  /** Which family this account's charts follow for an adopted person (the account's own setting). */
+  lineageView: LineageView;
+}
+
+/** Body of PATCH /api/auth/me: the account's own display setting. */
+export interface UpdateMeRequest {
+  lineageView: LineageView;
 }
 
 /** Response of GET /api/auth/me, POST /api/auth/login and POST /api/setup. */

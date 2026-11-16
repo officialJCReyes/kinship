@@ -91,12 +91,13 @@ export async function linkChild(
   owner: UntypedDb,
   child: string,
   from: { union: string } | { parent: string },
+  kind: 'birth' | 'adoptive' = 'birth',
+  linkDate: string | null = null,
 ): Promise<void> {
   const union = 'union' in from ? from.union : null;
   const parent = 'parent' in from ? from.parent : null;
-  await sql`insert into person_parents (child_id, union_id, parent_id) values (${child}, ${union}, ${parent})`.execute(
-    owner,
-  );
+  await sql`insert into person_parents (child_id, union_id, parent_id, kind, link_date)
+            values (${child}, ${union}, ${parent}, ${kind}, ${linkDate})`.execute(owner);
 }
 
 /** Inserts the family and the five accounts as the owner role (the way a restore or a migration would). */

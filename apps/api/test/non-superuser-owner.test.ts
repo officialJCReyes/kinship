@@ -149,7 +149,7 @@ describe('migrations and flows run as a role that is not a superuser', () => {
     expect((await send('GET', `/api/tree/${me}?up=1&down=1`)).body?.people).toHaveLength(3);
     expect((await send('DELETE', `/api/people/${priya}`)).status).toBe(409);
     expect((await send('DELETE', `/api/people/${priya}?confirm=true`)).status).toBe(204);
-    expect((await send('GET', `/api/people/${leo.body?.person.id}`)).body?.parentage).toEqual({
+    expect((await send('GET', `/api/people/${leo.body?.person.id}`)).body?.parents.birth).toMatchObject({
       unionId: null,
       parentId: me,
     });

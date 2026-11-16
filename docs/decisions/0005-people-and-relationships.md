@@ -17,6 +17,8 @@ The partner-relationship table is called **`unions`**, not `relationships`. In t
 
 ### Parentage: one row per child
 
+> Superseded in part by [0007](0007-adoption-parentage.md): from migration 0006 a child has one row per child **and kind** (birth or adoptive).
+
 `person_parents` has **one row per child**, and the row says where the child hangs from: either a `union_id` (the child's two parents are that union's two partners) or a `parent_id` (the child has one parent on the tree). A `CHECK` requires exactly one of the two.
 
 This models the rule from the requirements without anything to count:

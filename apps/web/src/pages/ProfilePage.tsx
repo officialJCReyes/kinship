@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { AuthUser, Person, PersonDetail, TreeResponse, UnionWithChildren } from '@kinship/shared';
+import type {
+  AuthUser,
+  ChildLink,
+  LinkKind,
+  Person,
+  PersonDetail,
+  TreeResponse,
+  UnionWithChildren,
+} from '@kinship/shared';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
@@ -9,13 +17,15 @@ import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
 import { ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
-import { formatDate } from '../lib/dates.js';
+import { formatDate, formatYear } from '../lib/dates.js';
 import { errorMessage } from '../lib/errors.js';
-import { relativeLabel, statusName, unionLabel } from '../lib/labels.js';
-import { lifespan, parentIdsOf, peopleById, personName, siblingsOf } from '../lib/people.js';
+import { childLabel, parentLabel, relativeLabel, statusName, unionLabel } from '../lib/labels.js';
+import { lifespan, mergeTrees, parentIdsOf, peopleById, personName, siblingsOf } from '../lib/people.js';
 import { useNotices } from '../notices.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
+import { EditLinkDialog } from '../people/LinkDialogs.js';
+import { useSetLineage } from '../people/lineage.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
 import { useFamilyAround, usePersonDetail, useRefreshPeople } from '../people/queries.js';
 import { DeletePersonDialog, DeleteUnionDialog, EditUnionDialog } from '../people/RelationshipDialogs.js';
@@ -28,6 +38,7 @@ type Open =
   | { kind: 'editUnion'; union: UnionWithChildren }
   | { kind: 'deleteUnion'; union: UnionWithChildren }
   | { kind: 'removeParent'; parent: Person }
+  | { kind: 'editLink'; linkKind: LinkKind }
   | null;
 
 function PersonLink({ person, label }: { person: Person; label?: string | undefined }) {
@@ -47,6 +58,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       {children}
     </section>
   );
+}
+
+/** "Adopted son, 1938" or "Son": what a parent's list calls a child. */
+function childLabelText(link: ChildLink, child: Person): string {
+  const label = childLabel(link, child.gender);
+  return link.kind === 'adoptive' && link.link ? `${label}, ${formatYear(link.link)}` : label;
 }
 
 function reasonFor(me: AuthUser): string {
@@ -91,7 +108,14 @@ function RemoveParentDialog({ child, parent, onClose }: { child: Person; parent:
 function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeResponse; me: AuthUser }) {
   const [open, setOpen] = useState<Open>(null);
   const { person, permissions } = detail;
-  const people = peopleById(tree);
+  // The profile lists both families, so it also asks for the view this account is not following (when needed).
+  const adoptedPerson = detail.parents.adoptive !== null;
+  const otherView = me.lineageView === 'adoptive' ? 'birth' : 'adoptive';
+  // Always asked: a parent's list of children includes the ones adopted away, who are only in the other view.
+  const other = useFamilyAround(person.id, otherView);
+  const bothTree = mergeTrees(tree, other.data);
+  const people = peopleById(bothTree);
+  const setLineage = useSetLineage();
   const admin = isAdmin(me);
   const close = () => setOpen(null);
   const nameOf = (id: string) => {
@@ -99,13 +123,28 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
     return found ? personName(found) : t('person.unknown');
   };
 
-  const parents = parentIdsOf(detail.parentage, tree.unions)
-    .map((id) => people.get(id))
-    .filter((p): p is Person => p !== undefined);
+  // Adoptive family first, then the birth family; a person with only a birth set has just "Parents".
+  const families = (['adoptive', 'birth'] as LinkKind[]).flatMap((kind) => {
+    const set = detail.parents[kind];
+    return set
+      ? [
+          {
+            kind,
+            set,
+            parents: parentIdsOf(set, bothTree.unions)
+              .map((id) => people.get(id))
+              .filter((p): p is Person => p !== undefined),
+          },
+        ]
+      : [];
+  });
   const siblings = siblingsOf(tree, person.id);
-  const singleChildren = detail.singleParentChildIds
-    .map((id) => people.get(id))
-    .filter((p): p is Person => p !== undefined);
+  const withLinks = (links: ChildLink[]) =>
+    links.flatMap((link) => {
+      const child = people.get(link.id);
+      return child ? [{ child, link }] : [];
+    });
+  const singleChildren = withLinks(detail.singleParentChildren);
 
   const blocked = reasonFor(me);
   const editReason = permissions.edit ? undefined : blocked;
@@ -156,23 +195,51 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         </dl>
       </section>
 
+      {adoptedPerson ? (
+        <section className="notice info adoption-banner" aria-label={t('profile.family.adoptive')}>
+          <p>{t(`adoption.banner.${me.lineageView}`, { name: person.givenName })}</p>
+          <p className="muted">{t('adoption.bannerNote')}</p>
+          <ActionButton small disabled={setLineage.isPending} onClick={() => setLineage.mutate(otherView)}>
+            {setLineage.isPending ? t('adoption.switching') : t(`adoption.switch.${otherView}`)}
+          </ActionButton>
+        </section>
+      ) : null}
+
       <Section title={t('profile.parents')}>
-        {parents.length === 0 ? (
-          <p className="muted">{t('profile.noParents')}</p>
-        ) : (
-          <ul className="plain">
-            {parents.map((parent) => (
-              <li key={parent.id}>
-                <PersonLink person={parent} label={relativeLabel('parent', parent.gender)} />{' '}
+        {families.length === 0 ? <p className="muted">{t('profile.noParents')}</p> : null}
+        {families.map(({ kind, set, parents }) => (
+          <div key={kind} className="family-block">
+            {adoptedPerson ? <h3>{t(`profile.family.${kind}`)}</h3> : null}
+            <ul className="plain">
+              {parents.map((parent) => (
+                <li key={parent.id}>
+                  <PersonLink person={parent} label={parentLabel(kind, adoptedPerson, parent.gender)} />{' '}
+                  {admin ? (
+                    <ActionButton small onClick={() => setOpen({ kind: 'removeParent', parent })}>
+                      {t('parents.remove', { name: personName(parent) })}
+                    </ActionButton>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            {kind === 'adoptive' || set.link ? (
+              <p className="muted">
+                {set.link ? `${formatDate(set.link)} ` : ''}
                 {admin ? (
-                  <ActionButton small onClick={() => setOpen({ kind: 'removeParent', parent })}>
-                    {t('parents.remove', { name: personName(parent) })}
+                  <ActionButton small onClick={() => setOpen({ kind: 'editLink', linkKind: kind })}>
+                    {t('link.edit')}
                   </ActionButton>
                 ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
+              </p>
+            ) : null}
+          </div>
+        ))}
+        {adoptedPerson && !detail.parents.birth ? (
+          <div className="family-block">
+            <h3>{t('profile.family.birth')}</h3>
+            <p className="muted">{t('profile.family.notRecorded')}</p>
+          </div>
+        ) : null}
       </Section>
 
       <Section title={t('profile.partners')}>
@@ -182,7 +249,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
             const partnerId = union.partnerIds.find((id) => id !== person.id) ?? union.partnerIds[0];
             const partner = people.get(partnerId);
             const canEdit = canEditUnion(me, union);
-            const children = union.childIds.map((id) => people.get(id)).filter((p): p is Person => p !== undefined);
+            const children = withLinks(union.children);
             return (
               <article
                 key={union.id}
@@ -211,9 +278,9 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                   <dd>
                     {children.length ? (
                       <ul className="plain">
-                        {children.map((child) => (
+                        {children.map(({ child, link }) => (
                           <li key={child.id}>
-                            <PersonLink person={child} label={relativeLabel('child', child.gender)} />
+                            <PersonLink person={child} label={childLabelText(link, child)} />
                           </li>
                         ))}
                       </ul>
@@ -246,9 +313,9 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         <Section title={t('profile.singleParentChildren')}>
           <p className="muted">{t('profile.singleParentHelp')}</p>
           <ul className="plain">
-            {singleChildren.map((child) => (
+            {singleChildren.map(({ child, link }) => (
               <li key={child.id}>
-                <PersonLink person={child} label={relativeLabel('child', child.gender)} />
+                <PersonLink person={child} label={childLabelText(link, child)} />
               </li>
             ))}
           </ul>
@@ -281,7 +348,16 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
       </Section>
 
       {open?.kind === 'edit' ? <EditPersonDialog person={person} onClose={close} /> : null}
-      {open?.kind === 'add' ? <AddRelativeDialog detail={detail} tree={tree} me={me} onClose={close} /> : null}
+      {open?.kind === 'add' ? <AddRelativeDialog detail={detail} tree={bothTree} me={me} onClose={close} /> : null}
+      {open?.kind === 'editLink' ? (
+        <EditLinkDialog
+          child={person}
+          kind={open.linkKind}
+          parentNames={parentIdsOf(detail.parents[open.linkKind], bothTree.unions).map(nameOf).join(' & ')}
+          current={detail.parents[open.linkKind]?.link ?? null}
+          onClose={close}
+        />
+      ) : null}
       {open?.kind === 'delete' ? <DeletePersonDialog person={person} onClose={close} /> : null}
       {open?.kind === 'editUnion' ? (
         <EditUnionDialog

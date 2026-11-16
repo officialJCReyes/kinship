@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ADMIN, haleRoutes, MEMBER, PEOPLE, READER } from './family.js';
+import { ADMIN, detailFor, haleRoutes, MEMBER, PEOPLE, READER, treeFor } from './family.js';
+import { missingParentCards } from '../src/people/AddRelative.js';
 import { calls, mockApi, renderApp } from './helpers.js';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -259,19 +260,23 @@ describe('add relative', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('offers only the other parent when one is on the tree, and none when both are', async () => {
+  it('offers a Member only the missing birth parent; an admin can also add adoptive parents', async () => {
+    const ben = detailFor(ADMIN, 'ben');
+    const tree = treeFor('ben', { up: 1, down: 1, collateral: true });
+    expect(missingParentCards(ben, tree)).toEqual(['mother']);
+    expect(missingParentCards(ben, tree, true)).toEqual(['father', 'mother']);
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/ben');
     await screen.findByRole('heading', { name: 'Ben Hale' });
     click('Add relative');
-    expect(screen.queryByRole('button', { name: 'Add father' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add father' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add mother' })).toBeTruthy();
   });
 
-  it('offers no parent cards when both parents are on the tree', async () => {
+  it('offers no parent cards when both families are complete', async () => {
     mockApi(haleRoutes(ADMIN));
-    renderApp('/people/marcus');
-    await screen.findByRole('heading', { name: 'Marcus Hale' });
+    renderApp('/people/samuel');
+    await screen.findByRole('heading', { name: 'Samuel Hale' });
     click('Add relative');
     expect(screen.queryByTestId('ar-parents')).toBeNull();
     expect(screen.getByRole('button', { name: 'Add brother' }).getAttribute('aria-disabled')).toBeNull();
@@ -378,7 +383,7 @@ describe('add relative', () => {
       'POST /api/people',
       'POST /api/people/ben/parents',
     ]);
-    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).toEqual({ parentId: 'newmom' });
+    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).toEqual({ parentId: 'newmom', kind: 'birth' });
   });
 
   it('removes the person it just created when linking fails', async () => {
@@ -469,7 +474,10 @@ describe('add relative', () => {
     const parentCalls = fetchMock.mock.calls
       .filter(([url, init]) => String(url) === '/api/people/sib/parents' && init?.method === 'POST')
       .map(([, init]) => JSON.parse(String(init?.body)));
-    expect(parentCalls).toEqual([{ parentId: 'daniel' }, { parentId: 'elena', unionId: 'u1' }]);
+    expect(parentCalls).toEqual([
+      { parentId: 'daniel', kind: 'birth' },
+      { parentId: 'elena', kind: 'birth', unionId: 'u1' },
+    ]);
   });
 });
 

@@ -7,6 +7,7 @@ import type {
   ApiHealth,
   ApiVersion,
   ChildResponse,
+  LineageView,
   LoginRequest,
   MeResponse,
   ParentageResponse,
@@ -20,6 +21,9 @@ import type {
   TreeResponse,
   UnionInput,
   UnionPatch,
+  UpdateMeRequest,
+  UpdateParentLinkRequest,
+  LinkKind,
   UnionResponse,
 } from '@kinship/shared';
 
@@ -120,6 +124,13 @@ export async function logout(): Promise<void> {
   if (reply.status !== 204) fail('/api/auth/logout', reply);
 }
 
+/** The account's own display setting: which family the charts follow for an adopted person. */
+export async function updateMe(request: UpdateMeRequest): Promise<MeResponse> {
+  const reply = await send('PATCH', '/api/auth/me', request);
+  if (reply.status !== 200) fail('/api/auth/me', reply);
+  return reply.body as MeResponse;
+}
+
 export async function setup(request: SetupRequest): Promise<MeResponse> {
   const reply = await send('POST', '/api/setup', request);
   if (reply.status !== 201) fail('/api/setup', reply);
@@ -156,11 +167,13 @@ export async function fetchPerson(id: string, signal?: AbortSignal): Promise<Per
 /** The people, relationships and parent links around one person (see TreeResponse). */
 export async function fetchTree(
   id: string,
-  options: { up: number; down: number; collateral?: boolean },
+  options: { up: number; down: number; collateral?: boolean; lineage?: LineageView },
   signal?: AbortSignal,
 ): Promise<TreeResponse> {
   const query = new URLSearchParams({ up: String(options.up), down: String(options.down) });
   if (options.collateral) query.set('collateral', 'true');
+  // Without `lineage` the API follows the signed-in account's own setting.
+  if (options.lineage) query.set('lineage', options.lineage);
   const path = `/api/tree/${encodeURIComponent(id)}?${query}`;
   const reply = await send('GET', path, undefined, signal);
   if (reply.status !== 200) fail(path, reply);
@@ -225,4 +238,16 @@ export async function deleteUnion(id: string): Promise<void> {
   const path = `/api/unions/${encodeURIComponent(id)}`;
   const reply = await send('DELETE', path);
   if (!succeeded(reply)) fail(path, reply);
+}
+
+/** Change (or clear) the date of one set of a child's parent links. Admins only. */
+export async function updateParentLink(
+  childId: string,
+  kind: LinkKind,
+  request: UpdateParentLinkRequest,
+): Promise<ParentageResponse> {
+  const path = `/api/people/${encodeURIComponent(childId)}/parents/${kind}`;
+  const reply = await send('PATCH', path, request);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as ParentageResponse;
 }

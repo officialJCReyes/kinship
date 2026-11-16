@@ -71,10 +71,10 @@ test('a second parent who is not linked gets a relationship with status Unknown'
   await page.getByRole('link', { name: named('Carla') }).click();
   await expect(page.getByRole('heading', { name: named('Carla'), level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Add relative' }).click();
-  // Daniel is her father, so only the mother is missing.
-  await expect(page.getByRole('button', { name: 'Add father' })).toHaveCount(0);
+  // Daniel is her birth father, so only the birth mother is missing (an admin can also add adoptive parents).
   await page.getByRole('button', { name: 'Add mother' }).click();
   const dialog = page.getByRole('dialog', { name: `Add mother to ${named('Carla')}` });
+  await expect(dialog.getByRole('radio', { name: 'Birth' })).toBeChecked();
   await expect(dialog.getByText(/a relationship with status Unknown will be created/)).toBeVisible();
   await dialog.getByLabel('Given name').fill('Priya');
   await dialog.getByLabel('Surname').fill(family);

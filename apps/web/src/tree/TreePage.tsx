@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { Person, UnionWithChildren } from '@kinship/shared';
+import type { LineageView, Person, UnionWithChildren } from '@kinship/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -11,7 +11,7 @@ import { canEditUnion } from '../people/permissions.js';
 import { chartQuery, familyQuery } from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 import { personName } from '../lib/people.js';
-import { familyView, findLeaves } from './family.js';
+import { familyView, findLeaves, findOtherLeaves } from './family.js';
 import type { Leaf } from './family.js';
 import { layoutTree, relationsOf } from './layout.js';
 import { prefersReducedMotion } from './motion.js';
@@ -58,13 +58,16 @@ export function TreePage() {
   const me = useSession(false).data?.user;
   const of = params.get('of');
   const sel = params.get('sel');
+  // A family view can follow one family for the whole flip: ?of=…&lineage=birth (or adoptive).
+  const rawLineage = params.get('lineage');
+  const lineage: LineageView | undefined = rawLineage === 'birth' || rawLineage === 'adoptive' ? rawLineage : undefined;
   const [editing, setEditing] = useState<UnionWithChildren | null>(null);
   const [flip, setFlip] = useState<'out' | 'in' | null>(null);
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
   const main = useQuery(chartQuery(id));
-  const family = useQuery({ ...familyQuery(of ?? ''), enabled: of !== null });
+  const family = useQuery({ ...familyQuery(of ?? '', lineage), enabled: of !== null });
   useEffect(() => {
     if (main.isSuccess) rememberRoot(id);
   }, [main.isSuccess, id]);
@@ -84,8 +87,16 @@ export function TreePage() {
   const relations = useMemo(() => (shown ? relationsOf(shown) : null), [shown]);
   const leaves = useMemo(
     () =>
-      new Map((shown ? findLeaves(shown, focalId, main.data, of !== null) : []).map((leaf) => [leaf.personId, leaf])),
-    [shown, focalId, main.data, of],
+      new Map(
+        (shown ? findLeaves(shown, focalId, main.data, of !== null, of !== null ? lineage : undefined) : []).map(
+          (leaf) => [leaf.personId, leaf],
+        ),
+      ),
+    [shown, focalId, main.data, of, lineage],
+  );
+  const otherLeaves = useMemo(
+    () => new Map((shown ? findOtherLeaves(shown, main.data, of !== null) : []).map((leaf) => [leaf.personId, leaf])),
+    [shown, main.data, of],
   );
   const unionsById = useMemo(() => new Map((shown?.unions ?? []).map((u) => [u.id, u])), [shown]);
 
@@ -102,8 +113,10 @@ export function TreePage() {
 
   // A turn of about half a second, then the other chart; with reduced motion the other chart is just there.
   const turnTo = useCallback(
-    async (go: () => void, prefetchFamilyOf?: string) => {
-      if (prefetchFamilyOf) await client.prefetchQuery(familyQuery(prefetchFamilyOf)).catch(() => undefined);
+    async (go: () => void, prefetchFamilyOf?: string, prefetchLineage?: LineageView) => {
+      if (prefetchFamilyOf) {
+        await client.prefetchQuery(familyQuery(prefetchFamilyOf, prefetchLineage)).catch(() => undefined);
+      }
       if (prefersReducedMotion()) return go();
       setFlip('out');
       timers.current.push(
@@ -126,10 +139,8 @@ export function TreePage() {
       } else if (target.kind === 'main') {
         void turnTo(() => void navigate(`/tree/${id}${keep ? `?${keep}` : ''}`));
       } else {
-        void turnTo(
-          () => void navigate(`/tree/${id}?${withKeep(`of=${encodeURIComponent(target.personId)}`)}`),
-          target.personId,
-        );
+        const query = `of=${encodeURIComponent(target.personId)}${target.lineage ? `&lineage=${target.lineage}` : ''}`;
+        void turnTo(() => void navigate(`/tree/${id}?${withKeep(query)}`), target.personId, target.lineage);
       }
     },
     [navigate, id, sel, turnTo],
@@ -147,9 +158,17 @@ export function TreePage() {
       const union = unionsById.get(unionId);
       if (!union || !layout) return;
       const link = layout.links.find((l) => l.unionId === unionId);
-      setEditing({ ...union, childIds: link?.childIds ?? [] });
+      setEditing({
+        ...union,
+        children: (link?.childIds ?? []).map((id) => ({
+          id,
+          kind: shown?.parentage[id]?.kind ?? 'birth',
+          link: null,
+          adopted: false,
+        })),
+      });
     },
-    [unionsById, layout, setEditing],
+    [unionsById, layout, setEditing, shown],
   );
 
   if (!me) return null;
@@ -179,15 +198,22 @@ export function TreePage() {
   return (
     <div className="tree-page">
       <h1 className="sr-only">{t('tree.title')}</h1>
-      <TreePanel personId={selectedId} fallback={people.get(selectedId)} me={me} />
+      <TreePanel
+        personId={selectedId}
+        fallback={people.get(selectedId)}
+        me={me}
+        otherFamily={otherLeaves.get(selectedId)}
+        onOpenOther={openLeaf}
+      />
       <div className={`tree-stage${flip ? ` flip-${flip}` : ''}`}>
         <TreeCanvas
-          key={`${id}|${of ?? ''}`}
+          key={`${id}|${of ?? ''}|${lineage ?? ''}`}
           layout={layout}
           people={people}
           focalId={focalId}
           selectedId={selectedId}
           leaves={leaves}
+          otherLeaves={otherLeaves}
           parents={relations.parents}
           children={relations.children}
           canEditUnion={canEdit}
@@ -195,7 +221,13 @@ export function TreePage() {
           onLeaf={openLeaf}
           onCouple={openUnion}
           topLeft={
-            of && owner ? <span className="tree-label">{t('tree.familyOf', { name: owner.givenName })}</span> : null
+            of && owner ? (
+              <span className="tree-label">
+                {lineage
+                  ? t(`tree.familyOf.${lineage}`, { name: owner.givenName })
+                  : t('tree.familyOf', { name: owner.givenName })}
+              </span>
+            ) : null
           }
           topRight={
             me.personId && me.personId !== id ? (

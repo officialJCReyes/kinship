@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { GENDERS, PEOPLE_PAGE_DEFAULT, PEOPLE_PAGE_MAX, SEARCH_MAX_LENGTH } from '@kinship/shared';
+import { GENDERS, LINK_KINDS, PEOPLE_PAGE_DEFAULT, PEOPLE_PAGE_MAX, SEARCH_MAX_LENGTH } from '@kinship/shared';
 import type {
   AddChildRequest,
   AddParentRequest,
+  LinkKind,
+  UpdateParentLinkRequest,
   ChildResponse,
   Parentage,
   ParentageResponse,
@@ -26,6 +28,7 @@ import {
   deletePreview,
   encodeCursor,
   getParentageRow,
+  getParentSets,
   getPerson,
   getUnion,
   insertPerson,
@@ -34,7 +37,7 @@ import {
   normalizeSearchWords,
   parentAgeWarnings,
   personHasAccount,
-  singleParentChildIds,
+  singleParentChildLinks,
   toParentage,
   toPerson,
   unionsBetween,
@@ -52,6 +55,8 @@ const uuidParam = (name: string) => ({
   required: [name],
   properties: { [name]: { type: 'string', maxLength: 64 } },
 });
+
+const kindSchema = { type: 'string', enum: [...LINK_KINDS] } as const;
 
 const dateSchema = {
   anyOf: [
@@ -182,15 +187,15 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
       return run(request, async (trx, actor) => {
         const person = await getPerson(trx, id);
         if (!person) throw notFound('person_not_found');
-        const parentRow = await getParentageRow(trx, id);
+        const parents = await getParentSets(trx, id);
         const unions = await withChildren(trx, await unionsOfPerson(trx, id));
-        const singles = await singleParentChildIds(trx, id);
+        const singles = await singleParentChildLinks(trx, id);
         const admin = isAdmin(actor);
         return {
           person: toPerson(person),
-          parentage: parentRow ? toParentage(parentRow) : null,
+          parents,
           unions,
-          singleParentChildIds: singles,
+          singleParentChildren: singles,
           permissions: {
             edit: await canEditPerson(trx, actor, person),
             delete: admin,
@@ -282,7 +287,12 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
           type: 'object',
           required: ['child'],
           additionalProperties: false,
-          properties: { child: personInputSchema, unionId: { type: 'string', maxLength: 64 } },
+          properties: {
+            child: personInputSchema,
+            unionId: { type: 'string', maxLength: 64 },
+            kind: kindSchema,
+            link: dateSchema,
+          },
         },
       },
     },
@@ -293,6 +303,10 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
       const result = await run(request, async (trx, actor) => {
         if (!(await getPerson(trx, id))) throw notFound('person_not_found');
         if (!(await canAddChildUnder(trx, actor, id))) throw forbidden();
+        const kind: LinkKind = body.kind ?? 'birth';
+        // Adoption links change two families, so they are for admins; a Member adding a child adds a birth link.
+        if (kind !== 'birth' && !isAdmin(actor)) throw forbidden();
+        const link = parseDateInput(body.link ?? null);
         if (body.unionId !== undefined) {
           if (!isUuid(body.unionId)) throw notFound('union_not_found');
           const union = await getUnion(trx, body.unionId);
@@ -301,18 +315,20 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
         }
         const values = parsePersonInput(body.child);
         const child = await insertPerson(trx, actor.id, values);
+        const row = {
+          kind,
+          union_id: body.unionId ?? null,
+          parent_id: body.unionId === undefined ? id : null,
+          link_date: link?.value ?? null,
+          link_precision: link?.precision ?? ('exactly' as const),
+        };
         await trx
           .insertInto('person_parents')
-          .values({
-            child_id: child.id,
-            union_id: body.unionId ?? null,
-            parent_id: body.unionId === undefined ? id : null,
-            created_by: actor.id,
-          })
+          .values({ child_id: child.id, ...row, created_by: actor.id })
           .execute();
         return {
           person: toPerson(child),
-          parentage: { unionId: body.unionId ?? null, parentId: body.unionId === undefined ? id : null },
+          parentage: toParentage(row),
           warnings: await parentAgeWarnings(trx, child.id),
         };
       });
@@ -332,7 +348,12 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
           type: 'object',
           required: ['parentId'],
           additionalProperties: false,
-          properties: { parentId: { type: 'string', maxLength: 64 }, unionId: { type: 'string', maxLength: 64 } },
+          properties: {
+            parentId: { type: 'string', maxLength: 64 },
+            unionId: { type: 'string', maxLength: 64 },
+            kind: kindSchema,
+            link: dateSchema,
+          },
         },
       },
     },
@@ -346,34 +367,38 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
           throw notFound('person_not_found');
         if (childId === body.parentId) throw badRequest('parent_is_self');
 
-        const existing = await getParentageRow(trx, childId);
+        const kind: LinkKind = body.kind ?? 'birth';
+        const link = parseDateInput(body.link ?? null);
+        const existing = await getParentageRow(trx, childId, kind);
         let parentage: Parentage;
 
         if (!existing) {
-          if (body.unionId === undefined) {
-            parentage = { unionId: null, parentId: body.parentId };
-          } else {
-            const union = await requireUnionWith(trx, body.unionId, body.parentId);
-            parentage = { unionId: union.id, parentId: null };
-          }
+          const row =
+            body.unionId === undefined
+              ? { union_id: null, parent_id: body.parentId }
+              : { union_id: (await requireUnionWith(trx, body.unionId, body.parentId)).id, parent_id: null };
+          const values = {
+            kind,
+            ...row,
+            link_date: link?.value ?? null,
+            link_precision: link?.precision ?? ('exactly' as const),
+          };
           await trx
             .insertInto('person_parents')
-            .values({
-              child_id: childId,
-              union_id: parentage.unionId,
-              parent_id: parentage.parentId,
-              created_by: actor.id,
-            })
+            .values({ child_id: childId, ...values, created_by: actor.id })
             .execute();
+          parentage = toParentage(values);
         } else if (existing.parent_id !== null) {
           if (existing.parent_id === body.parentId) throw conflict('parent_already_linked');
+          // A second parent joins the set: the relationship the two already have, or a new one with status Unknown.
           const union = await unionForNewParent(trx, actor, existing.parent_id, body.parentId, body.unionId);
           await trx
             .updateTable('person_parents')
             .set({ union_id: union.id, parent_id: null })
             .where('child_id', '=', childId)
+            .where('kind', '=', kind)
             .execute();
-          parentage = { unionId: union.id, parentId: null };
+          parentage = toParentage({ ...existing, union_id: union.id, parent_id: null });
         } else {
           const union = await getUnion(trx, existing.union_id as string);
           if (union && (union.partner_a_id === body.parentId || union.partner_b_id === body.parentId)) {
@@ -407,31 +432,90 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
       return run(request, async (trx, actor) => {
         if (!isAdmin(actor)) throw forbidden();
         if (!(await getPerson(trx, childId))) throw notFound('person_not_found');
-        const existing = await getParentageRow(trx, childId);
-        if (!existing) throw notFound('parent_not_found');
+        // A person cannot be a parent in both sets (except in a stepparent adoption, where the adoptive set is a
+        // union), so the parent says which set to take them out of. When the adoptive set is the union of the
+        // staying birth parent and the stepparent, removing the stepparent leaves the adoptive set as the birth
+        // parent alone, which the database refuses (it would repeat a birth parent), so that set is removed.
+        for (const kind of LINK_KINDS) {
+          const existing = await getParentageRow(trx, childId, kind);
+          if (!existing) continue;
+          if (existing.parent_id !== null) {
+            if (existing.parent_id !== parentId) continue;
+            await trx.deleteFrom('person_parents').where('child_id', '=', childId).where('kind', '=', kind).execute();
+            return { parentage: null, warnings: [] };
+          }
+          const union = await getUnion(trx, existing.union_id as string);
+          if (!union || (union.partner_a_id !== parentId && union.partner_b_id !== parentId)) continue;
+          const remaining = union.partner_a_id === parentId ? union.partner_b_id : union.partner_a_id;
+          const other = await getParentageRow(trx, childId, kind === 'birth' ? 'adoptive' : 'birth');
+          const otherParents = other ? await parentsOfRow(trx, other) : [];
+          if (otherParents.includes(remaining)) {
+            await trx.deleteFrom('person_parents').where('child_id', '=', childId).where('kind', '=', kind).execute();
+            return { parentage: null, warnings: [] };
+          }
+          await trx
+            .updateTable('person_parents')
+            .set({ union_id: null, parent_id: remaining })
+            .where('child_id', '=', childId)
+            .where('kind', '=', kind)
+            .execute();
+          return { parentage: toParentage({ ...existing, union_id: null, parent_id: remaining }), warnings: [] };
+        }
+        throw notFound('parent_not_found');
+      });
+    },
+  );
 
-        if (existing.parent_id !== null) {
-          if (existing.parent_id !== parentId) throw notFound('parent_not_found');
-          await trx.deleteFrom('person_parents').where('child_id', '=', childId).execute();
-          return { parentage: null, warnings: [] };
-        }
-        const union = await getUnion(trx, existing.union_id as string);
-        if (!union || (union.partner_a_id !== parentId && union.partner_b_id !== parentId)) {
-          throw notFound('parent_not_found');
-        }
-        const remaining = union.partner_a_id === parentId ? union.partner_b_id : union.partner_a_id;
+  // --- change the date of a parent link (admins) ---------------------------------
+  app.patch(
+    '/api/people/:id/parents/:kind',
+    {
+      config: limit,
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id', 'kind'],
+          properties: { id: { type: 'string', maxLength: 64 }, kind: { type: 'string', maxLength: 16 } },
+        },
+        body: { type: 'object', required: ['link'], additionalProperties: false, properties: { link: dateSchema } },
+      },
+    },
+    async (request): Promise<ParentageResponse> => {
+      const { id: childId, kind } = request.params as { id: string; kind: string };
+      const body = request.body as UpdateParentLinkRequest;
+      if (!isUuid(childId)) throw notFound('person_not_found');
+      if (!(LINK_KINDS as readonly string[]).includes(kind)) throw badRequest('invalid_link_kind');
+      return run(request, async (trx, actor) => {
+        if (!isAdmin(actor)) throw forbidden();
+        const link = parseDateInput(body.link);
+        const existing = await getParentageRow(trx, childId, kind as LinkKind);
+        if (!existing) throw notFound('parent_not_found');
         await trx
           .updateTable('person_parents')
-          .set({ union_id: null, parent_id: remaining })
+          .set({ link_date: link?.value ?? null, link_precision: link?.precision ?? 'exactly' })
           .where('child_id', '=', childId)
+          .where('kind', '=', kind as LinkKind)
           .execute();
-        return { parentage: { unionId: null, parentId: remaining }, warnings: [] };
+        return {
+          parentage: toParentage({
+            ...existing,
+            link_date: link?.value ?? null,
+            link_precision: link?.precision ?? 'exactly',
+          }),
+          warnings: [],
+        };
       });
     },
   );
 }
 
-/** A union that exists and has this person as one of its partners. */
+/** The parents in one set of links. */
+async function parentsOfRow(trx: Trx, row: { union_id: string | null; parent_id: string | null }): Promise<string[]> {
+  if (row.parent_id !== null) return [row.parent_id];
+  const union = row.union_id ? await getUnion(trx, row.union_id) : undefined;
+  return union ? [union.partner_a_id, union.partner_b_id] : [];
+}
+
 async function requireUnionWith(trx: Trx, unionId: string, personId: string) {
   if (!isUuid(unionId)) throw notFound('union_not_found');
   const union = await getUnion(trx, unionId);
