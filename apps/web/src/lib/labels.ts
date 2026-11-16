@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { UNION_STATUSES } from '@kinship/shared';
-import type { Gender, MessageKey, UnionStatus } from '@kinship/shared';
+import type { ChildLink, Gender, LinkKind, MessageKey, UnionStatus } from '@kinship/shared';
 import { t } from '../i18n.js';
 
 /**
@@ -29,4 +29,21 @@ export const UNION_STATUS_LIST = UNION_STATUSES;
 export function relativeLabel(kind: 'parent' | 'child' | 'sibling' | 'halfSibling', gender: Gender | null): string {
   const side = gender === 'male' || gender === 'female' ? gender : 'neutral';
   return t(`relative.${kind}.${side}` as MessageKey);
+}
+
+/**
+ * What to call a parent in a list: "Father", or "Adoptive father" and "Birth father" for someone who has both
+ * families (`adopted`). A plain "Father" is only for people with a birth set alone.
+ */
+export function parentLabel(kind: LinkKind, adopted: boolean, gender: Gender | null): string {
+  const side = gender === 'male' || gender === 'female' ? gender : 'neutral';
+  if (kind === 'adoptive') return t(`relative.adoptiveParent.${side}` as MessageKey);
+  return adopted ? t(`relative.birthParent.${side}` as MessageKey) : relativeLabel('parent', gender);
+}
+
+/** What to call a child in a parent's list: "Son", "Adopted son", or "Birth son" for a child who was adopted away. */
+export function childLabel(link: Pick<ChildLink, 'kind' | 'adopted'>, gender: Gender | null): string {
+  const side = gender === 'male' || gender === 'female' ? gender : 'neutral';
+  if (link.kind === 'adoptive') return t(`relative.adoptedChild.${side}` as MessageKey);
+  return link.adopted ? t(`relative.birthChild.${side}` as MessageKey) : relativeLabel('child', gender);
 }

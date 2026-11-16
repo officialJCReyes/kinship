@@ -2,7 +2,7 @@
 //
 // What the Family tree chart does with a tree response besides drawing it: the "family view" of a person
 // (the view the spouse's-family leaf flips to) and what each leaf does when it is clicked.
-import type { Parentage, Person, TreePerson, TreeResponse } from '@kinship/shared';
+import type { LineageView, LinkKind, Parentage, Person, TreePerson, TreeResponse } from '@kinship/shared';
 import { t } from '../i18n.js';
 import { formatYear } from '../lib/dates.js';
 import { personName } from '../lib/people.js';
@@ -72,12 +72,12 @@ export function familyView(tree: TreeResponse, personId: string): TreeResponse {
       for (const id of known) count += tree.people.find((q) => q.id === id)?.ancestorCount ?? 0;
       return { ...p, ancestorCount: count };
     });
-  return { focalId: personId, people, unions, parentage };
+  return { lineage: tree.lineage, focalId: personId, people, unions, parentage };
 }
 
 export type LeafTarget =
-  /** Flip to this person's family view. */
-  | { kind: 'family'; personId: string }
+  /** Flip to this person's family view. `lineage` makes the whole view follow that family (birth or adoptive). */
+  | { kind: 'family'; personId: string; lineage?: LineageView }
   /** Flip back to the main chart. */
   | { kind: 'main' }
   /** Make this person the root of the chart. */
@@ -87,6 +87,8 @@ export interface Leaf {
   personId: string;
   count: number | null;
   target: LeafTarget;
+  /** Set on a second leaf: the family it opens ("birth" or "adoptive"). */
+  family?: LinkKind;
 }
 
 /**
@@ -101,6 +103,8 @@ export function findLeaves(
   rootId: string,
   main: TreeResponse | undefined,
   inFamilyView: boolean,
+  /** The lineage the family view was opened with (it carries on through the whole flip), if any. */
+  override?: LineageView,
 ): Leaf[] {
   const leaves: Leaf[] = [];
   const rootLine = inFamilyView ? new Set<string>() : ancestorsIn(shown, rootId);
@@ -108,7 +112,10 @@ export function findLeaves(
     if (!person.hasParents || shown.parentage[person.id] !== undefined) continue;
     let target: LeafTarget;
     if (inFamilyView) {
-      target = main?.parentage[person.id] !== undefined ? { kind: 'main' } : { kind: 'family', personId: person.id };
+      target =
+        main?.parentage[person.id] !== undefined
+          ? { kind: 'main' }
+          : { kind: 'family', personId: person.id, ...(override ? { lineage: override } : {}) };
     } else {
       target = rootLine.has(person.id)
         ? { kind: 'root', personId: person.id }
@@ -117,6 +124,31 @@ export function findLeaves(
     leaves.push({ personId: person.id, count: person.ancestorCount ?? null, target });
   }
   return leaves;
+}
+
+/**
+ * The second leaf: a person who has a parent set this chart does not follow (an adopted person's birth family in
+ * the adoptive view, or their adoptive family in the birth view). It opens that family. In a family view, if the
+ * main chart already follows that family and draws the person's parents, it flips back instead.
+ */
+export function findOtherLeaves(shown: TreeResponse, main: TreeResponse | undefined, inFamilyView: boolean): Leaf[] {
+  const leaves: Leaf[] = [];
+  for (const person of shown.people) {
+    const other = person.otherFamily;
+    if (!other) continue;
+    const target: LeafTarget =
+      inFamilyView && main?.lineage === other.kind && main.parentage[person.id] !== undefined
+        ? { kind: 'main' }
+        : { kind: 'family', personId: person.id, lineage: other.kind };
+    leaves.push({ personId: person.id, count: other.count, family: other.kind, target });
+  }
+  return leaves;
+}
+
+/** "Show Samuel’s birth family (2 people)". */
+export function otherLeafLabel(person: Pick<Person, 'givenName'>, family: LinkKind, count: number): string {
+  const name = person.givenName;
+  return count === 1 ? t(`tree.other.${family}.one`, { name }) : t(`tree.other.${family}.many`, { name, count });
 }
 
 export function leafLabel(person: Pick<Person, 'givenName' | 'surname'>, count: number | null): string {

@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { AuthUser, Gender, MessageKey, Person, PersonDetail, TreeResponse } from '@kinship/shared';
+import { LINK_KINDS } from '@kinship/shared';
+import type { AuthUser, Gender, LinkKind, MessageKey, Person, PersonDetail, TreeResponse } from '@kinship/shared';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
 import * as api from '../api.js';
 import { ActionButton } from '../components/ActionButton.js';
+import { DateInput } from '../components/DateInput.js';
 import { Dialog } from '../components/Dialog.js';
 import { PersonPicker } from '../components/PersonPicker.js';
 import { SelectField } from '../components/SelectField.js';
 import { t } from '../i18n.js';
+import { emptyDateDraft, draftToInput } from '../lib/dates.js';
+import type { DateDraft } from '../lib/dates.js';
 import { errorMessage, warningTexts } from '../lib/errors.js';
 import { statusName } from '../lib/labels.js';
 import { lifespan, parentIdsOf, peopleById, personName } from '../lib/people.js';
@@ -40,14 +44,25 @@ interface Context {
   me: AuthUser;
 }
 
-/** Which "Add father/mother" cards to offer: only the parents that are missing. */
-export function missingParentCards(detail: PersonDetail, tree: TreeResponse): RelativeKind[] {
-  const parentIds = parentIdsOf(detail.parentage, tree.unions);
-  if (parentIds.length >= 2) return [];
-  const existing = parentIds[0] ? peopleById(tree).get(parentIds[0]) : undefined;
-  if (existing?.gender === 'male') return ['mother'];
-  if (existing?.gender === 'female') return ['father'];
-  return ['father', 'mother'];
+/**
+ * Which "Add father/mother" cards to offer: the parents that are missing. For an admin that is across both sets
+ * (a person with two birth parents can still get adoptive parents); for everyone else, the birth set.
+ */
+export function missingParentCards(detail: PersonDetail, tree: TreeResponse, admin = false): RelativeKind[] {
+  const people = peopleById(tree);
+  const cards = new Set<RelativeKind>();
+  for (const kind of admin ? LINK_KINDS : (['birth'] as const)) {
+    const parentIds = parentIdsOf(detail.parents[kind], tree.unions);
+    if (parentIds.length >= 2) continue;
+    const existing = parentIds[0] ? people.get(parentIds[0]) : undefined;
+    if (existing?.gender === 'male') cards.add('mother');
+    else if (existing?.gender === 'female') cards.add('father');
+    else {
+      cards.add('father');
+      cards.add('mother');
+    }
+  }
+  return (['father', 'mother'] as const).filter((card) => cards.has(card));
 }
 
 function RelativeCard({
@@ -75,10 +90,11 @@ export function AddRelativeDialog({ detail, tree, me, onClose }: Context & { onC
   const [kind, setKind] = useState<RelativeKind | null>(null);
   const person = detail.person;
   const admin = isAdmin(me);
-  const parentCards = missingParentCards(detail, tree);
+  const parentCards = missingParentCards(detail, tree, admin);
   const askAdmin = t('addRelative.askAdmin');
   const adminOnly = admin ? undefined : askAdmin;
-  const siblingReason = adminOnly ?? (detail.parentage ? undefined : t('addRelative.siblingNeedsParent'));
+  const siblingReason =
+    adminOnly ?? (detail.parents.birth || detail.parents.adoptive ? undefined : t('addRelative.siblingNeedsParent'));
   const childReason = admin || detail.permissions.addChild ? undefined : askAdmin;
 
   if (kind) {
@@ -139,6 +155,7 @@ function RelativeForm({
   kind,
   detail,
   tree,
+  me,
   onBack,
   onDone,
 }: Context & { kind: RelativeKind; onBack: () => void; onDone: () => void }) {
@@ -149,7 +166,25 @@ function RelativeForm({
   const isParent = kind === 'father' || kind === 'mother';
   const isChild = kind === 'son' || kind === 'daughter';
   const isPartner = kind === 'partner';
+  const isSibling = kind === 'brother' || kind === 'sister';
   const canPickExisting = isParent || isPartner;
+  const admin = isAdmin(me);
+  const setSize = (which: LinkKind) => parentIdsOf(detail.parents[which], tree.unions).length;
+  // Which kind of parent-child link this adds. Only admins choose; a Member's children are always birth links.
+  const unavailable = (which: LinkKind): string | undefined => {
+    if (isParent && setSize(which) >= 2) return t('link.unavailable.full');
+    if (isSibling && !detail.parents[which]) return t('link.unavailable.none');
+    return undefined;
+  };
+  const [linkKind, setLinkKind] = useState<LinkKind>(() => {
+    if (isSibling) return detail.parents.adoptive ? 'adoptive' : 'birth';
+    if (isParent && setSize('birth') >= 2) return 'adoptive';
+    return 'birth';
+  });
+  const [linkDate, setLinkDate] = useState<DateDraft>(emptyDateDraft);
+  const linkInput = linkKind === 'adoptive' && admin ? draftToInput(linkDate) : null;
+  const chosenSet = detail.parents[linkKind];
+  const chosenKind: LinkKind = admin ? linkKind : 'birth';
 
   const [mode, setMode] = useState<Mode>('new');
   const [draft, setDraft] = useState<PersonDraft>(emptyPersonDraft(GENDER_OF[kind]));
@@ -167,7 +202,7 @@ function RelativeForm({
   const unionChecked = checkUnionDraft(union);
 
   // Adding a second parent to a child who has one: do the two already have a relationship?
-  const singleParentId = isParent ? (detail.parentage?.parentId ?? null) : null;
+  const singleParentId = isParent ? (detail.parents[chosenKind]?.parentId ?? null) : null;
   const existingDetail = usePersonDetail(useExisting && singleParentId && existing ? existing.id : undefined);
   const sharedUnions = (existingDetail.data?.unions ?? []).filter(
     (candidate) => singleParentId !== null && candidate.partnerIds.includes(singleParentId),
@@ -180,22 +215,36 @@ function RelativeForm({
   const run = async (): Promise<Added | null> => {
     if (isChild) {
       if (!input) return null;
-      const result = await api.addChild(person.id, { child: input, ...(otherParent ? { unionId: otherParent } : {}) });
+      if (linkInput === undefined) return null;
+      const result = await api.addChild(person.id, {
+        child: input,
+        ...(otherParent ? { unionId: otherParent } : {}),
+        ...(admin ? { kind: chosenKind, ...(linkInput ? { link: linkInput } : {}) } : {}),
+      });
       return { person: result.person, warnings: result.warnings };
     }
     if (isParent) {
       if (useExisting) {
-        if (!existing || (needsUnionChoice && !chosenUnion)) return null;
+        if (!existing || (needsUnionChoice && !chosenUnion) || linkInput === undefined) return null;
         const result = await api.addParent(person.id, {
           parentId: existing.id,
+          kind: chosenKind,
+          ...(linkInput ? { link: linkInput } : {}),
           ...(chosenUnion ? { unionId: chosenUnion } : {}),
         });
         return { person: existing, warnings: result.warnings };
       }
-      if (!input) return null;
+      if (!input || linkInput === undefined) return null;
       return createThenLink(
         input,
-        async (parent) => (await api.addParent(person.id, { parentId: parent.id })).warnings,
+        async (parent) =>
+          (
+            await api.addParent(person.id, {
+              parentId: parent.id,
+              kind: chosenKind,
+              ...(linkInput ? { link: linkInput } : {}),
+            })
+          ).warnings,
       );
     }
     if (isPartner) {
@@ -210,9 +259,11 @@ function RelativeForm({
       return createThenLink(input, newPartnerLink(person.id, link));
     }
     // A brother or sister: a new person with the same parents.
-    if (!input) return null;
-    const parentIds = parentIdsOf(detail.parentage, tree.unions);
-    return createThenLink(input, (sibling) => linkParents(sibling.id, parentIds, detail.parentage?.unionId ?? null));
+    if (!input || linkInput === undefined) return null;
+    const parentIds = parentIdsOf(chosenSet, tree.unions);
+    return createThenLink(input, (sibling) =>
+      linkParents(sibling.id, parentIds, chosenSet?.unionId ?? null, chosenKind, linkInput),
+    );
   };
 
   const onSubmit = async (event: FormEvent) => {
@@ -243,6 +294,28 @@ function RelativeForm({
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} noValidate>
+      {admin && (isParent || isChild || isSibling) ? (
+        <fieldset className="choice">
+          <legend>{t('link.type')}</legend>
+          {LINK_KINDS.map((which) => (
+            <label key={which} title={unavailable(which)}>
+              <input
+                type="radio"
+                name="link-kind"
+                checked={linkKind === which}
+                disabled={unavailable(which) !== undefined}
+                onChange={() => setLinkKind(which)}
+              />{' '}
+              {t(`link.kind.${which}`)}
+            </label>
+          ))}
+          <p className="muted field-help">{t('link.typeHelp')}</p>
+        </fieldset>
+      ) : null}
+      {admin && linkKind === 'adoptive' && (isParent || isChild || isSibling) ? (
+        <DateInput label={t('link.date.adoptive')} draft={linkDate} onChange={setLinkDate} showError={submitted} />
+      ) : null}
+
       {canPickExisting ? (
         <fieldset className="choice">
           <legend>{t('addRelative.who')}</legend>
@@ -266,7 +339,7 @@ function RelativeForm({
               setExisting(value);
               setChosenUnion('');
             }}
-            excludeIds={[person.id, ...parentIdsOf(detail.parentage, tree.unions)]}
+            excludeIds={[person.id, ...parentIdsOf(detail.parents[chosenKind], tree.unions)]}
           />
           {submitted && !existing ? (
             <div className="field-error" role="alert">

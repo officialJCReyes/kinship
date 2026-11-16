@@ -2,8 +2,12 @@
 // A small fictional family (the Hales) and the API answers for it, for the people screens' tests.
 import type {
   AuthUser,
+  ChildLink,
   Gender,
+  LineageView,
+  LinkKind,
   Parentage,
+  ParentSets,
   Person,
   PersonDetail,
   PersonPermissions,
@@ -49,6 +53,11 @@ export const PEOPLE: Person[] = [
   person('femi', 'Femi', 'Okafor', 'male', '1960'),
   person('nora', 'Nora', 'Okafor', 'female', '1962'),
   person('ade', 'Ade', 'Okafor', 'male', '1930', '2001'),
+  person('samuel', 'Samuel', 'Hale', 'male', '1936'),
+  person('joseph', 'Joseph', 'Hale', 'male', '1905'),
+  person('anna', 'Anna', 'Hale', 'female', '1908'),
+  person('frank', 'Frank', 'Doyle', 'male', '1910'),
+  person('ruth', 'Ruth', 'Doyle', 'female', '1912'),
 ];
 
 function union(
@@ -76,6 +85,8 @@ export const UNIONS: Union[] = [
   union('u2', 'daniel', 'priya', 'divorced', '1993', '1998-03-09'),
   union('u3', 'femi', 'nora', 'married', '1985'),
   union('u4', 'lena', 'sofia', 'engaged', '2024'),
+  union('u5', 'anna', 'joseph', 'married', '1930'),
+  union('u6', 'frank', 'ruth', 'married', '1932'),
 ];
 
 /** Where each child hangs from. */
@@ -87,11 +98,25 @@ export const PARENTAGE: Record<string, { unionId?: string; parentId?: string }> 
   ben: { parentId: 'daniel' },
   lena: { unionId: 'u3' },
   femi: { parentId: 'ade' },
+  samuel: { unionId: 'u6' },
 };
 
-function parentageOf(id: string): Parentage | null {
-  const row = PARENTAGE[id];
-  return row ? { unionId: row.unionId ?? null, parentId: row.parentId ?? null } : null;
+/** Adoptive sets: Samuel was adopted in 1938 by Joseph and Anna. */
+export const ADOPTIVE: Record<string, { unionId?: string; parentId?: string; link?: string }> = {
+  samuel: { unionId: 'u5', link: '1938' },
+};
+
+function parentageOf(id: string, kind: LinkKind = 'birth'): Parentage | null {
+  const row = (kind === 'birth' ? PARENTAGE : ADOPTIVE)[id];
+  if (!row) return null;
+  const when = (row as { link?: string }).link;
+  const link = when ? { value: when, precision: 'exactly' as const } : null;
+  return { unionId: row.unionId ?? null, parentId: row.parentId ?? null, kind, link };
+}
+
+/** The set a chart follows for a child in this view (the rule of kinship_effective_kind). */
+function followedKind(id: string, view: LineageView): LinkKind {
+  return view === 'adoptive' && ADOPTIVE[id] ? 'adoptive' : 'birth';
 }
 
 export const ADMIN: AuthUser = {
@@ -100,6 +125,7 @@ export const ADMIN: AuthUser = {
   displayName: 'Ada Admin',
   role: 'superadmin',
   personId: null,
+  lineageView: 'adoptive',
 };
 export const MEMBER: AuthUser = {
   id: 'u-member',
@@ -107,6 +133,7 @@ export const MEMBER: AuthUser = {
   displayName: 'Marcus Hale',
   role: 'member',
   personId: 'marcus',
+  lineageView: 'adoptive',
 };
 export const READER: AuthUser = {
   id: 'u-user',
@@ -114,6 +141,7 @@ export const READER: AuthUser = {
   displayName: 'Rae Reader',
   role: 'user',
   personId: null,
+  lineageView: 'adoptive',
 };
 
 /** What the API would say a signed-in account may do with a person (a Member: themselves only, here). */
@@ -123,50 +151,75 @@ export function permissionsFor(me: AuthUser, id: string): PersonPermissions {
   return { edit: false, delete: false, addChild: false };
 }
 
+const childLink = (child: string, kind: LinkKind): ChildLink => ({
+  id: child,
+  kind,
+  link: parentageOf(child, kind)?.link ?? null,
+  adopted: ADOPTIVE[child] !== undefined,
+});
+
+/** Every child hanging from this union or this single parent, by either kind of link. */
+function childrenOf(match: { unionId?: string; parentId?: string }): ChildLink[] {
+  const out: ChildLink[] = [];
+  for (const kind of ['birth', 'adoptive'] as const) {
+    const table = kind === 'birth' ? PARENTAGE : ADOPTIVE;
+    for (const [child, row] of Object.entries(table)) {
+      if (match.unionId ? row.unionId === match.unionId : row.parentId === match.parentId)
+        out.push(childLink(child, kind));
+    }
+  }
+  return out;
+}
+
 export function detailFor(me: AuthUser, id: string): PersonDetail {
   const found = PEOPLE.find((p) => p.id === id);
   if (!found) throw new Error(`no such person ${id}`);
+  const parents: ParentSets = { birth: parentageOf(id, 'birth'), adoptive: parentageOf(id, 'adoptive') };
   return {
     person: found,
-    parentage: parentageOf(id),
+    parents,
     unions: UNIONS.filter((u) => u.partnerIds.includes(id)).map((u) => ({
       ...u,
-      childIds: Object.entries(PARENTAGE)
-        .filter(([, row]) => row.unionId === u.id)
-        .map(([child]) => child),
+      children: childrenOf({ unionId: u.id }),
     })),
-    singleParentChildIds: Object.entries(PARENTAGE)
-      .filter(([, row]) => row.parentId === id)
-      .map(([child]) => child),
+    singleParentChildren: childrenOf({ parentId: id }),
     permissions: permissionsFor(me, id),
     hasAccount: me.personId === id,
   };
 }
 
-const parentsOfPerson = (id: string): string[] => {
-  const row = PARENTAGE[id];
+const parentsOfPerson = (id: string, view: LineageView): string[] => {
+  const row = (followedKind(id, view) === 'adoptive' ? ADOPTIVE : PARENTAGE)[id];
   if (!row) return [];
   if (row.parentId) return [row.parentId];
   return [...(UNIONS.find((u) => u.id === row.unionId)?.partnerIds ?? [])];
 };
-const childrenOfPerson = (id: string): string[] =>
-  Object.keys(PARENTAGE).filter((child) => parentsOfPerson(child).includes(id));
+const childrenOfPerson = (id: string, view: LineageView): string[] =>
+  PEOPLE.map((p) => p.id).filter((child) => parentsOfPerson(child, view).includes(id));
 
 /**
  * What GET /api/tree/:id answers, by the API's own rules: `up` generations of ancestors, `down` of descendants,
  * with collateral the other descendants of the topmost ancestors, everyone's partners, only relationships with both
- * partners drawn, parent links only when their parents are drawn, and for a person whose parents are not drawn
- * (a leaf) the number of known ancestors.
+ * partners drawn, each child following ONE set of parents (the adoptive set if there is one, in the adoptive view;
+ * the birth set only in the birth view), parent links only when their parents are drawn, a count of known ancestors
+ * for a person whose parents are not drawn (a leaf), and `otherFamily` for a person who has a set the view does not
+ * follow.
  */
 export function treeFor(
   focalId: string,
-  { up = 3, down = 2, collateral = false }: { up?: number; down?: number; collateral?: boolean } = {},
+  {
+    up = 3,
+    down = 2,
+    collateral = false,
+    lineage = 'adoptive',
+  }: { up?: number; down?: number; collateral?: boolean; lineage?: LineageView } = {},
 ): TreeResponse {
+  const view = lineage;
   const ids = new Set<string>([focalId]);
   const depth = new Map<string, number>([[focalId, 0]]);
   let layer = [focalId];
   for (let d = 1; d <= up; d += 1) {
-    layer = layer.flatMap(parentsOfPerson);
+    layer = layer.flatMap((id) => parentsOfPerson(id, view));
     for (const id of layer) {
       ids.add(id);
       depth.set(id, d);
@@ -175,14 +228,14 @@ export function treeFor(
   const walkDown = (from: string[], levels: number) => {
     let current = from;
     for (let d = 0; d < levels; d += 1) {
-      current = current.flatMap(childrenOfPerson);
+      current = current.flatMap((id) => childrenOfPerson(id, view));
       for (const id of current) ids.add(id);
     }
   };
   walkDown([focalId], down);
   if (collateral) {
     for (const [id, d] of depth) {
-      if (d === up || parentsOfPerson(id).length === 0) walkDown([id], d + down);
+      if (d === up || parentsOfPerson(id, view).length === 0) walkDown([id], d + down);
     }
   }
   const core = [...ids];
@@ -192,32 +245,45 @@ export function treeFor(
   const unions = UNIONS.filter((u) => u.partnerIds.every((p) => ids.has(p)));
   const unionIds = new Set(unions.map((u) => u.id));
   const parentage: Record<string, Parentage> = {};
-  for (const child of Object.keys(PARENTAGE)) {
+  for (const child of PEOPLE.map((p) => p.id)) {
     if (!ids.has(child)) continue;
-    const row = PARENTAGE[child]!;
-    if (row.unionId ? unionIds.has(row.unionId) : ids.has(row.parentId!)) parentage[child] = parentageOf(child)!;
+    const kind = followedKind(child, view);
+    const row = (kind === 'adoptive' ? ADOPTIVE : PARENTAGE)[child];
+    if (!row) continue;
+    if (row.unionId ? unionIds.has(row.unionId) : ids.has(row.parentId!)) parentage[child] = parentageOf(child, kind)!;
   }
-  const ancestorsOf = (id: string): Set<string> => {
+  const ancestorsOf = (starts: string[]): Set<string> => {
     const seen = new Set<string>();
-    const stack = parentsOfPerson(id);
+    const stack = [...starts];
     while (stack.length > 0) {
       const next = stack.pop()!;
       if (!seen.has(next)) {
         seen.add(next);
-        stack.push(...parentsOfPerson(next));
+        stack.push(...parentsOfPerson(next, view));
       }
     }
     return seen;
   };
   const people = PEOPLE.filter((p) => ids.has(p.id)).map((p) => {
-    const hasParents = PARENTAGE[p.id] !== undefined;
+    const hasParents = parentsOfPerson(p.id, view).length > 0;
+    const followed = followedKind(p.id, view);
+    const otherKind: LinkKind = followed === 'adoptive' ? 'birth' : 'adoptive';
+    const otherRow = (otherKind === 'adoptive' ? ADOPTIVE : PARENTAGE)[p.id];
+    const otherParents = otherRow
+      ? otherRow.parentId
+        ? [otherRow.parentId]
+        : [...(UNIONS.find((u) => u.id === otherRow.unionId)?.partnerIds ?? [])]
+      : [];
     return {
       ...p,
       hasParents,
-      ...(hasParents && parentage[p.id] === undefined ? { ancestorCount: ancestorsOf(p.id).size } : {}),
+      ...(hasParents && parentage[p.id] === undefined
+        ? { ancestorCount: ancestorsOf(parentsOfPerson(p.id, view)).size }
+        : {}),
+      ...(otherRow ? { otherFamily: { kind: otherKind, count: ancestorsOf(otherParents).size } } : {}),
     };
   });
-  return { focalId, people, unions, parentage };
+  return { lineage, focalId, people, unions, parentage };
 }
 
 /** Routes for a signed-in account over the Hale family. Add more (or override) with `extra`. */
@@ -240,6 +306,7 @@ export function haleRoutes(me: AuthUser, extra: Record<string, MockRoute> = {}):
         up: Number(url.searchParams.get('up') ?? 3),
         down: Number(url.searchParams.get('down') ?? 2),
         collateral: url.searchParams.get('collateral') === 'true',
+        lineage: (url.searchParams.get('lineage') as LineageView | null) ?? me.lineageView,
       }),
     };
   };

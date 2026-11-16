@@ -121,7 +121,7 @@ describe('siblingsOf', () => {
   });
   it('treats two children of the same single parent as full siblings, and nobody as a sibling without parents', () => {
     const tree = treeFor('ben', { up: 1, down: 1, collateral: true });
-    tree.parentage['x'] = { unionId: null, parentId: 'daniel' };
+    tree.parentage['x'] = { unionId: null, parentId: 'daniel', kind: 'birth', link: null };
     tree.people.push({ ...tree.people[0]!, id: 'x', hasParents: true });
     expect(siblingsOf(tree, 'ben').full.map((p) => p.id)).toEqual(['x']);
     expect(siblingsOf(tree, 'walter')).toEqual({ full: [], half: [] });

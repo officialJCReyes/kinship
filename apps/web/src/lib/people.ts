@@ -53,3 +53,16 @@ export function siblingsOf(tree: TreeResponse | undefined, personId: string): Si
   result.half.sort(byName);
   return result;
 }
+
+/**
+ * Two responses about the same person, one per lineage view, as one: everyone and every relationship either knows.
+ * Used by the profile, which lists both families. `parentage` is the first response's (the viewer's own).
+ */
+export function mergeTrees(mine: TreeResponse, other: TreeResponse | undefined): TreeResponse {
+  if (!other) return mine;
+  const people = new Map(mine.people.map((p) => [p.id, p]));
+  for (const p of other.people) if (!people.has(p.id)) people.set(p.id, p);
+  const unions = new Map(mine.unions.map((u) => [u.id, u]));
+  for (const u of other.unions) if (!unions.has(u.id)) unions.set(u.id, u);
+  return { ...mine, people: [...people.values()], unions: [...unions.values()] };
+}

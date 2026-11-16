@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { keepPreviousData, queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { LineageView } from '@kinship/shared';
 import * as api from '../api.js';
 
 /** Everything people-related is cached under 'people', so one call refreshes it all after a change. */
@@ -24,11 +25,12 @@ export function usePersonDetail(id: string | undefined) {
 }
 
 /** Parents, partners, children and siblings, with names, in one request. */
-export function useFamilyAround(id: string | undefined) {
+export function useFamilyAround(id: string | undefined, lineage?: LineageView, enabled = true) {
   return useQuery({
-    queryKey: [...peopleKey, 'around', id],
-    queryFn: ({ signal }) => api.fetchTree(id ?? '', { up: 1, down: 1, collateral: true }, signal),
-    enabled: id !== undefined,
+    queryKey: [...peopleKey, 'around', id, lineage ?? 'mine'],
+    queryFn: ({ signal }) =>
+      api.fetchTree(id ?? '', { up: 1, down: 1, collateral: true, ...(lineage ? { lineage } : {}) }, signal),
+    enabled: id !== undefined && enabled,
   });
 }
 
@@ -49,9 +51,10 @@ export function chartQuery(id: string) {
   });
 }
 
-export function familyQuery(id: string) {
+/** A spouse's (or adopted person's) family view. `lineage` overrides the viewer's own setting for the whole view. */
+export function familyQuery(id: string, lineage?: LineageView) {
   return queryOptions({
-    queryKey: [...peopleKey, 'family', id],
-    queryFn: ({ signal }) => api.fetchTree(id, FAMILY_SHAPE, signal),
+    queryKey: [...peopleKey, 'family', id, lineage ?? 'mine'],
+    queryFn: ({ signal }) => api.fetchTree(id, { ...FAMILY_SHAPE, ...(lineage ? { lineage } : {}) }, signal),
   });
 }

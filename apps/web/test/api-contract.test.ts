@@ -38,11 +38,12 @@ describe('the web API client and the shared route table', () => {
     await api.addChild('p1', { child: person });
     await api.addParent('p1', { parentId: 'p2' });
     await api.removeParent('p1', 'p2');
+    await api.updateParentLink('p1', 'adoptive', { link: { value: '1938' } });
     await api.createUnion({ partnerIds: ['a', 'b'], status: 'married' });
     await api.updateUnion('u1', { status: 'divorced' });
     await api.deleteUnion('u1');
 
-    expect(seen).toHaveLength(12);
+    expect(seen).toHaveLength(13);
     for (const call of seen) {
       expect(
         PEOPLE_ROUTES.some((route) => matches(route, call.method, call.path)),

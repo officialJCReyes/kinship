@@ -11,7 +11,8 @@ import { canEditUnion, isAdmin } from '../people/permissions.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
 import { useFamilyAround, usePersonDetail } from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
-import { initials } from './family.js';
+import { initials, otherLeafLabel } from './family.js';
+import type { Leaf } from './family.js';
 import { recallPanelCollapsed, rememberPanelCollapsed } from './remember.js';
 
 type Open = { kind: 'edit' } | { kind: 'add' } | { kind: 'union'; union: UnionWithChildren } | null;
@@ -21,10 +22,15 @@ export function TreePanel({
   personId,
   fallback,
   me,
+  otherFamily,
+  onOpenOther,
 }: {
   personId: string;
   fallback: Person | undefined;
   me: AuthUser;
+  /** The selected person's other family (birth or adoptive), if they have one: the keyboard path to the second leaf. */
+  otherFamily?: Leaf | undefined;
+  onOpenOther?: (leaf: Leaf) => void;
 }) {
   const [collapsed, setCollapsed] = useState(recallPanelCollapsed);
   const [open, setOpen] = useState<Open>(null);
@@ -111,6 +117,16 @@ export function TreePanel({
               {t('profile.addRelative')}
             </ActionButton>
           </div>
+          {otherFamily?.family && onOpenOther ? (
+            <button
+              className="button"
+              type="button"
+              aria-label={otherLeafLabel(person, otherFamily.family, otherFamily.count ?? 0)}
+              onClick={() => onOpenOther(otherFamily)}
+            >
+              {t(`tree.panel.otherFamily.${otherFamily.family}`)}
+            </button>
+          ) : null}
           <h3 className="panel-heading">{t('tree.panel.partners')}</h3>
           {!d ? (
             <p className="muted" role="status">

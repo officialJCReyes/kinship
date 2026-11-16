@@ -17,8 +17,8 @@ function family(spec: Spec): LayoutInput {
   const parentage: Record<string, Parentage> = {};
   for (const [child, from] of Object.entries(spec.kids ?? {})) {
     parentage[child] = from.startsWith('p:')
-      ? { unionId: null, parentId: from.slice(2) }
-      : { unionId: from, parentId: null };
+      ? { unionId: null, parentId: from.slice(2), kind: 'birth', link: null }
+      : { unionId: from, parentId: null, kind: 'birth', link: null };
   }
   return {
     focalId: spec.focal ?? spec.people[0]![0],

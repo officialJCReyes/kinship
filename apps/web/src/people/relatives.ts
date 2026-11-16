@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { ApiWarning, Person, PersonInput, UnionInput } from '@kinship/shared';
+import type { ApiWarning, LinkKind, PartialDateInput, Person, PersonInput, UnionInput } from '@kinship/shared';
 import * as api from '../api.js';
 
 /** A person was created but linking them failed, and removing them again failed too. */
@@ -47,10 +47,13 @@ export async function linkParents(
   childId: string,
   parentIds: readonly string[],
   unionId: string | null,
+  kind: LinkKind = 'birth',
+  link: PartialDateInput | null = null,
 ): Promise<ApiWarning[]> {
   const warnings: ApiWarning[] = [];
   for (const [index, parentId] of parentIds.entries()) {
-    const request = index > 0 && unionId ? { parentId, unionId } : { parentId };
+    const base = { parentId, kind, ...(link ? { link } : {}) };
+    const request = index > 0 && unionId ? { ...base, unionId } : base;
     warnings.push(...(await api.addParent(childId, request)).warnings);
   }
   return warnings;
