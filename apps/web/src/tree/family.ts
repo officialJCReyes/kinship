@@ -164,7 +164,7 @@ export function nodeLabel(person: Person): string {
   const died = formatYear(person.death);
   if (born) parts.push(t('tree.node.born', { year: born }));
   if (person.deceased) parts.push(died ? t('tree.node.died', { year: died }) : t('tree.node.deceased'));
-  if (person.gender) parts.push(t(`tree.gender.${person.gender}`));
+  parts.push(t(`tree.gender.${person.gender ?? 'unknown'}`));
   return parts.join(t('tree.node.separator'));
 }
 
@@ -172,11 +172,4 @@ export function initials(person: Pick<Person, 'givenName' | 'surname' | 'secondS
   const first = Array.from(person.givenName.trim())[0] ?? '';
   const last = Array.from(displaySurname(person).trim())[0] ?? '';
   return `${first}${last}`.toUpperCase();
-}
-
-/** Names longer than this are cut with an ellipsis; the full name is in the tooltip. */
-export const NAME_MAX = 17;
-export function shortName(name: string, max = NAME_MAX): string {
-  const chars = Array.from(name);
-  return chars.length > max ? `${chars.slice(0, max - 1).join('')}…` : name;
 }

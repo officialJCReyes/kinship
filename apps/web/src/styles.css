@@ -1196,23 +1196,6 @@ main.tree-main {
   font: 12px var(--body);
 }
 
-.tnode .glyph {
-  fill: none;
-  stroke: var(--g-other);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
-
-.tnode.male .glyph {
-  stroke: var(--g-male);
-}
-
-.tnode.female .glyph {
-  stroke: var(--g-female);
-}
-
 /* The spouse's-family leaf, in the logo's green. */
 .leaf {
   cursor: pointer;

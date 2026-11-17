@@ -212,3 +212,93 @@ describe('theme-init.js and styles.css agree', () => {
     }
   });
 });
+
+// The border of a tree card is the only sign of gender (no icon), so the three border colors must tell apart from each
+// other, and the selected-state ring (the scheme's accent) from the border it surrounds. Measured as CIEDE2000, the
+// usual colour-difference formula: about 10 is "clearly different at a glance", 2 is "only just".
+function lab(hex: string): [number, number, number] {
+  const lin = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [1, 3, 5].map((i) => lin(Number.parseInt(hex.slice(i, i + 2), 16) / 255)) as [
+    number,
+    number,
+    number,
+  ];
+  const x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047;
+  const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883;
+  const f = (v: number) => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+}
+export function deltaE2000(a: string, b: string): number {
+  const [L1, a1, b1] = lab(a);
+  const [L2, a2, b2] = lab(b);
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const Cb = (Math.hypot(a1, b1) + Math.hypot(a2, b2)) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Cb ** 7 / (Cb ** 7 + 25 ** 7)));
+  const ap1 = (1 + G) * a1;
+  const ap2 = (1 + G) * a2;
+  const Cp1 = Math.hypot(ap1, b1);
+  const Cp2 = Math.hypot(ap2, b2);
+  const hue = (y: number, x: number) => ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+  const h1 = hue(b1, ap1);
+  const h2 = hue(b2, ap2);
+  let dh = h2 - h1;
+  if (dh > 180) dh -= 360;
+  else if (dh < -180) dh += 360;
+  const dH = 2 * Math.sqrt(Cp1 * Cp2) * Math.sin(rad(dh) / 2);
+  const Lb = (L1 + L2) / 2;
+  const Cpb = (Cp1 + Cp2) / 2;
+  const hb = Math.abs(h1 - h2) > 180 ? (h1 + h2 + (h1 + h2 < 360 ? 360 : -360)) / 2 : (h1 + h2) / 2;
+  const T =
+    1 -
+    0.17 * Math.cos(rad(hb - 30)) +
+    0.24 * Math.cos(rad(2 * hb)) +
+    0.32 * Math.cos(rad(3 * hb + 6)) -
+    0.2 * Math.cos(rad(4 * hb - 63));
+  const Rc = 2 * Math.sqrt(Cpb ** 7 / (Cpb ** 7 + 25 ** 7));
+  const Sl = 1 + (0.015 * (Lb - 50) ** 2) / Math.sqrt(20 + (Lb - 50) ** 2);
+  const Sc = 1 + 0.045 * Cpb;
+  const Sh = 1 + 0.015 * Cpb * T;
+  const Rt = -Math.sin(rad(2 * 30 * Math.exp(-(((hb - 275) / 25) ** 2)))) * Rc;
+  const dLs = (L2 - L1) / Sl;
+  const dCs = (Cp2 - Cp1) / Sc;
+  const dHs = dH / Sh;
+  return Math.sqrt(dLs ** 2 + dCs ** 2 + dHs ** 2 + Rt * dCs * dHs);
+}
+
+/** The selected ring against the border it surrounds, below 15, found and reported (not changed): see the PR. */
+const KNOWN_RING_CLOSE: Record<string, number> = {
+  'sand dark ring vs --g-other': 14,
+  'slate light ring vs --g-male': 13,
+  'slate dark ring vs --g-male': 4,
+};
+
+describe('the card border colors in all 8 scheme and theme combinations', () => {
+  for (const scheme of COLOR_SCHEMES) {
+    for (const mode of MODES) {
+      it(`${scheme} ${mode}: male, female and other/unknown differ from each other`, () => {
+        const t = tokensFor(scheme, mode);
+        for (const [a, b] of [
+          ['g-male', 'g-female'],
+          ['g-male', 'g-other'],
+          ['g-female', 'g-other'],
+        ] as const) {
+          expect(deltaE2000(t[a]!, t[b]!), `--${a} vs --${b}`).toBeGreaterThanOrEqual(20);
+        }
+      });
+
+      it(`${scheme} ${mode}: the selected ring differs from each border (apart from the known, reported ones)`, () => {
+        const t = tokensFor(scheme, mode);
+        const close: Record<string, number> = {};
+        for (const border of ['g-male', 'g-female', 'g-other']) {
+          const d = deltaE2000(t['accent']!, t[border]!);
+          if (d < 15) close[`${scheme} ${mode} ring vs --${border}`] = Math.round(d);
+        }
+        const mine = Object.fromEntries(
+          Object.entries(KNOWN_RING_CLOSE).filter(([id]) => id.startsWith(`${scheme} ${mode} `)),
+        );
+        expect(close).toEqual(mine);
+      });
+    }
+  }
+});

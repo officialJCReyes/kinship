@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { Parentage, UnionStatus } from '@kinship/shared';
 import { describe, expect, it } from 'vitest';
-import { layoutTree, NODE_W, PITCH } from '../src/tree/layout.js';
+import { layoutTree, NODE_H, NODE_W, PITCH } from '../src/tree/layout.js';
 import type { Layout, LayoutInput } from '../src/tree/layout.js';
 
 // A tiny way to write a family down: people by id (with a birth year), relationships, and who hangs from what.
@@ -149,7 +149,7 @@ describe('the Hale family', () => {
     const link = layout.links.find((l) => l.parentId === 'beatriz')!;
     expect(link.childIds).toEqual(['tomas']);
     expect(x(layout, 'tomas')).toBeGreaterThan(x(layout, 'gabriel'));
-    expect(link.d.startsWith(`M${x(layout, 'beatriz')} ${layout.byId.get('beatriz')!.y + 58}`)).toBe(true);
+    expect(link.d.startsWith(`M${x(layout, 'beatriz')} ${layout.byId.get('beatriz')!.y + NODE_H}`)).toBe(true);
   });
 
   it("draws a partner's own son from before (Tomas) under her, beside the child of her marriage", () => {

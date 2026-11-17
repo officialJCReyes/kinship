@@ -4,6 +4,11 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Changed
+
+- **Tree cards show the whole name.** Every card is now the same size, with room for three lines of name; a long name wraps and, if it still does not fit, gets a smaller type size instead of being cut with "…". The male and female icon is gone: the border colour (blue, orange, grey for other or unknown) is the only sign, and the sex is still in the card's name for screen readers. The legend reads "Other or unknown".
+- **The person panel shows the birth surname** when a married surname is the one shown ("Birth surname: Ruiz").
+
 ## [0.2.0-rc.1] - 2026-11-17
 
 **A release candidate for 0.2.0, "A tree you can trust". The data promise starts here:** upgrades keep your data, and a safety copy is made before each database change. Read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before upgrading from an alpha: it needs a backups folder and a backup passphrase first. Release candidates are offered by the in-app update check only when "Include pre-releases" is on.

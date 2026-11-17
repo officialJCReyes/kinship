@@ -150,6 +150,47 @@ test('keyboard: one tab stop, arrows move between people, Enter selects', async 
   await expect.poll(() => page.locator('.tree-canvas > svg > g').getAttribute('transform')).not.toBe(before);
 });
 
+test('cards are one size, show the whole name, and show sex by border colour alone, in every colour scheme', async ({
+  adminPage: page,
+}) => {
+  // A long name and no gender, no birth date (an unknown-sex card is grey), in the same family.
+  const given = 'Nova Estelle Octavia';
+  const long = await createChild(
+    page.request,
+    daniel.id,
+    { givenName: given, surname: `${family}-Fernandez` },
+    unions.elena,
+  );
+  await page.goto(`/tree/${daniel.id}`);
+  const card = page.locator(`[data-node="${long.id}"]`);
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAccessibleName(`${given} ${family}-Fernandez, unknown`);
+  await expect(card.locator('title')).toHaveText(`${given} ${family}-Fernandez`);
+  // no sex icon anywhere, and the whole name is there (up to three lines, no ellipsis)
+  await expect(page.locator('.tnode .glyph')).toHaveCount(0);
+  const text = (await card.locator('.name tspan').allTextContents()).join(' ').replace(/- /g, '-');
+  expect(text).toBe(`${given} ${family}-Fernandez`);
+  expect(await card.locator('.name tspan').count()).toBeLessThanOrEqual(3);
+  // every card is the same size
+  const heights = await page.locator('.tnode .box').evaluateAll((boxes) => boxes.map((b) => b.getAttribute('height')));
+  expect(new Set(heights).size).toBe(1);
+  // The border colour tells the sex, and it differs in all four schemes, light and dark.
+  const border = (id: string) => page.locator(`[data-node="${id}"] .box`).evaluate((b) => getComputedStyle(b).stroke);
+  for (const scheme of ['forest', 'sand', 'slate', 'graphite']) {
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(
+        ([s, t]) => {
+          document.documentElement.dataset['scheme'] = s;
+          document.documentElement.dataset['theme'] = t;
+        },
+        [scheme!, theme],
+      );
+      const colours = [await border(daniel.id), await border(sofia.id), await border(long.id)];
+      expect(new Set(colours).size, `${scheme} ${theme}: ${colours.join(' | ')}`).toBe(3);
+    }
+  }
+});
+
 test('an account linked to nobody is asked who to start from', async ({ page, adminApi }) => {
   const who = { email: `viewer-${uniq()}@hale.example`, name: 'Vera' };
   const account = await createAccount(adminApi, {
