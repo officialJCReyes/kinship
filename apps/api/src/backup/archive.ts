@@ -54,6 +54,8 @@ export interface BackupContext {
   now?: () => Date;
   /** The media files to include. Defaults to the real list (none in 0.2). */
   files?: () => Promise<MediaFile[]>;
+  /** Free bytes in a folder. Only tests replace it. */
+  freeBytes?: (dir: string) => number;
 }
 
 // ---- names ----
@@ -214,10 +216,11 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
           conn,
         );
         const need = Number(size.rows[0]?.bytes ?? 0);
-        if (freeBytes(dir) < need) {
+        const free = (ctx.freeBytes ?? freeBytes)(dir);
+        if (free < need) {
           throw new BackupError(
             'disk_space',
-            `Not enough free space in ${dir}: the database is ${need} bytes and the folder has ${freeBytes(dir)} free.`,
+            `Not enough free space in ${dir}: the database is ${need} bytes and the folder has ${free} free.`,
           );
         }
 
@@ -327,11 +330,13 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
     });
   } catch (error) {
     if (error instanceof BackupError) throw error;
-    if (error instanceof ToolError)
-      throw new BackupError('tool', clean(error.message, [config.db.ownerPassword, passphrase]), { cause: error });
+    if (error instanceof ToolError) {
+      const message = clean(error.message, [config.db.ownerPassword, passphrase]);
+      throw new BackupError(/ENOSPC|No space left/i.test(message) ? 'disk_space' : 'tool', message, { cause: error });
+    }
     const reason = error instanceof Error ? error.message : String(error);
     throw new BackupError(
-      /ENOSPC/.test(reason) ? 'disk_space' : 'tool',
+      /ENOSPC|No space left/i.test(reason) ? 'disk_space' : 'tool',
       clean(reason, [config.db.ownerPassword, passphrase]),
       { cause: error },
     );

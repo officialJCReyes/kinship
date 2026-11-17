@@ -7,6 +7,8 @@ import { createAppDb, createOwnerDb } from './db.js';
 import { runMigrations } from './migrations/runner.js';
 import { ensureAppRole } from './migrations/roles.js';
 import { readVersion } from './version.js';
+import { backupHousekeeping, createScheduler } from './backup/scheduler.js';
+import { toolsFromEnv } from './backup/tools.js';
 
 function log(message: string): void {
   console.log(JSON.stringify({ level: 'info', time: Date.now(), msg: message }));
@@ -51,8 +53,21 @@ async function main(): Promise<void> {
     sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
   });
 
+  // Built-in backups: the schedule runs in this process. It needs a usable passphrase; without one it stays off (see above).
+  const backupCtx = {
+    config,
+    tools: toolsFromEnv(),
+    appVersion: version.version,
+    log: (level: 'info' | 'warn' | 'error', message: string, fields?: Record<string, unknown>) =>
+      console.log(JSON.stringify({ level, time: Date.now(), msg: message, ...fields })),
+  };
+  void backupHousekeeping(backupCtx);
+  const scheduler = createScheduler(backupCtx);
+  scheduler.start();
+
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`${signal} received, shutting down`);
+    scheduler.stop();
     stopCleanup();
     await app.close();
     await db.destroy();
