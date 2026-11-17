@@ -959,6 +959,7 @@ export const en = {
   'updates.whatsNew.safetyNone.break_glass':
     'No safety copy was made: it was skipped on purpose (KINSHIP_SAFETY_COPY=skip).',
   'updates.whatsNew.checkNow': 'Check this now',
+  'updates.whatsNew.downTitle': 'KinShip went back to an earlier version',
   'updates.whatsNew.down':
     'KinShip is now version {to}; before it was {from}. This happens when an older backup is restored. Nothing here changes your data.',
   'updates.whatsNew.restored': 'An older backup was restored (KinShip {from} to {to}).',
@@ -981,6 +982,18 @@ export const en = {
   'updates.mismatch.unknownVersion': 'unknown',
   'about.webApiDiffer': 'The web ({web}) and the api ({api}) are on different versions.',
   'about.whatsNew': 'What’s new',
+
+  'error.updates_off': 'Update checks are off. Turn on “Check for new versions” first.',
+  'error.update_check_busy': 'A check is already running.',
+  'error.invalid_update_setting': 'That setting must be on or off.',
+  'error.version_mismatch': 'The web and the api are on different versions.',
+  'error.invalid_version': 'That is not a version.',
+  'updates.version.nextCheck': 'Next check',
+  'updates.banner.region': 'Update notice',
+  'updates.backup.ago': '{age} ago',
+  'updates.settings.failed': 'Could not save the setting.',
+  'updates.popup.noReleases': 'There is nothing newer than this version.',
+  'updates.popup.copyFailed': 'Could not copy. Select the text and copy it.',
 
   'notFound.title': 'Page not found',
   'notFound.body': 'There is nothing at this address.',

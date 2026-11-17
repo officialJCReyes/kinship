@@ -110,3 +110,54 @@ export function computeWhatsNew(input: {
   }
   return { ...none, restore: null };
 }
+
+/**
+ * The latest update, whatever this admin has already seen (About KinShip > What's new): the running version's own section (or
+ * the newest one that is not newer than it), the database change that brought it, and its breaking-change instructions.
+ */
+export function computeLatest(input: { running: string; log: LogRow[]; docs: BundledDocs }): WhatsNewResponse {
+  const { running, log, docs } = input;
+  const runningSemver = parseSemver(running);
+  const releaseUrl = releasePageUrl(running);
+  const best = docs.changelog
+    .map((section) => ({ section, parsed: parseSemver(section.version) }))
+    .filter((e): e is { section: ChangelogSection; parsed: NonNullable<typeof e.parsed> } => {
+      return e.parsed !== null && runningSemver !== null && compareSemver(e.parsed, runningSemver) <= 0;
+    })
+    .sort((a, b) => compareSemver(b.parsed, a.parsed))[0]?.section;
+  const sections = best ? [best] : [];
+  const migration = [...log]
+    .reverse()
+    .find((row) => row.event === 'migrate' && row.safety_note !== 'fresh_install' && row.to_version === running);
+  return {
+    show: true,
+    kind: 'updated',
+    from: null,
+    to: running,
+    sections,
+    migrations: migration
+      ? [
+          {
+            fromSchema: migration.from_schema,
+            toSchema: migration.to_schema,
+            safetyCopy: migration.safety_copy,
+            safetyNote: safetyNote(migration.safety_note),
+            at: migration.created_at.toISOString(),
+          },
+        ]
+      : [],
+    checkNow: sections
+      .filter((section) => section.groups.some((g) => g.kind === 'breaking'))
+      .map((section) => ({
+        version: section.version,
+        markdown:
+          docs.upgrade.get(section.version) ??
+          section.groups
+            .filter((g) => g.kind === 'breaking')
+            .map((g) => g.body)
+            .join('\n\n'),
+      })),
+    restore: null,
+    releaseUrl,
+  };
+}

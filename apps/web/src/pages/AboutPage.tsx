@@ -2,6 +2,7 @@
 import { LICENSE_ID, SOURCE_URL } from '@kinship/shared';
 import { useQuery } from '@tanstack/react-query';
 import { fetchHealth, fetchVersion } from '../api.js';
+import { WhatsNewButton } from '../components/WhatsNew.js';
 import { t } from '../i18n.js';
 
 function StatusText({ state }: { state: 'checking' | 'ok' | 'databaseDown' | 'apiDown' }) {
@@ -71,7 +72,15 @@ export function AboutPage() {
           <StatusText state={healthState} />
         </dd>
       </dl>
+      {version.isSuccess && version.data.version !== __WEB_VERSION__ ? (
+        <p className="alert" role="alert">
+          {t('about.webApiDiffer', { web: __WEB_VERSION__, api: version.data.version })}
+        </p>
+      ) : null}
       <p className="muted">{t('about.freeSoftware')}</p>
+      <div className="row">
+        <WhatsNewButton />
+      </div>
     </section>
   );
 }

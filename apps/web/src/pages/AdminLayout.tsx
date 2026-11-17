@@ -2,13 +2,14 @@
 import { NavLink, Outlet } from 'react-router';
 import { useSession } from '../auth.js';
 import { Loading } from '../components/States.js';
+import { UpdateBanner } from '../components/UpdateBanner.js';
 import { t } from '../i18n.js';
 import { isAdmin } from '../people/permissions.js';
 import { NotFoundPage } from './NotFoundPage.js';
 
 /**
  * Everything under /admin. A Member or a User gets the not-found page (the API refuses them anyway), so the address does
- * not even say that an admin area exists. The tabs are Users and, for the SuperAdmin only, Backups.
+ * not even say that an admin area exists. The tabs are Users, Backups (SuperAdmin only) and Updates (a Family Admin sees only a note there).
  */
 export function AdminLayout() {
   const session = useSession(false);
@@ -21,7 +22,10 @@ export function AdminLayout() {
         {session.data?.user.role === 'superadmin' ? (
           <NavLink to="/admin/backups">{t('admin.tab.backups')}</NavLink>
         ) : null}
+        <NavLink to="/admin/updates">{t('admin.tab.updates')}</NavLink>
       </nav>
+      {/* The update notice heads every Admin page, for the SuperAdmin only (the server refuses anyone else). */}
+      {session.data?.user.role === 'superadmin' ? <UpdateBanner /> : null}
       <Outlet />
     </div>
   );

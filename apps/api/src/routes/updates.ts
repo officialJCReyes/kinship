@@ -18,7 +18,7 @@ import type { UpdateChecker } from '../updates/checker.js';
 import type { BundledDocs } from '../updates/docs.js';
 import { readUpdateSettings, writeUpdateSettings } from '../updates/settings.js';
 import { readCheckState } from '../updates/state.js';
-import { computeWhatsNew } from '../updates/whats-new.js';
+import { computeLatest, computeWhatsNew } from '../updates/whats-new.js';
 import type { LogRow } from '../updates/whats-new.js';
 import type { VersionInfo } from '../version.js';
 import type { RouteLimit } from './shared.js';
@@ -163,25 +163,41 @@ export function registerUpdateRoutes(app: FastifyInstance, limit: RouteLimit, de
       if (request.user.role !== 'superadmin' && request.user.role !== 'familyadmin') throw forbidden();
     });
 
-    admins.get('/api/updates/whats-new', { config: limit }, async (request): Promise<WhatsNewResponse> => {
-      const user = request.user;
-      if (!user) throw new ApiError(401, 'unauthenticated');
-      const read = await request.withTransaction(async (trx) => {
-        const mine = await sql<{ v: string | null; at: Date | null }>`
+    admins.get(
+      '/api/updates/whats-new',
+      {
+        config: limit,
+        schema: {
+          querystring: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { latest: { type: 'string', enum: ['1'] } },
+          },
+        },
+      },
+      async (request): Promise<WhatsNewResponse> => {
+        const user = request.user;
+        if (!user) throw new ApiError(401, 'unauthenticated');
+        const read = await request.withTransaction(async (trx) => {
+          const mine = await sql<{ v: string | null; at: Date | null }>`
           select last_seen_version as v, last_seen_at as at from users where id = ${user.id}`.execute(trx);
-        const log = await sql<LogRow>`
+          const log = await sql<LogRow>`
           select event, from_schema, to_schema, from_version, to_version, safety_copy, safety_note, created_at
           from upgrade_log order by created_at, id limit 200`.execute(trx);
-        return { mine: mine.rows[0], log: log.rows };
-      });
-      return computeWhatsNew({
-        running: version.version,
-        lastSeenVersion: read.mine?.v ?? null,
-        lastSeenAt: read.mine?.at ?? null,
-        log: read.log,
-        docs: service.docs,
-      });
-    });
+          return { mine: mine.rows[0], log: log.rows };
+        });
+        if ((request.query as { latest?: string }).latest === '1') {
+          return computeLatest({ running: version.version, log: read.log, docs: service.docs });
+        }
+        return computeWhatsNew({
+          running: version.version,
+          lastSeenVersion: read.mine?.v ?? null,
+          lastSeenAt: read.mine?.at ?? null,
+          log: read.log,
+          docs: service.docs,
+        });
+      },
+    );
 
     // "Got it": this admin has seen the running version. Idempotent; it never sets any other version.
     admins.post('/api/updates/whats-new/seen', { config: limit }, async (request, reply) => {

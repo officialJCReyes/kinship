@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { CSRF_HEADER, CSRF_VALUE } from '@kinship/shared';
+import { reportVersionMismatch } from './lib/version-mismatch.js';
 import type {
   AcceptLinkRequest,
   AccountsResponse,
   AddChildRequest,
   AddParentRequest,
   BackupSettings,
+  UpdateBackupAckRequest,
+  UpdateDismissRequest,
+  UpdateSettings,
+  UpdatesResponse,
+  WhatsNewResponse,
   BackupsResponse,
   DownloadTicket,
   ApiErrorCode,
@@ -90,6 +96,15 @@ async function send(
   } catch {
     // A proxy error page (for example 502 when the API is down) is not JSON.
     throw new ApiError(`${path} did not return JSON`, response.status);
+  }
+  if (response.status === 503) {
+    const details = asRecord(parsed);
+    if (details.error === 'version_mismatch') {
+      reportVersionMismatch({
+        web: typeof details.web === 'string' ? details.web : '',
+        api: typeof details.api === 'string' ? details.api : '',
+      });
+    }
   }
   return { status: response.status, body: parsed };
 }
@@ -388,4 +403,52 @@ export async function acceptLink(request: AcceptLinkRequest): Promise<MeResponse
 export async function changePassword(request: ChangePasswordRequest): Promise<void> {
   const reply = await send('POST', '/api/auth/password', request);
   if (reply.status !== 204) fail('/api/auth/password', reply);
+}
+
+// ---- Admin > Updates and What's new ----
+
+export async function fetchUpdates(signal?: AbortSignal): Promise<UpdatesResponse> {
+  const reply = await send('GET', '/api/admin/updates', undefined, signal);
+  if (reply.status !== 200) fail('/api/admin/updates', reply);
+  return reply.body as UpdatesResponse;
+}
+
+export async function updateUpdateSettings(patch: Partial<UpdateSettings>): Promise<UpdateSettings> {
+  const reply = await send('PATCH', '/api/admin/updates/settings', patch);
+  if (reply.status !== 200) fail('/api/admin/updates/settings', reply);
+  return reply.body as UpdateSettings;
+}
+
+/** Check now. Answers with the new status. */
+export async function checkForUpdates(): Promise<UpdatesResponse> {
+  const reply = await send('POST', '/api/admin/updates/check');
+  if (reply.status !== 200) fail('/api/admin/updates/check', reply);
+  return reply.body as UpdatesResponse;
+}
+
+export async function dismissUpdate(request: UpdateDismissRequest): Promise<void> {
+  const reply = await send('POST', '/api/admin/updates/dismiss', request);
+  if (reply.status !== 204) fail('/api/admin/updates/dismiss', reply);
+}
+
+export async function ackUpdateBackup(request: UpdateBackupAckRequest): Promise<void> {
+  const reply = await send('POST', '/api/admin/updates/backup-ack', request);
+  if (reply.status !== 204) fail('/api/admin/updates/backup-ack', reply);
+}
+
+/** What changed since this admin last looked (or, with `latest`, the latest update whatever was seen). */
+export async function fetchWhatsNew(latest = false, signal?: AbortSignal): Promise<WhatsNewResponse> {
+  const reply = await send(
+    'GET',
+    latest ? '/api/updates/whats-new?latest=1' : '/api/updates/whats-new',
+    undefined,
+    signal,
+  );
+  if (reply.status !== 200) fail('/api/updates/whats-new', reply);
+  return reply.body as WhatsNewResponse;
+}
+
+export async function markWhatsNewSeen(): Promise<void> {
+  const reply = await send('POST', '/api/updates/whats-new/seen');
+  if (reply.status !== 204) fail('/api/updates/whats-new/seen', reply);
 }

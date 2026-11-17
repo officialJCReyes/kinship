@@ -48,6 +48,7 @@ test('an admin invites a Member linked to a person, and copies the link', async 
   await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link')).toHaveText([
     'Users',
     'Backups',
+    'Updates',
   ]);
 
   await page.getByRole('button', { name: 'Invite user' }).click();
