@@ -89,6 +89,7 @@ function serve(
   manifests: Record<string, unknown | ((res: ServerResponse) => void)>,
   options: { etag?: string } = {},
 ) {
+  const known = new Map(Object.entries(manifests));
   handler = (req, res) => {
     if (req.url === '/releases') {
       if (options.etag && req.headers['if-none-match'] === options.etag) return void res.writeHead(304).end();
@@ -96,8 +97,8 @@ function serve(
       return void res.end(JSON.stringify(releases));
     }
     const m = /^\/dl\/v(.+)\/release-manifest\.json$/.exec(req.url ?? '');
-    const entry = m ? manifests[m[1] as string] : undefined;
-    if (typeof entry === 'function') return entry(res);
+    const entry = m ? known.get(m[1] as string) : undefined;
+    if (typeof entry === 'function') return void (entry as (res: ServerResponse) => void).call(null, res);
     if (entry === undefined) return void res.writeHead(404).end();
     res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(entry));
   };
