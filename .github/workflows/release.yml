@@ -26,6 +26,7 @@ on:
       - 'compose.yml'
       - '.env.example'
       - 'scripts/release-info.mjs'
+      - 'scripts/fixtures/**'
       - 'scripts/smoke-test.sh'
       - 'CHANGELOG.md'
   workflow_dispatch:
@@ -80,6 +81,20 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry_run }}
         run: node scripts/release-info.mjs prepare
+      # The manifest the in-app update check reads is made here in every mode (pull request, dry run, release), so a change
+      # to how it is made is seen before a tag. Nothing is published: it is only checked and kept as a workflow artifact.
+      - name: Make the release notes and manifest, and check the manifest
+        run: |
+          set -euo pipefail
+          node scripts/release-info.mjs notes release-preview
+          node scripts/release-info.mjs validate release-preview/release-manifest.json
+          { echo '### release-manifest.json (preview, not published)'; echo '```json'; head -c 4000 release-preview/release-manifest.json; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the preview
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-manifest-preview
+          path: release-preview/
+          retention-days: 14
 
   images:
     name: Build and push ${{ matrix.image }}

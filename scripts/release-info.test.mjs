@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   buildNotes,
+  capText,
+  matchReleaseHeading,
+  validateManifest,
+  MAX_NOTES_CHARS,
   compareVersions,
   detectChanges,
   extractChangelogSection,
@@ -338,4 +342,97 @@ test('release notes: breaking changes need UPGRADE.md, and a migration is flagge
   assert.equal(manifest.security, true);
   assert.equal(manifest.channel, 'stable');
   assert.equal(manifest.upgradeNotes, 'Rename the setting.');
+});
+
+test('a stable release with no earlier stable tag is compared with the latest earlier tag of any kind', () => {
+  const alphas = ['v0.1.0-alpha.1', 'v0.1.0-alpha.2'];
+  assert.equal(previousTag(alphas, parseVersion('0.2.0')), 'v0.1.0-alpha.2');
+  assert.equal(previousTag([...alphas, 'v0.1.0'], parseVersion('0.2.0')), 'v0.1.0', 'a stable tag still wins');
+  assert.equal(previousTag([], parseVersion('0.2.0')), null);
+  // So 0.2.0 after an alpha is not reported as "no migration".
+  const { manifest } = buildNotes({
+    version: '0.2.0',
+    prerelease: false,
+    read: repo('0.2.0'),
+    git: fakeGit({ migrations: 'apps/api/migrations/0007_x.sql' }),
+    tags: alphas,
+  });
+  assert.equal(manifest.migration, true);
+});
+
+test('release headings: Keep a Changelog, release-please and bare forms are all understood', () => {
+  assert.deepEqual(matchReleaseHeading('## [0.2.0] - 2026-12-01', '0.2.0'), { date: '2026-12-01' });
+  assert.deepEqual(
+    matchReleaseHeading('## [0.2.0](https://github.com/o/r/compare/v0.1.0...v0.2.0) (2026-12-01)', '0.2.0'),
+    { date: '2026-12-01' },
+  );
+  assert.deepEqual(matchReleaseHeading('## 0.2.0 (2026-12-01)', '0.2.0'), { date: '2026-12-01' });
+  assert.deepEqual(matchReleaseHeading('## [0.2.0]', '0.2.0'), { date: null });
+  assert.equal(matchReleaseHeading('## [0.2.0-rc.1] - 2026-12-01', '0.2.0'), null);
+  assert.equal(matchReleaseHeading('## [0.2.01] - 2026-12-01', '0.2.0'), null);
+  assert.equal(matchReleaseHeading('### [0.2.0] - 2026-12-01', '0.2.0'), null);
+  const generated = `# Changelog
+
+## [0.3.0](https://x.test/compare/v0.2.0...v0.3.0) (2027-01-05)
+
+### Features
+
+* a thing
+
+## [0.2.0](https://x.test/compare/v0.1.0...v0.2.0) (2026-12-01)
+
+### Bug Fixes
+
+* another
+`;
+  const section = extractChangelogSection(generated, '0.2.0');
+  assert.equal(section.date, '2026-12-01');
+  assert.ok(section.text.includes('another') && !section.text.includes('a thing'));
+});
+
+test('long notes are cut and said to be cut', () => {
+  const long = Array.from({ length: 3000 }, (_, i) => `- line ${i}`).join('\n');
+  const cut = capText(long);
+  assert.ok(cut.length <= MAX_NOTES_CHARS + 100);
+  assert.ok(cut.includes('Shortened'));
+  assert.equal(capText('short'), 'short');
+});
+
+test('the manifest contract: a built manifest passes, and each broken field is named', () => {
+  const { manifest } = buildNotes({
+    version: '0.2.0',
+    prerelease: false,
+    read: repo('0.2.0'),
+    git: fakeGit({}),
+    tags: ['v0.1.0'],
+  });
+  assert.equal(validateManifest(manifest), manifest);
+  const bad = (change) => () => validateManifest({ ...manifest, ...change });
+  assert.throws(bad({ version: 'nope' }), /"version"/);
+  assert.throws(bad({ date: '12/01/2026' }), /"date"/);
+  assert.throws(bad({ channel: 'beta' }), /"channel"/);
+  assert.throws(bad({ channel: 'prerelease' }), /does not match the version/);
+  assert.throws(bad({ security: 'yes' }), /"security"/);
+  assert.throws(bad({ upgradeFrom: 3 }), /"upgradeFrom"/);
+  assert.throws(bad({ notes: '' }), /"notes"/);
+  assert.throws(bad({ notes: 'x'.repeat(MAX_NOTES_CHARS + 500) }), /too long/);
+  assert.throws(bad({ extra: 1 }), /unknown field "extra"/);
+  assert.throws(() => validateManifest([]), /not an object/);
+});
+
+test('the golden manifest (the contract the api tests read) and the real alpha.2 manifest are valid', async () => {
+  const { readFileSync } = await import('node:fs');
+  const golden = JSON.parse(readFileSync(new URL('./fixtures/release-manifest.golden.json', import.meta.url), 'utf8'));
+  const { manifest } = buildNotes({
+    version: '0.2.0',
+    prerelease: false,
+    read: repo('0.2.0', { 'UPGRADE.md': '## 0.2.0\nRename the setting.\n' }),
+    git: fakeGit({ log: 'feat!: x\0', migrations: 'apps/api/migrations/0003_y.sql' }),
+    tags: ['v0.1.0'],
+  });
+  assert.deepEqual(manifest, golden, 'the generator changed: update scripts/fixtures/release-manifest.golden.json too');
+  validateManifest(golden);
+  validateManifest(
+    JSON.parse(readFileSync(new URL('./fixtures/release-manifest.alpha2.json', import.meta.url), 'utf8')),
+  );
 });
