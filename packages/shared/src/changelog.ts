@@ -42,8 +42,11 @@ const DATE_IN_HEADING = /(\d{4}-\d{2}-\d{2})/;
 /** The version and date of a "## ..." heading, or null when it names no version ("## [Unreleased]"). */
 export function parseReleaseHeading(line: string): { version: string; date: string | null } | null {
   if (!/^## /.test(line)) return null;
-  // The link in "## [0.2.0](https://.../v0.1.0...v0.2.0)" must not be read as the version: look before it.
-  const text = line.slice(3).replace(/\]\([^)]*\)/g, ']');
+  // The link in "## [0.2.0](https://.../v0.1.0...v0.2.0)" must not be read as the version: cut it out (plain searches only).
+  const rest = line.slice(3, 203);
+  const linkStart = rest.indexOf('](');
+  const linkEnd = linkStart >= 0 ? rest.indexOf(')', linkStart) : -1;
+  const text = linkStart >= 0 && linkEnd >= 0 ? `${rest.slice(0, linkStart + 1)}${rest.slice(linkEnd + 1)}` : rest;
   const found = VERSION_IN_HEADING.exec(text);
   if (!found?.[1] || !parseSemver(found[1])) return null;
   const date = DATE_IN_HEADING.exec(text.slice((found.index ?? 0) + found[0].length))?.[1] ?? null;
