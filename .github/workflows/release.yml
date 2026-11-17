@@ -52,6 +52,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
+      packages: read # the upgrade test pulls the previous release's images
 
   prepare:
     name: Work out what to release
