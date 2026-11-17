@@ -289,6 +289,9 @@ export function createUpdateChecker(deps: CheckerDeps) {
     }
   }
 
+  /** Set when a switch was just changed: the next tick checks even if one was made recently (someone turned checking on). */
+  let forced = false;
+
   const job: Job = {
     name: 'updates',
     async run(now) {
@@ -304,6 +307,20 @@ export function createUpdateChecker(deps: CheckerDeps) {
         }
       }
       if (now < nextLook) return;
+      if (!forced) {
+        // Due by our own clock, but the database has the last word: another api container, or an earlier run, may have checked.
+        const db = openDb();
+        try {
+          const state = await readCheckState(db);
+          if (state.nextCheckAt && now < state.nextCheckAt) {
+            nextLook = state.nextCheckAt;
+            return;
+          }
+        } finally {
+          await db.destroy();
+        }
+      }
+      forced = false;
       const outcome = await guarded();
       // Switched off: look again in an hour, in case it was switched on.
       if (!outcome.ran) nextLook = new Date(now.getTime() + HOUR);
@@ -318,6 +335,7 @@ export function createUpdateChecker(deps: CheckerDeps) {
     /** A switch changed: look at the database again on the next tick. */
     settingsChanged() {
       nextLook = new Date(0);
+      forced = true;
     },
     /** The Check now button. Refuses when it is off, already running, or too soon after the last one. */
     async checkNow(): Promise<CheckOutcome> {

@@ -6,6 +6,15 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 Notes are added here as 0.2 changes land and finished at release prep: rename this heading to the version.
 
+### Update check, What's changing and What's new (database change, back up first)
+
+- **No action is needed, and no data changes.** Migration 0014 adds a table for the state of the update check and four columns to every account (the version they last saw What's new for, and the SuperAdmin's dismissed banner and backup tick). An account that exists already is shown the changes since 0.1.0-alpha.2 once, at its next sign-in (admins only); a new account starts current. It also adds a column to the upgrade log that records the version of a backup that was restored.
+- **Admin → Updates** (SuperAdmin only) has the three switches: **Check for new versions** (on), **Include pre-releases** (off) and **Safety copy before a database change** (on, the same switch the upgrade reads). The check is a daily read of GitHub's public release list; it sends nothing about your install. **There is no environment variable for it.** To turn it off on a server with no internet access, use the switch. If a proxy is needed, set `HTTPS_PROXY` (and `NO_PROXY`) in `.env`.
+- **The web and the api must be the same version.** The web container now tells the api its version on every request, and the api answers 503 "version_mismatch" to everything but its health and version checks while they differ (the web shows a page that says which is which). Change both image tags together, as before (`KINSHIP_VERSION` does both). **A reverse proxy in front needs no change.**
+- **The api image now carries `CHANGELOG.md` and `UPGRADE.md`** (about 25 KB), for the What's new popup. `GET /api/version` also returns `webVersion`.
+- **The release page's settings file is called `env.example`** (it was uploaded as `default.env.example` because GitHub drops a leading dot). INSTALL.md says so.
+- **API:** `GET /api/admin/updates`, `PATCH /api/admin/updates/settings`, `POST /api/admin/updates/check`, `POST /api/admin/updates/dismiss`, `POST /api/admin/updates/backup-ack` (SuperAdmin only) and `GET /api/updates/whats-new`, `POST /api/updates/whats-new/seen` (any admin). See [ADR 0015](docs/decisions/0015-update-check-and-whats-new.md).
+
 ### Built-in backups and the safety copy (database change, back up first)
 
 - **Before you update: add the backups folder to your `compose.yml`, and set a passphrase.** Copy the new `compose.yml` from the release (or add the two lines yourself) so the `api` service has

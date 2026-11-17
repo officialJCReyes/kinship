@@ -6,12 +6,12 @@ You need a machine that runs Docker (Linux, a Raspberry Pi, a NAS, or a cloud se
 
 ## 1. Get the files
 
-Make a folder and put two files in it, from the [release page](https://github.com/officialJCReyes/kinship/releases) (each release has them attached):
+Make a folder and put two files in it, from the [release page](https://github.com/officialJCReyes/kinship/releases) (each release has them attached as `compose.yml` and `env.example`; GitHub does not keep a leading dot in an attached file's name, so the settings file is called `env.example` there and `.env.example` in the repository):
 
 ```sh
 mkdir kinship && cd kinship
-# compose.yml and .env.example, from the release you want
-cp .env.example .env
+# compose.yml and env.example, downloaded from the release you want
+cp env.example .env
 chmod 600 .env
 ```
 
@@ -99,14 +99,24 @@ For a script, pipe the password in: `printf '%s' "$NEW_PASSWORD" | docker compos
 
 ## Updating
 
-Watch the [releases page](https://github.com/officialJCReyes/kinship/releases) and read the release notes and [UPGRADE.md](UPGRADE.md) first. **Back up before every update** (Admin → Backups → Back up now, then download it or copy it off the server).
+**Admin → Updates** (SuperAdmin only) tells you when a new version exists, and **What's changing** shows what it brings. Read it, and [UPGRADE.md](UPGRADE.md), first. **Back up before every update** (Admin → Backups → Back up now, then download it or copy it off the server): the notice asks for that when a release changes the database or has a breaking change, and keeps the steps hidden until you have a backup from the last 24 hours or tick that you have one you can restore.
 
 1. Change `KINSHIP_VERSION` in `.env` to the new version (both images always share it).
 2. `docker compose pull && docker compose up -d`.
 
+KinShip never updates itself: it cannot change its own containers. The web and the api must always be the same version; if they are not (one image was updated and the other was not), KinShip answers every request with a page that says so, and starts working again as soon as both match.
+
+After an update, every admin (SuperAdmin and Family Admin) sees a **What's new** popup once, at their next sign-in, with the changes since the version they last saw. It is read from the changelog inside the image, so it works with no internet. It can be opened again from **Account menu → About KinShip → What's new**.
+
 Database changes are applied automatically when the api starts (in order, and the api refuses to start if an already-applied migration file was edited). **Before it applies any, it writes a safety copy of the database** to `data/backups/pre-upgrade-<from>-to-<to>.tar.enc` (encrypted with your backup passphrase; the newest three are kept) and checks that it opens. It is a net under your own backup, not a replacement: it sits on the same server. If the copy cannot be made the upgrade does not start and your data is untouched; the api log says why and how to fix it. On a big database the copy can take minutes: the site shows nothing, and `docker compose ps` says "starting", until the copy and the change are done.
 
 To go back after a database change there are no down-migrations: put the old version back and restore the backup you took (see "Back up and restore").
+
+### The update check
+
+Once a day KinShip reads GitHub's public list of releases for this project (`api.github.com`), with a conditional request, and shows a notice to the SuperAdmin on the Admin pages. It sends **nothing about your installation**: no version, no name, no count of anything, no account, no token (GitHub sees your server's address, as with any download). There is no email. It is a switch inside the app, **Admin → Updates → Check for new versions** (on by default), and not a setting in `.env`. Turn it off on a server with no internet access: with it on and no internet, the check just fails quietly and the page shows when the last one worked. **Include pre-releases** (off) also offers release candidates. **Check now** runs it at once (at most one a minute).
+
+If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_PROXY` if some addresses must not use it) in `.env`; the check uses it, and nothing else in KinShip makes outgoing web requests. The proxy address is never shown or logged.
 
 ## Back up and restore
 

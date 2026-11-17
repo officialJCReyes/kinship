@@ -353,7 +353,7 @@ export function buildNotes({ version, prerelease, read, git, tags }) {
     '---',
     '',
     `Images: \`${images.join('`, `')}\` (linux/amd64 and linux/arm64).`,
-    'Install: see [INSTALL.md](https://github.com/officialJCReyes/kinship/blob/main/INSTALL.md). Attached: `compose.yml` and `.env.example` for this release.',
+    'Install: see [INSTALL.md](https://github.com/officialJCReyes/kinship/blob/main/INSTALL.md). Attached: `compose.yml` and `env.example` (copy it to `.env`) for this release.',
     `Verify the build: \`gh attestation verify oci://${images[0]} --repo officialJCReyes/kinship\`.`,
     '',
   ].join('\n');

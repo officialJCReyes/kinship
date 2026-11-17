@@ -51,6 +51,14 @@ nginx adds `X-KinShip-Web-Version` to every proxied request (the version is writ
 - The plan says the update check uses "the same in-app job runner as birthdays"; there was none, so the small shared runner above is new.
 - The bell item comes in 0.4. In step 17 the update notice is the banner only.
 
+## As built (differences from the plan above)
+- In What's changing the notes of each release are shown as that release's own Markdown (with its own headings), not regrouped into Security, Breaking changes, New, Improved and Fixed. What's new does regroup, from the changelog.
+- `GET /api/updates/whats-new?latest=1` returns the running version's section whatever was seen, for the About button.
+- The scheduled job reads the database's next-check time again when it is due, so a second api container or an earlier run is respected; turning checking on makes the next tick check at once.
+- The e2e stack switches the check off from the start (a setting in the database) and journey 12 writes what a check would have found, so no test contacts GitHub.
+- Every scan of the Markdown renderer looks at most 2,000 characters ahead; an unmatched `[` or `<` in a long text was quadratic before.
+- The release's settings file is attached as `env.example`: GitHub drops a leading dot, and `.env.example` became `default.env.example`.
+
 ## Consequences
 - A third row-level-security surface (`update_check`) and four columns on `users`; all additive.
 - The api image grows by `CHANGELOG.md` and `UPGRADE.md` (about 25 KB).
