@@ -77,7 +77,7 @@ const context = (): BackupContext => ({
     gitCommit: '',
     buildDate: '',
     db: config,
-    backup: { enabled: true, dir, passphrase: PASS },
+    backup: { enabled: true, dir, passphrase: PASS, skipSafetyCopy: false },
   },
   tools: testTools(),
   log: () => undefined,

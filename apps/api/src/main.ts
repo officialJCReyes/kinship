@@ -3,9 +3,8 @@ import { buildApp } from './app.js';
 import { ConfigError, loadConfig, scrubSecretsFromEnv } from './config.js';
 import { passphraseProblem } from './backup/crypto.js';
 import { prepareSetupToken, scheduleSessionCleanup } from './auth/startup.js';
-import { createAppDb, createOwnerDb } from './db.js';
-import { runMigrations } from './migrations/runner.js';
-import { ensureAppRole } from './migrations/roles.js';
+import { createAppDb } from './db.js';
+import { migrateWithSafetyCopy, SafetyCopyError } from './backup/upgrade.js';
 import { readVersion } from './version.js';
 import { backupHousekeeping, createScheduler } from './backup/scheduler.js';
 import { toolsFromEnv } from './backup/tools.js';
@@ -31,14 +30,22 @@ async function main(): Promise<void> {
     );
   }
 
-  // 1. As the owner role: create/refresh the app role, then migrate. Then let go of the owner.
-  const owner = createOwnerDb(config.db);
+  // 1. As the owner role: create/refresh the app role, make the safety copy if a database change is pending, then migrate.
   try {
-    await ensureAppRole(owner, config.db.appUser, config.db.appPassword);
-    const { applied } = await runMigrations(owner, { dir: config.migrationsDir, appRole: config.db.appUser, log });
-    log(applied.length === 0 ? 'database is up to date' : `applied ${applied.length} migration(s)`);
-  } finally {
-    await owner.destroy();
+    const result = await migrateWithSafetyCopy({
+      config,
+      tools: toolsFromEnv(),
+      appVersion: version.version,
+      log: (level, message, fields) =>
+        console.log(JSON.stringify({ level, time: Date.now(), msg: message, ...fields })),
+    });
+    log(result.applied.length === 0 ? 'database is up to date' : `applied ${result.applied.length} migration(s)`);
+  } catch (error) {
+    if (error instanceof SafetyCopyError) {
+      console.error(`KinShip did not start: ${error.message}`);
+      process.exit(1);
+    }
+    throw error;
   }
 
   // 2. As the app role: serve requests.

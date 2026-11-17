@@ -108,6 +108,7 @@ describe('backup settings', () => {
       enabled: true,
       dir: '/var/lib/kinship/backups',
       passphrase: undefined,
+      skipSafetyCopy: false,
     });
   });
 
@@ -133,6 +134,14 @@ describe('backup settings', () => {
   it('refuses any destination but local, and says S3 comes later', () => {
     expect(() => loadConfig({ ...good, BACKUP_DEST: 's3' }, noFiles)).toThrow(/S3 as a destination arrives in 1\.1/);
     expect(loadConfig({ ...good, BACKUP_DEST: 'local' }, noFiles).backup.dir).toBe('/var/lib/kinship/backups');
+  });
+});
+
+describe('the safety copy break-glass', () => {
+  it('is only ever "skip"', () => {
+    expect(loadConfig({ ...good, KINSHIP_SAFETY_COPY: 'skip' }, noFiles).backup.skipSafetyCopy).toBe(true);
+    expect(loadConfig({ ...good, KINSHIP_SAFETY_COPY: '' }, noFiles).backup.skipSafetyCopy).toBe(false);
+    expect(() => loadConfig({ ...good, KINSHIP_SAFETY_COPY: 'off' }, noFiles)).toThrow(/can only be "skip"/);
   });
 });
 
