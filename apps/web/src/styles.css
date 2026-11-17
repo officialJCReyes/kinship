@@ -1675,3 +1675,56 @@ main.tree-main {
   display: flex;
   gap: 8px;
 }
+
+/* --- Admin > Backups --- */
+.backup-problems {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.backup-problems li.bad {
+  color: var(--crit);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+pre.code {
+  margin: 6px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.restore-steps {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill.crit {
+  color: var(--crit);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.row.between {
+  justify-content: space-between;
+}

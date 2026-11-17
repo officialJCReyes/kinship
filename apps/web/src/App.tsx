@@ -8,6 +8,7 @@ import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
 import { applyTheme } from './lib/theme.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { AdminLayout } from './pages/AdminLayout.js';
+import { AdminBackupsPage } from './pages/AdminBackupsPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LinkPage } from './pages/LinkPage.js';
@@ -131,6 +132,7 @@ export function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/users" replace />} />
               <Route path="users" element={<AdminUsersPage />} />
+              <Route path="backups" element={<AdminBackupsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

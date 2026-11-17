@@ -97,7 +97,7 @@ describe('the Admin entry and its page', () => {
       within(tabs)
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Users']);
+    ).toEqual(['Users', 'Backups']); // Backups is the SuperAdmin's alone
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
     expect(screen.getByRole('menuitem', { name: 'Admin' }).getAttribute('href')).toBe('/admin');
   });

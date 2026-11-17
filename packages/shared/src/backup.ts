@@ -193,3 +193,63 @@ export interface BackupStatus {
   healthy: boolean;
   problems: BackupProblem[];
 }
+
+// ---- the routes (SuperAdmin only; a test checks the api registers exactly these) ----
+
+/** One file in the backups folder, as the Admin page lists it. */
+export interface BackupListItem {
+  name: string;
+  kind: BackupKind;
+  /** Plain `.sql.gz` safety copies are not encrypted: they are listed but never offered for download. */
+  encrypted: boolean;
+  bytes: number;
+  modifiedAt: string;
+  /** From the cleartext header (not trusted until the archive is opened with the passphrase). */
+  appVersion?: string;
+  schema?: number;
+  /** The result of the last test of this very file, when there is one. */
+  tested: 'ok' | 'failed' | null;
+}
+
+/** GET /api/admin/backups */
+export interface BackupsResponse {
+  status: BackupStatus;
+  backups: BackupListItem[];
+}
+
+/** POST /api/admin/backups and POST /api/admin/backups/test: accepted, poll GET /api/admin/backups. */
+export interface BackupStarted {
+  started: true;
+}
+
+/** POST /api/admin/backups/download-ticket: the SuperAdmin's password again, and which archive. */
+export interface DownloadTicketRequest {
+  name: string;
+  password: string;
+}
+
+/** The ticket is single use, valid for BACKUP_TICKET_SECONDS, and bound to this session and this file. */
+export interface DownloadTicket {
+  ticket: string;
+  expiresAt: string;
+}
+
+export const BACKUP_TICKET_SECONDS = 30;
+
+export const BACKUP_ERROR_CODES = [
+  'backup_busy',
+  'backup_not_found',
+  'backup_unavailable',
+  'invalid_backup_setting',
+] as const;
+export type BackupErrorCode = (typeof BACKUP_ERROR_CODES)[number];
+
+export const BACKUP_ROUTES = [
+  { method: 'GET', path: '/api/admin/backups', access: 'superadmin' },
+  { method: 'POST', path: '/api/admin/backups', access: 'superadmin' },
+  { method: 'POST', path: '/api/admin/backups/test', access: 'superadmin' },
+  { method: 'GET', path: '/api/admin/backups/settings', access: 'superadmin' },
+  { method: 'PATCH', path: '/api/admin/backups/settings', access: 'superadmin' },
+  { method: 'POST', path: '/api/admin/backups/download-ticket', access: 'superadmin' },
+  { method: 'GET', path: '/api/admin/backups/download', access: 'superadmin' },
+] as const;

@@ -8,7 +8,7 @@ import { NotFoundPage } from './NotFoundPage.js';
 
 /**
  * Everything under /admin. A Member or a User gets the not-found page (the API refuses them anyway), so the address does
- * not even say that an admin area exists. A tab bar with only "Users" for now.
+ * not even say that an admin area exists. The tabs are Users and, for the SuperAdmin only, Backups.
  */
 export function AdminLayout() {
   const session = useSession(false);
@@ -18,6 +18,9 @@ export function AdminLayout() {
     <div className="stack">
       <nav className="tabs" aria-label={t('admin.sections')}>
         <NavLink to="/admin/users">{t('admin.tab.users')}</NavLink>
+        {session.data?.user.role === 'superadmin' ? (
+          <NavLink to="/admin/backups">{t('admin.tab.backups')}</NavLink>
+        ) : null}
       </nav>
       <Outlet />
     </div>
