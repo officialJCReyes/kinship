@@ -27,7 +27,7 @@ import { runMigrations } from '../src/migrations/runner.js';
 import { buildFamily } from './helpers/family.js';
 import { createTestDatabase, server } from './helpers/db.js';
 import type { TestDatabase } from './helpers/db.js';
-import { realMigrationsDir, removeMigrationsFrom, tempMigrationsDir } from './helpers/migrations-dir.js';
+import { removeMigrationsFrom, tempMigrationsDir } from './helpers/migrations-dir.js';
 import { testConfig, testTools } from './helpers/pg-tools.js';
 
 const PASS = 'a long backup passphrase for tests';
