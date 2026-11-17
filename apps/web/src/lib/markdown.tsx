@@ -22,6 +22,15 @@ export function safeUrl(raw: string): string | null {
   }
 }
 
+/** A span (code, emphasis, link) is at most this long. Searching only this far keeps every scan linear for any text. */
+const MAX_SPAN = 2000;
+
+/** Where `needle` first appears at or after `from`, looking no further than MAX_SPAN characters; -1 when it does not. */
+function within(text: string, needle: string, from: number): number {
+  const found = text.slice(from, from + MAX_SPAN + needle.length).indexOf(needle);
+  return found < 0 ? -1 : from + found;
+}
+
 const isAlnum = (c: string | undefined): boolean => c !== undefined && /^[0-9A-Za-z]$/.test(c);
 
 function Link({ href, children }: { href: string; children: ReactNode }) {
@@ -55,7 +64,7 @@ function inline(text: string, depth = 0, links = true): ReactNode[] {
       continue;
     }
     if (c === '`') {
-      const end = text.indexOf('`', i + 1);
+      const end = within(text, '`', i + 1);
       if (end > i + 1) {
         push(<code>{text.slice(i + 1, end)}</code>);
         i = end + 1;
@@ -66,7 +75,7 @@ function inline(text: string, depth = 0, links = true): ReactNode[] {
       const double = next === c;
       const marker = double ? c + c : c;
       const start = i + marker.length;
-      const end = text.indexOf(marker, start);
+      const end = within(text, marker, start);
       const boundaryBefore = c === '*' || !isAlnum(text.charAt(i - 1));
       const inner = end > start ? text.slice(start, end) : '';
       if (
@@ -101,7 +110,7 @@ function inline(text: string, depth = 0, links = true): ReactNode[] {
       }
     }
     if (c === '<' && links) {
-      const end = text.indexOf('>', i + 1);
+      const end = within(text, '>', i + 1);
       const inner = end > i ? text.slice(i + 1, end) : '';
       if ((inner.startsWith('https://') || inner.startsWith('http://')) && !inner.includes(' ')) {
         const href = safeUrl(inner);
@@ -124,7 +133,7 @@ function bracketLink(text: string, start: number): { label: string; target: stri
   // The label ends at the matching "]" (a label may hold an image: [![alt](src)](href)).
   let depth = 0;
   let close = -1;
-  for (let i = start; i < text.length; i++) {
+  for (let i = start; i < text.length && i < start + MAX_SPAN; i++) {
     const c = text.charAt(i);
     if (c === '\\') i++;
     else if (c === '[') depth++;
@@ -134,7 +143,7 @@ function bracketLink(text: string, start: number): { label: string; target: stri
     }
   }
   if (close < 0 || text.charAt(close + 1) !== '(') return null;
-  const end = text.indexOf(')', close + 2);
+  const end = within(text, ')', close + 2);
   if (end < 0) return null;
   const target = text.slice(close + 2, end).trim();
   const space = target.indexOf(' ');
