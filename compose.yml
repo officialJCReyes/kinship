@@ -62,8 +62,9 @@ services:
       interval: 15s
       timeout: 3s
       retries: 3
-      # Migrations run before the api starts listening, so a big upgrade may need a while.
-      start_period: 60s
+      # Migrations run before the api starts listening, and an upgrade first writes a safety copy of the database (see
+      # INSTALL.md), so a big database may need minutes. Nothing is marked unhealthy, and web waits for it, during this time.
+      start_period: 600s
     # Runs as the unprivileged "node" user (uid 1000), with nothing writable but /tmp.
     read_only: true
     tmpfs:

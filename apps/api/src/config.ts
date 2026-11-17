@@ -23,6 +23,11 @@ export interface BackupConfig {
   dir: string;
   /** The passphrase as configured, or undefined. Use passphraseProblem() before relying on it. */
   passphrase: string | undefined;
+  /**
+   * KINSHIP_SAFETY_COPY=skip: a one-shot break-glass for an upgrade whose safety copy cannot be made (a very large database,
+   * a full disk). Not a setting: it is documented only in the troubleshooting notes, logged loudly and recorded in upgrade_log.
+   */
+  skipSafetyCopy: boolean;
 }
 
 export interface Config {
@@ -114,6 +119,15 @@ function optionalSecret(env: Env, name: string, readFile: ReadFile): string | un
   return direct !== undefined && direct !== '' ? direct : undefined;
 }
 
+function parseSkip(env: Env): boolean {
+  const raw = (env.KINSHIP_SAFETY_COPY ?? '').trim();
+  if (raw === '') return false;
+  if (raw === 'skip') return true;
+  throw new ConfigError(
+    'KINSHIP_SAFETY_COPY can only be "skip" (or left out); it is a one-time way past a failing safety copy',
+  );
+}
+
 function backupConfig(env: Env, readFile: ReadFile): BackupConfig {
   const dest = (env.BACKUP_DEST ?? 'local').trim() || 'local';
   if (dest !== 'local') {
@@ -129,6 +143,7 @@ function backupConfig(env: Env, readFile: ReadFile): BackupConfig {
     enabled: ['on', 'true', '1', 'yes'].includes(raw),
     dir: str(env, 'BACKUP_DIR', '/var/lib/kinship/backups'),
     passphrase: optionalSecret(env, 'BACKUP_PASSPHRASE', readFile),
+    skipSafetyCopy: parseSkip(env),
   };
 }
 

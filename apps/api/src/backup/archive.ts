@@ -99,6 +99,17 @@ export const FOLDER_FIX =
   '(Docker Desktop on macOS and Windows does not need the chown), and make sure compose.yml mounts it under api: ' +
   '"volumes: - ./data/backups:/var/lib/kinship/backups".';
 
+/** The same fix, spelled out for a log line at start-up (an upgrade whose compose.yml has no backups volume yet). */
+export const FOLDER_FIX_LONG = [
+  'Add the backups folder to the api service in compose.yml:',
+  '    api:',
+  '      volumes:',
+  '        - ./data/backups:/var/lib/kinship/backups',
+  'then create it on the host and let the api (user 1000) write to it:',
+  '    mkdir -p data/backups && sudo chown 1000:1000 data/backups',
+  '(Docker Desktop on macOS and Windows does not need the chown.) Then start KinShip again.',
+].join('\n');
+
 /** Makes sure the folder exists (mode 0700) and can be written to. Throws a BackupError that says how to fix it. */
 export function ensureBackupDir(dir: string): void {
   try {

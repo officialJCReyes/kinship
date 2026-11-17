@@ -64,6 +64,6 @@ export function testConfig(test: TestDatabase, dir: string, passphrase: string |
     gitCommit: 'test',
     buildDate: 'unknown',
     db: test.config,
-    backup: { enabled: true, dir, passphrase },
+    backup: { enabled: true, dir, passphrase, skipSafetyCopy: false },
   };
 }
