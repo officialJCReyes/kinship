@@ -12,7 +12,7 @@ import { fingerprint, listTables, tableStats } from '../src/backup/inspect.js';
 import { restoreBackup } from '../src/backup/restore.js';
 import type { RestoreHooks } from '../src/backup/restore.js';
 import type { Tools } from '../src/backup/tools.js';
-import { sweepVerifyDatabases, verifyBackup } from '../src/backup/verify.js';
+import { sweepVerifyDatabases, verifyBackup, verifyPrefix } from '../src/backup/verify.js';
 import { runCli } from '../src/cli.js';
 import type { CliDeps } from '../src/cli.js';
 import type { UntypedDb } from '../src/db.js';
@@ -509,7 +509,9 @@ describe('the restore command line', () => {
 describe('testing a backup (restore into a temporary database)', () => {
   const leftovers = async (l: Live) =>
     (
-      await sql<{ datname: string }>`select datname from pg_database where datname like 'kinship_verify_%'`.execute(
+      await sql<{
+        datname: string;
+      }>`select datname from pg_database where left(datname, 22) = ${verifyPrefix(l.test.config.name)}`.execute(
         l.test.owner,
       )
     ).rows;
@@ -572,10 +574,27 @@ describe('testing a backup (restore into a temporary database)', () => {
 
   it('sweeps temporary databases a cut-short test left behind', async () => {
     const l = await live();
-    await sql`create database kinship_verify_leftover1`.execute(l.test.owner);
-    await sql`create database kinship_verify_leftover2`.execute(l.test.owner);
+    const admin = createDb<AnySchema>(
+      { host: l.test.config.host, port: l.test.config.port, name: 'postgres' },
+      l.test.config.ownerUser,
+      l.test.config.ownerPassword,
+      1,
+    );
+    cleanups.push(() => admin.destroy());
+    const prefix = verifyPrefix(l.test.config.name);
+    const other = verifyPrefix('some_other_installation');
+    await sql`create database ${sql.id(`${prefix}leftover1`)}`.execute(l.test.owner);
+    await sql`create database ${sql.id(`${prefix}leftover2`)}`.execute(l.test.owner);
+    // Another installation's temporary database is not ours to drop.
+    await sql`create database ${sql.id(`${other}leftover`)}`.execute(l.test.owner);
+    cleanups.push(async () => {
+      await sql`drop database if exists ${sql.id(`${other}leftover`)}`.execute(admin);
+    });
     const dropped = await sweepVerifyDatabases(l.ctx);
-    expect(dropped.sort()).toEqual(['kinship_verify_leftover1', 'kinship_verify_leftover2']);
+    expect(dropped.sort()).toEqual([`${prefix}leftover1`, `${prefix}leftover2`]);
+    expect(
+      (await sql`select 1 from pg_database where datname = ${`${other}leftover`}`.execute(l.test.owner)).rows,
+    ).toHaveLength(1);
     expect(await leftovers(l)).toEqual([]);
   }, 60_000);
 

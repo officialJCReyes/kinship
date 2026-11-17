@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { Fingerprint, TableStats } from './inspect.js';
+import type { BackupKind } from '@kinship/shared';
 
-export type BackupKind = 'manual' | 'scheduled' | 'pre-upgrade' | 'pre-restore';
+export type { BackupKind };
+import type { Fingerprint, TableStats } from './inspect.js';
 
 /** manifest.json, inside the encrypted archive. It is trusted only after the archive has authenticated. */
 export interface Manifest {

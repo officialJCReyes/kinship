@@ -30,6 +30,13 @@ import type { ArchiveHeader, KdfParams, Preamble } from './format.js';
 export const MIN_PASSPHRASE_LENGTH = 16;
 export const PASSPHRASE_PLACEHOLDER = 'change-me-backup';
 
+/** The state of the configured passphrase, for the Admin page (never the passphrase itself). */
+export function passphraseState(passphrase: string | undefined): 'ok' | 'missing' | 'too_short' | 'placeholder' {
+  if (passphrase === undefined || passphrase === '') return 'missing';
+  if (passphrase.startsWith(PASSPHRASE_PLACEHOLDER)) return 'placeholder';
+  return Array.from(passphrase).length < MIN_PASSPHRASE_LENGTH ? 'too_short' : 'ok';
+}
+
 /** null when the passphrase is acceptable, otherwise why not (never includes the passphrase). */
 export function passphraseProblem(passphrase: string | undefined): string | null {
   if (passphrase === undefined || passphrase === '') return 'no passphrase is set';
