@@ -7,6 +7,9 @@ import { createAppDb } from './db.js';
 import { migrateWithSafetyCopy, SafetyCopyError } from './backup/upgrade.js';
 import { readVersion } from './version.js';
 import { backupHousekeeping, createScheduler } from './backup/scheduler.js';
+import { createJobRunner } from './jobs/runner.js';
+import { createUpdateChecker } from './updates/checker.js';
+import { useProxyFromEnv } from './updates/proxy.js';
 import { toolsFromEnv } from './backup/tools.js';
 
 function log(message: string): void {
@@ -62,7 +65,14 @@ async function main(): Promise<void> {
   };
   void backupHousekeeping(backupCtx);
   const scheduler = createScheduler(backupCtx);
-  scheduler.start();
+  // The api's own periodic jobs share one runner: the backup schedule and the daily update check. The update check reads GitHub's
+  // public release list through HTTPS_PROXY when that is set (ADR 0015), and sends nothing about this installation.
+  const viaProxy = useProxyFromEnv();
+  const checker = createUpdateChecker({ db: config.db, version: version.version, log: backupCtx.log, viaProxy });
+  const jobs = createJobRunner(backupCtx.log);
+  jobs.register({ name: 'backups', run: (now) => scheduler.tick(now) });
+  jobs.register(checker.job);
+  jobs.start();
 
   const app = buildApp({
     db,
@@ -75,7 +85,7 @@ async function main(): Promise<void> {
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`${signal} received, shutting down`);
-    scheduler.stop();
+    jobs.stop();
     stopCleanup();
     await app.close();
     await db.destroy();
