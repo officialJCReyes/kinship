@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Keeps one open pull request, "chore: release x.y.z", that holds the next version number (from the Conventional Commits since
+# the last release), the new CHANGELOG.md section and the bumped versions (see release-please-config.json). Merging it is the
+# only manual step before tagging. This workflow never creates a tag or a GitHub Release (skip-github-release): the maintainer
+# tags the merge commit, which starts release.yml. See docs/decisions/0017-release-please.md.
+#
+# Switched off for now: the first 0.2 release (0.2.0) is prepared by hand. After v0.2.0 is tagged and
+# .release-please-manifest.json says 0.2.0, replace the trigger below by
+#   push: { branches: [main] }
+# and turn on Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+name: Release PR
+
+on:
+  workflow_dispatch:
+
+# No permissions by default; the job asks for what it needs.
+permissions: {}
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Update the release pull request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # the release branch and its commit
+      pull-requests: write # open and update the pull request
+      issues: write # release-please labels the pull request
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

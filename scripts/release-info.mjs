@@ -192,6 +192,23 @@ export function detectChanges(git, previous) {
 }
 
 /**
+ * The version a new install gets by default is written in compose.yml (`${KINSHIP_VERSION:-x}`, twice) and in .env.example
+ * (`KINSHIP_VERSION=x`). Both must be the version being released, or a release would install the previous one. Throws with
+ * what is wrong. (release-please bumps them from the markers next to those lines; this is the check that it did.)
+ */
+export function checkInstallDefaults(read, version) {
+  const problems = [];
+  const compose = [...read('compose.yml').matchAll(/\$\{KINSHIP_VERSION:-([^}]*)\}/g)].map((m) => m[1]);
+  if (compose.length === 0) problems.push('compose.yml has no ${KINSHIP_VERSION:-<version>} default');
+  for (const found of compose) if (found !== version) problems.push(`compose.yml defaults KINSHIP_VERSION to ${found}`);
+  const env = [...read('.env.example').matchAll(/^KINSHIP_VERSION=(\S*)\s*$/gm)].map((m) => m[1]);
+  if (env.length !== 1) problems.push('.env.example must have exactly one KINSHIP_VERSION= line');
+  for (const found of env) if (found !== version) problems.push(`.env.example sets KINSHIP_VERSION=${found}`);
+  if (problems.length > 0)
+    throw new Error(`The install files do not match version ${version}:\n  ${problems.join('\n  ')}`);
+}
+
+/**
  * Works out what a run of the release workflow should do. `env` is GitHub's environment, `read` reads a
  * file in the repository, `tags` lists the existing tags.
  */
@@ -212,6 +229,7 @@ export function prepare({ env, read, tags, now = new Date() }) {
     );
   }
   const packageVersion = parseVersion([...distinct][0]);
+  checkInstallDefaults(read, packageVersion.version);
 
   let publish;
   if (event === 'push' && refType === 'tag') {
