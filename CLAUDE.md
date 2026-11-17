@@ -5,6 +5,7 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 ## Source of truth
 - `design/kinship-mockup.html` is the approved UI mockup (single-file, vanilla JS). It is the SPECIFICATION for screens, behavior and sample data (the fictional Hale family). It is not the code layout.
 - `design/*.md` are the requirement docs. Start with `kinship-v2-requirements.md`, then `kinship-release-and-deployment-plan.md` (versions, pipelines, what ships when). When a doc and the mockup disagree, ask JC.
+- **`design/` is a read-only mirror of the Project docs, which JC and Claude (in chat) maintain.** Never create, edit, move, rename or delete anything in `design/`, by any tool or shell command (`.claude/settings.json` blocks the edit tools; the shell is on you). If a doc is wrong, stale or missing something, say so in your report and carry the correction in your prompt text or an ADR in `docs/decisions/`; do not fix it in `design/`.
 
 ## Stack (decided)
 - PostgreSQL 18 (official image), TypeScript API on Node, React UI built with Vite, nginx (unprivileged, Alpine) as the `web` container.
@@ -13,7 +14,7 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 - Monorepo: apps/web, apps/api, packages/ (shared types, translation keys), docs/, design/.
 
 ## Hard rules
-- No AI features anywhere.
+- No AI features, with one planned exception: optional **Automatic transcription** (release 0.5, design in `design/kinship-transcription-engines-and-matching.md`). It is off unless an admin connects an engine, and nothing in the app may call an AI service before that feature is built and asked for. Person matching, reports and summaries stay fixed rules and templates.
 - Compose files are named `compose.yml` / `compose.dev.yml` / `compose.demo.yml`, never docker-compose.yml.
 - Postgres row-level security: app connects as a NON-owner role, a separate owner role runs migrations. Set the signed-in user per request/transaction. Migrations are forward-only, hand-written SQL, expand-then-contract. Never `db push`.
 - Every UI string is a translation key (English only at launch).
@@ -24,7 +25,14 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 - Image names are lowercase: ghcr.io/officialjcreyes/kinship-web and kinship-api.
 
 ## Build order
-Follow the release plan: 0.1 "It runs" first (repo, CI, images on GHCR, compose, health checks, migrations at startup, first-run setup, login, people and relationships, one tree view, About page). Exit test: a stranger follows the README on a clean machine and has a working tree in ten minutes. Do not start 0.2 features during 0.1.
+- Read `design/kinship-build-status-and-handoff.md` first. It records what is built, the decisions made, the open issues and what comes next. It is the current state; the release plan is the intended order.
+- Follow `design/kinship-release-and-deployment-plan.md` (section 6, "What ships in each version") for what belongs in each release. The build is in **0.2 "A tree you can trust"**, which started the data promise: migrations are forward-only and must preserve real data, and every upgrade path is tested. Do not start a later release's features (0.3 and beyond) unless the prompt says to.
+- Work comes as numbered steps from JC's prompts, often in two phases: phase 1 is read-and-report only (write no code, make no commits, open no PR, then stop and wait for "go"); phase 2 builds. Prompts carry the approved design; where a prompt and a doc differ, the prompt wins, and tell JC about any conflict that matters before building.
+- Stop before irreversible steps (tags, publishing, releases). JC runs the tag commands.
 
 ## Working style
-Small PRs, tests with each change, update CHANGELOG via Conventional Commits. Write an ADR in docs/decisions/ for the stack choices (Milestone 0) before the first feature code.
+- Small PRs, one branch per part, tests with each change. Merge only when CI is green. Do not change the required CI job names (Lint, format, typecheck, build; Tests (Postgres 18); Dependency licenses; Build api image (not pushed); Build web image (not pushed)). End-to-end (Playwright) is not a required check.
+- Commit with `git commit -s` and let git config supply the sign-off. Never type a name or email by hand, including in squash and merge messages. Keep the Claude co-author line in squash and merge messages.
+- Record each architectural decision as an ADR in `docs/decisions/`. Update CHANGELOG via Conventional Commits, and add an `UPGRADE.md` block for any migration or breaking change.
+- Report decisions you made on JC's behalf, known gaps, stale doc lines you noticed, new issues opened, test counts and exact CI job names at the end of each step.
+- Keep the whole e2e run well under the sign-in rate limit (30 a minute); do not add per-test sign-ins.
