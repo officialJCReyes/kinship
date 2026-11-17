@@ -62,6 +62,9 @@ async function database(options: {
   cleanups.push(() => test.cleanup());
   const full = await tempMigrationsDir(true);
   cleanups.push(() => full.remove());
+  // These tests are about the upgrade that ends at schema 13 (the first with a safety copy). Later migrations of the real
+  // folder are left out so that adding one never changes what they describe; the "extra" file stands in for a later change.
+  await removeMigrationsFrom(full.dir, 14);
   for (const [name, text] of Object.entries(options.extra ?? {})) await full.add(name, text);
   if (options.upTo > 0) {
     const partial = await tempMigrationsDir(true);
@@ -391,9 +394,12 @@ describe('an owner role that cannot read every row', () => {
     await sql`insert into people (given_name, surname) values ('Walter', 'Hale')`.execute(superuser);
 
     const dir = folder();
+    const full = await tempMigrationsDir(true);
+    cleanups.push(() => full.remove());
+    await removeMigrationsFrom(full.dir, 14);
     const logs: Array<{ level: string; message: string }> = [];
     const ctx: UpgradeContext = {
-      config: { ...testConfig({ config } as unknown as TestDatabase, dir, PASS), migrationsDir: realMigrationsDir },
+      config: { ...testConfig({ config } as unknown as TestDatabase, dir, PASS), migrationsDir: full.dir },
       tools: testTools(),
       log: (level, message) => logs.push({ level, message }),
       appVersion: '0.2.0-test',

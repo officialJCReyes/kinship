@@ -118,6 +118,9 @@ describe('restoring a backup over a live database', () => {
       Number((await sql<{ n: string }>`select count(*)::text as n from people`.execute(l.test.owner)).rows[0]?.n),
     ).toBe(11);
 
+    // The running version was newer than the backup's: the restore is a step down, and the log says so.
+    await sql`update schema_info set app_version = '0.2.1-test'`.execute(l.test.owner);
+
     const h = hooks();
     const report = await restoreBackup(l.ctx, made.path, h);
     expect(report).toMatchObject({ cancelled: false, migrationsApplied: [] });
@@ -147,7 +150,7 @@ describe('restoring a backup over a live database', () => {
     expect(links.rows[0]?.revoked_at).toBeInstanceOf(Date);
     const log = await sql<
       Record<string, unknown>
-    >`select event, from_schema, to_schema, from_version, to_version, safety_copy from upgrade_log`.execute(
+    >`select event, from_schema, to_schema, from_version, to_version, backup_version, safety_copy from upgrade_log`.execute(
       l.test.owner,
     );
     expect(log.rows).toEqual([
@@ -155,8 +158,10 @@ describe('restoring a backup over a live database', () => {
         event: 'restore',
         from_schema: before.schema,
         to_schema: before.schema,
-        from_version: '0.2.0-test',
+        // from_version is what was running before, backup_version is what the backup came from.
+        from_version: '0.2.1-test',
         to_version: '0.2.0-test',
+        backup_version: '0.2.0-test',
         safety_copy: report.safetyCopy,
       },
     ]);
@@ -306,13 +311,13 @@ describe('what a restore refuses before it touches anything', () => {
     const l = await live();
     const older = await tempMigrationsDir(true);
     cleanups.push(() => older.remove());
-    await removeMigrationsFrom(older.dir, 13);
+    await removeMigrationsFrom(older.dir, 14);
     const made = await createBackup(l.ctx, { kind: 'manual' });
     const before = await state(l.test.owner, l.test.config.appUser);
     const oldImage = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: older.dir } };
     const failure = await restoreBackup(oldImage, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('refused');
-    expect((failure as BackupError).message).toMatch(/newer KinShip.*schema 13.*only knows schema 12/);
+    expect((failure as BackupError).message).toMatch(/newer KinShip.*schema 14.*only knows schema 13/);
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
   }, 90_000);
 
@@ -372,16 +377,17 @@ describe('restoring a backup from an older schema', () => {
       '0011_account_links',
       '0012_setup_family',
       '0013_backup_settings_and_upgrade_log',
+      '0014_updates_and_whats_new',
     ]);
     const after = await state(l.test.owner, l.test.config.appUser);
-    expect(after.schema).toBe(13);
+    expect(after.schema).toBe(14);
     expect(after.stats['people']).toEqual(peopleBefore);
     expect(after.tables).toEqual(expect.arrayContaining(['account_links', 'app_settings', 'upgrade_log']));
     const log = await sql<{
       from_schema: number;
       to_schema: number;
     }>`select from_schema, to_schema from upgrade_log`.execute(l.test.owner);
-    expect(log.rows).toEqual([{ from_schema: 10, to_schema: 13 }]);
+    expect(log.rows).toEqual([{ from_schema: 10, to_schema: 14 }]);
   }, 120_000);
 
   it('a failing newer migration leaves a valid database at the older schema', async () => {

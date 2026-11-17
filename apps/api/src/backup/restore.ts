@@ -284,6 +284,18 @@ export async function restoreBackup(
         const hasData =
           present.rows[0]?.present === true &&
           (await sql`select 1 from public.schema_info`.execute(conn)).rows.length > 0;
+        // The version that is running now, before it is replaced: the upgrade log says "from" this one, so a restore of an older
+        // backup reads as the version going down. The column may not exist on a very old database.
+        let liveVersion: string | null = null;
+        if (hasData) {
+          try {
+            liveVersion =
+              (await sql<{ v: string | null }>`select app_version as v from public.schema_info`.execute(conn)).rows[0]
+                ?.v ?? null;
+          } catch {
+            liveVersion = null;
+          }
+        }
         const ok = await hooks.confirm({
           manifest: archive.manifest,
           appVersion: archive.header.appVersion,
@@ -342,8 +354,8 @@ export async function restoreBackup(
         try {
           await sql`update schema_info set app_version = ${ctx.appVersion}`.execute(conn);
           await sql`
-            insert into upgrade_log (event, from_schema, to_schema, from_version, to_version, safety_copy, safety_note)
-            values ('restore', ${archive.manifest.schema}, ${top}, ${archive.manifest.appVersion}, ${ctx.appVersion},
+            insert into upgrade_log (event, from_schema, to_schema, from_version, to_version, backup_version, safety_copy, safety_note)
+            values ('restore', ${archive.manifest.schema}, ${top}, ${liveVersion}, ${ctx.appVersion}, ${archive.manifest.appVersion},
                     ${safetyCopy}, ${safetyCopy === null ? 'fresh_install' : null})`.execute(conn);
         } catch (error) {
           log('warn', 'the restore worked but could not be recorded in upgrade_log', {
