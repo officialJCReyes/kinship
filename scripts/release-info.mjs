@@ -4,6 +4,7 @@
 //
 //   node scripts/release-info.mjs prepare        works out what to build and push (reads GitHub's env)
 //   node scripts/release-info.mjs notes <dir>    writes release-notes.md and release-manifest.json
+//   node scripts/release-info.mjs validate <f>   checks a manifest file against the contract
 //
 // Rules (design/kinship-release-and-deployment-plan.md, sections 3, 4, 5 and 7):
 //   - a release is a tag vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-pre.N, and it must match the
@@ -65,7 +66,11 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-/** The tags of the version before this one: the highest earlier stable tag, or for a pre-release any earlier tag. */
+/**
+ * The tag of the version before this one: the highest earlier stable tag, or for a pre-release any earlier tag. A stable
+ * release with no earlier stable tag (0.2.0 before 0.1.0 was tagged) falls back to the highest earlier tag of any kind, so
+ * its migration and breaking-change flags are compared with something instead of being silently false.
+ */
 export function previousTag(existingTags, current) {
   const earlier = existingTags
     .map((tag) => {
@@ -76,9 +81,9 @@ export function previousTag(existingTags, current) {
       }
     })
     .filter((entry) => entry !== undefined && compareVersions(entry.parsed, current) < 0)
-    .filter((entry) => current.pre !== null || entry.parsed.pre === null)
     .sort((a, b) => compareVersions(b.parsed, a.parsed));
-  return earlier[0]?.tag ?? null;
+  if (current.pre !== null) return earlier[0]?.tag ?? null;
+  return (earlier.find((entry) => entry.parsed.pre === null) ?? earlier[0])?.tag ?? null;
 }
 
 /** True when no stable tag newer than this one exists, so this release may be `latest`. */
@@ -106,14 +111,38 @@ export function imageTags({ parsed, sha, newestStable }) {
   return tags;
 }
 
-/** The text of "## [version] ..." up to the next "## [" heading, without trailing link definitions. */
+/** The most text KinShip keeps for one release's notes or upgrade notes (the in-app reader caps them the same way). */
+export const MAX_NOTES_CHARS = 20_000;
+
+/** Cuts text at a line end under the cap and says so. */
+export function capText(text, max = MAX_NOTES_CHARS) {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const lineEnd = cut.lastIndexOf('\n');
+  return `${(lineEnd > max / 2 ? cut.slice(0, lineEnd) : cut).trimEnd()}\n\n_(Shortened. Read the rest on the release page.)_`;
+}
+
+/**
+ * The heading of a release in CHANGELOG.md. Three shapes are understood: `## [1.2.3] - 2026-01-02` (Keep a Changelog, as the
+ * file is written today), `## [1.2.3](https://...) (2026-01-02)` (release-please) and `## 1.2.3 (2026-01-02)`.
+ * Returns { date } (null when the heading has none) or null when the line is not the heading of this version.
+ */
+export function matchReleaseHeading(line, version) {
+  const escaped = version.replace(/[.+*?^$()[\]{}|\\]/g, '\\$&');
+  const heading = new RegExp(`^## \\[?${escaped}\\]?(?:\\([^)]*\\))?(?:\\s+-\\s+(\\S+)|\\s+\\((\\S+)\\))?\\s*$`);
+  const match = heading.exec(line);
+  if (!match) return null;
+  const date = match[1] ?? match[2] ?? null;
+  return { date: date !== null && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null };
+}
+
+/** The text of a release's section up to the next "## " heading, without trailing link definitions. */
 export function extractChangelogSection(changelog, version) {
   const lines = changelog.split('\n');
-  const heading = new RegExp(`^## \\[${version.replace(/[.+*?^$()[\]{}|\\]/g, '\\$&')}\\](?:\\s+-\\s+(\\S+))?\\s*$`);
-  const start = lines.findIndex((line) => heading.test(line));
+  const start = lines.findIndex((line) => matchReleaseHeading(line, version) !== null);
   if (start === -1) throw new Error(`CHANGELOG.md has no section "## [${version}]"`);
-  const date = heading.exec(lines[start])?.[1] ?? null;
-  let end = lines.findIndex((line, i) => i > start && /^## \[/.test(line));
+  const date = matchReleaseHeading(lines[start], version)?.date ?? null;
+  let end = lines.findIndex((line, i) => i > start && /^## /.test(line));
   if (end === -1) end = lines.length;
   const body = lines.slice(start + 1, end);
   while (body.length > 0 && /^(\[[^\]]+\]:\s.*)?$/.test(body[body.length - 1] ?? '')) body.pop();
@@ -234,6 +263,67 @@ export function prepare({ env, read, tags, now = new Date() }) {
   };
 }
 
+const MANIFEST_KEYS = [
+  'version',
+  'date',
+  'channel',
+  'security',
+  'breaking',
+  'migration',
+  'upgradeFrom',
+  'notes',
+  'upgradeNotes',
+];
+
+/**
+ * Checks a manifest against the contract the in-app update check reads (packages/shared/src/updates.ts has the same rules).
+ * Throws with every problem found.
+ */
+export function validateManifest(manifest) {
+  const problems = [];
+  if (typeof manifest !== 'object' || manifest === null || Array.isArray(manifest)) {
+    throw new Error('The manifest is not an object');
+  }
+  for (const key of Object.keys(manifest)) if (!MANIFEST_KEYS.includes(key)) problems.push(`unknown field "${key}"`);
+  const version = (() => {
+    try {
+      return typeof manifest.version === 'string' && manifest.version.length <= 64
+        ? parseVersion(manifest.version)
+        : null;
+    } catch {
+      return null;
+    }
+  })();
+  if (version === null) problems.push('"version" is not a version of at most 64 characters');
+  if (typeof manifest.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(manifest.date))
+    problems.push('"date" is not YYYY-MM-DD');
+  if (manifest.channel !== 'stable' && manifest.channel !== 'prerelease')
+    problems.push('"channel" is not stable or prerelease');
+  else if (version !== null && (manifest.channel === 'stable') !== (version.pre === null)) {
+    problems.push('"channel" does not match the version');
+  }
+  for (const key of ['security', 'breaking', 'migration']) {
+    if (typeof manifest[key] !== 'boolean') problems.push(`"${key}" is not true or false`);
+  }
+  if (manifest.upgradeFrom !== null) {
+    try {
+      if (typeof manifest.upgradeFrom !== 'string') throw new Error('not text');
+      parseVersion(manifest.upgradeFrom);
+    } catch {
+      problems.push('"upgradeFrom" is neither null nor a version');
+    }
+  }
+  if (typeof manifest.notes !== 'string' || manifest.notes.trim() === '') problems.push('"notes" is empty');
+  else if (manifest.notes.length > MAX_NOTES_CHARS + 200) problems.push('"notes" is too long');
+  if (manifest.upgradeNotes !== null && typeof manifest.upgradeNotes !== 'string')
+    problems.push('"upgradeNotes" is not text or null');
+  else if (typeof manifest.upgradeNotes === 'string' && manifest.upgradeNotes.length > MAX_NOTES_CHARS + 200) {
+    problems.push('"upgradeNotes" is too long');
+  }
+  if (problems.length > 0) throw new Error(`Invalid release manifest:\n  ${problems.join('\n  ')}`);
+  return manifest;
+}
+
 /** The release body and the manifest the in-app update notice will read (from 0.2). */
 export function buildNotes({ version, prerelease, read, git, tags }) {
   const parsed = parseVersion(version);
@@ -276,9 +366,10 @@ export function buildNotes({ version, prerelease, read, git, tags }) {
     breaking,
     migration,
     upgradeFrom: null,
-    notes: section.text,
-    upgradeNotes,
+    notes: capText(section.text),
+    upgradeNotes: upgradeNotes === null ? null : capText(upgradeNotes),
   };
+  validateManifest(manifest);
   return { body, manifest };
 }
 
@@ -320,8 +411,11 @@ function main() {
       writeFileSync(join(arg, 'release-notes.md'), body);
       writeFileSync(join(arg, 'release-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
       console.log(`Wrote ${join(arg, 'release-notes.md')} and ${join(arg, 'release-manifest.json')}`);
+    } else if (command === 'validate' && arg) {
+      validateManifest(JSON.parse(readFromRepo(arg)));
+      console.log(`${arg} is a valid release manifest`);
     } else {
-      console.error('Usage: release-info.mjs prepare | notes <output-dir>');
+      console.error('Usage: release-info.mjs prepare | notes <output-dir> | validate <manifest.json>');
       process.exitCode = 2;
     }
   } catch (error) {

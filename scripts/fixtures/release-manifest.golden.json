@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "date": "2026-12-01",
+  "channel": "stable",
+  "security": true,
+  "breaking": true,
+  "migration": true,
+  "upgradeFrom": null,
+  "notes": "### Added\n- Something new.\n\n### Security\n- Fixed a thing.",
+  "upgradeNotes": "Rename the setting."
+}
