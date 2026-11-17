@@ -77,6 +77,17 @@ jobs:
       - name: Enable pnpm (pinned in package.json)
         run: npm install --global corepack@0.34.6 && corepack enable
       - run: pnpm install --frozen-lockfile
+      # The backup tests run pg_dump, pg_restore and psql. They must be version 18 (the server's): the runner's own
+      # client is older. PostgreSQL's own apt repository, pinned to the 18 client package.
+      - name: Install the PostgreSQL 18 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/pgdg.list -o Dir::Etc::sourceparts=- -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y --no-install-recommends postgresql-client-18
+          /usr/lib/postgresql/18/bin/pg_dump --version
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
       - run: pnpm test
 
   licenses:

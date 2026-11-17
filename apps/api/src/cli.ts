@@ -11,6 +11,8 @@ import { ConfigError, loadConfig } from './config.js';
 import { createOwnerDb } from './db.js';
 import type { UntypedDb } from './db.js';
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from './auth/passwords.js';
+import { BACKUP_USAGE, runBackupCommand } from './cli-backup.js';
+import type { BackupCliDeps } from './cli-backup.js';
 
 export interface CliDeps {
   /** Opens the owner connection. Called only for commands that need the database. */
@@ -19,14 +21,19 @@ export interface CliDeps {
   readPassword: (options: { fromStdin: boolean }) => Promise<string>;
   out: (text: string) => void;
   err: (text: string) => void;
+  /** What the backup commands use (the full configuration, the tools, a way to ask for a passphrase). */
+  backup?: Partial<BackupCliDeps>;
 }
 
 const USAGE = `Usage:
   kinship set-password <email>                  ask for a new password (typed twice, not shown)
   kinship set-password <email> --password-stdin  read the new password from standard input
+${BACKUP_USAGE}
 
-Sets a new password for an account, signs it out everywhere and retires its open set-password link. For when someone
-is locked out and email recovery is not available.`;
+set-password sets a new password for an account, signs it out everywhere and retires its open set-password link. For when
+someone is locked out and email recovery is not available.`;
+
+const BACKUP_COMMANDS = ['backup', 'backup-list', 'backup-verify', 'backup-decrypt'];
 
 /** Sets a new password hash and removes all of the account's sessions. Returns false when no such account. */
 export async function setUserPassword(db: UntypedDb, email: string, passwordHash: string): Promise<boolean> {
@@ -50,6 +57,9 @@ export async function setUserPassword(db: UntypedDb, email: string, passwordHash
 
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...rest] = argv;
+  if (command !== undefined && BACKUP_COMMANDS.includes(command)) {
+    return runBackupCommand(command, rest, { out: deps.out, err: deps.err, ...deps.backup });
+  }
   if (command !== 'set-password') {
     deps.err(
       command === undefined || command === '--help' || command === 'help'
@@ -148,6 +158,13 @@ async function main(): Promise<void> {
     },
     out: (text) => console.log(text),
     err: (text) => console.error(text),
+    backup: {
+      askPassphrase: async () => {
+        if (!process.stdin.isTTY)
+          throw new Error('No terminal to ask on. Set BACKUP_PASSPHRASE or use --passphrase-file.');
+        return readHidden('Backup passphrase: ');
+      },
+    },
   };
   try {
     process.exitCode = await runCli(process.argv.slice(2), deps);

@@ -78,6 +78,13 @@ RUN printf '#!/bin/sh\nexec node /app/apps/api/dist/cli.js "$@"\n' > /usr/local/
 # Nothing in this image runs npm. Removing it also removes the libraries it bundles (and any
 # vulnerabilities reported in them), and a tool an attacker could use.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+# The PostgreSQL command-line tools for built-in backups (pg_dump, pg_restore, psql; about 6 MB). The major version must be
+# the same as the database image's or newer. They run as separate programs under the PostgreSQL License (ADR 0014); the
+# image's busybox tar packs the archive.
+RUN apk add --no-cache postgresql18-client
+# The backups folder (compose.yml mounts ./data/backups here) and the stand-alone decrypt script for disaster recovery.
+RUN mkdir -p /var/lib/kinship/backups && chown node:node /var/lib/kinship/backups && chmod 700 /var/lib/kinship/backups
+COPY docs/backup/kinship-decrypt.mjs /usr/local/share/kinship/kinship-decrypt.mjs
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=3 \

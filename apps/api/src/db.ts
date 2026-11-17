@@ -24,7 +24,28 @@ export interface Database {
   schema_info: {
     id: boolean;
     schema_number: number;
+    /** The version of the app that last started (0013). */
+    app_version: string | null;
     updated_at: Date;
+  };
+  /** Not secret settings, SuperAdmin only (0013). */
+  app_settings: {
+    key: string;
+    value: unknown;
+    updated_by: string | null;
+    updated_at: Generated<Date>;
+  };
+  /** One row per database change or restore. Admins read it; only the owner writes it (0013). */
+  upgrade_log: {
+    id: Generated<string>;
+    event: 'migrate' | 'restore';
+    from_schema: number | null;
+    to_schema: number;
+    from_version: string | null;
+    to_version: string;
+    safety_copy: string | null;
+    safety_note: string | null;
+    created_at: ColumnType<Date, never, never>;
   };
   /** The app role can read these columns, and only the signed-in person's own row (row-level security). */
   users: {

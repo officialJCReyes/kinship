@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { buildApp } from './app.js';
-import { ConfigError, loadConfig } from './config.js';
+import { ConfigError, loadConfig, scrubSecretsFromEnv } from './config.js';
+import { passphraseProblem } from './backup/crypto.js';
 import { prepareSetupToken, scheduleSessionCleanup } from './auth/startup.js';
 import { createAppDb, createOwnerDb } from './db.js';
 import { runMigrations } from './migrations/runner.js';
@@ -13,8 +14,20 @@ function log(message: string): void {
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  scrubSecretsFromEnv();
   const version = readVersion(config.gitCommit, config.buildDate);
   log(`KinShip API ${version.version} (${version.commit}, built ${version.buildDate}) starting`);
+
+  const backupProblem = passphraseProblem(config.backup.passphrase);
+  if (backupProblem !== null) {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        time: Date.now(),
+        msg: `backups are not available: ${backupProblem}. Set BACKUP_PASSPHRASE in .env (see INSTALL.md).`,
+      }),
+    );
+  }
 
   // 1. As the owner role: create/refresh the app role, then migrate. Then let go of the owner.
   const owner = createOwnerDb(config.db);

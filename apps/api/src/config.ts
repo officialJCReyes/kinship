@@ -15,6 +15,16 @@ export interface DbConfig {
 /** What Fastify's trustProxy accepts here: off, on (every hop), or the addresses/ranges of trusted proxies. */
 export type TrustProxy = boolean | string[];
 
+/** Built-in backups (see docs/decisions/0014). The passphrase is a secret: it is never logged and never in the API. */
+export interface BackupConfig {
+  /** BACKUP_ENABLED: the master switch for the schedule only. A manual backup needs just a usable passphrase. */
+  enabled: boolean;
+  /** The folder the archives are written to (the compose volume). */
+  dir: string;
+  /** The passphrase as configured, or undefined. Use passphraseProblem() before relying on it. */
+  passphrase: string | undefined;
+}
+
 export interface Config {
   /** Public address of the site, used in the first-run setup message. */
   publicUrl: string;
@@ -30,6 +40,7 @@ export interface Config {
   /** When the image was built (ISO 8601), stamped by the release build; "unknown" from a checkout. */
   buildDate: string;
   db: DbConfig;
+  backup: BackupConfig;
 }
 
 export class ConfigError extends Error {
@@ -84,6 +95,41 @@ function secret(env: Env, name: string, readFile: ReadFile): string {
     throw new ConfigError(`${name} is still the placeholder from .env.example; set a real value`);
   }
   return value;
+}
+
+/** BACKUP_PASSPHRASE or BACKUP_PASSPHRASE_FILE, both optional. Whether it is good enough is checked where it is used. */
+function optionalSecret(env: Env, name: string, readFile: ReadFile): string | undefined {
+  const direct = env[name];
+  const file = env[`${name}_FILE`];
+  if (direct !== undefined && direct !== '' && file !== undefined && file !== '') {
+    throw new ConfigError(`Set either ${name} or ${name}_FILE, not both`);
+  }
+  if (file !== undefined && file !== '') {
+    try {
+      return readFile(file).replace(/\r?\n$/, '');
+    } catch {
+      throw new ConfigError(`${name}_FILE points to ${file}, which could not be read`);
+    }
+  }
+  return direct !== undefined && direct !== '' ? direct : undefined;
+}
+
+function backupConfig(env: Env, readFile: ReadFile): BackupConfig {
+  const dest = (env.BACKUP_DEST ?? 'local').trim() || 'local';
+  if (dest !== 'local') {
+    throw new ConfigError(
+      `BACKUP_DEST=${dest} is not supported: backups are written to the local folder only. S3 as a destination arrives in 1.1.`,
+    );
+  }
+  const raw = (env.BACKUP_ENABLED ?? 'on').trim().toLowerCase();
+  if (!['on', 'off', 'true', 'false', '1', '0', 'yes', 'no'].includes(raw)) {
+    throw new ConfigError('BACKUP_ENABLED must be on or off');
+  }
+  return {
+    enabled: ['on', 'true', '1', 'yes'].includes(raw),
+    dir: str(env, 'BACKUP_DIR', '/var/lib/kinship/backups'),
+    passphrase: optionalSecret(env, 'BACKUP_PASSPHRASE', readFile),
+  };
 }
 
 function trustProxy(env: Env): TrustProxy {
@@ -160,5 +206,19 @@ export function loadConfig(env: Env = process.env, readFile: ReadFile = (p) => r
       appUser,
       appPassword,
     },
+    backup: backupConfig(env, readFile),
   };
+}
+
+/**
+ * Removes the secrets from process.env once they are in the Config, so nothing that reads the environment later (a
+ * library, a diagnostic report, a child process that inherits it) can see them. It does not hide them from someone who
+ * can already read /proc/<pid>/environ of this process (the same user), which is the container's own start-up
+ * environment: code execution in the api exposes the owner password either way (see ADR 0014).
+ */
+export function scrubSecretsFromEnv(env: Record<string, string | undefined> = process.env): void {
+  for (const name of ['DB_OWNER_PASSWORD', 'DB_APP_PASSWORD', 'BACKUP_PASSPHRASE']) {
+    delete env[name];
+    delete env[`${name}_FILE`];
+  }
 }
