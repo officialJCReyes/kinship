@@ -42,6 +42,8 @@ ENV GIT_COMMIT=${GIT_COMMIT} \
 COPY apps/web apps/web
 COPY packages/shared packages/shared
 RUN pnpm --filter @kinship/web build
+# The version of this web image, from the same package.json the app shows. nginx tells the api (ADR 0015).
+RUN node -p "require('./apps/web/package.json').version" > /app/web-version.txt
 
 # ---- runtime: unprivileged nginx (uid 101), stable branch ----
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine AS runtime
@@ -58,8 +60,16 @@ LABEL org.opencontainers.image.title="kinship-web" \
 # rebuilt now and then). The image runs as the unprivileged user again straight after.
 USER root
 RUN apk upgrade --no-cache
-USER 101
 COPY apps/web/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/web-version.txt /tmp/web-version.txt
+# Write this image's version into the nginx config (it is sent to the api as X-KinShip-Web-Version). Done here, at build time, so
+# the container can stay read-only. A version that is not plain characters fails the build instead of reaching a config file.
+RUN v="$(cat /tmp/web-version.txt)" \
+ && printf '%s' "$v" | grep -Eq '^[0-9A-Za-z][0-9A-Za-z.+-]*$' \
+ && sed -i "s/__KINSHIP_WEB_VERSION__/$v/g" /etc/nginx/conf.d/default.conf \
+ && ! grep -q '__KINSHIP_WEB_VERSION__' /etc/nginx/conf.d/default.conf \
+ && rm /tmp/web-version.txt
+USER 101
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \

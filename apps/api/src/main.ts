@@ -9,6 +9,7 @@ import { readVersion } from './version.js';
 import { backupHousekeeping, createScheduler } from './backup/scheduler.js';
 import { createJobRunner } from './jobs/runner.js';
 import { createUpdateChecker } from './updates/checker.js';
+import { loadBundledDocs } from './updates/docs.js';
 import { useProxyFromEnv } from './updates/proxy.js';
 import { toolsFromEnv } from './backup/tools.js';
 
@@ -80,6 +81,7 @@ async function main(): Promise<void> {
     logLevel: config.logLevel,
     trustProxy: config.trustProxy,
     backups: { scheduler, dir: config.backup.dir },
+    updates: { checker, docs: loadBundledDocs() },
     sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
   });
 

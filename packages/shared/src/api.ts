@@ -17,6 +17,8 @@ export interface ApiVersion {
   /** When the image was built (ISO 8601), or "unknown". */
   buildDate: string;
   schema: number | null;
+  /** The version the web container last reported (X-KinShip-Web-Version), or null when none has. */
+  webVersion: string | null;
 }
 
 /** Response of GET /api/health (HTTP 200 when ok, 503 when unavailable). */

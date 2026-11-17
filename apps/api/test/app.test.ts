@@ -72,6 +72,7 @@ describe('GET /api/version', () => {
       commit: 'abc1234',
       buildDate: '2026-11-15T19:04:05Z',
       schema: migrations.length,
+      webVersion: null,
     });
   });
 
@@ -92,6 +93,7 @@ describe('GET /api/version', () => {
         commit: 'abc1234',
         buildDate: 'unknown',
         schema: null,
+        webVersion: null,
       });
     } finally {
       await app.close();

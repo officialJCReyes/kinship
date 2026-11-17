@@ -50,7 +50,8 @@ export const githubTransport: Transport = {
 };
 
 export interface CheckerDeps {
-  db: DbConfig;
+  /** The database to read the switches from and write the state to (a function when it is only known later: tests). */
+  db: DbConfig | (() => DbConfig);
   /** The version that is running. */
   version: string;
   log: JobLog;
@@ -116,7 +117,10 @@ export function createUpdateChecker(deps: CheckerDeps) {
   let lastManual = 0;
   const attempts: number[] = [];
 
-  const openDb = () => createDb<AnySchema>(deps.db, deps.db.ownerUser, deps.db.ownerPassword, 1);
+  const openDb = () => {
+    const db = typeof deps.db === 'function' ? deps.db() : deps.db;
+    return createDb<AnySchema>(db, db.ownerUser, db.ownerPassword, 1);
+  };
 
   /** The state that "never checked" and "checked for another version" both mean: no ETag is sent. */
   const etagFor = (state: CheckState): string | null => {

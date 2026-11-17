@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { ApiHealth, ApiVersion } from '@kinship/shared';
+import { WEB_VERSION_HEADER } from '@kinship/shared';
+import type { ApiHealth, ApiVersion, VersionMismatch } from '@kinship/shared';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
@@ -24,6 +25,8 @@ import type { RouteLimit } from './routes/shared.js';
 import { registerBackupRoutes } from './routes/backups.js';
 import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
+import { registerUpdateRoutes } from './routes/updates.js';
+import type { UpdatesService } from './routes/updates.js';
 import { registerTreeRoutes } from './routes/tree.js';
 import { registerUnionRoutes } from './routes/unions.js';
 import type { VersionInfo } from './version.js';
@@ -42,6 +45,8 @@ declare module 'fastify' {
 export interface AppOptions {
   /** The backup scheduler and folder, for Admin > Backups. Without it those routes answer 503. */
   backups?: BackupService;
+  /** The update check and the bundled changelog, for Admin > Updates and What's new. Without it those routes do not exist. */
+  updates?: UpdatesService;
   /** Connected as the app role. */
   db: Kysely<Database>;
   version: VersionInfo;
@@ -128,6 +133,30 @@ export function buildApp(options: AppOptions): FastifyInstance {
     return withUserTransaction(db, this.user?.id ?? null, fn);
   });
 
+  // 0. The web container and this api must be the same version (ADR 0015). nginx adds the web's version to every request it passes
+  // on; a different one gets a 503 for everything except the health and version checks, so a half-updated install fails loudly
+  // instead of misbehaving. A request without the header (the dev server, a script) is not checked.
+  const web = { version: null as string | null, warned: false };
+  app.addHook('onRequest', async (request, reply) => {
+    const raw = request.headers[WEB_VERSION_HEADER];
+    const reported = typeof raw === 'string' && /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/.test(raw) ? raw : null;
+    if (reported) web.version = reported;
+    if (!reported || reported === version.version) return;
+    const path = request.url.split('?')[0];
+    if (path === '/api/health' || path === '/api/version') return;
+    if (!web.warned) {
+      web.warned = true;
+      request.log.error(
+        { web: reported, api: version.version },
+        'the web container and the api are on different versions; answering 503 until they match',
+      );
+    }
+    void reply.header('Cache-Control', 'no-store');
+    return reply
+      .code(503)
+      .send({ error: 'version_mismatch', web: reported, api: version.version } satisfies VersionMismatch);
+  });
+
   // 1. State-changing requests need the CSRF header and a matching Origin.
   app.addHook('onRequest', csrfCheck);
 
@@ -190,7 +219,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     } catch (error) {
       request.log.warn({ err: error }, 'version: could not read the schema number');
     }
-    const body: ApiVersion = { ...version, schema };
+    const body: ApiVersion = { ...version, schema, webVersion: web.version };
     return body;
   });
 
@@ -224,6 +253,13 @@ export function buildApp(options: AppOptions): FastifyInstance {
     void routes.register(async (backups) =>
       registerBackupRoutes(backups, limit, { db, limiters, failureDelayMs }, options.backups),
     );
+    // Own scope: the update routes check their own roles (SuperAdmin, and for What's new any admin) and are never cached.
+    if (options.updates) {
+      const service = options.updates;
+      void routes.register(async (updates) =>
+        registerUpdateRoutes(updates, limit, { version, webVersion: () => web.version, service }),
+      );
+    }
     registerPeopleRoutes(routes, limit);
     registerUnionRoutes(routes, limit);
     registerLabelRoutes(routes, limit);
