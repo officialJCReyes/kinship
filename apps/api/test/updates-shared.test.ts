@@ -419,3 +419,30 @@ describe('the banner and the update steps', () => {
     expect(steps(unknown, null, null)).toBe(false);
   });
 });
+
+describe('a changelog written by release-please', () => {
+  // The same file scripts/release-info.test.mjs feeds to the release-notes reader: what release-please 17.11.2 wrote for this
+  // repository, with a `security:` and a `feat(api)!:` commit so those two sections exist.
+  const generated = readFileSync(
+    new URL('../../../scripts/fixtures/release-please-changelog.md', import.meta.url),
+    'utf8',
+  );
+
+  it('is read into one section with its date and the groups What is new shows', () => {
+    const sections = parseChangelog(generated);
+    expect(sections.map((s) => [s.version, s.date])).toEqual([['0.2.0-alpha.2', '2026-11-17']]);
+    const kinds = sections[0]?.groups.map((g) => g.kind);
+    expect(kinds).toEqual(['breaking', 'security', 'new', 'fixed']);
+    expect(sections[0]?.groups.map((g) => g.title)).toEqual([
+      '⚠ BREAKING CHANGES',
+      'Security',
+      'Features',
+      'Bug Fixes',
+    ]);
+  });
+
+  it('is found in the range an admin on alpha.2 is shown after updating', () => {
+    const sections = sectionsBetween(parseChangelog(generated), '0.1.0-alpha.2', '0.2.0-alpha.2');
+    expect(sections.map((s) => s.version)).toEqual(['0.2.0-alpha.2']);
+  });
+});

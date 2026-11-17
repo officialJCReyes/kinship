@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
   buildNotes,
   capText,
+  checkInstallDefaults,
   matchReleaseHeading,
   validateManifest,
   MAX_NOTES_CHARS,
@@ -53,6 +55,8 @@ function repo(version, extra = {}) {
     'apps/web/package.json': JSON.stringify({ version }),
     'packages/shared/package.json': JSON.stringify({ version }),
     'CHANGELOG.md': CHANGELOG,
+    'compose.yml': `image: a:\${KINSHIP_VERSION:-${version}}\nimage: b:\${KINSHIP_VERSION:-${version}}\n`,
+    '.env.example': `# x\nKINSHIP_VERSION=${version}\n`,
     ...extra,
   };
   return (file) => {
@@ -435,4 +439,46 @@ test('the golden manifest (the contract the api tests read) and the real alpha.2
   validateManifest(
     JSON.parse(readFileSync(new URL('./fixtures/release-manifest.alpha2.json', import.meta.url), 'utf8')),
   );
+});
+
+test('the install files must default to the version being released', () => {
+  checkInstallDefaults(repo('0.2.0'), '0.2.0');
+  assert.throws(() => checkInstallDefaults(repo('0.2.0'), '0.3.0'), /defaults KINSHIP_VERSION to 0\.2\.0/);
+  assert.throws(
+    () => checkInstallDefaults(repo('0.2.0', { '.env.example': 'KINSHIP_VERSION=0.1.0\n' }), '0.2.0'),
+    /sets KINSHIP_VERSION=0\.1\.0/,
+  );
+  assert.throws(
+    () => checkInstallDefaults(repo('0.2.0', { 'compose.yml': 'services: {}\n' }), '0.2.0'),
+    /no \$\{KINSHIP/,
+  );
+  // The real files in this checkout agree with the package version (release-please keeps them so).
+  const here = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+  checkInstallDefaults(here, JSON.parse(here('package.json')).version);
+});
+
+// scripts/fixtures/release-please-changelog.md is what release-please 17.11.2 wrote (a dry run on 2026-11-17 over this
+// repository's commits, plus a `security:` commit and a `feat(api)!:` commit so those sections exist). Both parsers read it:
+// this one (the release notes and manifest) and the in-app reader (apps/api/test/updates-shared.test.ts).
+test('a changelog written by release-please gives release notes and a manifest with the right flags', () => {
+  const generated = readFileSync(new URL('./fixtures/release-please-changelog.md', import.meta.url), 'utf8');
+  const section = extractChangelogSection(generated, '0.2.0-alpha.2');
+  assert.equal(section.date, '2026-11-17');
+  assert.ok(section.text.includes('### Security') && section.text.includes('### Features'));
+  assert.equal(hasSecurityNotes(section.text), true);
+  const { manifest } = buildNotes({
+    version: '0.2.0-alpha.2',
+    prerelease: true,
+    read: repo('0.2.0-alpha.2', {
+      'CHANGELOG.md': generated,
+      'UPGRADE.md': '## 0.2.0-alpha.2\n\nSet BACKUP_RETENTION_DAILY.\n',
+    }),
+    git: fakeGit({ log: 'feat(api)!: rename BACKUP_KEEP\0' }),
+    tags: ['v0.1.0-alpha.2'],
+  });
+  assert.equal(manifest.security, true);
+  assert.equal(manifest.breaking, true);
+  assert.equal(manifest.channel, 'prerelease');
+  assert.ok(manifest.notes.includes('BREAKING CHANGES'));
+  validateManifest(manifest);
 });
