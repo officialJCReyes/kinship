@@ -119,6 +119,8 @@ export interface Database {
     start_precision: Generated<DatePrecisionCode>;
     end_date: string | null;
     end_precision: Generated<DatePrecisionCode>;
+    /** Where the relationship began (0015), free text. */
+    place: string | null;
     /** True when the database set Widowed itself (0007). Only the triggers write it. */
     status_auto: ColumnType<boolean, never, never>;
     created_by: string | null;

@@ -312,6 +312,50 @@ describe('relationships (unions)', () => {
     expect(fixed.body?.union).toMatchObject({ status: 'married', end: null });
   });
 
+  it('keeps an optional place on a relationship: trimmed, blank is none, changed and cleared by PATCH', async () => {
+    const one = (await as(admin, 'POST', '/api/people', { givenName: 'Place', surname: 'One' })).body?.person.id;
+    const two = (await as(admin, 'POST', '/api/people', { givenName: 'Place', surname: 'Two' })).body?.person.id;
+    const made = await as(admin, 'POST', '/api/unions', {
+      partnerIds: [one, two],
+      status: 'married',
+      place: '  Santo Domingo, República Dominicana ',
+    });
+    expect(made.status).toBe(201);
+    expect(made.body?.union.place).toBe('Santo Domingo, República Dominicana');
+    const id = made.body?.union.id as string;
+    // A patch without a place leaves it; a new one replaces it; blank or null clears it.
+    expect((await as(admin, 'PATCH', `/api/unions/${id}`, { status: 'engaged' })).body?.union.place).toBe(
+      'Santo Domingo, República Dominicana',
+    );
+    expect((await as(admin, 'PATCH', `/api/unions/${id}`, { place: 'Lagos' })).body?.union.place).toBe('Lagos');
+    expect((await as(admin, 'GET', `/api/unions/${id}`)).body?.union.place).toBe('Lagos');
+    expect((await as(admin, 'PATCH', `/api/unions/${id}`, { place: '   ' })).body?.union.place).toBeNull();
+    await as(admin, 'PATCH', `/api/unions/${id}`, { place: 'Lagos' });
+    expect((await as(admin, 'PATCH', `/api/unions/${id}`, { place: null })).body?.union.place).toBeNull();
+    // A relationship made without one has none.
+    const three = (await as(admin, 'POST', '/api/people', { givenName: 'Place', surname: 'Three' })).body?.person.id;
+    const plain = await as(admin, 'POST', '/api/unions', { partnerIds: [one, three], status: 'friends' });
+    expect(plain.body?.union.place).toBeNull();
+  });
+
+  it('refuses a place that is too long, has a control character or is not text', async () => {
+    const one = (await as(admin, 'POST', '/api/people', { givenName: 'Bad', surname: 'One' })).body?.person.id;
+    const two = (await as(admin, 'POST', '/api/people', { givenName: 'Bad', surname: 'Two' })).body?.person.id;
+    const base = { partnerIds: [one, two], status: 'friends' };
+    for (const place of ['x'.repeat(201), 'Mad\u0007rid', { city: 'Madrid' }, ['Madrid']]) {
+      const response = await as(admin, 'POST', '/api/unions', { ...base, place });
+      expect(response.status, JSON.stringify(place)).toBe(400);
+    }
+    expect((await as(admin, 'POST', '/api/unions', { ...base, place: 'x'.repeat(200) })).status).toBe(201);
+    const { union } = (await as(admin, 'POST', '/api/unions', { ...base, status: 'partner' })).body as {
+      union: { id: string };
+    };
+    expect(await as(admin, 'PATCH', `/api/unions/${union.id}`, { place: 'x'.repeat(201) })).toMatchObject({
+      status: 400,
+      body: { error: 'invalid_place' },
+    });
+  });
+
   it('never removes children when the status changes, and refuses to delete a union that has children', async () => {
     const before = await as('user', 'GET', `/api/unions/${f.union.danielElena}`);
     expect(ids(before.body?.union.children)).toEqual(expect.arrayContaining([f.person.marcus, f.person.sofia]));

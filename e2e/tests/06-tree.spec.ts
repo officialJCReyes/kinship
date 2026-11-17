@@ -92,6 +92,7 @@ test('lines: solid for a marriage, dotted for a divorce, and a couple line opens
   const dialog = page.getByRole('dialog', { name: /^Relationship: / });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel('Relationship status').selectOption('separated');
+  await dialog.getByLabel('Place (optional)').fill('Madrid, Spain');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.locator(`[data-union="${unions.elena}"] .line`)).toHaveAttribute('data-line', 'dotted');
@@ -99,6 +100,8 @@ test('lines: solid for a marriage, dotted for a divorce, and a couple line opens
   await person(page, 'Daniel').click();
   const panel = page.getByRole('complementary', { name: 'Selected person' });
   await expect(panel.getByRole('button', { name: 'Edit relationship' })).toHaveCount(2);
+  // The place saved with the relationship shows under that partner, and only there.
+  await expect(panel.getByText('Place: Madrid, Spain')).toHaveCount(1);
 });
 
 test('the leaf flips to an in-law’s family and back', async ({ adminPage: page }) => {

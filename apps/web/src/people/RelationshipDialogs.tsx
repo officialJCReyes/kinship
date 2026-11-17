@@ -69,7 +69,7 @@ export function EditUnionDialog({
     setSubmitted(true);
     if (!checked.ok) return;
     const result = await save
-      .mutateAsync({ status: draft.status, start: checked.start, end: checked.end })
+      .mutateAsync({ status: draft.status, start: checked.start, end: checked.end, place: checked.place })
       .catch(() => null);
     await refresh();
     if (!result) return;

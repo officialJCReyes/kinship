@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH } from '@kinship/shared';
+import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH, PLACE_MAX_LENGTH } from '@kinship/shared';
 import { badRequest } from '../errors.js';
 
 // eslint-disable-next-line no-control-regex
@@ -39,4 +39,14 @@ export function cleanOptionalLabel(raw: unknown): string | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'string' && raw.trim() === '') return null;
   return cleanLabel(raw);
+}
+
+/** A place on a relationship: Unicode-normalized, trimmed, 1 to 200 characters, no control characters. Null, undefined or blank means none. */
+export function cleanOptionalPlace(raw: unknown): string | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'string') throw badRequest('invalid_place');
+  const place = raw.normalize('NFC').trim();
+  if (place === '') return null;
+  if (Array.from(place).length > PLACE_MAX_LENGTH || CONTROL_CHARACTERS.test(place)) throw badRequest('invalid_place');
+  return place;
 }

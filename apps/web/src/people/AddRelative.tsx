@@ -264,7 +264,12 @@ function RelativeForm({
     }
     if (isPartner) {
       if (!unionChecked.ok) return null;
-      const link = { status: union.status, start: unionChecked.start, end: unionChecked.end };
+      const link = {
+        status: union.status,
+        start: unionChecked.start,
+        end: unionChecked.end,
+        place: unionChecked.place,
+      };
       const saveOwnSurname = async () => {
         const next = ownMarried.trim();
         if (detail.permissions.edit && asksMarriedSurname(union.status) && next !== (person.marriedSurname ?? '')) {

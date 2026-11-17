@@ -146,6 +146,9 @@ export function TreePanel({
                       {unionLabel(union.status, partner?.gender ?? null, partner?.deceased ?? false)}:{' '}
                       <Link to={`/people/${partnerId}`}>{nameOf(partnerId)}</Link>{' '}
                       <span className="pill">{statusName(union.status)}</span>
+                      {union.place ? (
+                        <div className="muted partner-place">{t('tree.panel.unionPlace', { place: union.place })}</div>
+                      ) : null}
                     </div>
                     <ActionButton
                       small

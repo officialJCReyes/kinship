@@ -311,13 +311,13 @@ describe('what a restore refuses before it touches anything', () => {
     const l = await live();
     const older = await tempMigrationsDir(true);
     cleanups.push(() => older.remove());
-    await removeMigrationsFrom(older.dir, 14);
+    await removeMigrationsFrom(older.dir, 15);
     const made = await createBackup(l.ctx, { kind: 'manual' });
     const before = await state(l.test.owner, l.test.config.appUser);
     const oldImage = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: older.dir } };
     const failure = await restoreBackup(oldImage, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('refused');
-    expect((failure as BackupError).message).toMatch(/newer KinShip.*schema 14.*only knows schema 13/);
+    expect((failure as BackupError).message).toMatch(/newer KinShip.*schema 15.*only knows schema 14/);
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
   }, 90_000);
 
@@ -378,16 +378,17 @@ describe('restoring a backup from an older schema', () => {
       '0012_setup_family',
       '0013_backup_settings_and_upgrade_log',
       '0014_updates_and_whats_new',
+      '0015_union_place',
     ]);
     const after = await state(l.test.owner, l.test.config.appUser);
-    expect(after.schema).toBe(14);
+    expect(after.schema).toBe(15);
     expect(after.stats['people']).toEqual(peopleBefore);
     expect(after.tables).toEqual(expect.arrayContaining(['account_links', 'app_settings', 'upgrade_log']));
     const log = await sql<{
       from_schema: number;
       to_schema: number;
     }>`select from_schema, to_schema from upgrade_log`.execute(l.test.owner);
-    expect(log.rows).toEqual([{ from_schema: 10, to_schema: 14 }]);
+    expect(log.rows).toEqual([{ from_schema: 10, to_schema: 15 }]);
   }, 120_000);
 
   it('a failing newer migration leaves a valid database at the older schema', async () => {

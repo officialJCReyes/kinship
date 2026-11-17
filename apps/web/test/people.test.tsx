@@ -463,6 +463,7 @@ describe('add relative', () => {
       status: 'engaged',
       start: { value: '2026-06', precision: 'exactly' },
       end: null,
+      place: null,
       partnerIds: ['lena', 'marcus'],
     });
   });
@@ -511,6 +512,7 @@ describe('relationships', () => {
       status: 'partner',
       start: { value: '1993', precision: 'exactly' },
       end: null,
+      place: null,
     });
   });
 

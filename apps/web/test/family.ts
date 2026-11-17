@@ -78,6 +78,7 @@ function union(
     status,
     start: start ? { value: start, precision: 'exactly' } : null,
     end: end ? { value: end, precision: 'exactly' } : null,
+    place: null,
     statusAuto: status === 'widowed',
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',

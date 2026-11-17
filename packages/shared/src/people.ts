@@ -51,6 +51,8 @@ export const DEFAULT_LINEAGE_VIEW: LineageView = 'adoptive';
 export const NAME_MAX_LENGTH = 100;
 /** A custom relationship label (Godmother, Guardian) and its optional reverse. */
 export const LABEL_MAX_LENGTH = 60;
+/** The longest place text on a relationship. */
+export const PLACE_MAX_LENGTH = 200;
 export const SEARCH_MAX_LENGTH = 100;
 export const PEOPLE_PAGE_DEFAULT = 50;
 export const PEOPLE_PAGE_MAX = 100;
@@ -123,6 +125,8 @@ export interface Union {
   status: UnionStatus;
   start: PartialDate | null;
   end: PartialDate | null;
+  /** Where the relationship began, free text (migration 0015). Null means none. */
+  place: string | null;
   /** True when the server set Widowed itself (a partner died). A status changed by hand makes it false. */
   statusAuto: boolean;
   createdAt: string;
@@ -134,11 +138,15 @@ export interface UnionInput {
   status: UnionStatus;
   start?: PartialDateInput | null;
   end?: PartialDateInput | null;
+  /** Optional; blank means none. */
+  place?: string | null;
 }
 export interface UnionPatch {
   status?: UnionStatus;
   start?: PartialDateInput | null;
   end?: PartialDateInput | null;
+  /** `null` or blank clears it; leaving it out keeps it. */
+  place?: string | null;
 }
 
 /** What the signed-in account may do with one person (for showing or hiding buttons; the API checks again). */
@@ -362,6 +370,7 @@ export const PEOPLE_ERROR_CODES = [
   'invalid_link_kind',
   'invalid_lineage',
   'invalid_label',
+  'invalid_place',
   'label_not_found',
   'duplicate_label',
 ] as const;

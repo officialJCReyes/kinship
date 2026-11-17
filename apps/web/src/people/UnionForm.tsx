@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { NAME_MAX_LENGTH, UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
+import { NAME_MAX_LENGTH, PLACE_MAX_LENGTH, UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
 import type { PartialDateInput, Union, UnionStatus } from '@kinship/shared';
 import { DateInput } from '../components/DateInput.js';
 import { Field } from '../components/Field.js';
@@ -13,14 +13,21 @@ export interface UnionDraft {
   status: UnionStatus;
   start: DateDraft;
   end: DateDraft;
+  /** Where it began, free text. Blank means none. */
+  place: string;
 }
 
 export function emptyUnionDraft(status: UnionStatus = 'married'): UnionDraft {
-  return { status, start: emptyDateDraft, end: emptyDateDraft };
+  return { status, start: emptyDateDraft, end: emptyDateDraft, place: '' };
 }
 
 export function draftFromUnion(union: Union): UnionDraft {
-  return { status: union.status, start: draftFromDate(union.start), end: draftFromDate(union.end) };
+  return {
+    status: union.status,
+    start: draftFromDate(union.start),
+    end: draftFromDate(union.end),
+    place: union.place ?? '',
+  };
 }
 
 export function hasEndDate(status: UnionStatus): boolean {
@@ -32,10 +39,13 @@ export function checkUnionDraft(draft: UnionDraft): {
   ok: boolean;
   start: PartialDateInput | null;
   end: PartialDateInput | null;
+  /** Trimmed; null when blank (which clears it on an edit). */
+  place: string | null;
 } {
   const start = draftToInput(draft.start);
   const end = hasEndDate(draft.status) ? draftToInput(draft.end) : null;
-  return { ok: start !== undefined && end !== undefined, start: start ?? null, end: end ?? null };
+  const place = draft.place.trim();
+  return { ok: start !== undefined && end !== undefined, start: start ?? null, end: end ?? null, place: place || null };
 }
 
 export function UnionFields({
@@ -74,6 +84,15 @@ export function UnionFields({
           showError={showErrors}
         />
       ) : null}
+      <Field
+        label={t('union.place')}
+        name="unionPlace"
+        autoComplete="off"
+        maxLength={PLACE_MAX_LENGTH}
+        value={draft.place}
+        onChange={(event) => onChange({ ...draft, place: event.target.value })}
+        help={t('union.placeHelp')}
+      />
     </>
   );
 }

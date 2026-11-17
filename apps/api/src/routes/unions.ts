@@ -8,6 +8,7 @@ import type { Database } from '../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../errors.js';
 import { canEditUnion, isAdmin } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
+import { cleanOptionalPlace } from '../people/names.js';
 import { withActor } from '../people/run.js';
 import {
   UNION_COLUMNS,
@@ -34,6 +35,7 @@ const dateSchema = {
     },
   ],
 };
+const placeSchema = { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 2000 }] };
 /** Transaction-local setting the PATCH sets when the body has a status (read by the trigger of migration 0008). */
 const STATUS_BY_HAND_SETTING = 'kinship.union_status_by_hand';
 const idParams = { type: 'object', required: ['id'], properties: { id: { type: 'string', maxLength: 64 } } };
@@ -94,6 +96,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
             status: { type: 'string', maxLength: 32 },
             start: dateSchema,
             end: dateSchema,
+            place: placeSchema,
           },
         },
       },
@@ -108,6 +111,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
         const status = parseStatus(body.status);
         const start = parseDateInput(body.start ?? null);
         const end = parseDateInput(body.end ?? null);
+        const place = cleanOptionalPlace(body.place);
         if (end !== null && !hasEndDate(status)) throw badRequest('end_date_not_allowed');
         if (!(await getPerson(trx, first)) || !(await getPerson(trx, second))) throw notFound('person_not_found');
         const [a, b] = first < second ? [first, second] : [second, first];
@@ -123,6 +127,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
             start_precision: start?.precision ?? 'exactly',
             end_date: end?.value ?? null,
             end_precision: end?.precision ?? 'exactly',
+            place,
             created_by: actor.id,
           })
           .returning(UNION_COLUMNS)
@@ -158,7 +163,12 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
           type: 'object',
           additionalProperties: false,
           minProperties: 1,
-          properties: { status: { type: 'string', maxLength: 32 }, start: dateSchema, end: dateSchema },
+          properties: {
+            status: { type: 'string', maxLength: 32 },
+            start: dateSchema,
+            end: dateSchema,
+            place: placeSchema,
+          },
         },
       },
     },
@@ -174,6 +184,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
         const status = body.status === undefined ? current.status : parseStatus(body.status);
         const start = body.start === undefined ? undefined : parseDateInput(body.start);
         const end = body.end === undefined ? undefined : parseDateInput(body.end);
+        const place = body.place === undefined ? undefined : cleanOptionalPlace(body.place);
         const endAfter = end === undefined ? current.end_date : (end?.value ?? null);
         // Moving to a status without an end date while one is stored is refused, not silently erased:
         // send `end: null` together with the new status.
@@ -208,6 +219,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
               ? { start_date: start?.value ?? null, start_precision: start?.precision ?? 'exactly' }
               : {}),
             ...(end !== undefined ? { end_date: end?.value ?? null, end_precision: end?.precision ?? 'exactly' } : {}),
+            ...(place !== undefined ? { place } : {}),
           })
           .where('id', '=', id)
           .returning(UNION_COLUMNS)

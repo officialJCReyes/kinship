@@ -24,6 +24,7 @@ function addUnion(id: string, a: string, b: string, status: UnionStatus) {
     status,
     start: null,
     end: null,
+    place: null,
     statusAuto: false,
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',

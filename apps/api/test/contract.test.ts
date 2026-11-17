@@ -103,6 +103,7 @@ const unionColumns = [
   'start_precision',
   'end_date',
   'end_precision',
+  'place',
   'status_auto',
   'created_by',
   'created_at',
