@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import type { ApiVersion } from '@kinship/shared';
 
 /** What the API knows about itself without the database: GET /api/version minus `schema`. */
-export type VersionInfo = Omit<ApiVersion, 'schema'>;
+export type VersionInfo = Omit<ApiVersion, 'schema' | 'webVersion'>;
 
 /** The version comes from apps/api/package.json (one level above src/ and dist/). */
 export function readVersion(gitCommit: string, buildDate = 'unknown'): VersionInfo {

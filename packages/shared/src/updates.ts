@@ -13,6 +13,16 @@ export const RELEASES_API_URL = `https://api.github.com/repos/${GITHUB_REPO}/rel
 /** The page of one release, built from a version we have already validated (never from text in a response). */
 export const releasePageUrl = (version: string): string => `https://github.com/${GITHUB_REPO}/releases/tag/v${version}`;
 
+/** The header nginx adds to every request it passes to the api, with the version of the web container (ADR 0015). */
+export const WEB_VERSION_HEADER = 'x-kinship-web-version';
+
+/** Body of the 503 the api answers while the web and the api are on different versions. */
+export interface VersionMismatch {
+  error: 'version_mismatch';
+  web: string;
+  api: string;
+}
+
 // ---- the three switches (Admin > Updates > Settings) ----
 
 export interface UpdateSettings {

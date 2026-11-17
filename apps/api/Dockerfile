@@ -73,6 +73,8 @@ COPY --from=build /app/packages/shared/dist /app/packages/shared/dist
 COPY --from=build /app/apps/api/dist ./dist
 COPY apps/api/migrations ./migrations
 COPY apps/api/package.json ./
+# What's new reads these two files (offline, and always the ones that match this version); Admin > Updates reads nothing from them.
+COPY CHANGELOG.md UPGRADE.md ./
 # The owner's command line: docker compose exec -it api kinship set-password <email>
 RUN printf '#!/bin/sh\nexec node /app/apps/api/dist/cli.js "$@"\n' > /usr/local/bin/kinship && chmod +x /usr/local/bin/kinship
 # Nothing in this image runs npm. Removing it also removes the libraries it bundles (and any
