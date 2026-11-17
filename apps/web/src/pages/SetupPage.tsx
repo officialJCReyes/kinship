@@ -61,9 +61,17 @@ export function SetupPage() {
     }
     card.current?.querySelector<HTMLElement>('h1')?.focus();
   }, [step]);
+  // Focus waits for a field that is marked invalid: after a server answer the error and the attempt arrive in separate
+  // renders, so looking only when the attempt changes could find nothing (and left focus on the page).
+  const focusedAttempt = useRef(0);
   useEffect(() => {
-    if (attempt > 0) card.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-  }, [attempt]);
+    if (attempt === 0 || focusedAttempt.current === attempt) return;
+    const invalid = card.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+    if (invalid) {
+      invalid.focus();
+      focusedAttempt.current = attempt;
+    }
+  }, [attempt, errors]);
 
   const set = <K extends keyof WizardState>(key: K, value: WizardState[K]) => {
     // The colors show at once; the account keeps them when it is created.
