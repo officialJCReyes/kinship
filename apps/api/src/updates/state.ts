@@ -11,6 +11,8 @@ import type { QueryExecutorProvider } from 'kysely';
 export interface StoredRelease extends KnownRelease {
   /** GitHub's own "updated_at" of the release; a changed value means the manifest is read again. */
   githubUpdatedAt: string;
+  /** The release has a release-manifest.json asset (so a failed read is tried again at the next check). */
+  hasManifest?: boolean;
 }
 
 export interface CheckState {
