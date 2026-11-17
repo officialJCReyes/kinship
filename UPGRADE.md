@@ -6,6 +6,20 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 Notes are added here as 0.2 changes land and finished at release prep: rename this heading to the version.
 
+### Built-in backups and the safety copy (database change, back up first)
+
+- **Before you update: add the backups folder to your `compose.yml`, and set a passphrase.** Copy the new `compose.yml` from the release (or add the two lines yourself) so the `api` service has
+  ```yaml
+      volumes:
+        - ./data/backups:/var/lib/kinship/backups
+  ```
+  then create the folder next to it: `mkdir -p data/backups && sudo chown 1000:1000 data/backups` (Docker Desktop on macOS and Windows does not need the `chown`). Add `BACKUP_PASSPHRASE=` (at least 16 characters; `openssl rand -base64 32` is good) to `.env`, as in the new `.env.example`, and **keep a copy of it somewhere other than the server**. If the folder is missing the api will not start the upgrade, and prints exactly these lines.
+- **A safety copy is now made before every database change** (`data/backups/pre-upgrade-<from>-to-<to>.tar.enc`, encrypted with the passphrase; a plain `.sql.gz`, with a warning, if there is none; the newest three are kept). This update's own change (migration 0013) is the first to get one. It can take minutes on a big database; the compose health check now allows 10 minutes. If it cannot be made the upgrade stops and your data is untouched; as a last resort start once with `KINSHIP_SAFETY_COPY=skip` (see INSTALL.md, "Something wrong?"). A database owner role that cannot read every row (neither a superuser nor `BYPASSRLS`) skips the copy with a loud log line and says so in the upgrade log.
+- **Admin → Backups** (SuperAdmin only): status, Back up now, Test the latest backup, a download that asks for your password again, and the schedule (every day at 03:00 UTC by default; set your time zone), with 7 daily, 4 weekly and 6 monthly backups kept. With no usable passphrase the schedule stays off and the page says so.
+- **Restoring is a command on the server** (`docker compose run --rm api kinship restore <file>`, with `web` and `api` stopped); there is no restore button. See INSTALL.md.
+- Migration 0013 adds `app_settings`, `upgrade_log` and `schema_info.app_version`, and rewrites three internal row-level-security policies so they no longer name the database owner role (they now mean "the table's owner"). No data changes. The `kinship` command gained `backup`, `backup-list`, `backup-verify`, `backup-decrypt` and `restore`. The api image carries the PostgreSQL 18 client tools (about 9 MB larger).
+- **For a plain (non-superuser) database owner role:** a backup needs `BYPASSRLS` on it (INSTALL.md). Starting no longer rewrites the app role's attributes on every start (a plain owner could not), only its password.
+
 ### First-run wizard (database change, back up first)
 
 - **No action is needed, and no data changes.** Migration 0012 adds the function the new first-run wizard uses to create the account, the tree and your closest relatives in one step, and drops an old unused one (the five-argument `complete_setup`, issue [#9](https://github.com/officialJCReyes/kinship/issues/9)). An installation that has an account already never sees the wizard. A new install sees a seven-step setup wizard instead of the one-page form: everything is created at the end in one step.
