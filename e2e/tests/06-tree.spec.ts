@@ -56,6 +56,34 @@ test('open the chart, select a person and read the panel', async ({ adminPage: p
   await expect(panel.getByRole('button', { name: 'Edit details' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Add relative' })).toBeVisible();
   await expect(page).toHaveURL(/[?&]sel=/);
+  // Selected is more than a ring: the card's fill is tinted, and its sex border colour is unchanged, in every scheme.
+  const box = (name: string) => person(page, name).locator('.box');
+  const paint = (name: string) =>
+    box(name).evaluate((b) => ({ fill: getComputedStyle(b).fill, stroke: getComputedStyle(b).stroke }));
+  const unselectedBefore = await paint('Sofia');
+  const selectedNow = await paint('Marcus');
+  expect(selectedNow.fill).not.toBe(unselectedBefore.fill);
+  for (const scheme of ['forest', 'sand', 'slate', 'graphite']) {
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(
+        ([s, t]) => {
+          document.documentElement.dataset['scheme'] = s;
+          document.documentElement.dataset['theme'] = t;
+        },
+        [scheme!, theme],
+      );
+      const selected = await paint('Marcus');
+      const other = await paint('Ben');
+      expect(selected.fill, `${scheme} ${theme}: selected fill differs`).not.toBe(other.fill);
+      expect(selected.stroke, `${scheme} ${theme}: male border`).toBe(
+        await box('Marcus').evaluate((b) => getComputedStyle(b).stroke),
+      );
+      const male = await person(page, 'Ben')
+        .locator('.box')
+        .evaluate((b) => getComputedStyle(b).stroke);
+      expect(selected.stroke, `${scheme} ${theme}: same border as another male card`).toBe(male);
+    }
+  }
   // Back works: the selection is in the address, so Back returns to the first state.
   await person(page, 'Sofia').click();
   await expect(panel.getByRole('heading', { name: `Sofia ${family}` })).toBeVisible();

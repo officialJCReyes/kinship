@@ -302,3 +302,46 @@ describe('the card border colors in all 8 scheme and theme combinations', () => 
     }
   }
 });
+
+// The selected card is the ring plus a tinted fill, so selection is told by more than the ring colour, which is close to a
+// border colour in a few schemes (KNOWN_RING_CLOSE above). The fill is SELECTED_MIX of the scheme's accent in its panel
+// color (styles.css `.tnode.selected .box`, a color-mix in sRGB, computed the same way here). A plain --accent-soft was
+// too faint in Graphite dark (3.8 against the panel) and 18 % took the dates below 4.5 : 1. The sex border colors are unchanged. The initials sit on --panel
+// because the avatar circle is --panel when selected.
+const SELECTED_MIX = 0.12;
+function selectedFill(t: Tokens, mix = SELECTED_MIX): string {
+  const a = [1, 3, 5].map((i) => Number.parseInt(t['accent']!.slice(i, i + 2), 16));
+  const p = [1, 3, 5].map((i) => Number.parseInt(t['panel']!.slice(i, i + 2), 16));
+  return `#${a
+    .map((v, i) =>
+      Math.round(v * mix + p[i]! * (1 - mix))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
+
+describe('the selected card’s tinted fill, in all 8 scheme and theme combinations', () => {
+  it('uses the mix the test computes', () => {
+    expect(css).toMatch(
+      /\.tnode\.selected \.box \{\s*fill: color-mix\(in srgb, var\(--accent\) 12%, var\(--panel\)\);/,
+    );
+  });
+
+  for (const scheme of COLOR_SCHEMES) {
+    for (const mode of MODES) {
+      it(`${scheme} ${mode}: borders reach 3 : 1 on the fill, the fill differs from an ordinary and a deceased card, text keeps 4.5 : 1`, () => {
+        const t = tokensFor(scheme, mode);
+        const fill = selectedFill(t);
+        for (const border of ['g-male', 'g-female', 'g-other']) {
+          expect(contrast(t[border]!, fill), `--${border} on the fill`).toBeGreaterThanOrEqual(3);
+        }
+        expect(deltaE2000(fill, t['panel']!), 'fill vs ordinary card').toBeGreaterThanOrEqual(5);
+        expect(deltaE2000(fill, t['bg']!), 'fill vs deceased card').toBeGreaterThanOrEqual(2.5);
+        expect(contrast(t['ink']!, fill), 'name').toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t['muted']!, fill), 'dates').toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t['accent']!, t['panel']!), 'initials on the avatar').toBeGreaterThanOrEqual(4.5);
+      });
+    }
+  }
+});

@@ -7,6 +7,7 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 ### Changed
 
 - **Tree cards show the whole name.** Every card is now the same size, with room for three lines of name; a long name wraps and, if it still does not fit, gets a smaller type size instead of being cut with "…". The male and female icon is gone: the border colour (blue, orange, grey for other or unknown) is the only sign, and the sex is still in the card's name for screen readers. The legend reads "Other or unknown".
+- **A selected card is tinted as well as ringed,** so it stands out in every colour scheme.
 - **The person panel shows the birth surname** when a married surname is the one shown ("Birth surname: Ruiz").
 
 ## [0.2.0-rc.1] - 2026-11-17
