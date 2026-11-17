@@ -2,7 +2,7 @@
 #
 # KinShip, for running it for real. Three services:
 #   web  nginx serving the UI and proxying /api. The only published port (plain HTTP, 8080).
-#   api  the TypeScript API. Not reachable from outside; runs the database migrations at start.
+#   api  the TypeScript API. Not reachable from outside; runs the database migrations at start and writes backups.
 #   db   PostgreSQL 18. Not reachable from outside.
 #
 # Put this file and a filled-in copy of .env.example (named .env) in one folder, then:
@@ -47,6 +47,9 @@ services:
       # The web container and a reverse proxy on a private network sit in front of the api. Without
       # this the api would take every visitor for the web container and not see HTTPS.
       TRUST_PROXY: ${TRUST_PROXY:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+    volumes:
+      # Where backups are written. Create the folder first (see INSTALL.md): mkdir -p data/backups && sudo chown 1000:1000 data/backups
+      - ./data/backups:/var/lib/kinship/backups
     depends_on:
       db:
         condition: service_healthy

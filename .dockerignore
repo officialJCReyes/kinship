@@ -10,5 +10,6 @@ data
 secrets
 design
 docs
+!docs/backup/kinship-decrypt.mjs
 *.md
 !apps/api/README.md

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig } from '../src/config.js';
+import { ConfigError, loadConfig, scrubSecretsFromEnv } from '../src/config.js';
 
 const good = { DB_OWNER_PASSWORD: 'owner-secret', DB_APP_PASSWORD: 'app-secret' };
 const noFiles = (path: string): string => {
@@ -99,5 +99,53 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...good, API_PORT: 'abc' }, noFiles)).toThrow(/API_PORT/);
     expect(() => loadConfig({ ...good, DB_APP_USER: 'Robert"; drop' }, noFiles)).toThrow(/DB_APP_USER/);
     expect(() => loadConfig({ ...good, LOG_LEVEL: 'loud' }, noFiles)).toThrow(/LOG_LEVEL/);
+  });
+});
+
+describe('backup settings', () => {
+  it('default to the schedule being on, the local folder, and no passphrase', () => {
+    expect(loadConfig(good, noFiles).backup).toEqual({
+      enabled: true,
+      dir: '/var/lib/kinship/backups',
+      passphrase: undefined,
+    });
+  });
+
+  it('read BACKUP_ENABLED, and the passphrase from the variable or from a file', () => {
+    expect(loadConfig({ ...good, BACKUP_ENABLED: 'off' }, noFiles).backup.enabled).toBe(false);
+    expect(() => loadConfig({ ...good, BACKUP_ENABLED: 'maybe' }, noFiles)).toThrow(ConfigError);
+    expect(loadConfig({ ...good, BACKUP_PASSPHRASE: 'a long enough passphrase' }, noFiles).backup.passphrase).toBe(
+      'a long enough passphrase',
+    );
+    const fromFile = loadConfig({ ...good, BACKUP_PASSPHRASE_FILE: '/run/secrets/b' }, () => 'from a file\n');
+    expect(fromFile.backup.passphrase).toBe('from a file');
+    expect(() => loadConfig({ ...good, BACKUP_PASSPHRASE: 'x', BACKUP_PASSPHRASE_FILE: '/f' }, () => 'y')).toThrow(
+      /either BACKUP_PASSPHRASE or BACKUP_PASSPHRASE_FILE/,
+    );
+    expect(() => loadConfig({ ...good, BACKUP_PASSPHRASE_FILE: '/missing' }, noFiles)).toThrow(/could not be read/);
+  });
+
+  it('does not refuse to start for a missing, short or placeholder passphrase (the schedule just stays off)', () => {
+    expect(() => loadConfig({ ...good, BACKUP_PASSPHRASE: 'change-me-backup' }, noFiles)).not.toThrow();
+    expect(() => loadConfig({ ...good, BACKUP_PASSPHRASE: 'short' }, noFiles)).not.toThrow();
+  });
+
+  it('refuses any destination but local, and says S3 comes later', () => {
+    expect(() => loadConfig({ ...good, BACKUP_DEST: 's3' }, noFiles)).toThrow(/S3 as a destination arrives in 1\.1/);
+    expect(loadConfig({ ...good, BACKUP_DEST: 'local' }, noFiles).backup.dir).toBe('/var/lib/kinship/backups');
+  });
+});
+
+describe('scrubSecretsFromEnv', () => {
+  it('removes the passwords and the passphrase (and their _FILE variants) and leaves the rest', () => {
+    const env: Record<string, string | undefined> = {
+      DB_OWNER_PASSWORD: 'a',
+      DB_APP_PASSWORD: 'b',
+      BACKUP_PASSPHRASE: 'c',
+      DB_OWNER_PASSWORD_FILE: '/x',
+      LOG_LEVEL: 'info',
+    };
+    scrubSecretsFromEnv(env);
+    expect(env).toEqual({ LOG_LEVEL: 'info' });
   });
 });

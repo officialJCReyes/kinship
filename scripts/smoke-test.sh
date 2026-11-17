@@ -54,6 +54,10 @@ post() { # post <path> <json> [curl options...]
 step "Prepare a throwaway install from the shipped files"
 cp "$repo/compose.yml" "$work/compose.yml"
 cp "$repo/.env.example" "$work/.env"
+# The folder INSTALL.md tells people to create for backups. Made here, writable for the api's user, so that Docker does not
+# create it as root (which this script could not remove afterwards).
+mkdir -p "$work/data/backups"
+chmod 777 "$work/data/backups"
 sed -i.bak \
   -e "s|^KINSHIP_VERSION=.*|KINSHIP_VERSION=${version}|" \
   -e "s|^KINSHIP_PORT=.*|KINSHIP_PORT=${port}|" \

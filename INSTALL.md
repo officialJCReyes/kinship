@@ -29,7 +29,17 @@ Worth a look before you start:
 
 `.env` holds your passwords. Do not commit it or share it.
 
-## 3. Start it
+## 3. Create the backups folder
+
+KinShip writes its backups to `./data/backups` next to `compose.yml` (see "Back up and restore" below). Create it before the first start, so the api (which runs as user 1000, not as root) can write to it:
+
+```sh
+mkdir -p data/backups && sudo chown 1000:1000 data/backups
+```
+
+Docker Desktop on macOS and Windows does not need the `chown`. Also set `BACKUP_PASSPHRASE` in `.env` (step 2): it encrypts every backup, and you must keep a copy somewhere other than this server.
+
+## 4. Start it
 
 ```sh
 docker compose up -d
@@ -38,7 +48,7 @@ docker compose ps        # wait until web, api and db say "healthy"
 
 The first start downloads the images and creates the database. Only the `web` service publishes a port (plain HTTP, 8080 by default); the database and the api are not reachable from outside.
 
-## 4. First run: create your account
+## 5. First run: create your account
 
 A fresh install must be set up before anyone can sign in, and setup needs a one-time token, so a stranger who finds your site first cannot claim it. The token is printed in the api log:
 
@@ -56,7 +66,7 @@ Look for the box that says **"KinShip is not set up yet"** and copy the token. O
 
 **Nothing is created until the last step**, and then everything is created at once: if anything fails, nothing is kept and your token still works. If you refresh the page or close the tab before then, the wizard starts again from step 1 (nothing you typed is stored in the browser). The shortest way through is steps 1 to 3 and then Review. You become the SuperAdmin and are signed in, and your own place on the family tree opens. The setup page never appears again once an account exists; if the connection drops right after you press **Create my tree**, open the sign-in page and use the email and password you chose.
 
-## 5. Add your family
+## 6. Add your family
 
 Open **People** and **Add person**, or open your profile (**My profile**) and use **Add relative** to add parents, partners, children and brothers and sisters. **Family tree** draws them: drag to pan, scroll or pinch to zoom, and click a person to see their details. A small green leaf on someone opens their own family (a spouse's parents, or an adopted person's other family).
 
