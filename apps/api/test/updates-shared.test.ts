@@ -190,8 +190,9 @@ describe('the changelog reader', () => {
 
   it('reads the changelog as it is written today', () => {
     const sections = parseChangelog(real);
-    expect(sections.map((s) => s.version)).toEqual(['0.1.0-alpha.2', '0.1.0-alpha.1']);
-    const alpha2 = sections[0];
+    // Newer sections are added at the top as releases are prepared; the two alphas stay the last two.
+    expect(sections.map((s) => s.version).slice(-2)).toEqual(['0.1.0-alpha.2', '0.1.0-alpha.1']);
+    const alpha2 = sections.find((s) => s.version === '0.1.0-alpha.2');
     expect(alpha2?.date).toBe('2026-11-16');
     const kinds = alpha2?.groups.map((g) => g.kind);
     expect(kinds).toContain('new');
