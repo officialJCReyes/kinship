@@ -3,7 +3,7 @@
 // "Test the latest backup": prove an archive is good by really restoring it into a temporary database, comparing what came back
 // with what the manifest recorded, and throwing the database away. Nothing about the live data is touched, and the app role is
 // only used for the final functional check (inside the temporary database).
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { sql } from 'kysely';
 import { createDb } from '../db.js';
 import type { AnySchema, UntypedDb } from '../db.js';
@@ -32,7 +32,12 @@ export interface VerifyResult {
   ms: number;
 }
 
-const PREFIX = 'kinship_verify_';
+/**
+ * The name prefix of this installation's temporary test databases. It includes a short hash of the database's own name, so
+ * the start-up sweep of one installation never drops another's (two KinShip databases can share a Postgres server).
+ */
+export const verifyPrefix = (database: string): string =>
+  `kinship_verify_${createHash('sha256').update(database).digest('hex').slice(0, 6)}_`;
 
 /**
  * Drops every `kinship_verify_*` database left behind by a test that was cut short. Run at start-up. Skips quietly if a
@@ -47,7 +52,9 @@ export async function sweepVerifyDatabases(ctx: BackupContext, db?: UntypedDb): 
       if (!lock.rows[0]?.ok) return;
       try {
         const found = await sql<{ datname: string }>`
-          select datname from pg_database where datname like ${`${PREFIX}%`} order by datname`.execute(conn);
+          select datname from pg_database where datname like ${`${verifyPrefix(ctx.config.db.name)}%`} order by datname`.execute(
+          conn,
+        );
         for (const { datname } of found.rows) {
           await sql`drop database if exists ${sql.id(datname)} with (force)`.execute(conn);
           dropped.push(datname);
@@ -81,7 +88,7 @@ export async function verifyBackup(ctx: BackupContext, archivePath: string): Pro
   const tableCount = Object.keys(archive.manifest.tables).length;
   const rows = Object.values(archive.manifest.tables).reduce((sum, t) => sum + t.rows, 0);
   const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 3);
-  const temp = `${PREFIX}${randomBytes(6).toString('hex')}`;
+  const temp = `${verifyPrefix(config.db.name)}${randomBytes(6).toString('hex')}`;
   let created = false;
   try {
     return await db.connection().execute(async (conn) => {

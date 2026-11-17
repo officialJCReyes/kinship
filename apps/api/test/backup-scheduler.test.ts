@@ -8,6 +8,7 @@ import { createBackup } from '../src/backup/archive.js';
 import type { BackupContext } from '../src/backup/archive.js';
 import { BackupError } from '../src/backup/errors.js';
 import { createScheduler, RETRY_AFTER_FAILURE_MS, backupHousekeeping } from '../src/backup/scheduler.js';
+import { verifyPrefix } from '../src/backup/verify.js';
 import { readState } from '../src/backup/state.js';
 import { createTestDatabase } from './helpers/db.js';
 import type { TestDatabase } from './helpers/db.js';
@@ -345,11 +346,13 @@ describe('what the Admin page is told', () => {
 describe('start-up housekeeping', () => {
   it('drops test databases a cut-short test left, and keeps the real one', async () => {
     const env = await setup();
-    await sql`create database kinship_verify_old1`.execute(env.test.owner);
+    await sql`create database ${sql.id(`${verifyPrefix(env.test.config.name)}old1`)}`.execute(env.test.owner);
     await backupHousekeeping(env.ctx);
     const left = await sql<{
       datname: string;
-    }>`select datname from pg_database where datname like 'kinship_verify_%'`.execute(env.test.owner);
+    }>`select datname from pg_database where datname like ${`${verifyPrefix(env.test.config.name)}%`}`.execute(
+      env.test.owner,
+    );
     expect(left.rows).toEqual([]);
     expect(existsSync(env.dir)).toBe(true);
   }, 60_000);
