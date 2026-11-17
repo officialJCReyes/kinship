@@ -4,6 +4,10 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Added
+
+- **A calendar beside every date field.** A button next to a typed date opens a calendar in place. Typing works as before. Choose a day, or just a year or a month and year; it opens on the year or month already typed, and a Year box and a Month list get to 1903 in a few keystrokes. It works with the keyboard (arrows, Page Up and Page Down, Escape) and in all four colour schemes.
+
 ## [0.2.0-rc.1] - 2026-11-17
 
 **A release candidate for 0.2.0, "A tree you can trust". The data promise starts here:** upgrades keep your data, and a safety copy is made before each database change. Read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before upgrading from an alpha: it needs a backups folder and a backup passphrase first. Release candidates are offered by the in-app update check only when "Include pre-releases" is on.
