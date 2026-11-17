@@ -150,7 +150,7 @@ class HashingFile extends Writable {
   }
 }
 
-async function majorOf(tool: string, env: Record<string, string>): Promise<number> {
+export async function majorOf(tool: string, env: Record<string, string>): Promise<number> {
   const out = (await runChecked(tool, ['--version'], { env })).toString('utf8');
   const match = /(\d+)(?:\.\d+)*/.exec(out.replace(/^.*\(PostgreSQL\)\s*/, ''));
   return match ? Number(match[1]) : 0;

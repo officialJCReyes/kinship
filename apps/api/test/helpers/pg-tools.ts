@@ -41,7 +41,7 @@ export function testTools(): Tools {
     const path = join(dir, tool);
     writeFileSync(
       path,
-      `#!/bin/sh\nexec docker exec -i -e PGPASSWORD -e PGUSER -e PGDATABASE -e PGAPPNAME -e LC_ALL -e PGCONNECT_TIMEOUT ` +
+      `#!/bin/sh\nexec docker exec -i -e PGPASSWORD -e PGUSER -e PGDATABASE -e PGOPTIONS -e PGAPPNAME -e LC_ALL -e PGCONNECT_TIMEOUT ` +
         `-e PGHOST=127.0.0.1 -e PGPORT=5432 ${container} ${tool} "$@"\n`,
     );
     chmodSync(path, 0o755);

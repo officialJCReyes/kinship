@@ -33,7 +33,7 @@ ${BACKUP_USAGE}
 set-password sets a new password for an account, signs it out everywhere and retires its open set-password link. For when
 someone is locked out and email recovery is not available.`;
 
-const BACKUP_COMMANDS = ['backup', 'backup-list', 'backup-verify', 'backup-decrypt'];
+const BACKUP_COMMANDS = ['backup', 'backup-list', 'backup-verify', 'backup-decrypt', 'restore'];
 
 /** Sets a new password hash and removes all of the account's sessions. Returns false when no such account. */
 export async function setUserPassword(db: UntypedDb, email: string, passwordHash: string): Promise<boolean> {
@@ -163,6 +163,17 @@ async function main(): Promise<void> {
         if (!process.stdin.isTTY)
           throw new Error('No terminal to ask on. Set BACKUP_PASSPHRASE or use --passphrase-file.');
         return readHidden('Backup passphrase: ');
+      },
+      ask: async (question) => {
+        if (!process.stdin.isTTY) return null;
+        process.stderr.write(question);
+        const reader = (await import('node:readline')).createInterface({ input: process.stdin });
+        return new Promise<string>((resolve) =>
+          reader.once('line', (line) => {
+            reader.close();
+            resolve(line.trim());
+          }),
+        );
       },
     },
   };
