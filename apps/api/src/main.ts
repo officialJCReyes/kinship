@@ -52,14 +52,6 @@ async function main(): Promise<void> {
   const db = createAppDb(config.db);
   await prepareSetupToken(db, config.publicUrl, (text) => console.log(text));
   const stopCleanup = scheduleSessionCleanup(db, log);
-  const app = buildApp({
-    db,
-    version,
-    logLevel: config.logLevel,
-    trustProxy: config.trustProxy,
-    sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
-  });
-
   // Built-in backups: the schedule runs in this process. It needs a usable passphrase; without one it stays off (see above).
   const backupCtx = {
     config,
@@ -71,6 +63,15 @@ async function main(): Promise<void> {
   void backupHousekeeping(backupCtx);
   const scheduler = createScheduler(backupCtx);
   scheduler.start();
+
+  const app = buildApp({
+    db,
+    version,
+    logLevel: config.logLevel,
+    trustProxy: config.trustProxy,
+    backups: { scheduler, dir: config.backup.dir },
+    sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
+  });
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`${signal} received, shutting down`);

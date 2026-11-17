@@ -6,7 +6,15 @@
 //  * the hand-written database types match the real tables.
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { API_ERROR_CODES, en, PEOPLE_ERROR_CODES, PEOPLE_ROUTES, WARNING_CODES } from '@kinship/shared';
+import {
+  API_ERROR_CODES,
+  BACKUP_ERROR_CODES,
+  BACKUP_ROUTES,
+  en,
+  PEOPLE_ERROR_CODES,
+  PEOPLE_ROUTES,
+  WARNING_CODES,
+} from '@kinship/shared';
 import type { Database } from '../src/db.js';
 import { createTestApp } from './helpers/app.js';
 import type { TestApp } from './helpers/app.js';
@@ -32,6 +40,11 @@ describe('routes', () => {
     expect(mine).toEqual(declared);
   });
 
+  it('registers exactly the backup routes the shared package lists', () => {
+    const mine = registered.filter((r) => /^\w+ \/api\/admin\/backups/.test(r) && !r.startsWith('HEAD ')).sort();
+    expect(mine).toEqual(BACKUP_ROUTES.map((r) => `${r.method} ${r.path}`).sort());
+  });
+
   it('lists every route once', () => {
     const keys = PEOPLE_ROUTES.map((r) => `${r.method} ${r.path}`);
     expect(new Set(keys).size).toBe(keys.length);
@@ -41,6 +54,7 @@ describe('routes', () => {
 describe('error codes and messages', () => {
   it('has an English message for every people error code and every warning', () => {
     for (const code of PEOPLE_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
+    for (const code of BACKUP_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
     for (const code of WARNING_CODES) expect(en, code).toHaveProperty(`warning.${code}`);
   });
 

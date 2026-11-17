@@ -21,6 +21,8 @@ import { registerLabelRoutes } from './routes/labels.js';
 import { registerLinkRoutes } from './routes/links.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import type { RouteLimit } from './routes/shared.js';
+import { registerBackupRoutes } from './routes/backups.js';
+import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
 import { registerTreeRoutes } from './routes/tree.js';
 import { registerUnionRoutes } from './routes/unions.js';
@@ -38,6 +40,8 @@ declare module 'fastify' {
 }
 
 export interface AppOptions {
+  /** The backup scheduler and folder, for Admin > Backups. Without it those routes answer 503. */
+  backups?: BackupService;
   /** Connected as the app role. */
   db: Kysely<Database>;
   version: VersionInfo;
@@ -216,6 +220,10 @@ export function buildApp(options: AppOptions): FastifyInstance {
     };
     // Own scope: the admin routes add an admin-only check and "never cache" to every route registered with them.
     void routes.register(async (admin) => registerAdminRoutes(admin, limit));
+    // Own scope: SuperAdmin only, never cached.
+    void routes.register(async (backups) =>
+      registerBackupRoutes(backups, limit, { db, limiters, failureDelayMs }, options.backups),
+    );
     registerPeopleRoutes(routes, limit);
     registerUnionRoutes(routes, limit);
     registerLabelRoutes(routes, limit);

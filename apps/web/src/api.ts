@@ -5,6 +5,9 @@ import type {
   AccountsResponse,
   AddChildRequest,
   AddParentRequest,
+  BackupSettings,
+  BackupsResponse,
+  DownloadTicket,
   ApiErrorCode,
   ApiHealth,
   ApiVersion,
@@ -150,6 +153,44 @@ export async function updateMe(request: UpdateMeRequest): Promise<MeResponse> {
 export async function checkSetupToken(token: string): Promise<void> {
   const reply = await send('POST', '/api/setup/check', { token });
   if (reply.status !== 204) fail('/api/setup/check', reply);
+}
+
+// --- Backups (SuperAdmin only) ---
+
+export async function fetchBackups(signal?: AbortSignal): Promise<BackupsResponse> {
+  const reply = await send('GET', '/api/admin/backups', undefined, signal);
+  if (reply.status !== 200) fail('/api/admin/backups', reply);
+  return reply.body as BackupsResponse;
+}
+
+/** Starts a backup in the background (202). The page then polls fetchBackups. */
+export async function startBackup(): Promise<void> {
+  const reply = await send('POST', '/api/admin/backups');
+  if (reply.status !== 202) fail('/api/admin/backups', reply);
+}
+
+export async function startBackupTest(): Promise<void> {
+  const reply = await send('POST', '/api/admin/backups/test');
+  if (reply.status !== 202) fail('/api/admin/backups/test', reply);
+}
+
+export async function fetchBackupSettings(signal?: AbortSignal): Promise<BackupSettings> {
+  const reply = await send('GET', '/api/admin/backups/settings', undefined, signal);
+  if (reply.status !== 200) fail('/api/admin/backups/settings', reply);
+  return reply.body as BackupSettings;
+}
+
+export async function updateBackupSettings(patch: Partial<BackupSettings>): Promise<BackupSettings> {
+  const reply = await send('PATCH', '/api/admin/backups/settings', patch);
+  if (reply.status !== 200) fail('/api/admin/backups/settings', reply);
+  return reply.body as BackupSettings;
+}
+
+/** The SuperAdmin's password again, for a one-time ticket to download one encrypted archive. */
+export async function requestDownloadTicket(name: string, password: string): Promise<DownloadTicket> {
+  const reply = await send('POST', '/api/admin/backups/download-ticket', { name, password });
+  if (reply.status !== 200) fail('/api/admin/backups/download-ticket', reply);
+  return reply.body as DownloadTicket;
 }
 
 export async function setup(request: SetupRequest): Promise<MeResponse> {

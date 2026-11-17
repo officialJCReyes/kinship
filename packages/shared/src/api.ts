@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ACCOUNT_ERROR_CODES } from './accounts.js';
 import type { PasswordChangeCode } from './accounts.js';
+import { BACKUP_ERROR_CODES } from './backup.js';
 import { PEOPLE_ERROR_CODES } from './people.js';
 import { SETUP_ERROR_CODES } from './setup.js';
 import type { SetupFamily } from './setup.js';
@@ -110,6 +111,8 @@ export const API_ERROR_CODES = [
   ...PEOPLE_ERROR_CODES,
   // The first-run wizard (see setup.ts).
   ...SETUP_ERROR_CODES,
+  // Built-in backups (see backup.ts).
+  ...BACKUP_ERROR_CODES,
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 

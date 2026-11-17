@@ -45,7 +45,10 @@ test('an admin invites a Member linked to a person, and copies the link', async 
   await page.getByRole('button', { name: 'Account menu' }).click();
   await page.getByRole('menuitem', { name: 'Admin' }).click();
   await expect(page).toHaveURL(/\/admin\/users$/);
-  await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link')).toHaveText(['Users']);
+  await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link')).toHaveText([
+    'Users',
+    'Backups',
+  ]);
 
   await page.getByRole('button', { name: 'Invite user' }).click();
   const dialog = page.getByRole('dialog', { name: 'Invite a user' });

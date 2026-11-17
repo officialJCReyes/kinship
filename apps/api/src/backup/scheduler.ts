@@ -36,6 +36,10 @@ export interface Scheduler {
   runNow(): Promise<BackupRunRecord>;
   /** Tests the newest archive now. */
   testLatest(): Promise<void>;
+  /** Starts a manual backup in the background (the Admin button). False when one is already running. */
+  startRun(): boolean;
+  /** Starts a test of the newest archive in the background. False when something is already running. */
+  startTest(): boolean;
   status(now?: Date): Promise<BackupStatus>;
   readonly running: boolean;
 }
@@ -218,6 +222,21 @@ export function createScheduler(
       } finally {
         busy = false;
       }
+    },
+    startRun() {
+      if (busy) return false;
+      // runNow sets the busy flag before its first await, so a second click right after this one sees it.
+      this.runNow().catch((error: unknown) =>
+        log('warn', 'the manual backup did not start', { reason: sanitized(error).message }),
+      );
+      return true;
+    },
+    startTest() {
+      if (busy) return false;
+      this.testLatest().catch((error: unknown) =>
+        log('warn', 'the backup test did not run', { reason: sanitized(error).message }),
+      );
+      return true;
     },
     async status(now = new Date()): Promise<BackupStatus> {
       const s = await settings().catch(() => ({ ...DEFAULTS }));

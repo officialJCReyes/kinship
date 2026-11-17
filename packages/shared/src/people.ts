@@ -370,6 +370,7 @@ export type PeopleErrorCode = (typeof PEOPLE_ERROR_CODES)[number];
 /** Permission rules, in words, for the route table below. */
 export type RouteAccess =
   | 'signed-in' // any signed-in account
+  | 'superadmin' // the SuperAdmin only
   | 'admin' // SuperAdmin and Family Admin
   | 'admin-or-own-person' // admins, and a Member for their own person (and people they added in their line)
   | 'admin-or-own-line' // admins, and a Member under themselves or their descendants
