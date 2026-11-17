@@ -4,6 +4,7 @@ import type { PasswordChangeCode } from './accounts.js';
 import { BACKUP_ERROR_CODES } from './backup.js';
 import { PEOPLE_ERROR_CODES } from './people.js';
 import { SETUP_ERROR_CODES } from './setup.js';
+import { UPDATE_ERROR_CODES } from './updates.js';
 import type { SetupFamily } from './setup.js';
 import type { ColorScheme, DateFormat, SurnameChoice, Theme, UserSettings } from './settings.js';
 import type { LineageView } from './people.js';
@@ -113,6 +114,8 @@ export const API_ERROR_CODES = [
   ...SETUP_ERROR_CODES,
   // Built-in backups (see backup.ts).
   ...BACKUP_ERROR_CODES,
+  // The update check and What's new (see updates.ts).
+  ...UPDATE_ERROR_CODES,
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
