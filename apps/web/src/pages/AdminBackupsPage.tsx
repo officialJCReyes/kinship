@@ -238,10 +238,17 @@ const toDraft = (s: BackupSettings): Draft => ({
   timeZone: s.timeZone,
 });
 
-function SettingsForm({ settings }: { settings: BackupSettings }) {
+function SettingsForm({
+  settings,
+  saved,
+  setSaved,
+}: {
+  settings: BackupSettings;
+  saved: boolean;
+  setSaved: (saved: boolean) => void;
+}) {
   const client = useQueryClient();
   const [draft, setDraft] = useState<Draft>(toDraft(settings));
-  const [saved, setSaved] = useState(false);
   const zones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
   const save = useMutation({
     mutationFn: () =>
@@ -409,6 +416,8 @@ export function AdminBackupsPage() {
   const backups = useBackups(isSuper);
   const [message, setMessage] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<BackupListItem | null>(null);
+  // Kept here, not in the form: the form is rebuilt when the saved settings come back from the server.
+  const [saved, setSaved] = useState(false);
   const start = useMutation({
     mutationFn: (what: 'backup' | 'test') => (what === 'backup' ? api.startBackup() : api.startBackupTest()),
     onSuccess: async () => {
@@ -444,7 +453,12 @@ export function AdminBackupsPage() {
         <h2 id="backups-list">{t('backups.list.title')}</h2>
         <BackupTable items={items} zone={status.settings.timeZone} onDownload={setDownloading} />
       </section>
-      <SettingsForm key={JSON.stringify(status.settings)} settings={status.settings} />
+      <SettingsForm
+        key={JSON.stringify(status.settings)}
+        settings={status.settings}
+        saved={saved}
+        setSaved={setSaved}
+      />
       <section className="card stack" aria-labelledby="backups-keep">
         <h2 id="backups-keep">{t('backups.keep.title')}</h2>
         <p>{t('backups.keep.body')}</p>
