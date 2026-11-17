@@ -78,7 +78,11 @@ export function WhatsNewDialog({
               <p className="muted">{t('updates.whatsNew.noNotes', { version: data.to })}</p>
             ) : null}
             {data.sections.map((section) => (
-              <section className="release-block" key={section.version}>
+              <section
+                className="release-block"
+                key={section.version}
+                aria-label={t('updates.popup.release', { version: section.version })}
+              >
                 <div className="row between">
                   <h3>{t('updates.popup.release', { version: section.version })}</h3>
                   {section.date ? <span className="muted small">{section.date}</span> : null}

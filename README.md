@@ -26,7 +26,7 @@ Self-hosted family tree for families: relationships, sources, photos, private he
 
 ## Install
 
-Install it with Docker Compose from the published images: see **[INSTALL.md](INSTALL.md)** (install, first run, recovery, update, backup). Backups are built in (encrypted, scheduled, with a test and a command-line restore; see INSTALL.md). The first run is a seven-step setup wizard (account, tree, you, and optionally a partner, parents and children) and needs a one-time setup token that the `api` container prints in its log:
+Install it with Docker Compose from the published images: see **[INSTALL.md](INSTALL.md)** (install, first run, recovery, update, backup). Backups are built in (encrypted, scheduled, with a test and a command-line restore; see INSTALL.md). **Admin → Updates** tells the SuperAdmin when a new version is out (a daily read of GitHub's public release list, sending nothing about your install; it can be switched off) and shows what changes, with a backup warning; every admin sees a "What's new" popup after an update. The first run is a seven-step setup wizard (account, tree, you, and optionally a partner, parents and children) and needs a one-time setup token that the `api` container prints in its log:
 
 ```sh
 docker compose logs api     # look for "KinShip is not set up yet"

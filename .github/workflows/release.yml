@@ -283,14 +283,16 @@ jobs:
       - name: Create the release
         run: |
           set -euo pipefail
-          cp compose.yml .env.example release-files/
+          # GitHub drops the leading dot of an uploaded file's name (.env.example became default.env.example), so it goes up as env.example.
+          cp compose.yml release-files/compose.yml
+          cp .env.example release-files/env.example
           flags=()
           if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); else flags+=(--latest); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             # A re-run of a release that was only half done.
             gh release edit "$TAG" --title "KinShip ${TAG#v}" --notes-file release-files/release-notes.md "${flags[@]}"
-            gh release upload "$TAG" release-files/compose.yml release-files/.env.example release-files/release-manifest.json --clobber
+            gh release upload "$TAG" release-files/compose.yml release-files/env.example release-files/release-manifest.json --clobber
           else
-            gh release create "$TAG" release-files/compose.yml release-files/.env.example release-files/release-manifest.json \
+            gh release create "$TAG" release-files/compose.yml release-files/env.example release-files/release-manifest.json \
               --verify-tag --title "KinShip ${TAG#v}" --notes-file release-files/release-notes.md "${flags[@]}"
           fi

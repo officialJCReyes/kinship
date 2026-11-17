@@ -74,6 +74,32 @@ export function startStack(): void {
   writeFileSync(join(WORK_DIR, '.env'), env);
   compose(['down', '--volumes', '--remove-orphans'], { allowFailure: true });
   compose(['up', '-d', '--wait', '--wait-timeout', '240']);
+  // The tests never talk to GitHub: the daily update check is switched off from the start (the switch is a setting in the
+  // database, so it is set the way an admin would set it). Journey 12 plays the other cases by writing what a check would find.
+  dbExec(
+    `insert into app_settings (key, value) values ('updates.check', 'false'::jsonb) on conflict (key) do update set value = excluded.value`,
+  );
+}
+
+/** Runs one SQL statement in the database container as the owner role (to arrange or read what no screen can). */
+export function dbExec(statement: string): string {
+  return compose([
+    'exec',
+    '-T',
+    'db',
+    'psql',
+    '-U',
+    'kinship',
+    '-d',
+    'kinship',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-q',
+    '-t',
+    '-A',
+    '-c',
+    statement,
+  ]).trim();
 }
 
 /** Saves the logs of every service (for the failure artifact) and removes the stack and its data. */

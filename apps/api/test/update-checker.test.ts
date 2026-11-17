@@ -444,6 +444,25 @@ describe('the schedule', () => {
   });
 });
 
+describe('the schedule and the database', () => {
+  it('does not check when the database says someone else did, even if its own clock says it is time', async () => {
+    serve([release('0.3.0')], { '0.3.0': manifest('0.3.0') });
+    const start = new Date('2026-12-01T10:00:00Z');
+    clockNow = start;
+    const c = checker({ random: () => 0 });
+    const runner = createJobRunner(() => undefined);
+    runner.register(c.job);
+    await runner.tick(start); // loads: first look in 2 minutes
+    // Meanwhile another api container checked and booked tomorrow.
+    await sql`update update_check set next_check_at = ${new Date(start.getTime() + 24 * 3_600_000)}`.execute(t.owner);
+    await runner.tick(new Date(start.getTime() + 3 * 60_000));
+    expect(seen).toEqual([]);
+    // Tomorrow it is due by both clocks.
+    await runner.tick(new Date(start.getTime() + 25 * 3_600_000));
+    expect(seen.length).toBeGreaterThan(0);
+  });
+});
+
 describe('the job runner', () => {
   it('keeps one failing job from the others, never runs a job twice at once, and refuses a duplicate name', async () => {
     const logs: string[] = [];
