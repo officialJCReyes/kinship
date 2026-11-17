@@ -13,6 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createBackup, openArchive } from '../src/backup/archive.js';
 import type { BackupContext } from '../src/backup/archive.js';
 import { ownerReadsEverything } from '../src/backup/inspect.js';
+import { verifyBackup } from '../src/backup/verify.js';
 import type { DbConfig } from '../src/config.js';
 import { createDb } from '../src/db.js';
 import type { AnySchema, UntypedDb } from '../src/db.js';
@@ -108,6 +109,15 @@ describe('an owner role that cannot read every row', () => {
     } finally {
       archive.cleanup();
     }
+  });
+});
+
+describe('testing a backup when the owner cannot create databases', () => {
+  it('checks the archive and says it could not restore it into a temporary database', async () => {
+    const made = await createBackup(context(), { kind: 'manual' });
+    const result = await verifyBackup(context(), made.path);
+    expect(result).toMatchObject({ mode: 'archive-only', ok: true });
+    expect(result.note).toContain(`ALTER ROLE "${config.ownerUser}" CREATEDB;`);
   });
 });
 

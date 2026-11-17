@@ -7,6 +7,7 @@ export type BackupErrorKind =
   | 'disk_space'
   | 'tool' // pg_dump, tar or another tool failed
   | 'archive' // the archive is not good (see the message)
+  | 'refused' // a restore was refused before it touched anything (too new, wrong roles, the app is running, ...)
   | 'manifest';
 
 /** A problem with a backup that a person can act on. The message is safe to show: it never contains a secret. */

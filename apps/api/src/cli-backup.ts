@@ -8,6 +8,8 @@ import { Readable, Writable } from 'node:stream';
 import { ConfigError, loadConfig } from './config.js';
 import type { Config } from './config.js';
 import { createBackup, decryptToFile, listBackups, openArchive } from './backup/archive.js';
+import { restoreBackup } from './backup/restore.js';
+import { verifyBackup } from './backup/verify.js';
 import type { BackupContext, Log } from './backup/archive.js';
 import { BackupError } from './backup/errors.js';
 import { BackupFormatError } from './backup/format.js';
@@ -22,14 +24,17 @@ export interface BackupCliDeps {
   env?: Record<string, string | undefined>;
   /** Reads a passphrase from the person (hidden input), when none was given. */
   askPassphrase?: () => Promise<string>;
+  /** Asks a question and returns the answer typed (null when there is no terminal to ask on). */
+  ask?: (question: string) => Promise<string | null>;
   out: (text: string) => void;
   err: (text: string) => void;
 }
 
 export const BACKUP_USAGE = `  kinship backup                                make a backup now (needs BACKUP_PASSPHRASE)
   kinship backup-list                           list the backups in the backups folder
-  kinship backup-verify <file>                  decrypt and check a backup (blocks, manifest, dump); changes nothing
-  kinship backup-decrypt <file> <out.tar>       decrypt a backup to a plain tar, for disaster recovery`;
+  kinship backup-verify <file> [--full]         decrypt and check a backup; --full also restores it into a temporary database
+  kinship backup-decrypt <file> <out.tar>       decrypt a backup to a plain tar, for disaster recovery
+  kinship restore <file> [--yes]                REPLACE everything with a backup (stop web and api first; see INSTALL.md)`;
 
 const jsonLog: Log = (level, message, fields) =>
   console.error(JSON.stringify({ level, time: Date.now(), msg: message, ...fields }));
@@ -111,6 +116,58 @@ export async function runBackupCommand(command: string, args: string[], deps: Ba
     }
 
     const [file, out] = positional(args);
+    if (command === 'restore') {
+      if (!file || positional(args).length !== 1) {
+        deps.err(`Usage:\n${BACKUP_USAGE}`);
+        return 2;
+      }
+      const path = locate(file, deps);
+      if (/\.sql\.gz$/i.test(path) || /\.sql$/i.test(path)) {
+        deps.err(
+          'This command only restores KinShip archives (.tar.enc), which authenticate with your passphrase. A plain .sql.gz safety copy carries no authentication and would run as the database owner, so it is never restored here. INSTALL.md has the manual psql steps for it.',
+        );
+        return 1;
+      }
+      const passphrase = await passphraseFor(args, deps);
+      const base = (deps.config ?? loadConfig)();
+      const config = { ...base, backup: { ...base.backup, passphrase } };
+      const version = readVersion(config.gitCommit, config.buildDate);
+      const ctx: BackupContext = { config, tools, log: jsonLog, appVersion: version.version };
+      const yes = args.includes('--yes');
+      const report = await restoreBackup(ctx, path, {
+        progress: (message) => deps.out(message),
+        confirm: async ({ manifest, appVersion, createdAt, willSafetyCopy }) => {
+          deps.out('');
+          deps.out(`This backup was made ${createdAt} by KinShip ${appVersion} (database schema ${manifest.schema}).`);
+          deps.out('Restoring it REPLACES EVERYTHING in this installation: people, accounts, settings, sessions.');
+          deps.out('Anything added since the backup is lost, and everyone is signed out.');
+          deps.out(
+            willSafetyCopy
+              ? 'A safety copy of the current data is made first.'
+              : 'The database is empty, so there is nothing to copy first.',
+          );
+          if (yes) return true;
+          if (!deps.ask) {
+            deps.err('There is no terminal to ask on. Run with -it, or add --yes if you are sure.');
+            return false;
+          }
+          return (await deps.ask('Type RESTORE to go on: ')) === 'RESTORE';
+        },
+      });
+      if (report.cancelled) {
+        deps.err('Nothing was changed.');
+        return 1;
+      }
+      deps.out('');
+      deps.out(`Restored from ${path}.${report.safetyCopy ? ` Your previous data is in ${report.safetyCopy}.` : ''}`);
+      if (report.migrationsApplied.length > 0)
+        deps.out(`Then applied ${report.migrationsApplied.length} newer migration(s).`);
+      deps.out(
+        'Everyone was signed out and open invitations and set-password links were cancelled. Start KinShip again: docker compose up -d',
+      );
+      return 0;
+    }
+
     if (command === 'backup-verify') {
       if (!file || positional(args).length !== 1) {
         deps.err(`Usage:\n${BACKUP_USAGE}`);
@@ -140,6 +197,21 @@ export async function runBackupCommand(command: string, args: string[], deps: Ba
           `  made ${manifest.createdAt} by KinShip ${header.appVersion}, schema ${manifest.schema}, Postgres ${manifest.serverMajor}`,
         );
         deps.out(`  ${Object.keys(manifest.tables).length} tables, ${rows} rows, files: ${manifest.files.count}`);
+        if (args.includes('--full')) {
+          const base = (deps.config ?? loadConfig)();
+          const config = { ...base, backup: { ...base.backup, passphrase } };
+          const ctx: BackupContext = {
+            config,
+            tools,
+            log: jsonLog,
+            appVersion: readVersion(config.gitCommit, config.buildDate).version,
+          };
+          const result = await verifyBackup(ctx, locate(file, deps));
+          for (const check of result.checks)
+            deps.out(`  ${check.ok ? 'ok  ' : 'FAIL'} ${check.name}${check.detail ? ` (${check.detail})` : ''}`);
+          if (result.note) deps.out(`  note: ${result.note}`);
+          if (!result.ok) return 1;
+        }
       } finally {
         archive.cleanup();
       }
