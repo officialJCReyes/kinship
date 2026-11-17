@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { calls } from './helpers.js';
 import { GOOD, field, fillAccount, next, openSetup, progress, toYou, type } from './setup-helpers.js';
@@ -106,6 +106,110 @@ describe('step 4, Partner', () => {
     expect(screen.queryByText(/recorded as Widowed/)).toBeNull();
     choose('Living or deceased', 'deceased');
     expect(screen.getByText('Married and deceased is recorded as Widowed, set automatically.')).toBeTruthy();
+  });
+
+  it('has an optional birth date, and leaving it empty never blocks the step or adds a date to the request', async () => {
+    const fetchMock = await toPartner();
+    expect(field('Birth date (optional)').value).toBe('');
+    type('Given name', 'Priya');
+    type('Birth (maiden) surname', 'Nair');
+    next();
+    await heading('Add your parents');
+    skip();
+    await heading('Add your children');
+    skip();
+    await heading('Check your tree');
+    create();
+    await waitFor(() => expect(calls(fetchMock)).toContain('POST /api/setup'));
+    const partner = (sentBody(fetchMock)['family'] as { partner: Record<string, unknown> }).partner;
+    expect(partner).toEqual({ status: 'married', givenName: 'Priya', surname: 'Nair' });
+  });
+
+  it('takes a whole, partial or approximate date like the rest of the app, and sends it as typed', async () => {
+    for (const [text, precision, sent] of [
+      ['1962-03-14', 'exactly', { value: '1962-03-14', precision: 'exactly' }],
+      ['1962-03', 'exactly', { value: '1962-03', precision: 'exactly' }],
+      ['1962', 'about', { value: '1962', precision: 'about' }],
+      ['1950', 'before', { value: '1950', precision: 'before' }],
+    ] as const) {
+      const fetchMock = await toPartner();
+      type('Given name', 'Priya');
+      type('Birth (maiden) surname', 'Nair');
+      type('Birth date (optional)', text);
+      choose('How sure: Birth date (optional)', precision);
+      next();
+      await heading('Add your parents');
+      skip();
+      await heading('Add your children');
+      skip();
+      await heading('Check your tree');
+      create();
+      await waitFor(() => expect(calls(fetchMock)).toContain('POST /api/setup'));
+      const family = sentBody(fetchMock)['family'] as { partner: { birth?: unknown } };
+      expect(family.partner.birth, `${precision} ${text}`).toEqual(sent);
+      cleanup();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('says what a typed date means in the account’s date format, and Review shows it', async () => {
+    await toPartner();
+    type('Given name', 'Priya');
+    type('Birth (maiden) surname', 'Nair');
+    type('Birth date (optional)', '1962-03-14');
+    expect(screen.getByText('Reads as: Mar 14, 1962')).toBeTruthy();
+    next();
+    await heading('Add your parents');
+    skip();
+    await heading('Add your children');
+    skip();
+    await heading('Check your tree');
+    const partner = screen.getByRole('region', { name: 'Partner' });
+    expect(partner.textContent).toContain('Priya Nair, your spouse');
+    expect(partner.textContent).toContain('born Mar 14, 1962');
+  });
+
+  it('refuses a date that is not a date, next to the field, and does not move on', async () => {
+    await toPartner();
+    type('Given name', 'Priya');
+    type('Birth (maiden) surname', 'Nair');
+    type('Birth date (optional)', '1962-02-31');
+    next();
+    expect(progress()).toBe('Step 4 of 7 · Partner');
+    expect(
+      await screen.findAllByText('Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.'),
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(field('Birth date (optional)'));
+    type('Birth date (optional)', '');
+    next();
+    await heading('Add your parents');
+  });
+
+  it('a date alone, with no name, is not a partner: Next still means no partner', async () => {
+    await toPartner();
+    type('Birth date (optional)', '1962');
+    next();
+    await heading('Add your parents');
+  });
+
+  it('puts the server’s answer about the partner’s date next to it', async () => {
+    await toYou({ 'POST /api/setup': { status: 400, body: { error: 'invalid_date', field: 'family.partner.birth' } } });
+    next();
+    await heading('Add your spouse or partner');
+    type('Given name', 'Priya');
+    type('Birth (maiden) surname', 'Nair');
+    type('Birth date (optional)', '1962');
+    next();
+    await heading('Add your parents');
+    skip();
+    await heading('Add your children');
+    skip();
+    await heading('Check your tree');
+    create();
+    await heading('Add your spouse or partner');
+    expect(
+      screen.getAllByText('Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.').length,
+    ).toBeGreaterThan(0);
   });
 
   it('Back keeps what was typed, and Skip clears it silently', async () => {

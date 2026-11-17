@@ -58,6 +58,8 @@ export interface PartnerDraft {
   given: string;
   surname: string;
   marriedSurname: string;
+  /** Optional. Empty means no date; it never blocks the step. */
+  birth: DateDraft;
   deceased: boolean;
   gender: '' | Gender;
 }
@@ -87,6 +89,7 @@ export const emptyPartner: PartnerDraft = {
   given: '',
   surname: '',
   marriedSurname: '',
+  birth: emptyDateDraft,
   deceased: false,
   gender: '',
 };
@@ -262,6 +265,7 @@ export function validateStep(step: SetupStepId, state: WizardState): Record<stri
     }
     if (p.status === 'widowed' && !p.deceased)
       errors['family.partner.deceased'] = t('setup.partner.widowedNeedsDeceased');
+    if (draftToInput(p.birth) === undefined) errors['family.partner.birth'] = t('error.invalid_date');
   } else if (step === 'parents') {
     const { father, mother } = state;
     if (parentEntered(father)) checkNames('family.parents.father', father.given, fatherSurnameOf(state));
@@ -292,6 +296,7 @@ export function buildSetupRequest(state: WizardState): SetupRequest {
   const birth = draftToInput(state.youBirth);
   const hasPartner = partnerEntered(state);
   const p = state.partner;
+  const partnerBirth = draftToInput(p.birth);
   const showsMarried = p.status === 'married' || p.status === 'widowed';
   const father = parentEntered(state.father);
   const mother = parentEntered(state.mother);
@@ -326,6 +331,7 @@ export function buildSetupRequest(state: WizardState): SetupRequest {
               givenName: p.given.trim(),
               surname: p.surname.trim(),
               ...(showsMarried && !blank(p.marriedSurname) ? { marriedSurname: p.marriedSurname.trim() } : {}),
+              ...(partnerBirth ? { birth: partnerBirth } : {}),
               ...(p.deceased ? { deceased: true } : {}),
               ...(p.gender ? { gender: p.gender } : {}),
             },
@@ -412,6 +418,7 @@ export function reviewPeople(
     detail: null,
   });
   const partnerName = partnerEntered(state) ? fullName(state.partner.given, state.partner.surname) : '';
+  const partnerBirth = draftToInput(state.partner.birth);
   if (partnerEntered(state)) {
     const recorded = recordedStatus(state.partner.status, state.partner.deceased);
     people.push({
@@ -419,7 +426,7 @@ export function reviewPeople(
       name: partnerName,
       relation: t(`setup.relation.partner.${recorded}.${genderKey(state.partner.gender)}` as MessageKey),
       deceased: state.partner.deceased,
-      birth: null,
+      birth: partnerBirth ? formatBirth(partnerBirth.value, partnerBirth.precision ?? 'exactly') : null,
       detail: null,
     });
   }
@@ -532,9 +539,11 @@ export function duplicateNotes(state: WizardState): Map<string, string> {
     const birth =
       person.key === 'you'
         ? state.youBirth.text.trim()
-        : person.key.startsWith('child:')
-          ? (state.children.find((c) => `child:${c.key}` === person.key)?.birth.text.trim() ?? '')
-          : '';
+        : person.key === 'partner'
+          ? state.partner.birth.text.trim()
+          : person.key.startsWith('child:')
+            ? (state.children.find((c) => `child:${c.key}` === person.key)?.birth.text.trim() ?? '')
+            : '';
     const id = `${person.name.toLowerCase().replace(/\s+/g, ' ')}|${birth}`;
     const earlier = seen.get(id);
     if (earlier) notes.set(person.key, earlier);

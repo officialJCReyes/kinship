@@ -67,6 +67,8 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
   await page.getByLabel('Given name').fill('Priya');
   await page.getByLabel('Birth (maiden) surname').fill('Nair');
   await page.getByLabel('Married surname (optional)').fill('Hale');
+  await page.getByLabel('Birth date (optional)', { exact: true }).fill('1962-03-14');
+  await expect(page.getByText('Reads as: Mar 14, 1962')).toBeVisible();
   await page.getByLabel('Gender').selectOption('female');
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -91,6 +93,7 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
 
   await expect(page.getByRole('heading', { name: 'Check your tree' })).toBeVisible();
   await expect(page.getByText('Priya Nair, your wife')).toBeVisible();
+  await expect(page.getByText('born Mar 14, 1962')).toBeVisible();
   await expect(page.getByText('Daniel Hale, your father')).toBeVisible();
   await expect(page.getByText('Elena Ruiz, your mother')).toBeVisible();
   await expect(page.getByText('Leo Hale, your son')).toBeVisible();
@@ -130,6 +133,11 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
   const marriage = page.getByRole('article', { name: 'Relationship with Priya Hale' });
   await expect(marriage.getByText('Married', { exact: true })).toBeVisible();
   await expect(marriage.getByRole('link', { name: /Leo Hale.*Son/ })).toBeVisible();
+  // The partner's date of birth from the wizard was saved.
+  await marriage.getByRole('link', { name: 'Priya Hale' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Priya Hale' })).toBeVisible();
+  await expect(page.getByText('Mar 14, 1962').first()).toBeVisible();
+  await page.goBack();
   // My profile is in the account menu, not in the top navigation.
   await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'My profile' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Account menu' }).click();

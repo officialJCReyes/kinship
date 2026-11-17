@@ -59,3 +59,8 @@ Everything is checked **before any write and before the argon2 hash**, after the
 - The mockup's step 5 offers "Add later" as a child's other parent, and its last button is "Open my tree"; the brief drops the first and calls the button "Create my tree".
 - The mockup's last step mentions Authentik and renaming the tree later; the brief replaces them (invite relatives under Admin → Users).
 - The requirements doc lists the partner's "birth surname" only; the wizard also takes the given name, status, deceased and gender.
+
+## Amendment (after 0.2.0-rc.1): the partner's date of birth
+
+The partner may now have an optional `birth` (`{ value, precision }`, partial and approximate dates like yours and your children's), checked with the same `parseDateInput` and stored by the same `setup_insert_person` function, which already read `birth` for any person, so there is no migration. Empty means no date and never blocks the step. "No dates are collected" in the Partner bullet above still holds for the relationship itself.
+

@@ -40,13 +40,15 @@ export interface SetupYou {
   gender?: Gender | null;
 }
 
-/** The partner, with the status of the one relationship between you. No dates are collected. */
+/** The partner, with the status of the one relationship between you. The relationship's own dates are not collected. */
 export interface SetupPartner {
   status: SetupUnionStatus;
   givenName: string;
   surname: string;
   /** Used for Married and Widowed. */
   marriedSurname?: string | null;
+  /** Optional; partial and approximate dates are allowed, like yours and your children's. */
+  birth?: PartialDateInput | null;
   deceased?: boolean;
   gender?: Gender | null;
 }

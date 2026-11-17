@@ -170,6 +170,36 @@ describe('POST /api/setup with a family', () => {
     expect((people.json() as { items: unknown[] }).items).toHaveLength(6);
   });
 
+  it('stores the partner’s birth date with its precision, and no date at all when it is left out', async () => {
+    for (const [birth, expected] of [
+      [{ value: '1962-03-14' }, { birth_date: '1962-03-14', birth_precision: 'exactly' }],
+      [
+        { value: '1962-03', precision: 'exactly' },
+        { birth_date: '1962-03', birth_precision: 'exactly' },
+      ],
+      [
+        { value: '1962', precision: 'about' },
+        { birth_date: '1962', birth_precision: 'about' },
+      ],
+      [null, { birth_date: null, birth_precision: 'exactly' }],
+      [undefined, { birth_date: null, birth_precision: 'exactly' }],
+    ] as const) {
+      const token = await reset(t);
+      const family: SetupFamily = {
+        you: HALE.you,
+        partner: {
+          ...(HALE.partner as NonNullable<SetupFamily['partner']>),
+          ...(birth === undefined ? {} : { birth }),
+        },
+      };
+      const response = await post(t.app, '/api/setup', body(token, family));
+      expect(response.statusCode, JSON.stringify(birth)).toBe(201);
+      const priya = await sql`
+        select birth_date::text, birth_precision from people where given_name = 'Priya'`.execute(t.owner);
+      expect(priya.rows, JSON.stringify(birth)).toEqual([expected]);
+    }
+  });
+
   it('stores the account settings with the account, in the same transaction', async () => {
     const token = await reset(t);
     const response = await post(
@@ -413,6 +443,18 @@ describe('errors name the field, and nothing is written', () => {
       (f) => ((f.partner as { gender: string }).gender = 'x'),
       'invalid_gender',
       'family.partner.gender',
+    ],
+    [
+      'partner: bad birth date',
+      (f) => ((f.partner as { birth: unknown }).birth = { value: '1962-02-30' }),
+      'invalid_date',
+      'family.partner.birth',
+    ],
+    [
+      'partner: bad birth precision',
+      (f) => ((f.partner as { birth: unknown }).birth = { value: '1962', precision: 'sometime' }),
+      'invalid_precision',
+      'family.partner.birth',
     ],
     [
       'partner: widowed but living',

@@ -119,12 +119,13 @@ export function parseSetupFamily(raw: unknown): SetupFamilyRows {
     'givenName',
     'surname',
     'marriedSurname',
+    'birth',
     'deceased',
     'gender',
   ]);
   if (partnerObj) {
     const status = statusAt(partnerObj['status'], 'family.partner.status');
-    const row = personAt(partnerObj, 'family.partner', { marriedSurname: true });
+    const row = personAt(partnerObj, 'family.partner', { marriedSurname: true, birth: true });
     if (status === 'widowed' && !row.deceased) {
       throw new ApiError(400, 'widowed_needs_deceased', { field: 'family.partner.deceased' });
     }
