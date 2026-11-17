@@ -370,7 +370,7 @@ export function buildNotes({ version, prerelease, read, git, tags }) {
     upgradeNotes: upgradeNotes === null ? null : capText(upgradeNotes),
   };
   validateManifest(manifest);
-  return { body, manifest };
+  return { body, manifest, previous };
 }
 
 // ---- command line ---------------------------------------------------------------------------
@@ -400,7 +400,7 @@ function main() {
       console.log(JSON.stringify(info, null, 2));
     } else if (command === 'notes' && arg) {
       const version = JSON.parse(readFromRepo('package.json')).version;
-      const { body, manifest } = buildNotes({
+      const { body, manifest, previous } = buildNotes({
         version,
         prerelease: parseVersion(version).pre !== null,
         read: readFromRepo,
@@ -410,6 +410,10 @@ function main() {
       mkdirSync(arg, { recursive: true });
       writeFileSync(join(arg, 'release-notes.md'), body);
       writeFileSync(join(arg, 'release-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
+      console.log(`Compared with the previous tag: ${previous ?? '(none)'}`);
+      console.log(
+        `Flags: migration=${manifest.migration} breaking=${manifest.breaking} security=${manifest.security}; notes ${manifest.notes.length} characters`,
+      );
       console.log(`Wrote ${join(arg, 'release-notes.md')} and ${join(arg, 'release-manifest.json')}`);
     } else if (command === 'validate' && arg) {
       validateManifest(JSON.parse(readFromRepo(arg)));
