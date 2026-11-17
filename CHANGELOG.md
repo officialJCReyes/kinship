@@ -4,9 +4,30 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
-### Planned for 0.1.0
+## [0.2.0-rc.1] - 2026-11-17
 
-0.1.0 is tagged when the exit test passes: a stranger follows the README on a clean machine and has a working tree in ten minutes. Until then there are further 0.1.0-alpha releases. Data may still be wiped between 0.1.x releases; the data promise starts with 0.2.
+**A release candidate for 0.2.0, "A tree you can trust". The data promise starts here:** upgrades keep your data, and a safety copy is made before each database change. Read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before upgrading from an alpha: it needs a backups folder and a backup passphrase first. Release candidates are offered by the in-app update check only when "Include pre-releases" is on.
+
+### What 0.2.0-rc.1 adds
+
+- **Backups and restore.** Encrypted backups (one file, your passphrase), on a schedule or on demand, with a test that restores the newest one into a temporary database, a download that asks for your password again, and `kinship restore` on the server. A safety copy of the database is written before every database change. See [ADR 0014](https://github.com/officialJCReyes/kinship/blob/main/docs/decisions/0014-backup-and-owner-access.md).
+- **Updates.** Admin → Updates tells the SuperAdmin about a new version (a daily read of GitHub's public release list that sends nothing about your install, switched on or off in the app), shows what it changes with a backup warning, and every admin sees a "What's new" popup after an update. The web and the api must be the same version, and say so if they are not. See [ADR 0015](https://github.com/officialJCReyes/kinship/blob/main/docs/decisions/0015-update-check-and-whats-new.md).
+- **A seven-step first-run wizard** that creates your account, your tree, you, and optionally a partner, parents and children, all at once.
+- **Invitations and passwords.** Admins invite people by a link they copy; an admin can make a set-password link for someone locked out, and the account shows that an admin set the password; everyone can change their password.
+- **My settings.** Four color schemes, light or dark, a date format, which surname shows, and which family the charts follow for an adopted person.
+- **A fuller relationship model.** Second and married surnames; Married relationships become Widowed automatically when a partner is marked deceased; custom relationship labels (Godmother, Guardian); step relatives, and a partner's children from another relationship.
+
+### Changed
+
+- Dates now read "Jan 1, 2026" by default (the alpha showed "January 1, 2026"). Each person can change it.
+- The top bar's "My profile" and "About" moved into the account menu.
+- The database gains migrations 0007 to 0014, applied at startup after a safety copy. **One-time data change:** Married relationships with a deceased partner become Widowed.
+
+### What it does not include yet
+
+- **Profile photos and media upload** (planned for 0.3), other chart views, the relationship finder, reports, sources, places, DNA and health history.
+- **A Restore button** (restore is a command on the server) and S3 or other backup destinations.
+- **Email** (invitations and password links are copied by hand) and single sign-on.
 
 ## [0.1.0-alpha.2] - 2026-11-16
 
@@ -57,6 +78,7 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 - **No update notice, no "What's new" popup, no file storage, no email, no single sign-on, no password reset by email.** Later releases add them.
 - **No upgrade promise.** Until 0.2, a new release may require starting with an empty database.
 
-[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...HEAD
+[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.1...HEAD
+[0.2.0-rc.1]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...v0.2.0-rc.1
 [0.1.0-alpha.2]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/officialJCReyes/kinship/releases/tag/v0.1.0-alpha.1

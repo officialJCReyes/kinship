@@ -228,9 +228,9 @@ export const en = {
   'backups.weekday.4': 'Thursday',
   'backups.weekday.5': 'Friday',
   'backups.weekday.6': 'Saturday',
-  'backups.keep.title': 'Keep two things outside the backup',
+  'backups.keep.title': 'Keep the passphrase outside the backup',
   'backups.keep.body':
-    'A backup does not contain the backup passphrase or FILE_ENCRYPTION_KEY. Without the passphrase a backup cannot be opened, and without the file key restored photos and documents cannot be read. Store both in a password manager, not only on this server.',
+    'A backup does not contain the backup passphrase. Without the passphrase a backup cannot be opened by anyone, including you. Store it in a password manager, not only on this server.',
   'backups.restore.title': 'Restoring a backup',
   'backups.restore.intro':
     'A restore replaces everything and is done from the command line on the server, with KinShip stopped. It makes a safety copy of what is there first, checks the result before it commits, and leaves the database untouched if anything fails. There is no restore button here on purpose.',
