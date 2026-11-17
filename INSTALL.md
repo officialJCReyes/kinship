@@ -1,6 +1,6 @@
 # Installing KinShip
 
-> **Release 0.1 is an alpha.** It installs and runs, you can set up and sign in, add people and relationships (with birth and adoptive parents) and see them on a family tree chart. **Data may be wiped between 0.1.x releases: do not enter real family data.** A data-safe upgrade path (and a built-in backup) starts with 0.2.
+> **From 0.2, upgrades keep your data.** Migrations are forward-only and preserve every row, a safety copy of the database is made before each one, and backups are built in. Releases before 0.2 (the `0.1.0-alpha` ones) had no such promise: do not keep real family data in them. Upgrading from an alpha needs two changes first; read [UPGRADE.md](UPGRADE.md).
 
 You need a machine that runs Docker (Linux, a Raspberry Pi, a NAS, or a cloud server) with Docker Compose v2. You do not need to build anything.
 
@@ -17,9 +17,10 @@ chmod 600 .env
 
 ## 2. Fill in `.env`
 
-Open `.env`; every setting is explained in it. You must set two things:
+Open `.env`; every setting is explained in it. You must set these:
 
 - `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD`: two different, long, random passwords. For example `openssl rand -base64 24`, twice. KinShip refuses to start while they still say `change-me`.
+- `BACKUP_PASSPHRASE`: at least 16 characters, for example `openssl rand -base64 32` (see step 3). Without it KinShip runs but makes no backups.
 
 Worth a look before you start:
 
@@ -120,7 +121,7 @@ If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_
 
 ## Back up and restore
 
-**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database (and, once KinShip stores photos, the files). It is encrypted with `BACKUP_PASSPHRASE`. **The backup does not contain that passphrase or `FILE_ENCRYPTION_KEY`: keep both somewhere other than this server.** Without the passphrase a backup cannot be opened by anyone, including you.
+**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database (KinShip 0.2 stores no photos or other files yet; the archive has a place for them). It is encrypted with `BACKUP_PASSPHRASE`. **The backup does not contain that passphrase: keep it somewhere other than this server.** Without the passphrase a backup cannot be opened by anyone, including you.
 
 **Making them.** Backups run on a schedule inside the api (every day at 03:00 by default; change it, how many to keep and the time zone in **Admin → Backups**, which only the SuperAdmin sees). **Back up now** makes one at once, and **Test the latest backup** restores the newest one into a temporary database, compares it with what was backed up, and throws it away. **Download** asks for your password again. From the command line:
 

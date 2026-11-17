@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only **the latest release** is supported. Bug fixes and security fixes ship as a new patch release of the newest version; older versions are not patched. The project is pre-alpha and has no release yet.
+Only **the latest release** is supported. Bug fixes and security fixes ship as a new patch release of the newest version; older versions are not patched. Releases are listed on the [releases page](https://github.com/officialJCReyes/kinship/releases).
 
 ## Reporting a vulnerability
 

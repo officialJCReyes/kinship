@@ -94,9 +94,7 @@ export async function runBackupCommand(command: string, args: string[], deps: Ba
       const ctx: BackupContext = { config, tools, log: jsonLog, appVersion: version.version };
       const result = await createBackup(ctx, { kind: 'manual' });
       deps.out(`Backup written: ${result.name} (${size(result.bytes)}) in ${config.backup.dir}`);
-      deps.out(
-        'Keep BACKUP_PASSPHRASE (and FILE_ENCRYPTION_KEY when files exist) somewhere other than this server: the backup does not contain them.',
-      );
+      deps.out('Keep BACKUP_PASSPHRASE somewhere other than this server: the backup does not contain it.');
       return 0;
     }
 

@@ -328,9 +328,9 @@ describe('restoring, and the two things to keep outside', () => {
     ).toBeTruthy();
     expect(within(card).getByText('docker compose up -d')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /restore/i })).toBeNull();
-    expect(screen.getByRole('region', { name: 'Keep two things outside the backup' }).textContent).toContain(
-      'FILE_ENCRYPTION_KEY',
-    );
+    const keep = screen.getByRole('region', { name: 'Keep the passphrase outside the backup' }).textContent ?? '';
+    expect(keep).toContain('backup passphrase');
+    expect(keep).not.toContain('FILE_ENCRYPTION_KEY'); // there are no uploaded files in 0.2, so no file key
   });
 });
 

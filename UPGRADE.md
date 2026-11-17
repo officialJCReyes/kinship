@@ -2,9 +2,18 @@
 
 Notes for upgrading from one release to the next, newest first. Read the section for the version you are moving to. The release process requires a section here for any release with a breaking change.
 
-## Unreleased (will become 0.2.0)
+## 0.2.0
 
-Notes are added here as 0.2 changes land and finished at release prep: rename this heading to the version.
+**0.2 starts the data promise:** from here an upgrade keeps your data, and a safety copy of the database is made before each database change. The notes below are in the order the changes were made, newest first; the parts that need you to act are at the top.
+
+### Upgrading from 0.1.0-alpha.2 (or earlier): do these two things first
+
+1. **Add the backups folder to your `compose.yml`** (copy the new `compose.yml` from the release, which has it) and create the folder: `mkdir -p data/backups && sudo chown 1000:1000 data/backups` (Docker Desktop on macOS and Windows does not need the `chown`). Without it the api will not start the upgrade, and prints exactly these lines.
+2. **Set `BACKUP_PASSPHRASE` in `.env`** (at least 16 characters; `openssl rand -base64 32` is good) and **keep a copy somewhere other than the server**. It encrypts every backup and the safety copy.
+
+Then change `KINSHIP_VERSION` to the new version (the release's `env.example` shows every new setting), `docker compose pull && docker compose up -d`. The first start writes a safety copy (`data/backups/pre-upgrade-0006-to-0014.tar.enc` from alpha.2), then applies migrations 0007 to 0014. **Back up first anyway** (INSTALL.md, "Back up and restore"): the safety copy sits on the same disk. Going back is a restore of that backup; there are no down-migrations.
+
+What changes for people: every Married relationship with a deceased partner becomes Widowed (see "Names and relationships" below); everyone sees dates as "Jan 1, 2026" until they change it in My settings; admins see a "What's new" popup once. An alpha account is still not linked to a person ([#8](https://github.com/officialJCReyes/kinship/issues/8)): open **Family tree** and choose who to start from.
 
 ### Update check, What's changing and What's new (database change, back up first)
 
@@ -23,7 +32,7 @@ Notes are added here as 0.2 changes land and finished at release prep: rename th
         - ./data/backups:/var/lib/kinship/backups
   ```
   then create the folder next to it: `mkdir -p data/backups && sudo chown 1000:1000 data/backups` (Docker Desktop on macOS and Windows does not need the `chown`). Add `BACKUP_PASSPHRASE=` (at least 16 characters; `openssl rand -base64 32` is good) to `.env`, as in the new `.env.example`, and **keep a copy of it somewhere other than the server**. If the folder is missing the api will not start the upgrade, and prints exactly these lines.
-- **A safety copy is now made before every database change** (`data/backups/pre-upgrade-<from>-to-<to>.tar.enc`, encrypted with the passphrase; a plain `.sql.gz`, with a warning, if there is none; the newest three are kept). This update's own change (migration 0013) is the first to get one. It can take minutes on a big database; the compose health check now allows 10 minutes. If it cannot be made the upgrade stops and your data is untouched; as a last resort start once with `KINSHIP_SAFETY_COPY=skip` (see INSTALL.md, "Something wrong?"). A database owner role that cannot read every row (neither a superuser nor `BYPASSRLS`) skips the copy with a loud log line and says so in the upgrade log.
+- **A safety copy is now made before every database change** (`data/backups/pre-upgrade-<from>-to-<to>.tar.enc`, encrypted with the passphrase; a plain `.sql.gz`, with a warning, if there is none; the newest three are kept). The first database change after you add the passphrase gets one (from alpha.2 that is the whole jump, `pre-upgrade-0006-to-0014`). It can take minutes on a big database; the compose health check now allows 10 minutes. If it cannot be made the upgrade stops and your data is untouched; as a last resort start once with `KINSHIP_SAFETY_COPY=skip` (see INSTALL.md, "Something wrong?"). A database owner role that cannot read every row (neither a superuser nor `BYPASSRLS`) skips the copy with a loud log line and says so in the upgrade log.
 - **Admin → Backups** (SuperAdmin only): status, Back up now, Test the latest backup, a download that asks for your password again, and the schedule (every day at 03:00 UTC by default; set your time zone), with 7 daily, 4 weekly and 6 monthly backups kept. With no usable passphrase the schedule stays off and the page says so.
 - **Restoring is a command on the server** (`docker compose run --rm api kinship restore <file>`, with `web` and `api` stopped); there is no restore button. See INSTALL.md.
 - Migration 0013 adds `app_settings`, `upgrade_log` and `schema_info.app_version`, and rewrites three internal row-level-security policies so they no longer name the database owner role (they now mean "the table's owner"). No data changes. The `kinship` command gained `backup`, `backup-list`, `backup-verify`, `backup-decrypt` and `restore`. The api image carries the PostgreSQL 18 client tools (about 9 MB larger).
@@ -52,6 +61,15 @@ Notes are added here as 0.2 changes land and finished at release prep: rename th
 - **The top bar changed.** "My profile" and "About" moved into the account menu (click your name), which also has "My settings" and "Sign out".
 - **API:** `GET /api/auth/me`, sign-in and first-run setup return `colorScheme`, `theme`, `dateFormat` and `surnameChoice`; `PATCH /api/auth/me` accepts any of the five settings. The browser keeps a copy of the color scheme and theme (`kinship.display` in local storage) so a page is drawn right before sign-in; the account decides.
 - **Reverse proxies:** the web container now also serves one small file, `/theme-init.js`. It must not be blocked, and it must not be cached for long: the bundled nginx makes the browser check it on every load, so a new release reaches people at once.
+
+### Names and relationships (database change, back up first)
+
+- Migrations 0007, 0008 and 0009 add second and married surnames, a new search column, automatic Widowed tracking, and custom relationship labels. No action is needed.
+- **One-time data change:** every relationship with status **Married** where either partner is already marked **deceased** becomes **Widowed**, marked as set automatically. Other statuses are not changed.
+- From then on the app does this itself. Marking a person deceased turns their Married relationships into Widowed. Marking them living again reverts only the automatic ones, and only if the other partner is not deceased. Saving a status by hand in the relationship editor, even the same one, makes it permanent.
+- The old `search_name` column stays until a later release.
+- **API:** list cursors from before the upgrade are refused with `invalid_cursor`. `GET /api/people/:id` has new fields: `labels` and `partnerChildren`, plus `secondSurname`, `marriedSurname` and `statusAuto` on people and relationships.
+- **Custom labels** are added by admins only. A label never changes the tree or who is next of kin.
 
 ## 0.1.0-alpha.2
 
