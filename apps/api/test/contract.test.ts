@@ -132,6 +132,10 @@ const userColumns = [
   'last_sign_in_at',
   'password_changed_at',
   'password_changed_via',
+  'last_seen_version',
+  'last_seen_at',
+  'update_dismissed_version',
+  'update_backup_ack_version',
   'created_at',
   'updated_at',
 ] as const satisfies ReadonlyArray<keyof Database['users']>;

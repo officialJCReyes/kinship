@@ -45,7 +45,21 @@ export interface Database {
     to_version: string;
     safety_copy: string | null;
     safety_note: string | null;
+    /** For a restore: the version of the backup that was restored (0014). from_version is the version running before. */
+    backup_version: string | null;
     created_at: ColumnType<Date, never, never>;
+  };
+  /** The state of the daily update check: one row, SuperAdmin reads, the owner writes (0014). */
+  update_check: {
+    id: boolean;
+    status: 'never' | 'ok' | 'unchanged' | 'offline' | 'rate_limited' | 'bad_response';
+    last_attempt_at: Date | null;
+    last_success_at: Date | null;
+    next_check_at: Date | null;
+    failures: number;
+    etag: string | null;
+    releases: unknown;
+    updated_at: Date;
   };
   /** The app role can read these columns, and only the signed-in person's own row (row-level security). */
   users: {
@@ -66,6 +80,11 @@ export interface Database {
     last_sign_in_at: Date | null;
     password_changed_at: Date | null;
     password_changed_via: 'setup' | 'self' | 'admin_link' | 'cli' | 'invitation' | null;
+    /** What this account last saw of What's new, and the SuperAdmin's banner and backup ticks per version (0014). */
+    last_seen_version: string | null;
+    last_seen_at: Date | null;
+    update_dismissed_version: string | null;
+    update_backup_ack_version: string | null;
     created_at: Date;
     updated_at: Date;
   };
