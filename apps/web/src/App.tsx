@@ -3,12 +3,16 @@ import { useLayoutEffect } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useSession, useSetupStatus } from './auth.js';
 import { AccountMenu } from './components/AccountMenu.js';
+import { WhatsNewHost } from './components/WhatsNew.js';
+import { VersionMismatchPage } from './pages/VersionMismatchPage.js';
+import { useVersionMismatch } from './lib/version-mismatch.js';
 import { t } from './i18n.js';
 import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
 import { applyTheme } from './lib/theme.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { AdminLayout } from './pages/AdminLayout.js';
 import { AdminBackupsPage } from './pages/AdminBackupsPage.js';
+import { AdminUpdatesPage } from './pages/AdminUpdatesPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LinkPage } from './pages/LinkPage.js';
@@ -39,7 +43,12 @@ function RequireSignIn() {
   if (setup.data.needsSetup) return <Navigate to="/setup" replace />;
   if (session.isPending) return <Loading />;
   if (!session.data) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
-  return <Outlet />;
+  return (
+    <>
+      <WhatsNewHost />
+      <Outlet />
+    </>
+  );
 }
 
 /** /login: for people who are not signed in. Until setup is done, it goes to /setup. */
@@ -69,6 +78,7 @@ function SetupRoute() {
 }
 
 export function App() {
+  const mismatch = useVersionMismatch();
   const session = useSession(false);
   const signedIn = Boolean(session.data);
   // The account's date format and surname choice feed the display store (signed out: the defaults). The page content
@@ -89,6 +99,8 @@ export function App() {
   const fullWidth = /^\/tree\/[^/]+/.test(pathname);
   // My settings is not remounted by the changes made on it (the focus would be lost); every other page is.
   const onSettings = pathname === '/settings';
+  // The web and the api are on different versions: nothing else works, so say so on a page of its own.
+  if (mismatch) return <VersionMismatchPage mismatch={mismatch} />;
   return (
     <NoticeProvider>
       <a className="skip-link" href="#main">
@@ -133,6 +145,7 @@ export function App() {
               <Route index element={<Navigate to="/admin/users" replace />} />
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="backups" element={<AdminBackupsPage />} />
+              <Route path="updates" element={<AdminUpdatesPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Route>

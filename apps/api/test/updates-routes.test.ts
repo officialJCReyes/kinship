@@ -465,6 +465,27 @@ describe("what's new", () => {
     expect((await as('superadmin', 'GET', '/api/updates/whats-new')).body).toMatchObject({ show: false, kind: 'none' });
   });
 
+  it('"The latest update" (About > What’s new) is the running version’s section, whatever was seen already', async () => {
+    await setSeen('superadmin', RUNNING);
+    await log({
+      from: 12,
+      to: 14,
+      fromV: '0.2.0',
+      toV: RUNNING,
+      copy: 'pre-upgrade-0012-to-0014.tar.enc',
+      at: '2027-02-03T00:00:00Z',
+    });
+    const reply = await as('superadmin', 'GET', '/api/updates/whats-new?latest=1');
+    expect(reply.body).toMatchObject({ show: true, kind: 'updated', from: null, to: RUNNING });
+    expect(reply.body?.['sections'].map((s: { version: string }) => s.version)).toEqual(['0.3.0']);
+    expect(reply.body?.['migrations']).toMatchObject([
+      { fromSchema: 12, toSchema: 14, safetyCopy: 'pre-upgrade-0012-to-0014.tar.enc' },
+    ]);
+    expect(reply.body?.['checkNow']).toHaveLength(1);
+    expect((await as('member', 'GET', '/api/updates/whats-new?latest=1')).status).toBe(403);
+    expect((await as('superadmin', 'GET', '/api/updates/whats-new?latest=2')).status).toBe(400);
+  });
+
   it('Got it records the running version for that admin only, and the popup does not come again', async () => {
     await setSeen('superadmin', '0.2.0');
     await setSeen('familyadmin', '0.2.0');
