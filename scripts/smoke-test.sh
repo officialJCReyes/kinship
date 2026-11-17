@@ -23,6 +23,8 @@ email="smoke@example.com"
 password="smoke-test-passphrase-$(openssl rand -hex 6)"
 new_password="smoke-test-changed-$(openssl rand -hex 6)"
 owner_password="$(openssl rand -hex 16)"
+backup_passphrase="smoke-backup-$(openssl rand -hex 12)"
+third_password="smoke-test-restored-$(openssl rand -hex 6)"
 app_password="$(openssl rand -hex 16)"
 
 compose() { docker compose --project-name "$project" --project-directory "$work" "$@"; }
@@ -65,6 +67,7 @@ sed -i.bak \
   -e "s|^PUBLIC_URL=.*|PUBLIC_URL=${base}|" \
   -e "s|^DB_OWNER_PASSWORD=.*|DB_OWNER_PASSWORD=${owner_password}|" \
   -e "s|^DB_APP_PASSWORD=.*|DB_APP_PASSWORD=${app_password}|" \
+  -e "s|^BACKUP_PASSPHRASE=.*|BACKUP_PASSPHRASE=${backup_passphrase}|" \
   "$work/.env"
 rm -f "$work/.env.bak"
 
@@ -141,8 +144,28 @@ printf '%s' "$new_password" | compose exec -T api kinship set-password "$email" 
 expect 401 "$(login_status "$email" "${password}")" "the old password still works"
 expect 200 "$(login_status "$email" "${new_password}")" "the new password does not work"
 
+step "Backup: make one, list it, verify it in full (restored into a temporary database)"
+backup_out="$(compose exec -T api kinship backup 2>&1)" || fail "kinship backup failed: $backup_out"
+echo "$backup_out"
+backup_file="$(echo "$backup_out" | sed -n 's/^Backup written: \([^ ]*\) .*/\1/p' | head -1)"
+[ -n "$backup_file" ] || fail "kinship backup did not name the file it wrote"
+compose exec -T api kinship backup-list | grep -q "^${backup_file} " || fail "backup-list does not show ${backup_file}"
+compose exec -T api kinship backup-verify "$backup_file" --full || fail "backup-verify --full failed"
+[ -f "$work/data/backups/${backup_file}" ] || fail "the backup file is not in the mounted backups folder"
+
+step "Restore: data changed after the backup comes back as it was"
+printf '%s' "$third_password" | compose exec -T api kinship set-password "$email" --password-stdin
+expect 200 "$(login_status "$email" "${third_password}")" "the changed password does not work"
+compose stop web api >/dev/null
+restore_out="$(compose run --rm -T api kinship restore "$backup_file" --yes 2>&1)" || fail "kinship restore failed: $restore_out"
+echo "$restore_out" | tail -4
+compose up -d --wait --wait-timeout 240 || fail "the stack did not come back after the restore"
+expect 401 "$(login_status "$email" "${third_password}")" "the password changed after the backup survived the restore"
+expect 200 "$(login_status "$email" "${new_password}")" "the password from the backup does not work after the restore"
+[ "$(curl -s "${base}/api/setup/status" | json "['needsSetup']")" = "False" ] || fail "setup is needed again after a restore"
+
 step "No password appears in any log (the setup token is shown once, on purpose)"
-leaked="$(compose logs --no-color | grep -F -e "$password" -e "$new_password" -e "$owner_password" -e "$app_password" || true)"
+leaked="$({ compose logs --no-color; echo "$backup_out"; echo "$restore_out"; } | grep -F -e "$password" -e "$new_password" -e "$third_password" -e "$owner_password" -e "$app_password" -e "$backup_passphrase" || true)"
 [ -z "$leaked" ] || fail "a password appears in the logs"
 
 printf '\nSMOKE TEST PASSED (version %s)\n' "$version"
