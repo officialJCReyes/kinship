@@ -37,7 +37,7 @@ KinShip writes its backups to `./data/backups` next to `compose.yml` (see "Back 
 mkdir -p data/backups && sudo chown 1000:1000 data/backups
 ```
 
-Docker Desktop on macOS and Windows does not need the `chown`. Also set `BACKUP_PASSPHRASE` in `.env` (step 2): it encrypts every backup, and you must keep a copy somewhere other than this server.
+Docker Desktop on macOS and Windows does not need the `chown`. Also set `BACKUP_PASSPHRASE` in `.env` (step 2): it encrypts every backup, it must be at least 16 characters, and **you must keep a copy somewhere other than this server** (a password manager is a good place). Without it KinShip still runs, but it makes no backups and says so in Admin.
 
 ## 4. Start it
 
@@ -99,41 +99,77 @@ For a script, pipe the password in: `printf '%s' "$NEW_PASSWORD" | docker compos
 
 ## Updating
 
-In 0.1 there is no update notice; watch the [releases page](https://github.com/officialJCReyes/kinship/releases). **0.1.x releases may need an empty database**, so treat an update as a fresh install unless the release notes say otherwise.
+Watch the [releases page](https://github.com/officialJCReyes/kinship/releases) and read the release notes and [UPGRADE.md](UPGRADE.md) first. **Back up before every update** (Admin → Backups → Back up now, then download it or copy it off the server).
 
-1. Read the release notes.
-2. Change `KINSHIP_VERSION` in `.env` to the new version (both images always share it).
-3. `docker compose pull && docker compose up -d`.
+1. Change `KINSHIP_VERSION` in `.env` to the new version (both images always share it).
+2. `docker compose pull && docker compose up -d`.
 
-Database changes are applied automatically at startup (migrations run in order, and the api refuses to start if an already-applied migration file was edited). To go back, put the old version back; there are no down-migrations, so going back after a database change means restoring a dump.
+Database changes are applied automatically when the api starts (in order, and the api refuses to start if an already-applied migration file was edited). **Before it applies any, it writes a safety copy of the database** to `data/backups/pre-upgrade-<from>-to-<to>.tar.enc` (encrypted with your backup passphrase; the newest three are kept) and checks that it opens. It is a net under your own backup, not a replacement: it sits on the same server. If the copy cannot be made the upgrade does not start and your data is untouched; the api log says why and how to fix it. On a big database the copy can take minutes: the site shows nothing, and `docker compose ps` says "starting", until the copy and the change are done.
 
-## Backing up (by hand, for now)
+To go back after a database change there are no down-migrations: put the old version back and restore the backup you took (see "Back up and restore").
 
-KinShip has no built-in backup in 0.1. The data is one PostgreSQL database, kept in a Docker volume (`kinship_kinship-db`). **Back up before every update, and keep `.env` with it** (it has your passwords), somewhere other than this server.
+## Back up and restore
+
+**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database (and, once KinShip stores photos, the files). It is encrypted with `BACKUP_PASSPHRASE`. **The backup does not contain that passphrase or `FILE_ENCRYPTION_KEY`: keep both somewhere other than this server.** Without the passphrase a backup cannot be opened by anyone, including you.
+
+**Making them.** Backups run on a schedule inside the api (every day at 03:00 by default; change it, how many to keep and the time zone in **Admin → Backups**, which only the SuperAdmin sees). **Back up now** makes one at once, and **Test the latest backup** restores the newest one into a temporary database, compares it with what was backed up, and throws it away. **Download** asks for your password again. From the command line:
 
 ```sh
-# A compressed dump of the database. Run it in the folder with compose.yml and .env.
-docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > "kinship-$(date +%F).sql.gz"
+docker compose exec api kinship backup              # make one now
+docker compose exec api kinship backup-list         # what is in the folder
+docker compose exec api kinship backup-verify kinship-2026-11-14-0300.tar.enc --full
 ```
 
-## Restoring a backup
+Copy `data/backups` (and your `.env`) somewhere else regularly: a backup on the same disk does not survive the disk.
 
-Into a **new, empty** install: same `compose.yml`, the same `.env` (the same database and role names and the same `KINSHIP_VERSION`), and no data volume yet.
+**If a backup says the database owner cannot read every row.** KinShip's database owner role must be a superuser (the default in the `postgres` image) or have `BYPASSRLS`, otherwise a dump would silently miss rows hidden by row-level security. If you gave KinShip a plain owner role, a superuser must run this once: `docker compose exec db psql -U postgres -c 'ALTER ROLE "<DB_OWNER_USER>" BYPASSRLS;'`.
+
+### Restoring
+
+A restore **replaces everything**: people, accounts, settings. It is done on the server with KinShip stopped, never from the browser.
 
 ```sh
-docker compose up -d db --wait
+docker compose stop web api
+docker compose run --rm api kinship restore kinship-2026-11-14-0300.tar.enc   # asks you to type RESTORE
+docker compose up -d
+```
 
-# The dump gives rights to the app role, but roles are not part of a dump: create it first.
-# Use the DB_APP_USER from your .env (kinship_app by default).
+It first decrypts and checks the whole backup; refuses one made by a newer KinShip, from a newer PostgreSQL, with other database role names, or while KinShip is still running; makes a safety copy of what is there (`pre-restore-<time>.tar.enc`); then replaces the database in **one transaction** that checks the result before it commits. If anything fails, the database is exactly as it was. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date by the same start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
+
+### A new machine, after a disaster
+
+You need the backup file, your `.env` (**the same database and role names**, and the backup passphrase) and `compose.yml`.
+
+1. Install Docker, put `compose.yml` and `.env` in a folder, `mkdir -p data/backups`, and copy the backup file into it (`chown 1000:1000` as in step 3).
+2. `docker compose up -d db --wait` (a new, empty database).
+3. `docker compose run --rm api kinship restore kinship-2026-11-14-0300.tar.enc --yes`. It creates the app role itself.
+4. `docker compose up -d`.
+
+### Opening a backup without KinShip
+
+You need only the file and the passphrase. **Plain `openssl` cannot open it** (it does not do chunked AES-GCM). Use the stand-alone script, which needs only Node.js: `BACKUP_PASSPHRASE='…' node kinship-decrypt.mjs backup.tar.enc out.tar` ([docs/backup/kinship-decrypt.mjs](docs/backup/kinship-decrypt.mjs)), or the image: `docker run --rm -it -v "$PWD:/b" -e BACKUP_PASSPHRASE ghcr.io/officialjcreyes/kinship-api:<version> kinship backup-decrypt /b/backup.tar.enc /b/out.tar`. Then `tar -xf out.tar`; `database.dump` is a PostgreSQL custom-format dump for `pg_restore`. The format is written down in [docs/backup-format.md](docs/backup-format.md).
+
+### A plain safety copy (`.sql.gz`)
+
+Without a usable passphrase the safety copy before an upgrade is a plain `pre-upgrade-….sql.gz` (mode 0600, on the same disk). `kinship restore` never runs it: it has no password protecting it from being changed, and its SQL would run as the database owner. To use one by hand, into an **empty** database, as the person who trusts the file:
+
+```sh
+# The dump gives rights to the app role, but roles are not part of a dump: create it first
+# (your DB_APP_USER from .env; kinship_app by default).
 docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE kinship_app LOGIN"'
-
-# Restore, and stop at the first error.
-gunzip -c kinship-2026-11-15.sql.gz | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -q'
-
+gunzip -c data/backups/pre-upgrade-0012-to-0013.sql.gz | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -1 -q'
 docker compose up -d      # KinShip sets the app role's password from .env when it starts
 ```
 
-Skipping the role step makes the restore fail with `role "kinship_app" does not exist`. If it fails part-way, run `docker compose down -v` (this deletes the half-restored data) and start again.
+Set a passphrase so the safety copy is encrypted next time.
+
+### A manual dump (no KinShip needed)
+
+```sh
+docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' | gzip > "kinship-$(date +%F).sql.gz"
+```
+
+`.env` holds your passwords: keep it with your backups, somewhere other than this server.
 
 ## Stopping and removing
 
@@ -145,5 +181,7 @@ docker compose down -v     # stop and DELETE the data
 ## Something wrong?
 
 - `docker compose ps` shows which service is unhealthy; `docker compose logs api` explains why.
-- `Configuration error: ... is still the placeholder` means a password in `.env` still starts with `change-me`.
+- `Configuration error: ... is still the placeholder` means a password in `.env` still starts with `change-me`. (The backup passphrase is the exception: the api starts without a usable one, makes no backups, and Admin → Backups says so.)
+- **"KinShip did not start: The safety copy before the database upgrade could not be made"**: the log says why (the backups folder is missing or not writable, no free space, a failing `pg_dump`) and how to fix it. If you cannot, and you have your own backup and accept upgrading without the copy, start once with `KINSHIP_SAFETY_COPY=skip` added under `environment:` of the `api` service (or in `.env`), then remove it again. It is recorded in the upgrade log. Do not leave it set.
+- **"The backups folder cannot be written to"** after updating from an earlier release: your `compose.yml` has no backups volume yet. Add the lines under `api:` shown in [UPGRADE.md](UPGRADE.md) and create the folder.
 - Report bugs at <https://github.com/officialJCReyes/kinship/issues>. Security problems go through the private reporting form described in [SECURITY.md](SECURITY.md).

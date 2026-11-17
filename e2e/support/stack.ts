@@ -5,7 +5,7 @@
 // ghcr.io/officialjcreyes/kinship-{web,api}:e2e (built by CI, or by `pnpm e2e:build-images`).
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -53,6 +53,12 @@ export function startStack(): void {
   rmSync(WORK_DIR, { recursive: true, force: true });
   mkdirSync(WORK_DIR, { recursive: true });
   copyFileSync(join(REPO_ROOT, 'compose.yml'), join(WORK_DIR, 'compose.yml'));
+  // The backups folder INSTALL.md tells people to create. World-writable here so the api's user (1000) can write whoever runs the
+  // tests, and so the next run can remove what the container wrote.
+  mkdirSync(join(WORK_DIR, 'data', 'backups'), { recursive: true });
+  chmodSync(join(WORK_DIR, 'data', 'backups'), 0o777);
+  // The backup passphrase of this throwaway stack, passed to the tests through the environment (to check it never leaks).
+  process.env['E2E_BACKUP_PASSPHRASE'] ??= randomBytes(18).toString('hex');
   const settings: Record<string, string> = {
     KINSHIP_VERSION: IMAGE_VERSION,
     KINSHIP_PORT: String(PORT),
@@ -60,6 +66,7 @@ export function startStack(): void {
     PUBLIC_URL: BASE_URL,
     DB_OWNER_PASSWORD: randomBytes(16).toString('hex'),
     DB_APP_PASSWORD: randomBytes(16).toString('hex'),
+    BACKUP_PASSPHRASE: process.env['E2E_BACKUP_PASSPHRASE'] ?? '',
   };
   let env = readFileSync(join(REPO_ROOT, '.env.example'), 'utf8');
   for (const [key, value] of Object.entries(settings))
@@ -94,4 +101,9 @@ export function webLog(): string {
 /** The api container's log. */
 export function apiLog(): string {
   return compose(['logs', '--no-color', '--no-log-prefix', 'api'], { allowFailure: true });
+}
+
+/** Runs a command inside the api container (the `kinship` command line), as a person running the server would. */
+export function apiExec(args: string[]): string {
+  return compose(['exec', '-T', 'api', ...args], { allowFailure: true });
 }
