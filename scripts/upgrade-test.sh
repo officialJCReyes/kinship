@@ -127,6 +127,11 @@ set_env PUBLIC_URL "$base"
 set_env DB_OWNER_PASSWORD "$owner_password"
 set_env DB_APP_PASSWORD "$app_password"
 
+# The backups folder, made before anything starts: a release from 0.2.0-rc.1 on bind-mounts it, and Docker would otherwise create it
+# owned by root, which this script could neither change nor remove. World-writable, like the chown in UPGRADE.md, so the api (uid
+# 1000) can write to it and this script can remove what it wrote.
+mkdir -p "$work/data/backups"; chmod 777 "$work/data/backups"
+
 step "Start ${previous_tag} from its published images"
 compose pull -q
 compose up -d --wait --wait-timeout 240 || fail "the previous release did not become healthy"
@@ -151,7 +156,6 @@ save_logs
 step "Upgrade: the new compose.yml, the backups folder, a passphrase, the new version"
 compose down >/dev/null
 cp "$repo/compose.yml" "$work/compose.yml"
-mkdir -p "$work/data/backups"; chmod 777 "$work/data/backups"   # as the chown in UPGRADE.md; this script must be able to remove it
 printf '\nBACKUP_PASSPHRASE=%s\n' "$backup_passphrase" >> "$work/.env"
 set_env KINSHIP_VERSION "$image_tag"
 compose up -d --wait --wait-timeout 600 || fail "the new build did not become healthy"
