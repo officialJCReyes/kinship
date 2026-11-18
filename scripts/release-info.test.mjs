@@ -505,3 +505,32 @@ test('a changelog written by release-please gives release notes and a manifest w
   assert.ok(manifest.notes.includes('BREAKING CHANGES'));
   validateManifest(manifest);
 });
+
+// What release-please 17.11.2's changelog updater does to this repository's CHANGELOG.md, reduced to its shape (checked on 2026-11-18): the new
+// `## [x.y.z](compare-url) (date)` section is inserted ABOVE the existing `## [Unreleased]` line, so the file reads new section,
+// empty Unreleased, hand-written `## [0.2.0] - date` section. The release machinery must read all three headings in that shape.
+test('the CHANGELOG shape with a release-please section above [Unreleased] is read by prepare and the manifest generator', () => {
+  const real =
+    '# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-11-18\n\n### Added\n\n- **Backups and restore.** One file.\n\n[Unreleased]: https://example.test/compare/v0.2.0...HEAD\n';
+  const entry =
+    '## [0.2.1](https://github.com/officialJCReyes/kinship/compare/v0.2.0...v0.2.1) (2026-11-19)\n\n\n### Bug Fixes\n\n* **api:** keep a thing ([abc1234](https://github.com/officialJCReyes/kinship/commit/abc1234))\n\n\n';
+  const merged = real.replace('## [Unreleased]', `${entry}## [Unreleased]`);
+  assert.notEqual(merged, real);
+  const files = { 'CHANGELOG.md': merged };
+  const info = prepare({ env: tagPush('v0.2.1'), read: repo('0.2.1', files), tags: ['v0.2.0'] });
+  assert.equal(info.changelogDate, '2026-11-19');
+  assert.equal(info.latest, true);
+  const { manifest, previous } = buildNotes({
+    version: '0.2.1',
+    prerelease: false,
+    read: repo('0.2.1', files),
+    git: fakeGit({}),
+    tags: ['v0.2.0'],
+  });
+  assert.equal(previous, 'v0.2.0');
+  assert.equal(manifest.date, '2026-11-19');
+  assert.equal(manifest.channel, 'stable');
+  assert.ok(manifest.notes.includes('### Bug Fixes') && !manifest.notes.includes('Backups and restore'));
+  // The hand-written section next to it is still found, with its own date, and does not swallow the new one.
+  assert.equal(extractChangelogSection(merged, '0.2.0').date, '2026-11-18');
+});
