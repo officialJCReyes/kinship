@@ -268,3 +268,72 @@ describe('why row-level security is not forced on users and family_tree', () => 
     expect((accepted.json() as { user: { role: string } }).user.role).toBe('user');
   });
 });
+
+describe('linking an account to a person (migration 0016) as a role that is not a superuser', () => {
+  it('previews, links, changes and unlinks; refuses a placeholder; the helpers stay out of the app role', async () => {
+    const adminCookie = cookieHeader(await login(app, 'marcus@example.com'));
+    const call = async (method: 'GET' | 'PUT' | 'DELETE' | 'POST', url: string, payload?: unknown) => {
+      const r = await app.inject({
+        method,
+        url,
+        headers: { ...CSRF, cookie: adminCookie },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+      return { status: r.statusCode, body: r.body ? (JSON.parse(r.body) as Record<string, any>) : null }; // eslint-disable-line @typescript-eslint/no-explicit-any
+    };
+    const guest = (await sql<{ id: string }>`select id from users where email = 'guest@example.com'`.execute(owner))
+      .rows[0]!.id;
+    const person = (await call('POST', '/api/people', { givenName: 'Ada', surname: 'Hale' })).body?.person.id as string;
+    // A placeholder with a relationship (so it is not cleaned up): a sibling of a person with no parents.
+    const lonely = (await call('POST', '/api/people', { givenName: 'Lone', surname: 'Hale' })).body?.person
+      .id as string;
+    const sibling = await call('POST', `/api/people/${lonely}/siblings`, {
+      sibling: { givenName: 'Twin', surname: 'Hale' },
+    });
+    expect(sibling.status).toBe(201);
+    const placeholder = (await sql<{ id: string }>`select id from people where is_placeholder limit 1`.execute(owner))
+      .rows;
+    // The owner sees nothing without a signed-in account (forced RLS); read the placeholder as the admin.
+    const parents = (await call('GET', `/api/people/${lonely}`)).body?.parents.birth;
+    expect(placeholder).toEqual([]);
+    const placeholderId = (
+      parents.unionId
+        ? (await call('GET', `/api/unions/${parents.unionId}`)).body?.union.partnerIds[0]
+        : parents.parentId
+    ) as string;
+
+    expect((await call('GET', `/api/admin/accounts/${guest}/link-preview?personId=${person}`)).status).toBe(200);
+    expect(
+      (await call('PUT', `/api/admin/accounts/${guest}/person`, { personId: placeholderId, currentPersonId: null }))
+        .body?.error,
+    ).toBe('person_is_placeholder');
+    expect(
+      (await call('PUT', `/api/admin/accounts/${guest}/person`, { personId: person, currentPersonId: null })).status,
+    ).toBe(200);
+    expect(
+      (await call('PUT', `/api/admin/accounts/${guest}/person`, { personId: lonely, currentPersonId: person })).status,
+    ).toBe(200);
+    expect((await call('DELETE', `/api/admin/accounts/${guest}/person?currentPersonId=${lonely}`)).status).toBe(204);
+    expect(
+      (
+        await call('POST', '/api/admin/invitations', {
+          email: 'ghost@example.com',
+          role: 'user',
+          personId: placeholderId,
+        })
+      ).body?.error,
+    ).toBe('person_is_placeholder');
+
+    // The two internal setup helpers are still out of the app role's reach (0016 grants by name, not "all functions").
+    const reach = await sql<{ fn: string; ok: boolean }>`
+      select p.proname as fn, has_function_privilege(${config.appUser}, p.oid, 'EXECUTE') as ok
+        from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+       where s.nspname = 'kinship_auth' and p.proname in ('setup_insert_person', 'setup_insert_union') order by 1`.execute(
+      owner,
+    );
+    expect(reach.rows).toEqual([
+      { fn: 'setup_insert_person', ok: false },
+      { fn: 'setup_insert_union', ok: false },
+    ]);
+  });
+});

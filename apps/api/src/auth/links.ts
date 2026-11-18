@@ -144,3 +144,45 @@ export async function acceptReset(db: Db, tokenHash: string, passwordHash: strin
   if (!id) throw new Error('accept_reset returned nothing');
   return id;
 }
+
+export interface LinkPreviewRow {
+  account_role: Role;
+  current_person_id: string | null;
+  descendants_in_line: number;
+  created_by_account_in_line: number;
+  loses_edit: number;
+}
+
+/** What the account could edit after being linked to this person (advice; link_account_person checks again). Migration 0016. */
+export async function linkPreview(trx: Db, userId: string, personId: string): Promise<LinkPreviewRow> {
+  const result = await sql<LinkPreviewRow>`
+    select account_role, current_person_id, descendants_in_line, created_by_account_in_line, loses_edit
+      from kinship_auth.link_preview(${userId}::uuid, ${personId}::uuid)`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('link_preview returned nothing');
+  return row;
+}
+
+/** Links, or changes the link; returns the person it was linked to before. */
+export async function linkAccountPerson(
+  trx: Db,
+  userId: string,
+  personId: string,
+  expected: string | null,
+): Promise<string | null> {
+  const result = await sql<{ previous_person_id: string | null }>`
+    select previous_person_id
+      from kinship_auth.link_account_person(${userId}::uuid, ${personId}::uuid, ${expected}::uuid)`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('link_account_person returned nothing');
+  return row.previous_person_id;
+}
+
+/** Removes the link; returns the person it was linked to. */
+export async function unlinkAccountPerson(trx: Db, userId: string, expected: string): Promise<string | null> {
+  const result = await sql<{ previous_person_id: string | null }>`
+    select previous_person_id from kinship_auth.unlink_account_person(${userId}::uuid, ${expected}::uuid)`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('unlink_account_person returned nothing');
+  return row.previous_person_id;
+}

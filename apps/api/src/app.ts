@@ -51,6 +51,8 @@ export interface AppOptions {
   db: Kysely<Database>;
   version: VersionInfo;
   logLevel?: string;
+  /** Where the log lines go (tests read them); the default is standard output. */
+  logStream?: NodeJS.WritableStream;
   sessions: { idleSeconds: number; maxSeconds: number };
   /** Believe X-Forwarded-* headers, and from whom. Off by default. */
   trustProxy?: TrustProxy;
@@ -88,13 +90,14 @@ export function buildApp(options: AppOptions): FastifyInstance {
     db,
     version,
     logLevel = 'info',
+    logStream,
     sessions,
     failureDelayMs = 300,
     loginRequestsPerMinute = 30,
     apiRequestsPerMinute = 600,
   } = options;
   const app = Fastify({
-    logger: { level: logLevel },
+    logger: { level: logLevel, ...(logStream ? { stream: logStream } : {}) },
     trustProxy: options.trustProxy ?? false,
     bodyLimit: 64 * 1024,
     // Do not turn a number into a string, or an array into its first item: a request is either the right shape or refused.
