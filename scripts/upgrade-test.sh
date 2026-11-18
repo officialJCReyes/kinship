@@ -240,9 +240,11 @@ if [ "$previous_schema" != "$top_schema" ] && [ "$(echo "$whats_new" | json "['s
   expect "$top_schema" "$(echo "$whats_new" | json "['migrations'][0]['toSchema']")" "the migration What's new reports"
   expect "$safety" "$(echo "$whats_new" | json "['migrations'][0]['safetyCopy']")" "the safety copy What's new reports"
 fi
-if [ "${ON_TAG:-false}" = "true" ] && [ "$(echo "$current_version" | grep -c -- '-')" = "0" ]; then
-  echo "$whats_new" | python3 -c 'import json,sys,os; v=os.environ["V"]; d=json.load(sys.stdin); assert v in [s["version"] for s in d["sections"]], "the release has no section in the CHANGELOG"' V="$current_version" \
-    || fail "What's new does not list ${current_version} on a release run"
+# A stable release must have its own section in What's new. This runs on every stable build, on a tag and on a pull request
+# (so the check cannot first fail on a real tag), whenever What's new is shown; a tag run requires it even when it is not.
+if [ "$(echo "$current_version" | grep -c -- '-')" = "0" ] && { [ "${ON_TAG:-false}" = "true" ] || [ "$(echo "$whats_new" | json "['show']")" = "True" ]; }; then
+  echo "$whats_new" | node "$repo/scripts/upgrade-test/whats-new-lists.mjs" "$current_version" \
+    || fail "What's new does not list ${current_version} on a stable release"
 fi
 
 # Issue #35: the owner-only policies must not name a role. Two proofs: their definitions, and the stack running with the
