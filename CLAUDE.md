@@ -28,7 +28,7 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 - Read `design/kinship-build-status-and-handoff.md` first. It records what is built, the decisions made, the open issues and what comes next. It is the current state; the release plan is the intended order.
 - Follow `design/kinship-release-and-deployment-plan.md` (section 6, "What ships in each version") for what belongs in each release. The build is in **0.2 "A tree you can trust"**, which started the data promise: migrations are forward-only and must preserve real data, and every upgrade path is tested. Do not start a later release's features (0.3 and beyond) unless the prompt says to.
 - Work comes as numbered steps from JC's prompts, often in two phases: phase 1 is read-and-report only (write no code, make no commits, open no PR, then stop and wait for "go"); phase 2 builds. Prompts carry the approved design; where a prompt and a doc differ, the prompt wins, and tell JC about any conflict that matters before building.
-- Stop before irreversible steps (tags, publishing, releases). JC runs the tag commands.
+- Stop before irreversible steps (publishing, releases) and wait for JC. You may create and push a release tag (`git tag -a`, then `git push origin <tag>`) only when JC says "tag it". Never force-push. Never delete or move a `v*` tag. If any release job fails, stop and report the log excerpt instead of retrying or re-tagging.
 
 ## Working style
 - Small PRs, one branch per part, tests with each change. Merge only when CI is green. Do not change the required CI job names (Lint, format, typecheck, build; Tests (Postgres 18); Dependency licenses; Build api image (not pushed); Build web image (not pushed)). End-to-end (Playwright) is not a required check.
