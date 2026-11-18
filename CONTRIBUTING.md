@@ -35,7 +35,7 @@ For tests that need a signed-in person, use the helpers in `apps/api/test/helper
 - **Never commit real family data**: no real names, photos, GEDCOM files, database dumps or `.env` files. Test and demo data is the fictional Hale family only.
 - Never put secrets in the repository or in a database. Secrets live in `.env` or `*_FILE` Docker secrets. (Hashes of random tokens and passwords are not secrets in this sense; plain passwords and tokens are never stored.)
 - Anything that reads or changes private data runs through the per-request transaction (`request.withTransaction`), so row-level security applies. New tables get row-level security and, where they hold secrets, no direct access for the app role (see migration 0002).
-- No AI features.
+- AI features are optional and off by default (ADR 0021). None may call an AI service until an admin connects an engine, and none is added unless the maintainer asks for it. Reports, summaries and person matching stay fixed rules and templates.
 - Every UI string is a translation key.
 - Dependencies must be AGPL-3.0-compatible. CI checks this.
 

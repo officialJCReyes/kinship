@@ -14,7 +14,7 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 - Monorepo: apps/web, apps/api, packages/ (shared types, translation keys), docs/, design/.
 
 ## Hard rules
-- No AI features, with one planned exception: optional **Automatic transcription** (release 0.5, design in `design/kinship-transcription-engines-and-matching.md`). It is off unless an admin connects an engine, and nothing in the app may call an AI service before that feature is built and asked for. Person matching, reports and summaries stay fixed rules and templates.
+- AI features are optional and off by default (ADR 0021). The first planned one is **Automatic transcription** (release 0.5, design in `design/kinship-transcription-engines-and-matching.md`). An AI feature stays off unless an admin connects an engine, and nothing in the app may call an AI service before that feature is built and asked for. Person matching, reports and summaries stay fixed rules and templates.
 - Compose files are named `compose.yml` / `compose.dev.yml` / `compose.demo.yml`, never docker-compose.yml.
 - Postgres row-level security: app connects as a NON-owner role, a separate owner role runs migrations. Set the signed-in user per request/transaction. Migrations are forward-only, hand-written SQL, expand-then-contract. Never `db push`.
 - Every UI string is a translation key (English only at launch).

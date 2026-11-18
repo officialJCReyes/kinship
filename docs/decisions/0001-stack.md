@@ -6,7 +6,7 @@
 
 ## Context
 
-KinShip is a self-hosted family tree for a family of roughly 10 to 50 people. It holds private health history and DNA results, so privacy rules must be enforced by the database and not only by application code. It is deployed by people who are not necessarily developers, from one `compose.yml`, and maintained by one person. It is AGPL-3.0-or-later, so every dependency must be license-compatible. It has no AI features. The previous build (Express, Prisma, React Flow) is scrapped.
+KinShip is a self-hosted family tree for a family of roughly 10 to 50 people. It holds private health history and DNA results, so privacy rules must be enforced by the database and not only by application code. It is deployed by people who are not necessarily developers, from one `compose.yml`, and maintained by one person. It is AGPL-3.0-or-later, so every dependency must be license-compatible. It has no AI features by default; any AI feature is optional (ADR 0021). The previous build (Express, Prisma, React Flow) is scrapped.
 
 ## 1. Decided by JC (2026-11-15)
 
