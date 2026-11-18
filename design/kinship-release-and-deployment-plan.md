@@ -259,9 +259,9 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 ## 7. Update notice and "What's new" (decided by JC, Nov 15; built in the mockup)
 
 ### Settings (Admin → Updates, SuperAdmin only)
-- **Check for new versions:** one toggle inside the app, stored in the database. **There is no environment variable for it** (JC's decision), so it survives upgrades and is changed in the app. Default on, because JC asked for the notification; the toggle states plainly what is contacted.
+- **Check for new versions:** one toggle inside the app, stored in the database. **There is no environment variable for it** (JC's decision), so it survives upgrades and is changed in the app. Default on, because JC asked for the notification. A small info button ("i") beside the toggle states plainly what is contacted (once a day, a plain read of GitHub's public release list, nothing about the install sent, turn it off with no internet); it opens on hover or keyboard focus and a screen reader reads it, but it is not text on the page (JC, Nov 18).
 - **Include pre-releases:** off by default.
-- **Safety copy before a database change:** on by default (section 4).
+- **Safety copy before a database change:** on by default (section 4). Its explanation (the newest three copies are kept, it sits on the same server and has no media files, so still take a full backup) is also an info button, not page text (JC, Nov 18).
 - The tab also shows the running version, the database schema number, the time of the last check and the result ("Up to date", "0.6.0 available" or "Checking is off"), a **Check now** button and a note that KinShip never updates itself. Family Admins see a note that only a SuperAdmin manages update checks.
 - **No email.** The notice appears in the app only: a banner across the top of the Admin pages and an item in the SuperAdmin's bell (from 0.4).
 - On an install with no outbound internet the check fails quietly and says so, with the time of the last successful check. The toggle can then be turned off.
@@ -299,7 +299,7 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 
 ### "What's new" popup after an update (to every admin)
 - **Who sees it (decided by JC, Nov 15): every admin, SuperAdmin and Family Admin, the first time they sign in after the version changed.** The app compares the version each admin last saw (stored on their account) with the running version. Members and Users do not see it. Anyone can reopen the latest one from the account menu → **About KinShip** → **What's new**.
-- Title **"KinShip was updated to 0.6.0"**, with the version they came from.
+- Title **"KinShip was updated to 0.6.0"**. There is no explanatory paragraph under it (removed Nov 18 at JC's request, so the version they came from is no longer named; the database box below still gives the schema numbers).
 - Content comes from the **`CHANGELOG.md` bundled inside the image**, so it works with no internet and always matches the running version. If several versions were skipped it lists all of them.
 - Shows: a note when the **database was migrated** (schema number before and after, and the name of the safety copy that was written, or that the copy was off); any **breaking change instructions** still to do, in an amber box titled "Check this now"; the changes grouped like above.
 - Buttons: **Got it** (closes and records the version) and **View full release notes**.
@@ -359,7 +359,7 @@ volumes: { kinship-db: {}, kinship-files: {}, kinship-backups: {} }
 
 **Decided (Nov 18, after the 0.2 scope audit; ADR 0018 in the repo):** photos and encrypted media upload, the in-app Restore button, role change, disable and delete accounts, crossing minimisation and the per-user default chart view move to 0.3.0; the Edit details fields for birth and death places, cause of death and marriage place move to 0.5.0 with the Places library (draft PR #91, marriage place, waits for 0.5.0); linking an existing account to a person is pulled into 0.2.0 (built, #101); a family default color scheme and a one-color logo are deferred with no release; release tags are annotated and unsigned; the upgrade test and the end-to-end tests become required checks before the 0.2.0 tag; issues are for bugs and for tracking work left out of a release.
 
-**Decided (Nov 18, Step 22 and 23):** unknown parents (placeholders) for a sibling with no parents, admin-only, with a single sibling route (ADR 0019, migration 0015); linking, changing and unlinking an account's person, admin-only with a hierarchy (SuperAdmin any account, Family Admin Member and User accounts and their own), ids-only log line, no audit table until 0.5 (ADR 0020, migration 0016); success messages as a 5-second pill.
+**Decided (Nov 18, Step 22 and 23):** unknown parents (placeholders) for a sibling with no parents, admin-only, with a single sibling route (ADR 0019, migration 0015); linking, changing and unlinking an account's person, admin-only with a hierarchy (SuperAdmin any account, Family Admin Member and User accounts and their own), ids-only log line, no audit table until 0.5 (ADR 0020, migration 0016); success messages as a 5-second pill. **Decided (Nov 18, after rc.3):** the Updates settings explanations (check for new versions, safety copy) are info-button tooltips and the "What's new" popup has no explanatory paragraph (PR #104). **v0.2.0-rc.3 was tagged and published Nov 18 (schema 16)**; the 0.2.0 final follows after a few days on JC's server.
 
 **Proposed, waiting for JC's yes**
 1. **Library picks inside the stack** (section 6): Fastify, Kysely with plain SQL migrations, Vite, own SVG tree drawing, Vitest and Playwright.
