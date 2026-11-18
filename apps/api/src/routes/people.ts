@@ -262,7 +262,8 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
         const values = parsePersonPatch(body, current);
         if (current.is_placeholder) {
           // Giving an unknown parent a name makes them an ordinary person. Both names are needed (the form sends both).
-          if (values.given_name === undefined || values.surname === undefined) throw badRequest('placeholder_needs_name');
+          if (values.given_name === undefined || values.surname === undefined)
+            throw badRequest('placeholder_needs_name');
           values.is_placeholder = false;
         }
         const row = await updatePerson(trx, id, values);

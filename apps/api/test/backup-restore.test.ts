@@ -320,7 +320,9 @@ describe('what a restore refuses before it touches anything', () => {
     const oldImage = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: older.dir } };
     const failure = await restoreBackup(oldImage, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('refused');
-    expect((failure as BackupError).message).toMatch(new RegExp(`newer KinShip.*schema ${LATEST}.*only knows schema ${LATEST - 1}`));
+    expect((failure as BackupError).message).toMatch(
+      new RegExp(`newer KinShip.*schema ${LATEST}.*only knows schema ${LATEST - 1}`),
+    );
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
   }, 90_000);
 

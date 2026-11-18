@@ -411,7 +411,7 @@ export async function parentAgeWarnings(trx: Trx, personId: string): Promise<Api
         union all select u.partner_a_id from unions u where u.id = pp.union_id
         union all select u.partner_b_id from unions u where u.id = pp.union_id
       ) parents
-      join people p on p.id = parents.pid
+      join people p on p.id = parents.pid -- placeholders: included
      where (c.id = ${personId} or p.id = ${personId})
        and c.birth_date is not null and p.birth_date is not null
        and substr(c.birth_date, 1, 4)::int - substr(p.birth_date, 1, 4)::int < ${MIN_PARENT_AGE_YEARS}
@@ -626,7 +626,9 @@ async function ancestorCounts(trx: Trx, personIds: string[], view: LineageView):
       union
       select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
     )
-    select a.origin, count(*) as n from anc a join people p on p.id = a.id where not p.is_placeholder group by a.origin`.execute(trx);
+    select a.origin, count(*) as n from anc a join people p on p.id = a.id where not p.is_placeholder group by a.origin`.execute(
+    trx,
+  );
   for (const row of rows.rows) result.set(row.origin, Number(row.n));
   return result;
 }
@@ -647,7 +649,9 @@ async function otherFamilyCounts(
       union
       select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
     )
-    select a.origin, count(*) as n from anc a join people p on p.id = a.id where not p.is_placeholder group by a.origin`.execute(trx);
+    select a.origin, count(*) as n from anc a join people p on p.id = a.id where not p.is_placeholder group by a.origin`.execute(
+    trx,
+  );
   const counts = new Map(rows.rows.map((r) => [r.origin, Number(r.n)]));
   for (const set of sets) result.set(set.child, { kind: set.kind, count: counts.get(set.child) ?? 0 });
   return result;
