@@ -1876,6 +1876,54 @@ pre.code {
   display: block;
 }
 
+.option label {
+  cursor: pointer;
+}
+
+/* An "i" button with a tooltip (components/InfoTip.tsx). The bubble is drawn in a portal on <body>, so nothing clips it. The
+   colors are tokens of every scheme and theme: the icon is the accent on the panel, the bubble is the panel color on the ink. */
+.infotip {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.infotip-button {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accent);
+  font: italic 700 14px/1 var(--display);
+  cursor: help;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.infotip-button:hover,
+.infotip-button[aria-expanded='true'] {
+  background: var(--accent-soft);
+}
+
+.infotip-bubble {
+  position: fixed;
+  z-index: 1000;
+  box-sizing: border-box;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--panel);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+
 .two-columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

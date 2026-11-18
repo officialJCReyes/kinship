@@ -63,6 +63,17 @@ test('a fresh install shows no What’s new popup, and Updates has the version, 
   await expect(settings.getByRole('checkbox', { name: /Include pre-releases/ })).not.toBeChecked();
   const safety = settings.getByRole('checkbox', { name: /Safety copy before a database change/ });
   await expect(safety).toBeChecked();
+  // The two long explanations are tooltips, not text on the page; "Include pre-releases" keeps its line.
+  await expect(settings.getByText('Also tell me about release candidates', { exact: false })).toBeVisible();
+  const bubble = page.locator('.infotip-bubble');
+  await expect(bubble).toHaveCount(0);
+  const info = settings.getByRole('button', { name: 'More about Safety copy before a database change' });
+  await info.focus();
+  await expect(bubble).toBeVisible();
+  await expect(bubble).toContainText('save a copy first');
+  expect(await safety.getAttribute('aria-describedby')).toBeTruthy();
+  await page.keyboard.press('Escape');
+  await expect(bubble).toHaveCount(0);
   // The safety copy switch is the one the upgrade reads at start: switching it off is saved, and back on again.
   // The box follows the saved value, so it changes when the api has answered (click, then wait).
   await safety.click();
@@ -167,7 +178,9 @@ test('What’s new opens once for an admin after an update, from the changelog i
   await page.goto('/');
   const dialog = page.getByRole('dialog', { name: `KinShip was updated to ${running}` });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText('From 0.0.1.')).toBeVisible();
+  // No grey paragraph under the title.
+  await expect(dialog.getByText('From 0.0.1.')).toHaveCount(0);
+  await expect(dialog.getByText('works without internet', { exact: false })).toHaveCount(0);
   await expect(dialog.getByRole('region').first()).toBeVisible();
   await expect(dialog.getByRole('link', { name: 'View full release notes' })).toHaveAttribute(
     'href',

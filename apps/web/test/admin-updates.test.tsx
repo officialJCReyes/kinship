@@ -210,11 +210,85 @@ describe('Admin > Updates, for the SuperAdmin', () => {
     expect(box(/Check for new versions/).checked).toBe(true);
     expect(box(/Include pre-releases/).checked).toBe(false);
     expect(box(/Safety copy before a database change/).checked).toBe(true);
-    expect(within(card).getByText(/sends nothing about your install/)).toBeTruthy();
     fireEvent.click(box(/Include pre-releases/));
     expect(await within(card).findByText('Saved.')).toBeTruthy();
     const patch = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
     expect(JSON.parse(String(patch?.[1]?.body))).toEqual({ preReleases: true });
+  });
+
+  describe('the explanations next to the switches', () => {
+    const CHECK_HELP =
+      'Once a day KinShip reads the public release list on GitHub (api.github.com) and shows a notice to the SuperAdmin here. It sends nothing about your install, only a normal request for public data (GitHub sees your server’s address, as with any download). Turn this off if the server has no internet access.';
+    const SAFETY_HELP =
+      'When a new version has to change the database, save a copy first (the newest three are kept in the backups folder). Extra protection only: it sits on the same server and has no media files, so still take a full backup.';
+    const bubble = () => document.querySelector('.infotip-bubble');
+    const openSettings = async () => {
+      open('/admin/updates', { '/api/admin/updates': { status: 200, body: updates() } });
+      return await screen.findByRole('region', { name: 'Settings' });
+    };
+    const describedBy = (box: HTMLElement) => document.getElementById(box.getAttribute('aria-describedby') ?? '');
+
+    it('keeps "Include pre-releases" described on the page, and the other two out of sight', async () => {
+      const card = await openSettings();
+      const pre = within(card).getByRole('checkbox', { name: /Include pre-releases/ });
+      expect(within(card).getByText(/Also tell me about release candidates/)).toBeTruthy();
+      expect(describedBy(pre)?.textContent).toMatch(/Also tell me about release candidates/);
+      expect(within(card).queryByRole('button', { name: /More about Include pre-releases/ })).toBeNull();
+      // No visible paragraph for the other two: the text exists only as a hidden description until the tooltip opens.
+      for (const [name, text] of [
+        [/Check for new versions/, CHECK_HELP],
+        [/Safety copy before a database change/, SAFETY_HELP],
+      ] as const) {
+        const box = within(card).getByRole('checkbox', { name });
+        const help = describedBy(box);
+        expect(help?.textContent).toBe(text);
+        expect(help?.classList.contains('sr-only')).toBe(true);
+        expect(help?.classList.contains('muted')).toBe(false);
+      }
+      expect(bubble()).toBeNull();
+    });
+
+    it('opens on keyboard focus with the exact words, and closes on Escape and on blur', async () => {
+      const card = await openSettings();
+      const info = within(card).getByRole('button', { name: 'More about Check for new versions' });
+      // The button is not inside the label: the checkbox's name is only the label.
+      expect(within(card).getByRole('checkbox', { name: 'Check for new versions' })).toBeTruthy();
+      fireEvent.focus(info);
+      expect(bubble()?.textContent).toBe(CHECK_HELP);
+      expect(bubble()?.getAttribute('aria-hidden')).toBe('true'); // read once, through aria-describedby
+      expect(info.getAttribute('aria-expanded')).toBe('true');
+      fireEvent.keyDown(info, { key: 'Escape' });
+      expect(bubble()).toBeNull();
+      fireEvent.focus(info);
+      expect(bubble()).not.toBeNull();
+      fireEvent.blur(info);
+      expect(bubble()).toBeNull();
+      const safety = within(card).getByRole('button', { name: 'More about Safety copy before a database change' });
+      fireEvent.focus(safety);
+      expect(bubble()?.textContent).toBe(SAFETY_HELP);
+    });
+
+    it('opens on hover, and a tap or click pins it until the next one', async () => {
+      const card = await openSettings();
+      const info = within(card).getByRole('button', { name: 'More about Check for new versions' });
+      const wrapper = info.parentElement as HTMLElement;
+      fireEvent.mouseEnter(wrapper);
+      expect(bubble()).not.toBeNull();
+      fireEvent.mouseLeave(wrapper);
+      expect(bubble()).toBeNull();
+      fireEvent.click(info); // a tap: pinned open
+      fireEvent.mouseLeave(wrapper);
+      expect(bubble()).not.toBeNull();
+      fireEvent.click(info);
+      expect(bubble()).toBeNull();
+    });
+
+    it('clicking the tooltip button does not toggle the checkbox', async () => {
+      const card = await openSettings();
+      const box = within(card).getByRole('checkbox', { name: 'Check for new versions' }) as HTMLInputElement;
+      fireEvent.click(within(card).getByRole('button', { name: 'More about Check for new versions' }));
+      expect(box.checked).toBe(true);
+    });
   });
 
   it('says so when a switch could not be saved', async () => {
@@ -500,8 +574,10 @@ describe('What’s new', () => {
       FAMILY_ADMIN,
     );
     const dialog = await screen.findByRole('dialog', { name: 'KinShip was updated to 0.6.0' });
-    expect(within(dialog).getByText(/From 0\.5\.0\./)).toBeTruthy();
-    expect(within(dialog).getByText(/works without internet/)).toBeTruthy();
+    // No grey paragraph under the title (it said where the popup comes from and that it works without internet).
+    expect(within(dialog).queryByText(/From 0\.5\.0/)).toBeNull();
+    expect(within(dialog).queryByText(/Shown once to admins/)).toBeNull();
+    expect(within(dialog).queryByText(/works without internet/)).toBeNull();
     expect(within(dialog).getByRole('heading', { name: 'New' })).toBeTruthy();
     expect(within(dialog).getByRole('heading', { name: 'Fixed' })).toBeTruthy();
     expect(within(dialog).getByText('Medical history.')).toBeTruthy();
@@ -574,7 +650,7 @@ describe('What’s new', () => {
       },
     });
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/Updated from an earlier version\./)).toBeTruthy();
+    expect(within(dialog).queryByText(/Updated from an earlier version/)).toBeNull();
     expect(within(dialog).getByText('The database was updated (to schema 14).')).toBeTruthy();
     cleanup();
     vi.unstubAllGlobals();

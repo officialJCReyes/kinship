@@ -4,6 +4,10 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+### Changed
+
+- **Admin → Updates is quieter.** The long explanations under "Check for new versions" and "Safety copy before a database change" are now a small "i" button next to the name: hover it, focus it with the keyboard, or tap it to read them (Escape closes it). Screen readers still read them as the description of the checkbox. The "What's new" popup no longer starts with a grey paragraph about where it comes from.
+
 ## [0.2.0-rc.3] - 2026-11-18
 
 **A third release candidate for 0.2.0. The database changes twice more (migrations 0015 and 0016, schema 14 to 16, no data changes):** a safety copy is made first, and nothing in your tree is touched. Upgrading from rc.1 or rc.2 is an image update; from 0.1.0-alpha.2 read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) first. Release candidates are offered by the in-app update check only when "Include pre-releases" is on.
