@@ -107,7 +107,7 @@ describe('the invitation page', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Create my account' }));
     expect(screen.getByText('Enter your name.')).toBeTruthy();
     expect(screen.getAllByText('At least 12 characters.').length).toBeGreaterThan(1); // help and error
-    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Reyes' } });
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Jordan Calloway' } });
     fireEvent.change(screen.getByLabelText('Choose a password'), { target: { value: PASSWORD } });
     fireEvent.change(screen.getByLabelText('Type the password again'), { target: { value: `${PASSWORD}x` } });
     fireEvent.click(screen.getByRole('button', { name: 'Create my account' }));
@@ -119,7 +119,7 @@ describe('the invitation page', () => {
     const fetchMock = mockApi(linkRoutes({ status: 200, body: { ...INVITE, person: null } }));
     open('/invite');
     const { client } = renderApp('/invite');
-    fireEvent.change(await screen.findByLabelText('Your name'), { target: { value: ' Jordan Reyes ' } });
+    fireEvent.change(await screen.findByLabelText('Your name'), { target: { value: ' Jordan Calloway ' } });
     fireEvent.change(screen.getByLabelText('Choose a password'), { target: { value: PASSWORD } });
     fireEvent.change(screen.getByLabelText('Type the password again'), { target: { value: PASSWORD } });
     fireEvent.click(screen.getByRole('button', { name: 'Create my account' }));
@@ -127,7 +127,7 @@ describe('the invitation page', () => {
     expect(bodyOf(fetchMock, 'POST /api/links/accept')).toEqual({
       token: TOKEN,
       password: PASSWORD,
-      displayName: 'Jordan Reyes',
+      displayName: 'Jordan Calloway',
     });
     expect(screen.queryByLabelText('Choose a password')).toBeNull();
     expect(
