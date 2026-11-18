@@ -1,6 +1,6 @@
 # Contributing to KinShip
 
-KinShip is early (pre-alpha) and has one maintainer, so changes are best discussed in an issue before a large pull request. Questions go in GitHub Discussions; Issues are for bugs.
+KinShip is early (release candidates for 0.2) and has one maintainer, so changes are best discussed in an issue before a large pull request. Questions and feature ideas go in GitHub Discussions. Issues are for bugs and for tracking work that was left out of a release (labelled `scope:planned-later`, `scope:0.2-cut` or `scope:unplanned-gap`, each with a milestone).
 
 ## Before you start
 
@@ -84,7 +84,7 @@ A release is a tag. [ADR 0004](docs/decisions/0004-release-and-images.md) explai
 1. Set the same version in the four `package.json` files (root, `apps/api`, `apps/web`, `packages/shared`), in `compose.yml` (two places) and in `.env.example`, and put a section for it in `CHANGELOG.md` (`## [0.2.0] - 2026-12-01`). Pre-releases look like `0.2.0-rc.1` and never become `latest`. From the release after 0.2.0 the **Release PR** workflow ([ADR 0017](docs/decisions/0017-release-please.md)) does all of this in a pull request: merge it, then continue at step 3. If the release needs an `UPGRADE.md` section, it must be on `main` first, with the version as its heading (`## 0.3.0`); the workflow's pull request does not write it.
 2. Merge that to `main` through a pull request, once CI is green.
 3. A pull request that touches the release files (the workflow, Dockerfiles, `compose.yml`, `.env.example`, the release scripts, `CHANGELOG.md`) runs the **Release** workflow as a dry run automatically. Once it is on `main` you can also start it by hand with "dry run" on. Either way it builds both images for amd64 and arm64, installs the stack from `compose.yml` and tests it, and pushes nothing.
-4. Tag the merge commit and push the tag: `git tag -s v0.2.0 -m "KinShip 0.2.0" && git push origin v0.2.0`. The tag must match the version in the files, or the workflow stops before building.
+4. Tag the merge commit and push the tag: `git tag -a v0.2.0 -m "KinShip 0.2.0" && git push origin v0.2.0`. The tag must match the version in the files, or the workflow stops before building.
 5. Watch the workflow. It re-runs CI, pushes the images, tests the pushed images as a real install, and only then creates the GitHub Release.
 
 You can also test the whole production stack on your own machine: build the images, then `scripts/smoke-test.sh <image-tag>` (see the comment at its top).
