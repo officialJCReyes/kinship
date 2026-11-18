@@ -105,7 +105,7 @@ fi
 previous_version="${previous_tag#v}"
 echo "Upgrading from ${previous_tag} to ${current_version} (images tagged ${image_tag})"
 seed="$repo/scripts/upgrade-test/seed-${previous_version}.sh"
-[ -f "$seed" ] || fail "there is no seed for ${previous_version}: add scripts/upgrade-test/seed-${previous_version}.sh"
+[ -f "$seed" ] || fail "there is no seed for ${previous_version}: add scripts/upgrade-test/seed-${previous_version}.sh (copy the newest seed in scripts/upgrade-test/ and adjust it; the upgrade test starts every run from a published release, and needs one seed per release it can start from)"
 
 # ---- the previous release, as a user installed it ----------------------------------------------------------------------------
 step "Fetch ${previous_tag}'s own compose.yml and settings file from its release page"
