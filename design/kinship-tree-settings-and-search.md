@@ -49,23 +49,23 @@ JC's own MyHeritage choice for married women is **"Maiden name (Married name)"**
 | Show edit icons / add buttons / birth and death icons / birthdays and anniversaries | KinShip cards are simpler by design | Not adopting for now. Revisit if cards gain such controls. |
 | Vertical cards | Not built (cards are wide, with photo to the left once photos exist) | Later option, after profile photos exist. |
 | Show cards for adding parents | Add relative opens from the profile and shows Add cards around the person; the chart does not draw empty add-parent cards | Not adopting. A chart that draws "add" cards for every missing relative gets crowded. |
-| Simplified date editor | Date entry is flexible (partial dates) and a calendar picker is being built (#92) | Covered by the picker work. |
+| Simplified date editor | Date entry is flexible (partial dates) and a calendar picker is tracked as issue #109 for 0.3.0 (draft PR #92 closed Nov 18, branch kept) | Covered by the picker work. |
 | Edit tree name, Back up tree | Admin pages already do this | No change. |
 | Print chart | Chart poster printing is planned for 1.5, reports print in 0.7 | Keep as planned. |
 | Tree privacy settings, editing permissions, manage all trees | KinShip uses roles (SuperAdmin, Family Admin, Member, User) and one tree | Not adopting. |
 | Hints preferences, Instant Discovery cards, classic design switch | MyHeritage-specific | Not adopting. |
-| *(KinShip's own, added Nov 18)* Show aunts, uncles and cousins | The Family tree draws only the person's own line, so aunts, uncles and cousins are not drawn (see `kinship-tree-views-and-dna.md`, "Who the Family tree view draws") | Proposed: an on/off in the gear, **off by default**, because it widens the chart and the layout uses fixed positions. Depends on crossing minimisation (#21, 0.3). A sibling's partner is not part of this setting: the proposal there is to draw it always. |
+| *(KinShip's own, added Nov 18)* Show aunts, uncles and cousins | The Family tree draws only the person's own line, so aunts, uncles and cousins are not drawn (see `kinship-tree-views-and-dna.md`, "Who the Family tree view draws") | **Decided (JC, Nov 18, 0.3.0):** an on/off in the gear, **off by default**. A wide chart is fine (the chart opens centered on the home person and the viewer scrolls). Built after crossing minimisation (#21, 0.3). A sibling's partner is not part of this setting: it is always drawn. |
 
 **Proposed shape**
 - A gear button in the chart's top bar opens a small panel with groups **Cards** (deceased marker, solid colors, and later vertical cards), **Names** (married women's name form, prefixes and suffixes if they exist), **Relatives** (show aunts, uncles and cousins) and **Navigation** (mouse wheel, default chart view), plus a Restore defaults link.
 - These are per-person display settings stored with the account, like My settings today, never changes to the tree data (same rule as the view switcher). My settings → Display or Names would show the same values, so there is one source of truth.
 - A database change (new columns on `users`, or one settings column) is needed, so this is not for 0.2.0. Follow the pattern of migration 0010 (column grants and the update-own policy).
 
-**Fit with the plan.** The name display and card options are small and fit 0.3 ("See the family", the legend and views). The default chart view (#48) moved to 0.3 on Nov 18. Print chart stays on the 1.5 and 0.7 lines. The aunts, uncles and cousins option belongs to 0.3 only if the layout work (#21) lands; otherwise it moves to 1.4 beside the hourglass chart.
+**Fit with the plan.** The name display and card options are small and fit 0.3 ("See the family", the legend and views). The default chart view (#48) moved to 0.3 on Nov 18. Print chart stays on the 1.5 and 0.7 lines. The aunts, uncles and cousins option is decided for 0.3.0 (JC, Nov 18), built after the layout work (#21); if #21 slips, JC decides whether it ships anyway or moves to 1.4 beside the hourglass chart.
 
 ## Open
 1. Default for married women's names: keep "married name" as now, or match JC's "Maiden name (Married name)"?
 2. Does KinShip store name prefixes and suffixes? (Not checked.)
 3. What does the mouse wheel do on the chart today, and should the other choice be offered?
 4. Should the people counter ("N of M people") be part of the first search release?
-5. Aunts, uncles and cousins: an option in the gear, off by default (my proposal), or always drawn, or not drawn at all? (See `kinship-tree-views-and-dna.md`.)
+5. ~~Aunts, uncles and cousins~~ **Answered (JC, Nov 18):** an option in the gear, off by default, in 0.3.0. (See `kinship-tree-views-and-dna.md`.)
