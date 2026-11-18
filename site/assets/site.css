@@ -1,0 +1,72 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* KinShip project site. Hand-written, no build step, no web fonts and no third-party requests. */
+body{margin:0;background:#F6F4EC;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17231F}
+*{box-sizing:border-box}
+img{max-width:100%}
+a{color:#1E4D4A}
+a:focus-visible,button:focus-visible{outline:3px solid #F2A541;outline-offset:2px}
+.skip{position:absolute;left:-9999px;top:8px;background:#1E4D4A;color:#fff;padding:10px 16px;border-radius:8px;z-index:10}
+.skip:focus{left:8px}
+.serif,h1,h2,h3{font-family:Fraunces,Georgia,"Times New Roman",serif}
+.logo{display:flex;align-items:center;text-decoration:none}
+.logo img{height:44px;width:auto;display:block}
+.nav{color:#17231F;text-decoration:none;padding:10px 4px}
+.nav:hover{color:#1E4D4A;text-decoration:underline}
+.cur{color:#1E4D4A;font-weight:600;box-shadow:inset 0 -2px 0 #1E4D4A}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:10px;background:#1E4D4A;color:#fff;font-weight:600;font-size:16px;text-decoration:none;border:1.5px solid #1E4D4A}
+.btn:hover{background:#163a38;color:#fff}
+.btn2{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border-radius:10px;background:transparent;color:#1E4D4A;font-weight:600;font-size:16px;text-decoration:none;border:1.5px solid #1E4D4A}
+.btn2:hover{background:#E0EDE1;color:#1E4D4A}
+.btn3{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 24px;border-radius:10px;background:#F6F4EC;color:#1E4D4A;font-weight:600;font-size:16px;text-decoration:none}
+.btn3:hover{background:#fff;color:#1E4D4A}
+.h2{font-family:Fraunces,Georgia,serif;font-weight:600;color:#17231F;margin:0;letter-spacing:-0.01em;font-size:38px;line-height:1.15}
+.h2s{font-size:34px}
+.lead{font-size:18px;line-height:1.6;color:#3F4B47;margin:0}
+.chip{display:inline-flex;align-items:center;flex:none;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+.ok{background:#E0EDE1;color:#1E4D4A}
+.soon{background:#F6E7C1;color:#5C4100}
+.later{background:#E9ECE9;color:#3F4B47}
+.card{background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:10px}
+.card h3{font-family:Fraunces,Georgia,serif;font-size:22px;margin:0;font-weight:600}
+.card p{margin:0;color:#3F4B47;line-height:1.6;font-size:15px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+.fl{display:block;color:#F6F4EC;text-decoration:none;padding:6px 0;font-size:15px}
+.fl:hover{color:#fff;text-decoration:underline}
+.fh{margin:0 0 10px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#8CC488;font-weight:600}
+code{font-family:ui-monospace,Menlo,Consolas,monospace}
+.code{margin:0;background:#0F2A28;color:#DCEBE5;border-radius:12px;padding:18px 20px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.8;overflow-x:auto;white-space:pre}
+.cm{color:#8FB0A8}
+.warn{background:#F6E7C1;border-radius:12px;padding:18px 20px;color:#4A3600;line-height:1.6;font-size:15px}
+/* get started */
+.step{display:flex;gap:20px;padding:32px 0;border-top:1px solid #D9E0DB}
+.num{flex:none;width:40px;height:40px;border-radius:50%;background:#1E4D4A;color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center}
+.step h3{font-family:Fraunces,Georgia,serif;font-size:24px;margin:6px 0 8px;font-weight:600}
+.step p{margin:0 0 14px;color:#3F4B47;line-height:1.65;font-size:16px;max-width:680px}
+/* roadmap */
+.row{display:flex;gap:20px}
+.rail{flex:none;width:20px;display:flex;flex-direction:column;align-items:center}
+.dot{width:16px;height:16px;border-radius:50%;margin-top:8px;flex:none}
+.line{width:2px;flex:1;background:#D9E0DB;margin-top:6px}
+.body{flex:1;min-width:0;padding-bottom:32px}
+.body h3{font-family:Fraunces,Georgia,serif;font-size:24px;margin:0 0 6px;font-weight:600}
+.body p{margin:0;color:#3F4B47;line-height:1.65;font-size:16px;max-width:720px}
+/* docs */
+.sg{margin:22px 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5B6A65;font-weight:600}
+.sl{display:block;padding:9px 12px;border-radius:8px;color:#17231F;text-decoration:none;font-size:15px}
+.sl:hover{background:#E0EDE1}
+.sa{background:#E0EDE1;color:#1E4D4A;font-weight:600}
+.art h2{font-family:Fraunces,Georgia,serif;font-size:28px;font-weight:600;margin:40px 0 12px;letter-spacing:-0.01em}
+.art h3{font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:600;margin:28px 0 10px}
+.art p{margin:0 0 16px;line-height:1.7;font-size:17px;color:#2B3733}
+.art li{line-height:1.7;font-size:17px;color:#2B3733;margin-bottom:8px}
+.art .code{margin:0 0 20px}
+.ol{display:block;padding:6px 0 6px 12px;color:#3F4B47;text-decoration:none;font-size:14px;border-left:2px solid #D9E0DB}
+.ol:hover{color:#1E4D4A;border-left-color:#1E4D4A}
+/* about */
+.sec{display:flex;flex-wrap:wrap;gap:16px 56px;padding:48px 0;border-top:1px solid #D9E0DB}
+.sec h2{flex:0 0 280px;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;line-height:1.2;margin:0;letter-spacing:-0.01em}
+.sec .b{flex:1 1 420px;min-width:0;max-width:700px}
+.sec p{margin:0 0 16px;line-height:1.7;font-size:17px;color:#2B3733}
+.sec ul{margin:0 0 16px;padding-left:22px}
+.sec li{line-height:1.7;font-size:17px;color:#2B3733;margin-bottom:6px}
+@media (max-width:640px){.h2{font-size:30px}.logo img{height:38px}}

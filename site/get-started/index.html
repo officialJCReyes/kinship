@@ -1,0 +1,110 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get started with KinShip</title>
+<meta name="description" content="Install KinShip with one compose file and one settings file, then run the first-run setup. About ten minutes on a server you already have.">
+<meta name="theme-color" content="#1E4D4A">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div style="width:100%;min-width:320px">
+<header style="border-bottom:1px solid #D9E0DB;background:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:12px 32px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px">
+<a class="logo" href="../" aria-label="KinShip home"><img src="../assets/kinship-logo-horizontal.svg" alt="KinShip" width="118" height="44"></a>
+<nav aria-label="Main" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 24px;font-size:15px;font-weight:500">
+<a class="nav" href="../features/">Features</a>
+<a class="nav cur" aria-current="page" href="../get-started/">Get started</a>
+<a class="nav" href="../docs/">Docs</a>
+<a class="nav" href="../roadmap/">Roadmap</a>
+<a class="nav" href="../about/">About</a>
+<a class="btn2" style="min-height:44px" href="https://github.com/officialJCReyes/kinship">GitHub</a>
+</nav>
+</div>
+</header>
+<main id="main">
+
+<section style="max-width:1120px;margin:0 auto;padding:64px 32px 32px">
+<span class="chip ok">Version 0.2.0</span>
+<h1 style="font-weight:600;font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:18px 0 0">Install KinShip</h1>
+<p class="lead" style="margin-top:18px;max-width:680px">One compose file, one settings file, one command. Plan on about ten minutes on a server you already have.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:36px">
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">Docker with Compose</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">On Linux, Synology, Unraid or a Raspberry Pi.</div></div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">amd64 or arm64</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">Images are built for both.</div></div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">A reverse proxy</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">For HTTPS in front of port 8080.</div></div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">A safe place for two secrets</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">Your file key and backup passphrase.</div></div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:16px 32px 32px">
+<div class="step"><div class="num">1</div><div style="min-width:0;flex:1"><h3>Download the release files</h3><p>The compose file pulls published images, pinned to a version, so nothing is built on your machine.</p>
+<pre class="code"><span class="cm"># in an empty folder on your server</span>
+curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/compose.yml
+curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/env.example
+cp env.example .env</pre></div></div>
+<div class="step"><div class="num">2</div><div style="min-width:0;flex:1"><h3>Set your secrets</h3><p>Open <code>.env</code> and set the database password and the file encryption key. Email, storage and map settings are optional and can wait. Prefer Docker secrets? Every secret also accepts a <code>_FILE</code> form.</p></div></div>
+<div class="step"><div class="num">3</div><div style="min-width:0;flex:1"><h3>Start it</h3><p>Create the backups folder first, so the api (which does not run as root) can write to it. Then three containers come up: web, api and the database. Only web publishes a port, 8080.</p>
+<pre class="code">mkdir -p data/backups &amp;&amp; sudo chown 1000:1000 data/backups
+docker compose up -d</pre></div></div>
+<div class="step"><div class="num">4</div><div style="min-width:0;flex:1"><h3>Put HTTPS in front</h3><p>Point your reverse proxy at port 8080. Any proxy works, including a Cloudflare Tunnel, and the install guide has the notes.</p>
+<div style="display:flex;flex-wrap:wrap;gap:10px"><span class="chip later" style="font-size:14px;padding:8px 16px">Caddy</span><span class="chip later" style="font-size:14px;padding:8px 16px">Nginx Proxy Manager</span><span class="chip later" style="font-size:14px;padding:8px 16px">Traefik</span><span class="chip later" style="font-size:14px;padding:8px 16px">Cloudflare Tunnel</span></div></div></div>
+<div class="step"><div class="num">5</div><div style="min-width:0;flex:1"><h3>Run the first-run setup</h3><p>The first start prints a one-time setup token in the api log. Open your site, paste the token, and the wizard creates your SuperAdmin account and your tree in seven short steps, including your color scheme.</p>
+<pre class="code">docker compose logs api</pre></div></div>
+<div class="step"><div class="num">6</div><div style="min-width:0;flex:1"><h3>Turn on backups</h3><p>Set <code>BACKUP_PASSPHRASE</code> and <code>BACKUP_ENABLED=on</code> in <code>.env</code>, restart, then run <strong>Test the latest backup</strong> once in Admin → Backups.</p>
+<div class="warn" style="max-width:680px"><strong>Keep two things away from the server:</strong> your file encryption key and your backup passphrase. A backup is only useful if you can still open it after the server is gone.</div></div></div>
+</section>
+
+<section style="background:#fff;border-top:1px solid #D9E0DB;border-bottom:1px solid #D9E0DB">
+<div style="max-width:1120px;margin:0 auto;padding:64px 32px">
+<h2 class="h2 h2s">Which image tag should I use?</h2>
+<p class="lead" style="margin-top:12px;max-width:660px">Web and api always share one version number. For anything you care about, pin the exact version.</p>
+<div style="margin-top:28px;border:1px solid #D9E0DB;border-radius:14px;overflow:hidden">
+<div style="display:flex;flex-wrap:wrap;gap:8px 24px;padding:16px 20px;background:#fff;align-items:center;"><code style="flex:0 0 100px;font-weight:600">0.2.0</code><span style="flex:1 1 320px;color:#3F4B47;line-height:1.5">Exact version. Never moves. <strong>Recommended for real family data.</strong></span><span class="chip ok">Recommended</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px 24px;padding:16px 20px;background:#F6F4EC;align-items:center;border-top:1px solid #D9E0DB;"><code style="flex:0 0 100px;font-weight:600">0.2</code><span style="flex:1 1 320px;color:#3F4B47;line-height:1.5">Follows the newest patch of that minor release.</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px 24px;padding:16px 20px;background:#fff;align-items:center;border-top:1px solid #D9E0DB;"><code style="flex:0 0 100px;font-weight:600">latest</code><span style="flex:1 1 320px;color:#3F4B47;line-height:1.5">The newest stable release. Fine for trying it out.</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px 24px;padding:16px 20px;background:#F6F4EC;align-items:center;border-top:1px solid #D9E0DB;"><code style="flex:0 0 100px;font-weight:600">edge</code><span style="flex:1 1 320px;color:#3F4B47;line-height:1.5">Every merge to main. For contributors and testers only.</span></div>
+</div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:64px 32px 72px">
+<h2 class="h2 h2s">Upgrading</h2>
+<p class="lead" style="margin-top:12px;max-width:660px">KinShip never updates itself. Your SuperAdmin sees a notice in the app, and you decide when.</p>
+<div style="display:flex;flex-wrap:wrap;gap:40px;margin-top:32px">
+<ol style="flex:1 1 380px;margin:0;padding:0 0 0 22px;display:flex;flex-direction:column;gap:14px;font-size:16px;line-height:1.6;color:#3F4B47">
+<li>Open <strong>What's changing</strong> in the update notice to read the release notes.</li>
+<li>If the release changes the database or has breaking changes, KinShip asks you to back up first.</li>
+<li>Change both image tags in <code>compose.yml</code>.</li>
+<li>Pull and restart. Each admin sees a <strong>What's new</strong> popup at their next sign-in.</li>
+</ol>
+<div style="flex:1 1 400px;min-width:0">
+<pre class="code"><span class="cm"># after changing the tags in compose.yml</span>
+docker compose pull
+docker compose up -d</pre>
+<div class="warn" style="margin-top:16px"><strong>Rolling back</strong> means putting the old tag back and restoring the backup you took first. Migrations only move forward.</div>
+</div>
+</div>
+<div style="margin-top:40px"><a class="btn" href="../docs/">Continue in the docs</a></div>
+</section>
+</main>
+<footer style="background:#1E4D4A;color:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:56px 32px 32px;display:flex;flex-wrap:wrap;gap:40px">
+<div style="flex:1.4 1 280px"><img src="../assets/kinship-logo-horizontal-reversed.svg" alt="KinShip" width="118" height="44" style="height:44px;width:auto;display:block"><p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#CFE0DA;max-width:340px">A self-hosted family tree. Free software under the AGPL-3.0-or-later license.</p></div>
+<div style="flex:1 1 140px"><h3 class="fh">Project</h3><a class="fl" href="../features/">Features</a><a class="fl" href="../roadmap/">Roadmap</a><a class="fl" href="https://github.com/officialJCReyes/kinship/releases">Releases</a></div>
+<div style="flex:1 1 140px"><h3 class="fh">Help</h3><a class="fl" href="../get-started/">Get started</a><a class="fl" href="../docs/">Docs</a><a class="fl" href="../about/#security">Security</a></div>
+<div style="flex:1 1 140px"><h3 class="fh">Source</h3><a class="fl" href="https://github.com/officialJCReyes/kinship">GitHub</a><a class="fl" href="https://github.com/officialJCReyes/kinship/issues">Issues</a><a class="fl" href="https://github.com/officialJCReyes/kinship/blob/main/LICENSE">License</a></div>
+</div>
+<div style="max-width:1120px;margin:0 auto;padding:20px 32px 32px;border-top:1px solid rgba(246,244,236,.2);display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:14px;color:#CFE0DA">
+<span>© KinShip contributors · Version 0.2.0</span>
+<span>The KinShip name and logo are not covered by the AGPL.</span>
+</div>
+</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KinShip: a self-hosted family tree</title>
+<meta name="description" content="KinShip is a free, self-hosted family tree. Run it with one Docker Compose file; your family history and health records stay on your own server.">
+<meta name="theme-color" content="#1E4D4A">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div style="width:100%;min-width:320px">
+<header style="border-bottom:1px solid #D9E0DB;background:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:12px 32px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px">
+<a class="logo" href="./" aria-label="KinShip home"><img src="assets/kinship-logo-horizontal.svg" alt="KinShip" width="118" height="44"></a>
+<nav aria-label="Main" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 24px;font-size:15px;font-weight:500">
+<a class="nav" href="features/">Features</a>
+<a class="nav" href="get-started/">Get started</a>
+<a class="nav" href="docs/">Docs</a>
+<a class="nav" href="roadmap/">Roadmap</a>
+<a class="nav" href="about/">About</a>
+<a class="btn2" style="min-height:44px" href="https://github.com/officialJCReyes/kinship">GitHub</a>
+</nav>
+</div>
+</header>
+<main id="main">
+
+<section style="max-width:1120px;margin:0 auto;padding:72px 32px 64px;display:flex;flex-wrap:wrap;align-items:center;gap:48px">
+<div style="flex:1 1 440px;min-width:0">
+<span class="chip ok">Version 0.2.0 · open source · AGPL-3.0</span>
+<h1 style="font-weight:600;font-size:56px;line-height:1.08;letter-spacing:-0.02em;margin:20px 0 20px;color:#17231F">Your family's history, on your own server.</h1>
+<p class="lead" style="font-size:20px">KinShip is a self-hosted family tree you run with one Docker Compose file. Relatives, photos and stories stay on your server, and family health history stays private unless a person chooses to share it.</p>
+<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:32px">
+<a class="btn" href="get-started/">Get started</a>
+<a class="btn2" href="https://github.com/officialJCReyes/kinship">View on GitHub</a>
+</div>
+</div>
+<div style="flex:1 1 520px;min-width:0">
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:16px;box-shadow:0 24px 48px -24px rgba(30,77,74,.35);overflow:hidden">
+<div style="display:flex;flex-wrap:wrap;gap:4px;padding:10px 14px;background:#EFEDE3;border-bottom:1px solid #D9E0DB;font-size:13px;font-weight:500">
+<span style="padding:6px 12px;border-radius:8px;background:#fff;color:#1E4D4A;font-weight:600">Family tree</span>
+<span style="padding:6px 12px;color:#5B6A65">Pedigree</span>
+<span style="padding:6px 12px;color:#5B6A65">Fan</span>
+<span style="padding:6px 12px;color:#5B6A65">Descendants</span>
+</div>
+<svg viewBox="0 0 810 430" role="img" aria-label="Illustration of the Darwin and Wedgwood family tree: Josiah Wedgwood and Sarah, their children Susannah and Josiah II, first cousins Charles Darwin and Emma Wedgwood, and three of their children" style="display:block;width:100%;height:auto;background:#FBFAF5">
+<g fill="none" stroke="#9DB0A8" stroke-width="2"><path d="M394 49H414M404 49V96M298 96H510M298 96V130M510 96V130M192 159H212M202 159V240M596 159H616M606 159V240M288 269H520M404 269V318M212 318H596M212 318V350M404 318V350M596 318V350"/></g>
+<g font-family="Inter,system-ui,sans-serif">
+<g><rect x="222" y="20" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="246" cy="49" r="14" fill="#E0EDE1"/><text x="246" y="54" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">JW</text><text x="268" y="46" font-size="12" font-weight="600" fill="#17231F">Josiah Wedgwood</text><text x="268" y="63" font-size="11" fill="#5B6A65">1730 – 1795</text></g>
+<g><rect x="414" y="20" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="438" cy="49" r="14" fill="#E0EDE1"/><text x="438" y="54" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">SW</text><text x="460" y="46" font-size="12" font-weight="600" fill="#17231F">Sarah Wedgwood</text><text x="460" y="63" font-size="11" fill="#5B6A65">1734 – 1815</text></g>
+<g><rect x="20" y="130" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="44" cy="159" r="14" fill="#E0EDE1"/><text x="44" y="164" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">RD</text><text x="66" y="156" font-size="12" font-weight="600" fill="#17231F">Robert Darwin</text><text x="66" y="173" font-size="11" fill="#5B6A65">1766 – 1848</text></g>
+<g><rect x="212" y="130" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="236" cy="159" r="14" fill="#E0EDE1"/><text x="236" y="164" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">SW</text><text x="258" y="156" font-size="12" font-weight="600" fill="#17231F">Susannah Wedgwood</text><text x="258" y="173" font-size="11" fill="#5B6A65">1765 – 1817</text></g>
+<g><rect x="424" y="130" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="448" cy="159" r="14" fill="#E0EDE1"/><text x="448" y="164" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">JW</text><text x="470" y="156" font-size="12" font-weight="600" fill="#17231F">Josiah Wedgwood II</text><text x="470" y="173" font-size="11" fill="#5B6A65">1769 – 1843</text></g>
+<g><rect x="616" y="130" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="640" cy="159" r="14" fill="#E0EDE1"/><text x="640" y="164" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">EA</text><text x="662" y="156" font-size="12" font-weight="600" fill="#17231F">Elizabeth Allen</text><text x="662" y="173" font-size="11" fill="#5B6A65">1764 – 1846</text></g>
+<g><rect x="116" y="240" width="172" height="58" rx="10" fill="#E0EDE1" stroke="#1E4D4A" stroke-width="2"/><circle cx="140" cy="269" r="14" fill="#1E4D4A"/><text x="140" y="274" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">CD</text><text x="162" y="266" font-size="12" font-weight="600" fill="#17231F">Charles Darwin</text><text x="162" y="283" font-size="11" fill="#3F4B47">1809 – 1882</text></g>
+<g><rect x="520" y="240" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="544" cy="269" r="14" fill="#E0EDE1"/><text x="544" y="274" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">EW</text><text x="566" y="266" font-size="12" font-weight="600" fill="#17231F">Emma Wedgwood</text><text x="566" y="283" font-size="11" fill="#5B6A65">1808 – 1896</text></g>
+<g><rect x="126" y="350" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="150" cy="379" r="14" fill="#E0EDE1"/><text x="150" y="384" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">WD</text><text x="172" y="376" font-size="12" font-weight="600" fill="#17231F">William Darwin</text><text x="172" y="393" font-size="11" fill="#5B6A65">1839 – 1914</text></g>
+<g><rect x="318" y="350" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="342" cy="379" r="14" fill="#E0EDE1"/><text x="342" y="384" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">HD</text><text x="364" y="376" font-size="12" font-weight="600" fill="#17231F">Henrietta Darwin</text><text x="364" y="393" font-size="11" fill="#5B6A65">1843 – 1927</text></g>
+<g><rect x="510" y="350" width="172" height="58" rx="10" fill="#fff" stroke="#D9E0DB" stroke-width="1"/><circle cx="534" cy="379" r="14" fill="#E0EDE1"/><text x="534" y="384" text-anchor="middle" font-size="12" font-weight="600" fill="#1E4D4A">GD</text><text x="556" y="376" font-size="12" font-weight="600" fill="#17231F">George Darwin</text><text x="556" y="393" font-size="11" fill="#5B6A65">1845 – 1912</text></g>
+<text x="404" y="261" text-anchor="middle" font-size="11" fill="#5B6A65">m. 1839 · first cousins</text>
+</g>
+</svg>
+</div>
+<p style="margin:12px 4px 0;font-size:13px;color:#5B6A65">An illustration of sample data: the Darwin–Wedgwood family, from public historical records.</p>
+</div>
+</section>
+
+<section style="background:#fff;border-top:1px solid #D9E0DB;border-bottom:1px solid #D9E0DB">
+<div style="max-width:1120px;margin:0 auto;padding:72px 32px">
+<h2 class="h2" style="max-width:640px">Built around three promises</h2>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:40px">
+<div style="background:#F6F4EC;border:1px solid #D9E0DB;border-radius:14px;padding:28px">
+<div style="width:48px;height:48px;border-radius:12px;background:#E0EDE1;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E4D4A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/></svg></div>
+<h3 style="font-size:24px;margin:20px 0 8px">It is yours</h3>
+<p style="margin:0;line-height:1.65;color:#3F4B47">Three containers on your hardware. Nothing about your family is sent anywhere. AI features are optional and stay off until an admin connects one. The only other outbound request is an optional daily look at GitHub's public release list.</p>
+</div>
+<div style="background:#F6F4EC;border:1px solid #D9E0DB;border-radius:14px;padding:28px">
+<div style="width:48px;height:48px;border-radius:12px;background:#E0EDE1;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E4D4A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+<h3 style="font-size:24px;margin:20px 0 8px">Private by design</h3>
+<p style="margin:0;line-height:1.65;color:#3F4B47">Medical history is private by default and shared person by person, enforced by the database itself. Uploaded files are encrypted before they are stored.</p>
+</div>
+<div style="background:#F6F4EC;border:1px solid #D9E0DB;border-radius:14px;padding:28px">
+<div style="width:48px;height:48px;border-radius:12px;background:#E0EDE1;display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E4D4A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+<h3 style="font-size:24px;margin:20px 0 8px">Safe to upgrade</h3>
+<p style="margin:0;line-height:1.65;color:#3F4B47">Migrations only move forward and keep your data. Built-in encrypted backups, an automatic safety copy before every database change, and every upgrade path tested before release.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:72px 32px">
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+<h2 class="h2" style="max-width:560px">Four ways to see one family</h2>
+<a href="features/" style="font-weight:600;font-size:16px">See all features →</a>
+</div>
+<p class="lead" style="margin-top:12px;max-width:680px">The Family tree is here today. Pedigree, Fan and Descendants arrive in 0.3.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;margin-top:36px">
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:24px">
+<svg viewBox="0 0 96 66" width="96" height="66" fill="none" stroke="#1E4D4A" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="28" cy="12" r="6"/><circle cx="68" cy="12" r="6"/><path d="M34 12h28M48 12v18"/><circle cx="48" cy="36" r="6"/><path d="M48 42v6M30 48h36M30 48v6M66 48v6"/><circle cx="30" cy="58" r="5"/><circle cx="66" cy="58" r="5"/></svg>
+<h3 style="font-size:22px;margin:16px 0 6px">Family tree</h3>
+<p style="margin:0;line-height:1.6;color:#3F4B47;font-size:15px">Partners, children and in-laws drawn the way a family actually fits together.</p>
+</div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:24px">
+<svg viewBox="0 0 96 66" width="96" height="66" fill="none" stroke="#1E4D4A" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="33" r="5"/><path d="M15 33h12M27 18v30M27 18h10M27 48h10"/><circle cx="42" cy="18" r="4"/><circle cx="42" cy="48" r="4"/><path d="M46 18h8M54 9v18M54 9h8M54 27h8M46 48h8M54 39v18M54 39h8M54 57h8"/><circle cx="66" cy="9" r="3"/><circle cx="66" cy="27" r="3"/><circle cx="66" cy="39" r="3"/><circle cx="66" cy="57" r="3"/></svg>
+<h3 style="font-size:22px;margin:16px 0 6px">Pedigree</h3>
+<p style="margin:0;line-height:1.6;color:#3F4B47;font-size:15px">One person's ancestors, generation by generation.</p>
+</div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:24px">
+<svg viewBox="0 0 96 66" width="96" height="66" fill="none" stroke="#1E4D4A" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 60a40 40 0 0 1 80 0M24 60a24 24 0 0 1 48 0M38 60a10 10 0 0 1 20 0M48 60V20M48 60L20 32M48 60L76 32"/></svg>
+<h3 style="font-size:22px;margin:16px 0 6px">Fan</h3>
+<p style="margin:0;line-height:1.6;color:#3F4B47;font-size:15px">Ancestors in rings around you, for the big picture at a glance.</p>
+</div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:24px">
+<svg viewBox="0 0 96 66" width="96" height="66" fill="none" stroke="#1E4D4A" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="48" cy="8" r="5"/><path d="M48 13v9M20 22h56M20 22v8M48 22v8M76 22v8"/><circle cx="20" cy="35" r="5"/><circle cx="48" cy="35" r="5"/><circle cx="76" cy="35" r="5"/><path d="M20 40v8M10 48h20M10 48v6M30 48v6"/><circle cx="10" cy="58" r="4"/><circle cx="30" cy="58" r="4"/></svg>
+<h3 style="font-size:22px;margin:16px 0 6px">Descendants</h3>
+<p style="margin:0;line-height:1.6;color:#3F4B47;font-size:15px">Everyone who came from one couple, down to the youngest cousin.</p>
+</div>
+</div>
+</section>
+
+<section style="background:#1E4D4A;color:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:72px 32px;display:flex;flex-wrap:wrap;gap:48px;align-items:center">
+<div style="flex:1 1 380px;min-width:0">
+<h2 class="h2" style="color:#fff">Running in a few minutes</h2>
+<ol style="margin:28px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:18px;font-size:17px;line-height:1.5">
+<li style="display:flex;gap:14px"><span style="flex:none;width:32px;height:32px;border-radius:50%;background:#8CC488;color:#17231F;font-weight:600;display:flex;align-items:center;justify-content:center">1</span><span>Download <code>compose.yml</code> and the example settings file.</span></li>
+<li style="display:flex;gap:14px"><span style="flex:none;width:32px;height:32px;border-radius:50%;background:#8CC488;color:#17231F;font-weight:600;display:flex;align-items:center;justify-content:center">2</span><span>Set a database password and a file encryption key in <code>.env</code>.</span></li>
+<li style="display:flex;gap:14px"><span style="flex:none;width:32px;height:32px;border-radius:50%;background:#8CC488;color:#17231F;font-weight:600;display:flex;align-items:center;justify-content:center">3</span><span>Start it, then open the site and follow the first-run setup.</span></li>
+</ol>
+<a class="btn3" style="margin-top:32px" href="get-started/">Read the install guide</a>
+</div>
+<div style="flex:1 1 440px;min-width:0;background:#0F2A28;border-radius:14px;padding:24px;overflow-x:auto">
+<pre style="margin:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.8;color:#DCEBE5;white-space:pre"><span class="cm"># download the release files</span>
+curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/compose.yml
+curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/env.example
+cp env.example .env
+
+<span class="cm"># start web, api and db</span>
+docker compose up -d</pre>
+</div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:72px 32px">
+<div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+<h2 class="h2" style="max-width:560px">Where it stands today</h2>
+<a href="roadmap/" style="font-weight:600;font-size:16px">Full roadmap →</a>
+</div>
+<p class="lead" style="margin-top:12px;max-width:680px">KinShip is early. Your data is protected across upgrades from 0.2.0 on, and the road to a stable 1.0 is public.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px;margin-top:32px">
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:22px"><span class="chip ok">Published</span><h3 style="font-size:22px;margin:14px 0 4px">0.2.0</h3><p style="margin:0;color:#3F4B47;line-height:1.55;font-size:15px">A tree you can trust: full relationships, backup, update notices.</p></div>
+<div style="background:#fff;border:1.5px solid #1E4D4A;border-radius:14px;padding:22px"><span class="chip soon">In progress</span><h3 style="font-size:22px;margin:14px 0 4px">0.3.0</h3><p style="margin:0;color:#3F4B47;line-height:1.55;font-size:15px">See the family: every chart view, search, timeline and map, photos.</p></div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:22px"><span class="chip later">Planned</span><h3 style="font-size:22px;margin:14px 0 4px">0.4 to 0.7</h3><p style="margin:0;color:#3F4B47;line-height:1.55;font-size:15px">Email and sign-in, sources, private health history, reports and GEDCOM.</p></div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:14px;padding:22px"><span class="chip later">Planned</span><h3 style="font-size:22px;margin:14px 0 4px">1.0</h3><p style="margin:0;color:#3F4B47;line-height:1.55;font-size:15px">Stable core, full docs, and a live read-only demo of the Darwin–Wedgwood family.</p></div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:0 32px 80px">
+<div style="background:#E0EDE1;border-radius:20px;padding:56px 32px;text-align:center">
+<h2 class="h2">Start your family's tree</h2>
+<p class="lead" style="margin:14px auto 0;max-width:520px">Free software, yours to run and to change. Questions and ideas are welcome on GitHub.</p>
+<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:28px">
+<a class="btn" href="get-started/">Get started</a>
+<a class="btn2" href="docs/">Read the docs</a>
+</div>
+</div>
+</section>
+</main>
+<footer style="background:#1E4D4A;color:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:56px 32px 32px;display:flex;flex-wrap:wrap;gap:40px">
+<div style="flex:1.4 1 280px"><img src="assets/kinship-logo-horizontal-reversed.svg" alt="KinShip" width="118" height="44" style="height:44px;width:auto;display:block"><p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#CFE0DA;max-width:340px">A self-hosted family tree. Free software under the AGPL-3.0-or-later license.</p></div>
+<div style="flex:1 1 140px"><h3 class="fh">Project</h3><a class="fl" href="features/">Features</a><a class="fl" href="roadmap/">Roadmap</a><a class="fl" href="https://github.com/officialJCReyes/kinship/releases">Releases</a></div>
+<div style="flex:1 1 140px"><h3 class="fh">Help</h3><a class="fl" href="get-started/">Get started</a><a class="fl" href="docs/">Docs</a><a class="fl" href="about/#security">Security</a></div>
+<div style="flex:1 1 140px"><h3 class="fh">Source</h3><a class="fl" href="https://github.com/officialJCReyes/kinship">GitHub</a><a class="fl" href="https://github.com/officialJCReyes/kinship/issues">Issues</a><a class="fl" href="https://github.com/officialJCReyes/kinship/blob/main/LICENSE">License</a></div>
+</div>
+<div style="max-width:1120px;margin:0 auto;padding:20px 32px 32px;border-top:1px solid rgba(246,244,236,.2);display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:14px;color:#CFE0DA">
+<span>© KinShip contributors · Version 0.2.0</span>
+<span>The KinShip name and logo are not covered by the AGPL.</span>
+</div>
+</footer>
+</div>
+</body>
+</html>

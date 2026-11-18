@@ -8,3 +8,4 @@ pnpm-lock.yaml
 **/dist/
 e2e/artifacts/
 e2e/.stack/
+site/
