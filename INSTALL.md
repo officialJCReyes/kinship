@@ -84,7 +84,7 @@ KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HT
 
 ## Inviting people
 
-Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link: copy it and send it yourself, because KinShip sends no email yet. The link works once and lasts 7 days. It is shown only once; if you lose it, make a new link (that cancels the old one). Whoever opens it chooses a password and is signed in.
+Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link: copy it and send it yourself, because KinShip sends no email yet. The link works once and lasts 7 days. It is shown only once; if you lose it, make a new link (that cancels the old one). Whoever opens it chooses a password and is signed in. An account that is linked to nobody (made by an early release, or invited without a person) can be linked later: **Admin → Users → Link to a person** (and **Change** or **Unlink** once it has one); the dialog says what the link changes before you save.
 
 ## Locked out? Set a new password
 

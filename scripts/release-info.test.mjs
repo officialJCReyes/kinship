@@ -54,6 +54,7 @@ function repo(version, extra = {}) {
     'apps/api/package.json': JSON.stringify({ version }),
     'apps/web/package.json': JSON.stringify({ version }),
     'packages/shared/package.json': JSON.stringify({ version }),
+    'e2e/package.json': JSON.stringify({ version }),
     'CHANGELOG.md': CHANGELOG,
     'compose.yml': `image: a:\${KINSHIP_VERSION:-${version}}\nimage: b:\${KINSHIP_VERSION:-${version}}\n`,
     '.env.example': `# x\nKINSHIP_VERSION=${version}\n`,
@@ -187,6 +188,11 @@ test('prepare: a tag that does not match package.json fails, and says which is w
     () => prepare({ env: tagPush('v0.1.1'), read: repo('0.1.0-alpha.1'), tags: [] }),
     /v0\.1\.1 is version 0\.1\.1, but package\.json says 0\.1\.0-alpha\.1/,
   );
+});
+
+test('prepare: e2e/package.json is checked too', () => {
+  const read = repo('0.1.0-alpha.1', { 'e2e/package.json': JSON.stringify({ version: '0.0.0' }) });
+  assert.throws(() => prepare({ env: tagPush('v0.1.0-alpha.1'), read, tags: [] }), /e2e\/package.json: 0\.0\.0/);
 });
 
 test('prepare: package.json files that disagree fail', () => {
