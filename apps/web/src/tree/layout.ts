@@ -27,7 +27,8 @@ import { displayName } from '../lib/names.js';
 import type { Parentage, TreePerson, Union, UnionStatus } from '@kinship/shared';
 
 export const NODE_W = 184;
-export const NODE_H = 58;
+/** Fits three lines of name and the dates line (see cardText.ts); every card is this tall. */
+export const NODE_H = 80;
 /** Gap between two partners' boxes (the couple line runs through it). */
 export const COUPLE_GAP = 44;
 /** Minimum gap between two subtrees (and between siblings) in the same row. */

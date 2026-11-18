@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { displayName } from '../lib/names.js';
+import { displayName, displaySurname } from '../lib/names.js';
 import type { AuthUser, Person, UnionWithChildren } from '@kinship/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -15,6 +15,11 @@ import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 import { initials, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
 import { recallPanelCollapsed, rememberPanelCollapsed } from './remember.js';
+
+/** The surname part of the name shown differs from the birth surname (a married surname is in use). Not on the card. */
+export function birthSurnameShown(person: Person): boolean {
+  return displaySurname(person) !== displaySurname(person, 'birth');
+}
 
 type Open = { kind: 'edit' } | { kind: 'add' } | { kind: 'union'; union: UnionWithChildren } | null;
 
@@ -92,6 +97,11 @@ export function TreePanel({
       {person ? (
         <>
           <h2 className="panel-name">{displayName(person)}</h2>
+          {birthSurnameShown(person) ? (
+            <div className="muted panel-birth-surname">
+              {t('tree.panel.birthSurname', { surname: displaySurname(person, 'birth') })}
+            </div>
+          ) : null}
           <div className="muted">{lifespan(person)}</div>
           <div className="pills">
             <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>

@@ -1154,6 +1154,16 @@ main.tree-main {
   fill: var(--bg);
 }
 
+/* Selected: the ring, and also a tinted fill, so selection never relies on the ring colour alone (the ring can be close to a
+   border colour in some schemes; the fill is the scheme's own tint). The sex border colour is unchanged. */
+.tnode.selected .box {
+  fill: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+
+.tnode.selected .avatar {
+  fill: var(--panel);
+}
+
 .tnode .ring {
   fill: none;
   stroke: var(--accent);
@@ -1194,23 +1204,6 @@ main.tree-main {
 .tnode .years {
   fill: var(--muted);
   font: 12px var(--body);
-}
-
-.tnode .glyph {
-  fill: none;
-  stroke: var(--g-other);
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
-
-.tnode.male .glyph {
-  stroke: var(--g-male);
-}
-
-.tnode.female .glyph {
-  stroke: var(--g-female);
 }
 
 /* The spouse's-family leaf, in the logo's green. */

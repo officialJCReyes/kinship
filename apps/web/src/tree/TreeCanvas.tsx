@@ -6,7 +6,8 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 import { t } from '../i18n.js';
 import { lifespan } from '../lib/people.js';
 import { statusName } from '../lib/labels.js';
-import { initials, leafLabel, nodeLabel, otherLeafLabel, shortName } from './family.js';
+import { fitName } from './cardText.js';
+import { initials, leafLabel, nodeLabel, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
 import { NODE_H, NODE_W } from './layout.js';
 import { prefersReducedMotion } from './motion.js';
@@ -70,8 +71,12 @@ function linkBounds(
 
 // ------------------------------------------------------------------ nodes
 
-const MALE_GLYPH = <path d="M-1 5.1a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2zM1.6 -0.5L5.4 -4.3M2.2 -4.3H5.4V-1.1" />;
-const FEMALE_GLYPH = <path d="M0 2.1a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2zM0 2.1V6.6M-2.2 4.4H2.2" />;
+/** Where the name starts and the room it has: right of the avatar, and a margin on the right. */
+const NAME_X = 48;
+const NAME_WIDTH = NODE_W - NAME_X - 10;
+/** The dates line: font size, line height and the gap above it. */
+const YEARS_LINE = 14;
+const YEARS_GAP = 3;
 
 interface NodeProps {
   node: PlacedNode;
@@ -102,9 +107,14 @@ const TreeNode = memo(function TreeNode({
 }: NodeProps) {
   const full = displayName(person);
   const label = nodeLabel(person);
-  const name = shortName(full, person.deceased ? 15 : 17) + (person.deceased ? ' †' : '');
+  // The whole name, wrapped on up to three lines (smaller type if it needs it), never cut. A no-break space keeps the
+  // deceased mark with the last word.
+  const fit = useMemo(() => fitName(full + (person.deceased ? '\u00a0†' : ''), NAME_WIDTH), [full, person.deceased]);
   const gender = person.gender === 'male' || person.gender === 'female' ? person.gender : 'other';
   const years = lifespan(person);
+  // The name and the dates line are centred together as one block; the dates line is always counted, so a card with no
+  // dates is the same height and its name sits where it would.
+  const top = (NODE_H - (fit.lines.length * fit.lineHeight + YEARS_GAP + YEARS_LINE)) / 2;
   return (
     <g transform={`translate(${node.x - NODE_W / 2} ${node.y})`}>
       <g
@@ -126,17 +136,20 @@ const TreeNode = memo(function TreeNode({
             <text className="ini" x={25} y={NODE_H / 2 + 4} textAnchor="middle">
               {initials(person)}
             </text>
-            <text className="name" x={48} y={NODE_H / 2 - 3}>
-              {name}
+            <text className="name" x={NAME_X} style={{ fontSize: fit.size }} data-lines={fit.lines.length}>
+              {fit.lines.map((line, index) => (
+                <tspan key={index} x={NAME_X} y={top + index * fit.lineHeight + fit.size * 0.82}>
+                  {line}
+                </tspan>
+              ))}
             </text>
-            <text className="years" x={48} y={NODE_H / 2 + 14}>
+            <text
+              className="years"
+              x={NAME_X}
+              y={top + fit.lines.length * fit.lineHeight + YEARS_GAP + YEARS_LINE * 0.75}
+            >
               {years}
             </text>
-            {gender === 'other' ? null : (
-              <g className="glyph" aria-hidden="true" transform={`translate(${NODE_W - 16} 16)`}>
-                {gender === 'male' ? MALE_GLYPH : FEMALE_GLYPH}
-              </g>
-            )}
           </>
         )}
       </g>
@@ -701,7 +714,7 @@ function Legend() {
           <span className="swatch female" aria-hidden="true" />
           <span>{t('person.gender.female')}</span>
           <span className="swatch other" aria-hidden="true" />
-          <span>{t('person.gender.other')}</span>
+          <span>{t('tree.legend.genderOther')}</span>
           <span aria-hidden="true">†</span>
           <span>{t('tree.legend.deceased')}</span>
         </div>
