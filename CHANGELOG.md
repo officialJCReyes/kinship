@@ -4,9 +4,39 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-23
+
+**KinShip 0.2.0, "A tree you can trust". The data promise starts here:** an upgrade keeps your data, and a safety copy of the database is made before every database change. If you run 0.1.0-alpha.2, read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before updating: it needs a backups folder and a backup passphrase first. From a 0.2.0 release candidate it is an image update.
+
+### Added
+
+- **Backups and restore.** Encrypted backups (one file, your passphrase), on a schedule or on demand. "Test the latest backup" restores the newest one into a temporary database and compares it with the original. A download asks for your password again, and `kinship restore` restores on the server. A safety copy is also written before every database change. See [ADR 0014](https://github.com/officialJCReyes/kinship/blob/main/docs/decisions/0014-backup-and-owner-access.md).
+- **Updates.** Admin → Updates tells the SuperAdmin when a new version is out (once a day KinShip reads GitHub's public release list; it sends nothing about your install, and the switch is in the app). "What's changing" shows what an update does, with a backup warning when it changes the database, and every admin sees a "What's new" popup after an update. The web and the api must be the same version, and say so if they are not. See [ADR 0015](https://github.com/officialJCReyes/kinship/blob/main/docs/decisions/0015-update-check-and-whats-new.md).
+- **A seven-step first-run wizard** (account, tree, you, partner, parents, children, review) that creates your account, your tree and your closest relatives all at once. Partner, parents and children can be skipped.
+- **Invitations and passwords.** Admins invite people with a link they copy, make a set-password link for someone locked out (the account shows that an admin set the password), and everyone can change their password.
+- **Link an existing account to a person** ([#8](https://github.com/officialJCReyes/kinship/issues/8)). In Admin → Users an admin can link an account that has no person to a person on the tree, change the link or unlink it, so accounts upgraded from an alpha are not left unlinked.
+- **A brother or sister for someone with no parents.** Add relative adds an "Unknown father" and an "Unknown mother" (dashed cards on the chart; give one a name and it becomes an ordinary person). They never appear in the people list, in search or in counts.
+- **My settings.** Four color schemes, light, dark or device, a date format, which surname shows, and which family the charts follow for an adopted person.
+- **A fuller relationship model.** Second and married surnames; a Married relationship becomes Widowed automatically when a partner is marked deceased; custom relationship labels (Godmother, Guardian); step relatives, and a partner's children from another relationship.
+
 ### Changed
 
+- Dates read "Jan 1, 2026" by default (the alpha showed "January 1, 2026"); each person can change it. "My profile" and "About" moved into the account menu.
+- Tree cards show the whole name; the border color is the only sign of sex; a selected card is tinted as well as ringed.
+- Success messages are a small pill that fades after about 5 seconds.
 - **Admin → Updates is quieter.** The long explanations under "Check for new versions" and "Safety copy before a database change" are now a small "i" button next to the name: hover it, focus it with the keyboard, or tap it to read them (Escape closes it). Screen readers still read them as the description of the checkbox. The "What's new" popup no longer starts with a grey paragraph about where it comes from.
+- **One-time data change:** every Married relationship with a deceased partner becomes Widowed. The database gains migrations 0007 to 0016, applied at startup after a safety copy: see [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md).
+
+### Fixed
+
+- An invitation can no longer be made for an "Unknown father or mother".
+
+### What it does not include yet
+
+- **Profile photos and media upload**, and an in-app Restore button (restore is a command on the server).
+- Changing an account's role, and disabling or deleting accounts.
+- The other chart views, the relationship finder, reports, GEDCOM import and export, sources, places, DNA and health history.
+- Email (invitations and password links are copied by hand) and single sign-on.
 
 ## [0.2.0-rc.3] - 2026-11-18
 
@@ -115,7 +145,8 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 - **No update notice, no "What's new" popup, no file storage, no email, no single sign-on, no password reset by email.** Later releases add them.
 - **No upgrade promise.** Until 0.2, a new release may require starting with an empty database.
 
-[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.3...HEAD
+[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...v0.2.0
 [0.2.0-rc.3]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...v0.2.0-rc.1

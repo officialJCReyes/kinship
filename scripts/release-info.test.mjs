@@ -370,6 +370,23 @@ test('a stable release with no earlier stable tag is compared with the latest ea
   assert.equal(manifest.migration, true);
 });
 
+test('0.2.0 after alpha.1, alpha.2 and rc.1 to rc.3 is compared with alpha.2, and a later stable with 0.2.0', () => {
+  const tags = ['v0.1.0-alpha.1', 'v0.1.0-alpha.2', 'v0.2.0-rc.1', 'v0.2.0-rc.2', 'v0.2.0-rc.3'];
+  assert.equal(previousTag(tags, parseVersion('0.2.0')), 'v0.1.0-alpha.2');
+  const git = fakeGit({ migrations: 'apps/api/migrations/0007_x.sql' });
+  const { manifest, previous } = buildNotes({ version: '0.2.0', prerelease: false, read: repo('0.2.0'), git, tags });
+  assert.equal(previous, 'v0.1.0-alpha.2');
+  assert.equal(manifest.migration, true);
+  assert.equal(manifest.breaking, false);
+  // Once 0.2.0 exists it is the baseline of the next stable release, and 0.3.0 release candidates see everything earlier.
+  assert.equal(previousTag([...tags, 'v0.2.0'], parseVersion('0.3.0')), 'v0.2.0');
+  assert.equal(previousTag([...tags, 'v0.2.0', 'v0.3.0-rc.1'], parseVersion('0.3.0')), 'v0.2.0');
+  assert.equal(previousTag(tags, parseVersion('0.2.0-rc.3')), 'v0.2.0-rc.2');
+  assert.equal(previousTag(tags, parseVersion('0.2.0-rc.4')), 'v0.2.0-rc.3');
+  // Only release candidates earlier: the fallback still finds something.
+  assert.equal(previousTag(['v0.2.0-rc.1'], parseVersion('0.2.0')), 'v0.2.0-rc.1');
+});
+
 test('release headings: Keep a Changelog, release-please and bare forms are all understood', () => {
   assert.deepEqual(matchReleaseHeading('## [0.2.0] - 2026-12-01', '0.2.0'), { date: '2026-12-01' });
   assert.deepEqual(

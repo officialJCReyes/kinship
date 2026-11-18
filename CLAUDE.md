@@ -21,12 +21,12 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 - Files are encrypted by the app before storage; secrets only in `.env` or `*_FILE` Docker secrets, never in the database.
 - The update check is an in-app toggle stored in the DB, never an env var. No update email.
 - Public repo: never commit real names, photos, GEDCOM files, dumps or `.env`. Test/demo data is the fictional Hale family only. Dependencies must be AGPL-compatible (check in CI). Add `SPDX-License-Identifier: AGPL-3.0-or-later` headers.
-- Conventional Commits (`feat:`, `fix:`, `feat!:`). Releases: manual for 0.1, release-please from 0.2. Only the newest release is supported.
+- Conventional Commits (`feat:`, `fix:`, `feat!:`). Releases: manual up to and including 0.2.0; from the release after 0.2.0 release-please opens the release pull request and JC tags it (ADR 0017). Only the newest release is supported.
 - Image names are lowercase: ghcr.io/officialjcreyes/kinship-web and kinship-api.
 
 ## Build order
 - Read `design/kinship-build-status-and-handoff.md` first. It records what is built, the decisions made, the open issues and what comes next. It is the current state; the release plan is the intended order.
-- Follow `design/kinship-release-and-deployment-plan.md` (section 6, "What ships in each version") for what belongs in each release. The build is in **0.2 "A tree you can trust"**, which started the data promise: migrations are forward-only and must preserve real data, and every upgrade path is tested. Do not start a later release's features (0.3 and beyond) unless the prompt says to.
+- Follow `design/kinship-release-and-deployment-plan.md` (section 6, "What ships in each version") for what belongs in each release. **0.2.0 "A tree you can trust" is being finalised: do not add features to it. After v0.2.0 is tagged the build moves to 0.3 "See the family".** 0.2 started the data promise: migrations are forward-only and must preserve real data, and every upgrade path is tested. Do not start a later release's features (0.3 and beyond) unless the prompt says to.
 - Work comes as numbered steps from JC's prompts, often in two phases: phase 1 is read-and-report only (write no code, make no commits, open no PR, then stop and wait for "go"); phase 2 builds. Prompts carry the approved design; where a prompt and a doc differ, the prompt wins, and tell JC about any conflict that matters before building.
 - Stop before irreversible steps (publishing, releases) and wait for JC. You may create and push a release tag (`git tag -a`, then `git push origin <tag>`) only when JC says "tag it". Never force-push. Never delete or move a `v*` tag. If any release job fails, stop and report the log excerpt instead of retrying or re-tagging.
 
