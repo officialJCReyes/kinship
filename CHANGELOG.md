@@ -4,6 +4,10 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.2.0-rc.2] - 2026-11-17
+
+**A second release candidate for 0.2.0. No database change** (the schema stays at 0014), so upgrading from 0.2.0-rc.1 is a plain image update; from 0.1.0-alpha.2 read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) first.
+
 ### Added
 
 - **A date of birth for your partner in the first-run wizard.** Optional: a year, a month or a full date, exact or approximate, shown in your date format.
@@ -88,7 +92,8 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 - **No update notice, no "What's new" popup, no file storage, no email, no single sign-on, no password reset by email.** Later releases add them.
 - **No upgrade promise.** Until 0.2, a new release may require starting with an empty database.
 
-[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.1...HEAD
+[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.2...HEAD
+[0.2.0-rc.2]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...v0.2.0-rc.1
 [0.1.0-alpha.2]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.1...v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/officialJCReyes/kinship/releases/tag/v0.1.0-alpha.1
