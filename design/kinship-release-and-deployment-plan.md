@@ -180,7 +180,7 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 
 ### v0.3.0 — "See the family"
 - All four chart views (Pedigree, Fan, Descendants) and the view switcher; the spouse's family leaf and flip; tree legend; centered page layouts.
-- **Who the Family tree draws (proposed Nov 18, waiting for JC's yes; see `kinship-tree-views-and-dna.md`):** today it draws only the person's own line, so **siblings' partners (a brother- or sister-in-law by blood) and aunts and uncles are not drawn**. Proposed: draw siblings' partners always (their parents behind the green leaf), and add an option "Show aunts, uncles and cousins", off by default, in the gear panel. The option depends on crossing minimisation (#21) below; if the layout slips it moves to 1.4.
+- **Who the Family tree draws (decided by JC, Nov 18: yes to both; see `kinship-tree-views-and-dna.md`):** the chart drew only the person's own line, so **siblings' partners (a brother- or sister-in-law by blood) and aunts and uncles were not drawn**. Now: draw siblings' partners always (their parents behind the green leaf), and add an option "Show aunts, uncles and cousins", off by default, in the gear panel, built after crossing minimisation (#21) below. A wide chart is fine: the chart opens **centered on the home person** and the viewer scrolls or pans in every direction; the whole tree does not have to fit in the view. If #21 slips, JC decides whether the option ships anyway or moves to 1.4.
 - Relationship finder with cousin levels, half and in-law and step names, the "once removed" explainer.
 - People search and a quick find box (the search also sits inside the chart, with a result list that jumps to the person; the gear panel for tree display settings is proposed in `kinship-tree-settings-and-search.md`); Home with Memory of the day and Coming up; Jump to shortcuts.
 - Timeline and map (OpenStreetMap by default).
@@ -363,10 +363,11 @@ volumes: { kinship-db: {}, kinship-files: {}, kinship-backups: {} }
 
 **Done (Nov 18): v0.2.0 "A tree you can trust" is published** (rc.1 Nov 17, rc.2 and rc.3 Nov 18; schema 16; the data promise starts here). The first `v0.2.0` tag's release run failed before publishing anything (a stable-only upgrade-test check and one flaky web test, fixed in #107); the unpublished tag was deleted and the fixed commit tagged (ADR 0017, Exceptions). The GitHub Release is Latest with `compose.yml`, `env.example` and `release-manifest.json` (stable, migration true, breaking false). The required checks now include the upgrade test and the end-to-end tests. Releases were manual up to 0.2.0; release-please opens the release pull request after it. The changelog heading and manifest date say 2026-11-23, the planned date; the release was made on Nov 18.
 
+**Decided (Nov 18, JC, after 0.2.0): the Family tree in 0.3.0.** Siblings' partners are always drawn; "Show aunts, uncles and cousins" is an option in the gear panel, off by default, built after crossing minimisation; a wide chart is fine, the chart opens centered on the home person and is navigated by scrolling or panning, and fitting the whole tree is not required. Closed PRs #91 and #92 now have tracking issues (#110 marriage place, 0.5.0; #109 calendar picker, 0.3.0).
+
 **Proposed, waiting for JC's yes**
 1. **Library picks inside the stack** (section 6): Fastify, Kysely with plain SQL migrations, Vite, own SVG tree drawing, Vitest and Playwright.
 2. **In-chart search and a gear panel of tree display settings** (0.3; see `kinship-tree-settings-and-search.md`).
-3. **Who the Family tree draws (Nov 18; see `kinship-tree-views-and-dna.md`):** siblings' partners always drawn, and an option "Show aunts, uncles and cousins" (off by default, in the gear panel, 0.3 after crossing minimisation, otherwise 1.4). Today neither is drawn.
 
 **Still open:** nothing blocks starting the repository. The mockup's final approval is JC's call. **The mockup does not yet show surgeries and procedures** (add the section to the Medical history tab, the Add dialog, the doctor report and the sample family before the 0.6 build prompt; suggested sample entries are in `kinship-surgeries-and-procedures.md`).
 
