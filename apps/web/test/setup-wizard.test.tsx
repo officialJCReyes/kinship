@@ -85,14 +85,14 @@ describe('step 1, Account', () => {
     expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
     expect(screen.getByText('The password must be at least 12 characters.')).toBeTruthy();
     expect(field('Setup token').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('Setup token'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Setup token')));
     expect(calls(fetchMock).some((c) => c.startsWith('POST'))).toBe(false);
     expect(progress()).toBe('Step 1 of 7 · Account');
 
     fillAccount({ Password: 'short', 'Confirm password': 'different', Email: 'nope' });
     next();
     await screen.findByText('The two passwords are not the same.');
-    expect(document.activeElement).toBe(field('Email'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Email')));
     // Typing in a field clears its message.
     type('Email', 'marcus@example.com');
     expect(screen.queryByText('Enter a valid email address.')).toBeNull();
@@ -124,7 +124,7 @@ describe('step 1, Account', () => {
     next();
     expect(await screen.findByText('That setup token is not right. Check the log of the api container.')).toBeTruthy();
     expect(field('Setup token').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('Setup token'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Setup token')));
     expect(progress()).toBe('Step 1 of 7 · Account');
     expect(field('Your name').value).toBe('Marcus Hale');
     expect(field('Password').value).toBe(GOOD);
@@ -208,7 +208,7 @@ describe('step 2, Tree', () => {
     expect(field('Tree name').value).toBe('');
     next();
     expect(await screen.findByText('Enter a name for the tree.')).toBeTruthy();
-    expect(document.activeElement).toBe(field('Tree name'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Tree name')));
     expect(progress()).toBe('Step 2 of 7 · Tree');
   });
 
@@ -268,7 +268,7 @@ describe('step 3, You', () => {
     next();
     expect(await screen.findByText('Enter a given name (up to 100 characters).')).toBeTruthy();
     expect(screen.getByText('Enter a surname (up to 100 characters).')).toBeTruthy();
-    expect(document.activeElement).toBe(field('Given name'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Given name')));
     expect(progress()).toBe('Step 3 of 7 · You');
   });
 
@@ -279,7 +279,7 @@ describe('step 3, You', () => {
     expect(
       await screen.findByText('Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.'),
     ).toBeTruthy();
-    expect(document.activeElement).toBe(field('Birth date'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Birth date')));
     type('Birth date', '1986-07-31');
     await skipToReview();
   });
@@ -380,7 +380,7 @@ describe('what the server says to Create my tree', () => {
     expect(progress()).toBe('Step 3 of 7 · You');
     expect(screen.getByText('Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.')).toBeTruthy();
     expect(field('Birth date').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('Birth date'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Birth date')));
     expect(field('Given name').value).toBe('Marcus');
     // Typing in the field clears the message.
     type('Birth date', '1986');
@@ -392,7 +392,7 @@ describe('what the server says to Create my tree', () => {
     create();
     expect(await screen.findByRole('heading', { name: 'Welcome to KinShip' })).toBeTruthy();
     expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
-    expect(document.activeElement).toBe(field('Email'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Email')));
     expect(field('Password').value).toBe(GOOD);
   });
 

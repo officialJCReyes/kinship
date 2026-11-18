@@ -20,3 +20,7 @@
 - **How it merges a new section into the existing `CHANGELOG.md`** (the `## [Unreleased]` block and the link lines at the bottom) was not visible in a dry run, which prints only the new section. Check the first real release pull request.
 - release-please regenerates its branch when `main` moves, so edits made on that branch can be lost.
 - The setting "Allow GitHub Actions to create and approve pull requests" is off and stays off until the trigger is switched on.
+
+## Exceptions
+
+A `v*` tag is never moved or deleted (the "Protect release tags" ruleset enforces it). The one exception: JC may delete a tag himself, when its release run failed before any image or GitHub Release was published, and then tags the fixed `main` commit again. This happened once, with `v0.2.0`: its upgrade test failed on a check that only runs for a stable release (a `V=...` placed after a command, so not an environment variable) and a web test that waits too little for focus. Claude Code never deletes or moves a tag, and never re-runs a failed release run. If anything was already published, the tag stays and the fix ships as the next version.

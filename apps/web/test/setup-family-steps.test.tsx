@@ -79,7 +79,7 @@ describe('step 4, Partner', () => {
     type('Given name', 'Priya');
     next();
     expect(await screen.findByText('Enter a surname (up to 100 characters).')).toBeTruthy();
-    expect(document.activeElement).toBe(field('Birth (maiden) surname'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Birth (maiden) surname')));
     expect(progress()).toBe('Step 4 of 7 · Partner');
   });
 
@@ -93,7 +93,7 @@ describe('step 4, Partner', () => {
     ).toBeTruthy();
     next();
     expect(progress()).toBe('Step 4 of 7 · Partner');
-    expect(document.activeElement).toBe(field('Living or deceased'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Living or deceased')));
     choose('Living or deceased', 'deceased');
     next();
     await heading('Add your parents');
@@ -179,7 +179,7 @@ describe('step 4, Partner', () => {
     expect(
       await screen.findAllByText('Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.'),
     ).toBeTruthy();
-    expect(document.activeElement).toBe(field('Birth date (optional)'));
+    await waitFor(() => expect(document.activeElement).toBe(field('Birth date (optional)')));
     type('Birth date (optional)', '');
     next();
     await heading('Add your parents');
@@ -260,7 +260,7 @@ describe('step 5, Parents', () => {
     fireEvent.change(inGroup('Mother').getByLabelText('Given name'), { target: { value: 'Elena' } });
     next();
     expect(await screen.findByText('Enter a surname (up to 100 characters).')).toBeTruthy();
-    expect(document.activeElement).toBe(inGroup('Mother').getByLabelText('Birth surname'));
+    await waitFor(() => expect(document.activeElement).toBe(inGroup('Mother').getByLabelText('Birth surname')));
   });
 });
 
@@ -278,7 +278,7 @@ describe('step 6, Children', () => {
     fireEvent.change(screen.getByLabelText('Given name'), { target: { value: 'Leo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add another child' }));
     expect(screen.getAllByRole('group', { name: /^Child \d$/ })).toHaveLength(2);
-    expect(document.activeElement).toBe(inGroup('Child 2').getByLabelText('Given name'));
+    await waitFor(() => expect(document.activeElement).toBe(inGroup('Child 2').getByLabelText('Given name')));
     fireEvent.change(inGroup('Child 2').getByLabelText('Given name'), { target: { value: 'Mia' } });
     fireEvent.click(screen.getByRole('button', { name: 'Remove child 1' }));
     const rows = screen.getAllByRole('group', { name: /^Child \d$/ });
@@ -310,7 +310,7 @@ describe('step 6, Children', () => {
     expect(inGroup('Child 3').getByText('Enter a given name (up to 100 characters).')).toBeTruthy();
     expect(inGroup('Child 2').queryByText(/Enter a/)).toBeNull();
     expect(inGroup('Child 1').queryByText(/Enter a/)).toBeNull();
-    expect(document.activeElement).toBe(inGroup('Child 3').getByLabelText('Given name'));
+    await waitFor(() => expect(document.activeElement).toBe(inGroup('Child 3').getByLabelText('Given name')));
   });
 
   it('with a partner, offers the partner (default) or "Not on the tree" for each child, and sends it', async () => {
@@ -570,7 +570,7 @@ describe('what the server says about the family, mapped to its step and field', 
     expect(inGroup('Child 2').getByText(/Enter a date as/)).toBeTruthy();
     const birth = inGroup('Child 2').getByLabelText('Birth date');
     expect(birth.getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(birth);
+    await waitFor(() => expect(document.activeElement).toBe(birth));
     expect((inGroup('Child 1').getByLabelText('Given name') as HTMLInputElement).value).toBe('Leo');
     expect(progress()).toBe('Step 6 of 7 · Children');
   });
