@@ -69,8 +69,9 @@ export function compareVersions(a, b) {
 
 /**
  * The tag of the version before this one: the highest earlier stable tag, or for a pre-release any earlier tag. A stable
- * release with no earlier stable tag (0.2.0 before 0.1.0 was tagged) falls back to the highest earlier tag of any kind, so
- * its migration and breaking-change flags are compared with something instead of being silently false.
+ * release with no earlier stable tag (0.2.0 before 0.1.0 was tagged) falls back to the highest earlier tag of any kind, but
+ * skips its own release candidates (same major.minor.patch): they are candidates for this release, not something a user
+ * upgrades from, and comparing with the last of them would report "no migration" for the jump from the last alpha.
  */
 export function previousTag(existingTags, current) {
   const earlier = existingTags
@@ -84,7 +85,13 @@ export function previousTag(existingTags, current) {
     .filter((entry) => entry !== undefined && compareVersions(entry.parsed, current) < 0)
     .sort((a, b) => compareVersions(b.parsed, a.parsed));
   if (current.pre !== null) return earlier[0]?.tag ?? null;
-  return (earlier.find((entry) => entry.parsed.pre === null) ?? earlier[0])?.tag ?? null;
+  const stable = earlier.find((entry) => entry.parsed.pre === null);
+  if (stable) return stable.tag;
+  const sameRelease = (entry) =>
+    entry.parsed.major === current.major &&
+    entry.parsed.minor === current.minor &&
+    entry.parsed.patch === current.patch;
+  return (earlier.find((entry) => !sameRelease(entry)) ?? earlier[0])?.tag ?? null;
 }
 
 /** True when no stable tag newer than this one exists, so this release may be `latest`. */

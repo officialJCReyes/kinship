@@ -352,6 +352,21 @@ describe('which releases are offered', () => {
     expect(range).toMatchObject({ from: '0.7.0', to: '0.10.0', security: true, migration: true, breaking: true });
   });
 
+  it('offers 0.2.0 to every earlier install with the 0.2.0 flags, including a release candidate with no database change to make', () => {
+    // 0.2.0's flags are compared with the last alpha (a flag belongs to the release, not to the version it is installed over),
+    // so an rc.3 install (same schema) is shown the same backup warning as an alpha.2 install. That is deliberately cautious;
+    // UPGRADE.md's first lines say what each starting version has to do.
+    const stable = release('0.2.0', { migration: true, upgradeNotes: 'notes' });
+    for (const running of ['0.1.0-alpha.2', '0.2.0-rc.1', '0.2.0-rc.3']) {
+      const range = offeredRange([stable], running, false);
+      expect(range, running).toMatchObject({ to: '0.2.0', migration: true, breaking: false });
+      expect(range && needsBackupWarning(range), running).toBe(true);
+      expect(range && bannerLine(range), running).toBe('migration');
+    }
+    // A release candidate is not offered to anyone unless "Include pre-releases" is on.
+    expect(offeredRange([release('0.2.0-rc.3', { migration: true })], '0.1.0-alpha.2', false)).toBeNull();
+  });
+
   it('returns null when nothing is newer, and ignores anything that is not a version', () => {
     expect(offeredRange([release('0.7.0'), release('0.6.0')], '0.7.0', false)).toBeNull();
     expect(offeredRange([], '0.7.0', false)).toBeNull();
