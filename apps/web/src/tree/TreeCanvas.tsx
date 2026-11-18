@@ -110,7 +110,12 @@ const TreeNode = memo(function TreeNode({
   // The whole name, wrapped on up to three lines (smaller type if it needs it), never cut. A no-break space keeps the
   // deceased mark with the last word.
   const fit = useMemo(() => fitName(full + (person.deceased ? '\u00a0†' : ''), NAME_WIDTH), [full, person.deceased]);
-  const gender = person.gender === 'male' || person.gender === 'female' ? person.gender : 'other';
+  // A placeholder has no sex to show: it is drawn neutral and dashed, whatever gender the database keeps for its label.
+  const gender = person.isPlaceholder
+    ? 'placeholder'
+    : person.gender === 'male' || person.gender === 'female'
+      ? person.gender
+      : 'other';
   const years = lifespan(person);
   // The name and the dates line are centred together as one block; the dates line is always counted, so a card with no
   // dates is the same height and its name sits where it would.
@@ -133,9 +138,13 @@ const TreeNode = memo(function TreeNode({
         {simple ? null : (
           <>
             <circle className="avatar" cx={25} cy={NODE_H / 2} r={15} />
-            <text className="ini" x={25} y={NODE_H / 2 + 4} textAnchor="middle">
-              {initials(person)}
-            </text>
+            {person.isPlaceholder ? (
+              <path className="plus" d={`M25 ${NODE_H / 2 - 6}V${NODE_H / 2 + 6}M19 ${NODE_H / 2}H31`} />
+            ) : (
+              <text className="ini" x={25} y={NODE_H / 2 + 4} textAnchor="middle">
+                {initials(person)}
+              </text>
+            )}
             <text className="name" x={NAME_X} style={{ fontSize: fit.size }} data-lines={fit.lines.length}>
               {fit.lines.map((line, index) => (
                 <tspan key={index} x={NAME_X} y={top + index * fit.lineHeight + fit.size * 0.82}>
@@ -717,6 +726,10 @@ function Legend() {
           <span>{t('tree.legend.genderOther')}</span>
           <span aria-hidden="true">†</span>
           <span>{t('tree.legend.deceased')}</span>
+        </div>
+        <div className="legend-row">
+          <span className="swatch placeholder" aria-hidden="true" />
+          <span>{t('tree.legend.placeholder')}</span>
         </div>
         <div className="legend-row">
           <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">

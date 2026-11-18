@@ -45,6 +45,7 @@ import { useMutation } from '@tanstack/react-query';
 
 type Open =
   | { kind: 'edit' }
+  | { kind: 'nameParent'; parent: Person }
   | { kind: 'add' }
   | { kind: 'delete' }
   | { kind: 'editUnion'; union: UnionWithChildren }
@@ -177,21 +178,29 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         <div className="profile-head">
           <div>
             <h1>{displayName(person)}</h1>
-            <div className="muted">{lifespan(person)}</div>
-            <div className="pills">
-              <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
-                {person.deceased ? t('person.deceased') : t('person.living')}
-              </span>
-              {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
-            </div>
+            {person.isPlaceholder ? (
+              <p className="muted">{t('person.placeholderNote')}</p>
+            ) : (
+              <>
+                <div className="muted">{lifespan(person)}</div>
+                <div className="pills">
+                  <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
+                    {person.deceased ? t('person.deceased') : t('person.living')}
+                  </span>
+                  {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
+                </div>
+              </>
+            )}
           </div>
           <div className="actions wrap">
             <ActionButton disabledReason={editReason} onClick={() => setOpen({ kind: 'edit' })}>
-              {t('profile.edit')}
+              {person.isPlaceholder ? t('person.addDetails') : t('profile.edit')}
             </ActionButton>
-            <ActionButton disabledReason={addReason} onClick={() => setOpen({ kind: 'add' })}>
-              {t('profile.addRelative')}
-            </ActionButton>
+            {person.isPlaceholder ? null : (
+              <ActionButton disabledReason={addReason} onClick={() => setOpen({ kind: 'add' })}>
+                {t('profile.addRelative')}
+              </ActionButton>
+            )}
             {permissions.delete ? (
               <ActionButton danger onClick={() => setOpen({ kind: 'delete' })}>
                 {t('profile.delete')}
@@ -200,32 +209,34 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
           </div>
         </div>
         <h2 className="sr-only">{t('profile.facts')}</h2>
-        <dl className="facts">
-          <dt>{t('person.givenName')}</dt>
-          <dd>{person.givenName}</dd>
-          <dt>{t('person.birthSurname')}</dt>
-          <dd>{person.surname}</dd>
-          {person.secondSurname ? (
-            <>
-              <dt>{t('person.secondSurname')}</dt>
-              <dd>{person.secondSurname}</dd>
-            </>
-          ) : null}
-          {person.marriedSurname ? (
-            <>
-              <dt>{t('person.marriedSurname')}</dt>
-              <dd>{person.marriedSurname}</dd>
-            </>
-          ) : null}
-          <dt>{t('person.born')}</dt>
-          <dd>{formatDate(person.birth) || t('person.notRecorded')}</dd>
-          <dt>{person.deceased ? t('person.died') : t('person.status')}</dt>
-          <dd>{person.deceased ? formatDate(person.death) || t('person.notRecorded') : t('person.living')}</dd>
-          <dt>{t('person.gender')}</dt>
-          <dd>{person.gender ? t(`person.gender.${person.gender}`) : t('person.gender.unknown')}</dd>
-          <dt>{t('person.account')}</dt>
-          <dd>{detail.hasAccount ? t('person.accountLinked') : t('person.accountNone')}</dd>
-        </dl>
+        {person.isPlaceholder ? null : (
+          <dl className="facts">
+            <dt>{t('person.givenName')}</dt>
+            <dd>{person.givenName}</dd>
+            <dt>{t('person.birthSurname')}</dt>
+            <dd>{person.surname}</dd>
+            {person.secondSurname ? (
+              <>
+                <dt>{t('person.secondSurname')}</dt>
+                <dd>{person.secondSurname}</dd>
+              </>
+            ) : null}
+            {person.marriedSurname ? (
+              <>
+                <dt>{t('person.marriedSurname')}</dt>
+                <dd>{person.marriedSurname}</dd>
+              </>
+            ) : null}
+            <dt>{t('person.born')}</dt>
+            <dd>{formatDate(person.birth) || t('person.notRecorded')}</dd>
+            <dt>{person.deceased ? t('person.died') : t('person.status')}</dt>
+            <dd>{person.deceased ? formatDate(person.death) || t('person.notRecorded') : t('person.living')}</dd>
+            <dt>{t('person.gender')}</dt>
+            <dd>{person.gender ? t(`person.gender.${person.gender}`) : t('person.gender.unknown')}</dd>
+            <dt>{t('person.account')}</dt>
+            <dd>{detail.hasAccount ? t('person.accountLinked') : t('person.accountNone')}</dd>
+          </dl>
+        )}
       </section>
 
       {adoptedPerson ? (
@@ -247,6 +258,11 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
               {parents.map((parent) => (
                 <li key={parent.id}>
                   <PersonLink person={parent} label={parentLabel(kind, adoptedPerson, parent.gender)} />{' '}
+                  {admin && parent.isPlaceholder ? (
+                    <ActionButton small onClick={() => setOpen({ kind: 'nameParent', parent })}>
+                      {t('person.addDetails')}
+                    </ActionButton>
+                  ) : null}{' '}
                   {admin ? (
                     <ActionButton small onClick={() => setOpen({ kind: 'removeParent', parent })}>
                       {t('parents.remove', { name: displayName(parent) })}
@@ -462,6 +478,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
       {open?.kind === 'editLabel' ? <LabelDialog person={person} existing={open.entry} onClose={close} /> : null}
       {open?.kind === 'deleteLabel' ? <DeleteLabelDialog person={person} entry={open.entry} onClose={close} /> : null}
       {open?.kind === 'edit' ? <EditPersonDialog person={person} onClose={close} /> : null}
+      {open?.kind === 'nameParent' ? <EditPersonDialog person={open.parent} onClose={close} /> : null}
       {open?.kind === 'add' ? <AddRelativeDialog detail={detail} tree={bothTree} me={me} onClose={close} /> : null}
       {open?.kind === 'editLink' ? (
         <EditLinkDialog

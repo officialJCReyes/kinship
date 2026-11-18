@@ -159,6 +159,7 @@ export function leafLabel(person: Pick<Person, 'givenName' | 'surname'>, count: 
 
 /** "Marcus Hale, born 1988, male" for screen readers and tooltips. */
 export function nodeLabel(person: Person): string {
+  if (person.isPlaceholder) return t('tree.node.unknownParent', { name: displayName(person) });
   const parts: string[] = [displayName(person)];
   const born = formatYear(person.birth);
   const died = formatYear(person.death);

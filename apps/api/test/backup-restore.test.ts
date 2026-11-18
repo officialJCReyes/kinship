@@ -26,6 +26,9 @@ import type { TestDatabase } from './helpers/db.js';
 import { realMigrationsDir, removeMigrationsFrom, tempMigrationsDir } from './helpers/migrations-dir.js';
 import { testConfig, testTools } from './helpers/pg-tools.js';
 
+/** The newest migration number. Never write the last number into a test: a later migration moves it. */
+const LATEST = readdirSync(realMigrationsDir).filter((n) => /^\d{4}_.*\.sql$/.test(n)).length;
+
 const PASS = 'a long backup passphrase for tests';
 const CHEAP = { N: 2 ** 4, r: 8, p: 1 };
 const cleanups: Array<() => Promise<void> | void> = [];
@@ -311,13 +314,15 @@ describe('what a restore refuses before it touches anything', () => {
     const l = await live();
     const older = await tempMigrationsDir(true);
     cleanups.push(() => older.remove());
-    await removeMigrationsFrom(older.dir, 14);
+    await removeMigrationsFrom(older.dir, LATEST);
     const made = await createBackup(l.ctx, { kind: 'manual' });
     const before = await state(l.test.owner, l.test.config.appUser);
     const oldImage = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: older.dir } };
     const failure = await restoreBackup(oldImage, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('refused');
-    expect((failure as BackupError).message).toMatch(/newer KinShip.*schema 14.*only knows schema 13/);
+    expect((failure as BackupError).message).toMatch(
+      new RegExp(`newer KinShip.*schema ${LATEST}.*only knows schema ${LATEST - 1}`),
+    );
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
   }, 90_000);
 
@@ -373,21 +378,22 @@ describe('restoring a backup from an older schema', () => {
 
     const newImage: BackupContext = { ...oldCtx, config: { ...oldCtx.config, migrationsDir: realMigrationsDir } };
     const report = await restoreBackup(newImage, made.path, hooks());
-    expect(report.migrationsApplied).toEqual([
-      '0011_account_links',
-      '0012_setup_family',
-      '0013_backup_settings_and_upgrade_log',
-      '0014_updates_and_whats_new',
-    ]);
+    expect(report.migrationsApplied).toEqual(
+      readdirSync(realMigrationsDir)
+        .filter((n) => /^\d{4}_.*\.sql$/.test(n) && Number(n.slice(0, 4)) >= 11)
+        .map((n) => n.replace(/\.sql$/, ''))
+        .sort(),
+    );
     const after = await state(l.test.owner, l.test.config.appUser);
-    expect(after.schema).toBe(14);
-    expect(after.stats['people']).toEqual(peopleBefore);
+    expect(after.schema).toBe(LATEST);
+    // The row count, not the digest: a later migration adds columns to people, and the digest is over whole rows.
+    expect(after.stats['people']?.rows).toBe(peopleBefore?.rows);
     expect(after.tables).toEqual(expect.arrayContaining(['account_links', 'app_settings', 'upgrade_log']));
     const log = await sql<{
       from_schema: number;
       to_schema: number;
     }>`select from_schema, to_schema from upgrade_log`.execute(l.test.owner);
-    expect(log.rows).toEqual([{ from_schema: 10, to_schema: 14 }]);
+    expect(log.rows).toEqual([{ from_schema: 10, to_schema: LATEST }]);
   }, 120_000);
 
   it('a failing newer migration leaves a valid database at the older schema', async () => {

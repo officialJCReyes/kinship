@@ -41,6 +41,8 @@ seed_previous_release() {
 # Counts and values that must be the same after the upgrade (the digest in the main script covers every row; these say what
 # a human would look for if it fails).
 assert_seed_after_upgrade() {
+  # Migration 0015 (placeholders): every person that existed before is a real person, none is an "Unknown" stand-in.
+  expect 0 "$(sql 'select count(*) from people where is_placeholder')" "placeholder people after the upgrade"
   expect 6 "$(sql 'select count(*) from people')" "people after the upgrade"
   expect 2 "$(sql 'select count(*) from unions')" "relationships after the upgrade"
   expect 3 "$(sql 'select count(*) from person_parents')" "parent links after the upgrade"

@@ -144,7 +144,8 @@ describe('the chart', () => {
     lena.focus();
     fireEvent.keyDown(lena, { key: 'Enter' });
     await waitFor(() => expect(lena.getAttribute('aria-pressed')).toBe('true'));
-    expect(screen.getByRole('status', { name: '' }).textContent).toContain('Selected: Lena Okafor');
+    // The chart's own live region (the page's message region is a second status, and is empty here).
+    expect(document.querySelector('.tree-canvas [role="status"]')?.textContent).toContain('Selected: Lena Okafor');
     // up from a person with a leaf goes to the leaf, and Enter on it flips
     fireEvent.keyDown(lena, { key: 'ArrowUp' });
     expect(document.activeElement?.getAttribute('data-leaf')).toBe('lena');

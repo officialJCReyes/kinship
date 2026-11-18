@@ -27,7 +27,7 @@ import { errorMessage, warningTexts } from '../lib/errors.js';
 import { statusName } from '../lib/labels.js';
 import { lifespan, parentIdsOf, peopleById } from '../lib/people.js';
 import { useNotices } from '../notices.js';
-import { CreatedButNotLinked, createThenLink, linkParents, newPartnerLink, sortedPair } from './relatives.js';
+import { CreatedButNotLinked, createThenLink, newPartnerLink, sortedPair } from './relatives.js';
 import type { Added } from './relatives.js';
 import { isAdmin } from './permissions.js';
 import { checkPersonDraft, emptyPersonDraft, PersonFields } from './PersonForm.js';
@@ -103,8 +103,8 @@ export function AddRelativeDialog({ detail, tree, me, onClose }: Context & { onC
   const parentCards = missingParentCards(detail, tree, admin);
   const askAdmin = t('addRelative.askAdmin');
   const adminOnly = admin ? undefined : askAdmin;
-  const siblingReason =
-    adminOnly ?? (detail.parents.birth || detail.parents.adoptive ? undefined : t('addRelative.siblingNeedsParent'));
+  // A brother or sister is for admins. With no parents on the tree, unknown parents are added for both (ADR 0019).
+  const siblingReason = adminOnly;
   const childReason = admin || detail.permissions.addChild ? undefined : askAdmin;
 
   if (kind) {
@@ -183,11 +183,11 @@ function RelativeForm({
   // Which kind of parent-child link this adds. Only admins choose; a Member's children are always birth links.
   const unavailable = (which: LinkKind): string | undefined => {
     if (isParent && setSize(which) >= 2) return t('link.unavailable.full');
-    if (isSibling && !detail.parents[which]) return t('link.unavailable.none');
+    if (isSibling && which === 'adoptive' && !detail.parents.adoptive) return t('link.unavailable.none');
     return undefined;
   };
   const [linkKind, setLinkKind] = useState<LinkKind>(() => {
-    if (isSibling) return detail.parents.adoptive ? 'adoptive' : 'birth';
+    if (isSibling) return detail.parents.adoptive && !detail.parents.birth ? 'adoptive' : 'birth';
     if (isParent && setSize('birth') >= 2) return 'adoptive';
     return 'birth';
   });
@@ -288,12 +288,14 @@ function RelativeForm({
       await saveOwnSurname();
       return added;
     }
-    // A brother or sister: a new person with the same parents.
+    // A brother or sister: one call, one transaction. The server adds unknown parents when there are none.
     if (!input || linkInput === undefined) return null;
-    const parentIds = parentIdsOf(chosenSet, tree.unions);
-    return createThenLink(input, (sibling) =>
-      linkParents(sibling.id, parentIds, chosenSet?.unionId ?? null, chosenKind, linkInput),
-    );
+    const result = await api.addSibling(person.id, {
+      sibling: input,
+      kind: chosenKind,
+      ...(linkInput ? { link: linkInput } : {}),
+    });
+    return { person: result.person, warnings: result.warnings };
   };
 
   const onSubmit = async (event: FormEvent) => {
@@ -346,6 +348,12 @@ function RelativeForm({
       ) : null}
       {admin && linkKind === 'adoptive' && (isParent || isChild || isSibling) ? (
         <DateInput label={t('link.date.adoptive')} draft={linkDate} onChange={setLinkDate} showError={submitted} />
+      ) : null}
+
+      {isSibling && !chosenSet && linkKind === 'birth' ? (
+        <p className="muted" data-testid="placeholder-note">
+          {t('addRelative.placeholderNote')}
+        </p>
       ) : null}
 
       {canPickExisting ? (

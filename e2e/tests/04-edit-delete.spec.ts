@@ -3,7 +3,7 @@
 import { createChild, createPerson, createUnion } from '../support/api.js';
 import type { APIRequestContext } from '@playwright/test';
 import { ADMIN, surname } from '../support/data.js';
-import { expect, tabTo, test } from '../support/fixtures.js';
+import { expect, test } from '../support/fixtures.js';
 
 async function marriedWithChild(request: APIRequestContext) {
   const family = surname('Hale');
@@ -131,18 +131,51 @@ test('a person who has an account cannot be deleted', async ({ adminPage: page }
   await expect(dialog.getByRole('alert')).toHaveText('An account is linked to this person. Unlink it first.');
 });
 
-test('a disabled button can be reached with the keyboard and says why', async ({ adminPage: page }) => {
-  // For an admin nothing is disabled except what the data does not allow: a sibling needs a parent.
-  const person = await createPerson(page.request, { givenName: 'Lone', surname: surname('Hale') });
+test('a brother can be added to someone with no parents: unknown parents appear, and the success pill fades by itself', async ({
+  adminPage: page,
+}) => {
+  const family = surname('Hale');
+  const person = await createPerson(page.request, { givenName: 'Lone', surname: family });
   await page.goto(`/people/${person.id}`);
   await page.getByRole('button', { name: 'Add relative' }).click();
-  const sister = page.getByRole('button', { name: 'Add sister' });
-  await expect(sister).toHaveAttribute('aria-disabled', 'true');
-  await tabTo(page, sister);
-  await expect(sister).toHaveAttribute('title', 'Add a parent first');
-  await page.keyboard.press('Enter');
-  // It does nothing: still on the diagram.
-  await expect(page.getByRole('dialog', { name: /^Add relative to / })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toBeHidden();
+  const brother = page.getByRole('button', { name: 'Add brother' });
+  await expect(brother).not.toHaveAttribute('aria-disabled', 'true');
+  await brother.click();
+  const dialog = page.getByRole('dialog', { name: `Add brother to Lone ${family}` });
+  await expect(dialog.getByTestId('placeholder-note')).toBeVisible();
+  await dialog.getByLabel('Given name').fill('Brandon');
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+
+  // A small pill, not a bar: it has no button, and it goes away by itself.
+  const pill = page.getByTestId('notice-pill');
+  await expect(pill).toHaveText(`Brandon ${family} was added to the tree.`);
+  await expect(pill.getByRole('button')).toHaveCount(0);
+  await expect(pill).toBeHidden({ timeout: 10_000 });
+
+  // The profile lists the unknown parents and the new brother.
+  await expect(page.getByRole('link', { name: /^Unknown father/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Unknown mother/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: `Brandon ${family}` })).toBeVisible();
+
+  // On the chart they are dashed cards that are named by what they are, not by a sex.
+  await page.goto(`/tree/${person.id}`);
+  const father = page.getByRole('button', { name: 'Unknown father, add details' });
+  await expect(father).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Unknown mother, add details' })).toBeVisible();
+  await father.click();
+  await page.getByRole('button', { name: 'Add details', exact: true }).click();
+  const edit = page.getByRole('dialog', { name: 'Add details: Unknown father' });
+  await edit.getByLabel('Given name').fill('Joseph');
+  await edit.getByLabel('Surname', { exact: true }).fill(family);
+  await edit.getByRole('button', { name: 'Save' }).click();
+  await expect(edit).toBeHidden();
+  // Named: an ordinary person now, in the list and on the chart.
+  await expect(page.getByRole('button', { name: `Joseph ${family}, male`, exact: false })).toBeVisible();
+  await page.goto(`/people?q=${encodeURIComponent('Joseph ' + family)}`);
+  await expect(page.getByRole('link', { name: `Joseph ${family}` })).toBeVisible();
+  // The one that is still unknown is not in the list.
+  await page.goto('/people?q=Unknown');
+  await expect(page.getByRole('link', { name: /^Unknown/ })).toHaveCount(0);
 });

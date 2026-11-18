@@ -7,7 +7,8 @@ import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_DISPLAY, setDisplay } from '../src/lib/display.js';
 import { NODE_H } from '../src/tree/layout.js';
-import { ADMIN, haleRoutes, PEOPLE } from './family.js';
+import { missingParentCards } from '../src/people/AddRelative.js';
+import { ADMIN, detailFor, haleRoutes, PEOPLE, treeFor } from './family.js';
 import { mockApi, renderApp } from './helpers.js';
 
 const NICKNAME = { givenName: 'Rafael Octavio "Tavo"', surname: 'Brandt', secondSurname: 'Santori' };
@@ -143,5 +144,63 @@ describe('the side panel and the birth surname', () => {
     change('elena', { marriedSurname: 'Ruiz' });
     const panel = await panelFor(/^Elena Ruiz/);
     expect(within(panel).queryByText(/Birth surname/)).toBeNull();
+  });
+});
+
+describe('an unknown parent (placeholder)', () => {
+  it('is a dashed, neutral card with a plus, no years, and a name that says nothing about sex', async () => {
+    change('lena', { isPlaceholder: true, gender: 'female', givenName: '', surname: '', birth: null });
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    const lena = card('lena');
+    expect(lena.getAttribute('aria-label')).toBe('Unknown mother, add details');
+    expect(lena.classList.contains('placeholder')).toBe(true);
+    // Neutral: never the female (or male) border, even though the database keeps female for the label.
+    expect(
+      lena.classList.contains('female') || lena.classList.contains('male') || lena.classList.contains('other'),
+    ).toBe(false);
+    expect(lena.querySelector('.plus')).not.toBeNull();
+    expect(lena.querySelector('.ini')).toBeNull();
+    expect(lena.querySelector('.years')?.textContent).toBe('');
+    expect(lena.querySelector('.box')?.getAttribute('height')).toBe(String(NODE_H));
+    expect(lena.getAttribute('aria-label')).not.toMatch(/female|male|born/);
+  });
+
+  it('has a legend row, and the side panel offers Add details and no sex, dates or Add relative', async () => {
+    change('lena', { isPlaceholder: true, gender: 'male', givenName: '', surname: '', birth: null });
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    expect(within(screen.getByRole('group', { name: 'Legend' })).getByText(/unknown parent/i)).toBeTruthy();
+    fireEvent.click(card('lena'));
+    const panel = await screen.findByRole('complementary', { name: 'Selected person' });
+    expect(within(panel).getByRole('heading', { name: 'Unknown father' })).toBeTruthy();
+    expect(within(panel).getByRole('button', { name: 'Add details' })).toBeTruthy();
+    expect(within(panel).queryByRole('button', { name: 'Add relative' })).toBeNull();
+    expect(panel.textContent).not.toMatch(/Living|male|female/i);
+  });
+
+  it('shows on a profile as Unknown father and mother with Add details, and fills the birth parent slots', async () => {
+    for (const id of ['walter', 'rosa']) {
+      change(id, {
+        isPlaceholder: true,
+        givenName: '',
+        surname: '',
+        birth: null,
+        death: null,
+        deceased: false,
+        gender: id === 'walter' ? 'male' : 'female',
+      });
+    }
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/people/daniel');
+    await screen.findByRole('heading', { name: 'Daniel Hale', level: 1 });
+    expect(screen.getAllByRole('button', { name: 'Add details' }).length).toBe(2);
+    expect(screen.getAllByText('Unknown father').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Unknown mother').length).toBeGreaterThan(0);
+    // Unknown parents fill the birth slots, so no birth parent is offered (an admin may still add adoptive parents).
+    const tree = treeFor('daniel', { up: 1, down: 0, collateral: false });
+    expect(missingParentCards(detailFor(ADMIN, 'daniel'), tree)).toEqual([]);
   });
 });

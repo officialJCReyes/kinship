@@ -382,6 +382,17 @@ export const en = {
   'error.too_many_parents': 'A person can have at most two parents.',
   'error.parent_already_linked': 'That person is already a parent.',
   'error.would_create_cycle': 'That would make someone their own ancestor.',
+  'person.unknownFather': 'Unknown father',
+  'person.unknownMother': 'Unknown mother',
+  'person.addDetails': 'Add details',
+  'person.placeholderNote': 'Nothing is known about this person yet. Add details to make them an ordinary person.',
+  'tree.node.unknownParent': '{name}, add details',
+  'edit.titlePlaceholder': 'Add details: {name}',
+  'addRelative.placeholderNote':
+    'This person has no parents on the tree. An unknown father and an unknown mother are added for both of them; you can give them names later.',
+  'error.sibling_needs_parent':
+    'This person has no parents of that kind recorded, so a brother or sister cannot be added that way.',
+  'error.placeholder_needs_name': 'Give this person a given name and a surname to make them an ordinary person.',
   'error.union_ambiguous': 'These two people have more than one relationship. Choose which one the child belongs to.',
   'error.union_parent_mismatch': 'That relationship does not include the parent you chose.',
   'error.parent_not_found': 'That person is not a parent of this child.',
@@ -755,7 +766,6 @@ export const en = {
   'addRelative.relative.daughter': 'daughter',
   'addRelative.partnerHint': 'Husband, ex-husband, partner, …',
   'addRelative.askAdmin': 'Ask an admin to add this relative',
-  'addRelative.siblingNeedsParent': 'Add a parent first',
   'addRelative.adminNote': 'Pick who to add. Brothers and sisters join the same parents.',
   'addRelative.memberNote': 'You can add children here. To add anyone else, ask an admin.',
   'addRelative.who': 'Who is it?',
@@ -822,6 +832,7 @@ export const en = {
   'tree.legend.ended': 'Dotted line: divorced, separated, annulment, friends, unknown or other',
   'tree.legend.genderOther': 'Other or unknown',
   'tree.legend.deceased': 'Deceased',
+  'tree.legend.placeholder': 'Dashed card: an unknown parent. Click it to add details',
   'tree.legend.leaf': 'Leaf: opens that person’s own family',
   'tree.notice.chartLoadFailed': 'The chart could not be loaded.',
 

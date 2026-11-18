@@ -6,6 +6,8 @@ import type {
   AccountsResponse,
   AddChildRequest,
   AddParentRequest,
+  AddSiblingRequest,
+  SiblingResponse,
   BackupSettings,
   UpdateBackupAckRequest,
   UpdateDismissRequest,
@@ -282,6 +284,13 @@ export async function addChild(parentId: string, request: AddChildRequest): Prom
   const reply = await send('POST', path, request);
   if (!succeeded(reply)) fail(path, reply);
   return reply.body as ChildResponse;
+}
+
+export async function addSibling(personId: string, request: AddSiblingRequest): Promise<SiblingResponse> {
+  const path = `/api/people/${encodeURIComponent(personId)}/siblings`;
+  const reply = await send('POST', path, request);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as SiblingResponse;
 }
 
 export async function addParent(childId: string, request: AddParentRequest): Promise<ParentageResponse> {

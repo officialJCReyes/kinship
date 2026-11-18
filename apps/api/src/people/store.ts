@@ -39,6 +39,7 @@ export const PERSON_COLUMNS = [
   'deceased',
   'death_date',
   'death_precision',
+  'is_placeholder',
   'created_by',
   'created_at',
   'updated_at',
@@ -71,6 +72,7 @@ export function toPerson(row: PersonRow): Person {
     birth: toPartialDate(row.birth_date, row.birth_precision),
     deceased: row.deceased,
     death: toPartialDate(row.death_date, row.death_precision),
+    isPlaceholder: row.is_placeholder,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -93,7 +95,17 @@ export function toUnion(row: UnionRow): Union {
 // People
 // ---------------------------------------------------------------------------
 
+/**
+ * People who are real: not an "Unknown father/mother" placeholder (0015). Every list, search, count or total of
+ * people starts here. Reading ONE person by id, or walking the family tree, may use `people` directly, and a
+ * direct read says so with a `// placeholders: included` comment (a test enforces this).
+ */
+export function realPeople(trx: Trx) {
+  return trx.selectFrom('people').select(PERSON_COLUMNS).where('is_placeholder', '=', false);
+}
+
 export function getPerson(trx: Trx, id: string): Promise<PersonRow | undefined> {
+  // placeholders: included (one person by id)
   return trx.selectFrom('people').select(PERSON_COLUMNS).where('id', '=', id).executeTakeFirst();
 }
 
@@ -108,6 +120,8 @@ export interface PersonValues {
   deceased: boolean;
   death_date: string | null;
   death_precision: PartialDate['precision'];
+  /** Only a patch on a placeholder sets this (to false: it was given a name). */
+  is_placeholder?: boolean;
 }
 
 export async function insertPerson(trx: Trx, createdBy: string, values: PersonValues): Promise<PersonRow> {
@@ -137,7 +151,7 @@ export interface PeopleQuery {
 const likeEscape = (word: string): string => word.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 export async function listPeople(trx: Trx, query: PeopleQuery): Promise<{ rows: PersonRow[]; hasMore: boolean }> {
-  let q = trx.selectFrom('people').select(PERSON_COLUMNS);
+  let q = realPeople(trx);
   for (const word of query.words) {
     q = q.where(sql<boolean>`search_names like ${'%' + likeEscape(word) + '%'} escape '\\'`);
   }
@@ -387,6 +401,7 @@ export async function personHasAccount(trx: Trx, personId: string): Promise<bool
  */
 export async function parentAgeWarnings(trx: Trx, personId: string): Promise<ApiWarning[]> {
   const result = await sql<{ child_id: string; parent_id: string; diff: number }>`
+    -- placeholders: included (they have no birth date, so no age to warn about)
     select c.id as child_id, parents.pid as parent_id,
            substr(c.birth_date, 1, 4)::int - substr(p.birth_date, 1, 4)::int as diff
       from person_parents pp
@@ -396,7 +411,7 @@ export async function parentAgeWarnings(trx: Trx, personId: string): Promise<Api
         union all select u.partner_a_id from unions u where u.id = pp.union_id
         union all select u.partner_b_id from unions u where u.id = pp.union_id
       ) parents
-      join people p on p.id = parents.pid
+      join people p on p.id = parents.pid -- placeholders: included
      where (c.id = ${personId} or p.id = ${personId})
        and c.birth_date is not null and p.birth_date is not null
        and substr(c.birth_date, 1, 4)::int - substr(p.birth_date, 1, 4)::int < ${MIN_PARENT_AGE_YEARS}
@@ -515,6 +530,7 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
   const ids = [...new Set([...core, ...inLaws, ...partnerChildren.rows.map((r) => r.id)])];
   const drawn = new Set(ids);
 
+  // placeholders: included (they are drawn on the chart)
   const people = await trx
     .selectFrom('people')
     .select(PERSON_COLUMNS)
@@ -610,7 +626,9 @@ async function ancestorCounts(trx: Trx, personIds: string[], view: LineageView):
       union
       select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
     )
-    select origin, count(*) as n from anc group by origin`.execute(trx);
+    select a.origin, count(*) as n from anc a join people p on p.id = a.id where not p.is_placeholder group by a.origin`.execute(
+    trx,
+  );
   for (const row of rows.rows) result.set(row.origin, Number(row.n));
   return result;
 }
@@ -631,7 +649,9 @@ async function otherFamilyCounts(
       union
       select a.origin, x.pid from anc a, lateral public.kinship_parent_ids_in(a.id, ${view}) as x(pid)
     )
-    select origin, count(*) as n from anc group by origin`.execute(trx);
+    select a.origin, count(*) as n from anc a join people p on p.id = a.id where not p.is_placeholder group by a.origin`.execute(
+    trx,
+  );
   const counts = new Map(rows.rows.map((r) => [r.origin, Number(r.n)]));
   for (const set of sets) result.set(set.child, { kind: set.kind, count: counts.get(set.child) ?? 0 });
   return result;
@@ -671,6 +691,7 @@ export async function labelsOfPerson(trx: Trx, personId: string): Promise<Person
   const otherIds = [...new Set(rows.map((row) => (row.from_id === personId ? row.to_id : row.from_id)))];
   const others = new Map<string, Person>();
   if (otherIds.length > 0) {
+    // placeholders: included (a label's other end, by id)
     const found = await trx.selectFrom('people').select(PERSON_COLUMNS).where('id', 'in', otherIds).execute();
     for (const row of found) others.set(row.id, toPerson(row));
   }
@@ -740,6 +761,7 @@ export async function partnerChildrenOf(
      order by c.partner_id, c.child_id`.execute(trx);
   if (found.rows.length === 0) return [];
   const ids = [...new Set(found.rows.flatMap((r) => [r.child_id, ...(r.other_id ? [r.other_id] : [])]))];
+  // placeholders: included (children of a partner, by id)
   const people = new Map(
     (await trx.selectFrom('people').select(PERSON_COLUMNS).where('id', 'in', ids).execute()).map((row) => [
       row.id,
@@ -759,4 +781,35 @@ export async function partnerChildrenOf(
       },
     ];
   });
+}
+
+// ---------------------------------------------------------------------------
+// Placeholders (0015): "Unknown father" and "Unknown mother"
+// ---------------------------------------------------------------------------
+
+/** A placeholder parent: no name, no dates. The gender only says which one it is, for the label. */
+export async function insertPlaceholder(trx: Trx, createdBy: string, gender: 'male' | 'female'): Promise<PersonRow> {
+  return trx
+    .insertInto('people')
+    .values({ given_name: '', surname: '', gender, is_placeholder: true, created_by: createdBy })
+    .returning(PERSON_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/**
+ * Removes placeholder relationships and people nobody hangs from any more (the last child of a placeholder pair was
+ * deleted or moved). A relationship between two placeholders goes when it has no children; a placeholder goes when it
+ * has no relationship left and no child of its own. Named people are never touched.
+ */
+export async function removeOrphanPlaceholders(trx: Trx): Promise<void> {
+  await sql`
+    delete from unions u
+     where exists (select 1 from people a where a.id = u.partner_a_id and a.is_placeholder)
+       and exists (select 1 from people b where b.id = u.partner_b_id and b.is_placeholder)
+       and not exists (select 1 from person_parents pp where pp.union_id = u.id)`.execute(trx);
+  await sql`
+    delete from people p
+     where p.is_placeholder
+       and not exists (select 1 from unions u where p.id in (u.partner_a_id, u.partner_b_id))
+       and not exists (select 1 from person_parents pp where pp.parent_id = p.id)`.execute(trx);
 }
