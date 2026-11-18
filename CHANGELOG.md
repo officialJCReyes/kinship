@@ -4,7 +4,7 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-11-23
+## [0.2.0] - 2026-11-18
 
 **KinShip 0.2.0, "A tree you can trust". The data promise starts here:** an upgrade keeps your data, and a safety copy of the database is made before every database change. If you run 0.1.0-alpha.2, read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before updating: it needs a backups folder and a backup passphrase first. From a 0.2.0 release candidate it is an image update.
 
