@@ -15,6 +15,13 @@ Then change `KINSHIP_VERSION` to the new version (the release's `env.example` sh
 
 What changes for people: every Married relationship with a deceased partner becomes Widowed (see "Names and relationships" below); everyone sees dates as "Jan 1, 2026" until they change it in My settings; admins see a "What's new" popup once. An alpha account is still not linked to a person ([#8](https://github.com/officialJCReyes/kinship/issues/8)): open **Family tree** and choose who to start from.
 
+### Unknown parents (database change, back up first)
+
+- **No action is needed, and no data changes.** Migration 0015 adds one column to every person, `is_placeholder`, `false` for everyone who exists already, and lets only a placeholder have no name. A placeholder is an "Unknown father" or "Unknown mother" that KinShip adds when you add a brother or sister to someone with no parents. It has no name and no dates; giving it a name makes it an ordinary person.
+- Placeholders are real rows in the database, so a backup holds them and a restore brings them back. They are left out of the people list, search and counts, and a future GEDCOM export will not write them.
+- **API:** new `POST /api/people/:id/siblings` (admins only; one transaction). `Person` has a new field `isPlaceholder`. A script that added a sibling with `POST /api/people` and `POST /api/people/:id/parents` still works for a person who has parents.
+- The safety copy is named by schema numbers as always (`pre-upgrade-0014-to-0015` from 0.2.0-rc.2).
+
 ### Update check, What's changing and What's new (database change, back up first)
 
 - **No action is needed, and no data changes.** Migration 0014 adds a table for the state of the update check and four columns to every account (the version they last saw What's new for, and the SuperAdmin's dismissed banner and backup tick). An account that exists already is shown the changes since 0.1.0-alpha.2 once, at its next sign-in (admins only); a new account starts current. It also adds a column to the upgrade log that records the version of a backup that was restored.
