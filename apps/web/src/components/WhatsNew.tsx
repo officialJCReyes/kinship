@@ -48,10 +48,6 @@ export function WhatsNewDialog({
           </p>
         ) : (
           <>
-            <p className="muted">
-              {data.from ? t('updates.whatsNew.from', { version: data.from }) : t('updates.whatsNew.fromUnknown')}{' '}
-              {t('updates.whatsNew.offlineNote')}
-            </p>
             {data.migrations.map((m) => (
               <div className="callout" key={m.at}>
                 <strong>

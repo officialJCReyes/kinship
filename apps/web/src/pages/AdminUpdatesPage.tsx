@@ -3,10 +3,11 @@
 // Admin > Updates. The SuperAdmin sees the version card, the three switches and Check now; a Family Admin sees only a note.
 import type { MessageKey, UpdateSettings, UpdatesResponse } from '@kinship/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import * as api from '../api.js';
 import { updatesKey, useUpdates } from '../admin/updates.js';
 import { useSession } from '../auth.js';
+import { InfoTip } from '../components/InfoTip.js';
 import { UpdateDialog } from '../components/UpdateDialog.js';
 import { ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
@@ -104,10 +105,15 @@ function VersionCard({ data, onChanging }: { data: UpdatesResponse; onChanging: 
   );
 }
 
+/**
+ * A setting with a checkbox. The explanation is either shown under the label (`tip` false) or kept in a tooltip beside it
+ * (`tip` true); the checkbox's description points at it either way. The tooltip button sits outside the <label>.
+ */
 function Switch({
   name,
   label,
   help,
+  tip = false,
   checked,
   busy,
   onChange,
@@ -115,24 +121,36 @@ function Switch({
   name: keyof UpdateSettings;
   label: string;
   help: string;
+  tip?: boolean;
   checked: boolean;
   busy: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const inputId = useId();
+  const helpId = `${inputId}-help`;
   return (
-    <label className="option">
+    <div className="option">
       <input
+        id={inputId}
         type="checkbox"
         name={name}
         checked={checked}
         disabled={busy}
+        aria-describedby={helpId}
         onChange={(event) => onChange(event.target.checked)}
       />
       <span>
-        <strong>{label}</strong>
-        <span className="muted block">{help}</span>
+        <label htmlFor={inputId}>
+          <strong>{label}</strong>
+        </label>
+        {tip ? <InfoTip id={helpId} label={t('updates.settings.moreAbout', { setting: label })} text={help} /> : null}
+        {tip ? null : (
+          <span id={helpId} className="muted block">
+            {help}
+          </span>
+        )}
       </span>
-    </label>
+    </div>
   );
 }
 
@@ -156,6 +174,7 @@ function SettingsCard({ data }: { data: UpdatesResponse }) {
         name="check"
         label={t('updates.settings.check')}
         help={t('updates.settings.check.help')}
+        tip
         checked={settings.check}
         busy={save.isPending}
         onChange={set('check')}
@@ -172,6 +191,7 @@ function SettingsCard({ data }: { data: UpdatesResponse }) {
         name="safetyCopy"
         label={t('updates.settings.safety')}
         help={t('updates.settings.safety.help')}
+        tip
         checked={settings.safetyCopy}
         busy={save.isPending}
         onChange={set('safetyCopy')}

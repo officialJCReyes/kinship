@@ -940,6 +940,7 @@ export const en = {
   'updates.familyAdminNote':
     'Only a SuperAdmin manages update checks. After an update, admins see a “What’s new” popup when they sign in, and anyone can reopen it from the account menu → About KinShip.',
   'updates.settings.heading': 'Settings',
+  'updates.settings.moreAbout': 'More about {setting}',
   'updates.settings.check': 'Check for new versions',
   'updates.settings.check.help':
     'Once a day KinShip reads the public release list on GitHub (api.github.com) and shows a notice to the SuperAdmin here. It sends nothing about your install, only a normal request for public data (GitHub sees your server’s address, as with any download). Turn this off if the server has no internet access.',
@@ -992,10 +993,6 @@ export const en = {
   'updates.steps.copied': 'Copied',
   'updates.popup.later': 'Remind me later',
   'updates.whatsNew.title': 'KinShip was updated to {version}',
-  'updates.whatsNew.from': 'From {version}.',
-  'updates.whatsNew.fromUnknown': 'Updated from an earlier version.',
-  'updates.whatsNew.offlineNote':
-    'Shown once to admins the first time they sign in after an update. It is read from the changelog inside the app, so it works without internet.',
   'updates.whatsNew.migrated': 'The database was updated (schema {from} to {to}).',
   'updates.whatsNew.migratedUnknownFrom': 'The database was updated (to schema {to}).',
   'updates.whatsNew.safetyCopy': 'A safety copy was saved first: {file}.',
