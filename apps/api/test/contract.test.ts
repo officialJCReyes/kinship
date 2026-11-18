@@ -88,6 +88,7 @@ const peopleColumns = [
   'deceased',
   'death_date',
   'death_precision',
+  'is_placeholder',
   'search_name',
   'search_names',
   'created_by',

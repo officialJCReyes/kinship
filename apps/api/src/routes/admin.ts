@@ -104,6 +104,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       const personIds = [
         ...new Set([...users.map((u) => u.person_id), ...links.map((l) => l.person_id)].filter((id) => id !== null)),
       ];
+      // placeholders: included (a linked person, by id; a placeholder is never linked to an account)
       const people = personIds.length
         ? await trx.selectFrom('people').select(['id', 'given_name', 'surname']).where('id', 'in', personIds).execute()
         : [];

@@ -85,6 +85,11 @@ export interface Person {
   birth: PartialDate | null;
   deceased: boolean;
   death: PartialDate | null;
+  /**
+   * An "Unknown father/mother" stand-in with no name and no dates. `gender` only says which of the two it is (for the
+   * label); it is never a sex to draw or show. Naming the person makes this false.
+   */
+  isPlaceholder: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -330,6 +335,22 @@ export interface AddChildRequest {
   unionId?: string;
 }
 
+/** Body of POST /api/people/:id/siblings: a new brother or sister, with the parents they share with this person. */
+export interface AddSiblingRequest {
+  sibling: PersonInput;
+  /** Birth by default. Adoptive needs an adoptive set already recorded. */
+  kind?: LinkKind;
+  /** The date of the link (for an adoption, its year or decree date). Optional. */
+  link?: PartialDateInput | null;
+}
+/** Response of POST /api/people/:id/siblings. `placeholders` lists the "Unknown" parents it had to create (empty when it reused existing parents). */
+export interface SiblingResponse {
+  person: Person;
+  parentage: Parentage;
+  placeholders: Person[];
+  warnings: ApiWarning[];
+}
+
 /** Error codes for people, relationships and the tree. Every one has an `error.<code>` message. */
 export const PEOPLE_ERROR_CODES = [
   'forbidden',
@@ -364,6 +385,8 @@ export const PEOPLE_ERROR_CODES = [
   'invalid_label',
   'label_not_found',
   'duplicate_label',
+  'sibling_needs_parent',
+  'placeholder_needs_name',
 ] as const;
 export type PeopleErrorCode = (typeof PEOPLE_ERROR_CODES)[number];
 
@@ -390,6 +413,7 @@ export const PEOPLE_ROUTES = [
   { method: 'PATCH', path: '/api/people/:id', access: 'admin-or-own-person' },
   { method: 'DELETE', path: '/api/people/:id', access: 'admin' },
   { method: 'POST', path: '/api/people/:id/children', access: 'admin-or-own-line' },
+  { method: 'POST', path: '/api/people/:id/siblings', access: 'admin' },
   { method: 'POST', path: '/api/people/:id/parents', access: 'admin' },
   { method: 'DELETE', path: '/api/people/:id/parents/:parentId', access: 'admin' },
   { method: 'PATCH', path: '/api/people/:id/parents/:kind', access: 'admin' },

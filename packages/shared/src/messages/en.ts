@@ -382,6 +382,8 @@ export const en = {
   'error.too_many_parents': 'A person can have at most two parents.',
   'error.parent_already_linked': 'That person is already a parent.',
   'error.would_create_cycle': 'That would make someone their own ancestor.',
+  'error.sibling_needs_parent': 'This person has no parents of that kind recorded, so a brother or sister cannot be added that way.',
+  'error.placeholder_needs_name': 'Give this person a given name and a surname to make them an ordinary person.',
   'error.union_ambiguous': 'These two people have more than one relationship. Choose which one the child belongs to.',
   'error.union_parent_mismatch': 'That relationship does not include the parent you chose.',
   'error.parent_not_found': 'That person is not a parent of this child.',

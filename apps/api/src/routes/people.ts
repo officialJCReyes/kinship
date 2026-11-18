@@ -3,6 +3,8 @@ import { GENDERS, LINK_KINDS, PEOPLE_PAGE_DEFAULT, PEOPLE_PAGE_MAX, SEARCH_MAX_L
 import type {
   AddChildRequest,
   AddParentRequest,
+  AddSiblingRequest,
+  SiblingResponse,
   LinkKind,
   UpdateParentLinkRequest,
   ChildResponse,
@@ -33,6 +35,7 @@ import {
   getPerson,
   getUnion,
   insertPerson,
+  insertPlaceholder,
   isUuid,
   labelsOfPerson,
   listPeople,
@@ -40,6 +43,7 @@ import {
   parentAgeWarnings,
   partnerChildrenOf,
   personHasAccount,
+  removeOrphanPlaceholders,
   singleParentChildLinks,
   toParentage,
   toPerson,
@@ -48,7 +52,7 @@ import {
   updatePerson,
   withChildren,
 } from '../people/store.js';
-import type { PersonValues } from '../people/store.js';
+import type { PersonRow, PersonValues } from '../people/store.js';
 import type { RouteLimit } from './shared.js';
 
 type Trx = Transaction<Database>;
@@ -255,7 +259,13 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
         const current = await getPerson(trx, id);
         if (!current) throw notFound('person_not_found');
         if (!(await canEditPerson(trx, actor, current))) throw forbidden();
-        const row = await updatePerson(trx, id, parsePersonPatch(body, current));
+        const values = parsePersonPatch(body, current);
+        if (current.is_placeholder) {
+          // Giving an unknown parent a name makes them an ordinary person. Both names are needed (the form sends both).
+          if (values.given_name === undefined || values.surname === undefined) throw badRequest('placeholder_needs_name');
+          values.is_placeholder = false;
+        }
+        const row = await updatePerson(trx, id, values);
         if (!row) throw forbidden(); // the row-level security policy said no after all
         const warnings = body.birth !== undefined ? await parentAgeWarnings(trx, id) : [];
         return { person: toPerson(row), warnings };
@@ -291,6 +301,8 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
         }
         // The database moves the children and removes the unions (trigger in migration 0004).
         await trx.deleteFrom('people').where('id', '=', id).execute();
+        // An "Unknown" pair nobody hangs from any more goes with the last child.
+        await removeOrphanPlaceholders(trx);
       });
       return reply.code(204).send();
     },
@@ -350,6 +362,78 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
           person: toPerson(child),
           parentage: toParentage(row),
           warnings: await parentAgeWarnings(trx, child.id),
+        };
+      });
+      void reply.code(201);
+      return result;
+    },
+  );
+
+  // --- add a brother or sister (admins) ------------------------------------------
+  // One transaction. The new person gets the same parent set as this person. When this person has no parents of that
+  // kind (birth only), two placeholder parents ("Unknown father", "Unknown mother") and an Unknown relationship are
+  // created and both children are linked to them. With one parent, that parent is reused and no placeholder is added.
+  app.post(
+    '/api/people/:id/siblings',
+    {
+      config: limit,
+      schema: {
+        params: uuidParam('id'),
+        body: {
+          type: 'object',
+          required: ['sibling'],
+          additionalProperties: false,
+          properties: { sibling: personInputSchema, kind: kindSchema, link: dateSchema },
+        },
+      },
+    },
+    async (request, reply): Promise<SiblingResponse> => {
+      const { id } = request.params as { id: string };
+      const body = request.body as AddSiblingRequest;
+      if (!isUuid(id)) throw notFound('person_not_found');
+      const result = await run(request, async (trx, actor) => {
+        if (!isAdmin(actor)) throw forbidden();
+        if (!(await getPerson(trx, id))) throw notFound('person_not_found');
+        const kind: LinkKind = body.kind ?? 'birth';
+        const link = parseDateInput(body.link ?? null);
+        const values = parsePersonInput(body.sibling);
+        const placeholders: PersonRow[] = [];
+        let set = await getParentageRow(trx, id, kind);
+        if (!set) {
+          if (kind !== 'birth') throw badRequest('sibling_needs_parent');
+          const father = await insertPlaceholder(trx, actor.id, 'male');
+          const mother = await insertPlaceholder(trx, actor.id, 'female');
+          placeholders.push(father, mother);
+          const [a, b] = father.id < mother.id ? [father.id, mother.id] : [mother.id, father.id];
+          const union = await trx
+            .insertInto('unions')
+            .values({ partner_a_id: a, partner_b_id: b, status: 'unknown', created_by: actor.id })
+            .returning(UNION_COLUMNS)
+            .executeTakeFirstOrThrow();
+          await trx
+            .insertInto('person_parents')
+            .values({ child_id: id, kind, union_id: union.id, parent_id: null, created_by: actor.id })
+            .execute();
+          set = await getParentageRow(trx, id, kind);
+          if (!set) throw badRequest('sibling_needs_parent');
+        }
+        const sibling = await insertPerson(trx, actor.id, values);
+        const row = {
+          kind,
+          union_id: set.union_id,
+          parent_id: set.parent_id,
+          link_date: link?.value ?? null,
+          link_precision: link?.precision ?? ('exactly' as const),
+        };
+        await trx
+          .insertInto('person_parents')
+          .values({ child_id: sibling.id, ...row, created_by: actor.id })
+          .execute();
+        return {
+          person: toPerson(sibling),
+          parentage: toParentage(row),
+          placeholders: placeholders.map(toPerson),
+          warnings: await parentAgeWarnings(trx, sibling.id),
         };
       });
       void reply.code(201);

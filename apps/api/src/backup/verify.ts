@@ -181,6 +181,7 @@ export async function verifyBackup(ctx: BackupContext, archivePath: string): Pro
           } else {
             const seen = await asApp.transaction().execute(async (trx) => {
               await sql`select set_config('kinship.user_id', ${adminId}, true)`.execute(trx);
+              // placeholders: included (a backup counts every row)
               return (await sql<{ n: string }>`select count(*)::text as n from people`.execute(trx)).rows[0]?.n;
             });
             checks.push({
