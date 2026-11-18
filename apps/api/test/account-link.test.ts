@@ -73,8 +73,11 @@ const preview = (who: Who, target: AccountKey | string, personId: string) =>
     `/api/admin/accounts/${target in f.account ? f.account[target as AccountKey].id : target}/link-preview?personId=${personId}`,
   );
 const personOf = async (key: AccountKey) =>
-  (await sql<{ person_id: string | null }>`select person_id from users where id = ${f.account[key].id}`.execute(t.owner))
-    .rows[0]!.person_id;
+  (
+    await sql<{ person_id: string | null }>`select person_id from users where id = ${f.account[key].id}`.execute(
+      t.owner,
+    )
+  ).rows[0]!.person_id;
 const asUser = <T>(userId: string | null, fn: Parameters<typeof withUserTransaction<T>>[2]) =>
   withUserTransaction(t.db, userId, fn);
 
@@ -170,12 +173,35 @@ describe('linking, changing and unlinking', () => {
     const lines = logged
       .map((line) => JSON.parse(line) as Record<string, unknown>)
       .filter((line) => typeof line['event'] === 'string' && String(line['event']).startsWith('account_person'));
-    const fields = (line: Record<string, unknown>) =>
-      ({ event: line['event'], actor: line['actor'], account: line['account'], from: line['from'], to: line['to'] });
+    const fields = (line: Record<string, unknown>) => ({
+      event: line['event'],
+      actor: line['actor'],
+      account: line['account'],
+      from: line['from'],
+      to: line['to'],
+    });
     expect(lines.map(fields)).toEqual([
-      { event: 'account_person_linked', actor: f.account.superadmin.id, account: f.account.user.id, from: null, to: f.person.priya },
-      { event: 'account_person_linked', actor: f.account.superadmin.id, account: f.account.user.id, from: f.person.priya, to: f.person.leo },
-      { event: 'account_person_unlinked', actor: f.account.superadmin.id, account: f.account.user.id, from: f.person.leo, to: null },
+      {
+        event: 'account_person_linked',
+        actor: f.account.superadmin.id,
+        account: f.account.user.id,
+        from: null,
+        to: f.person.priya,
+      },
+      {
+        event: 'account_person_linked',
+        actor: f.account.superadmin.id,
+        account: f.account.user.id,
+        from: f.person.priya,
+        to: f.person.leo,
+      },
+      {
+        event: 'account_person_unlinked',
+        actor: f.account.superadmin.id,
+        account: f.account.user.id,
+        from: f.person.leo,
+        to: null,
+      },
     ]);
     const text = logged.filter((line) => line.includes('account_person')).join('');
     for (const secret of ['Priya', 'Leo', 'example.com']) expect(text).not.toContain(secret);
@@ -191,27 +217,45 @@ describe('every refusal', () => {
   it('400/404 for malformed ids and bodies', async () => {
     expect((await put('superadmin', 'nope', f.person.priya)).status).toBe(404);
     expect((await put('superadmin', 'user', 'nope')).status).toBe(404);
-    expect((await as('superadmin', 'PUT', `/api/admin/accounts/${f.account.user.id}/person`, { personId: f.person.priya })).status).toBe(400);
+    expect(
+      (await as('superadmin', 'PUT', `/api/admin/accounts/${f.account.user.id}/person`, { personId: f.person.priya }))
+        .status,
+    ).toBe(400);
     expect((await put('superadmin', 'user', f.person.priya, 'nope')).status).toBe(400);
     expect((await unlink('superadmin', 'member', 'nope')).status).toBe(400);
     expect((await preview('superadmin', 'user', 'nope')).status).toBe(404);
   });
 
   it('404 account_not_found and person_not_found', async () => {
-    expect(await put('superadmin', NOBODY, f.person.priya)).toMatchObject({ status: 404, body: { error: 'account_not_found' } });
+    expect(await put('superadmin', NOBODY, f.person.priya)).toMatchObject({
+      status: 404,
+      body: { error: 'account_not_found' },
+    });
     expect(await put('superadmin', 'user', NOBODY)).toMatchObject({ status: 404, body: { error: 'person_not_found' } });
-    expect(await unlink('superadmin', NOBODY, f.person.marcus)).toMatchObject({ status: 404, body: { error: 'account_not_found' } });
-    expect(await preview('superadmin', 'user', NOBODY)).toMatchObject({ status: 404, body: { error: 'person_not_found' } });
+    expect(await unlink('superadmin', NOBODY, f.person.marcus)).toMatchObject({
+      status: 404,
+      body: { error: 'account_not_found' },
+    });
+    expect(await preview('superadmin', 'user', NOBODY)).toMatchObject({
+      status: 404,
+      body: { error: 'person_not_found' },
+    });
   });
 
   it('409 person_already_linked: another account has the person', async () => {
-    expect(await put('superadmin', 'user', f.person.marcus)).toMatchObject({ status: 409, body: { error: 'person_already_linked' } });
+    expect(await put('superadmin', 'user', f.person.marcus)).toMatchObject({
+      status: 409,
+      body: { error: 'person_already_linked' },
+    });
     expect(await personOf('user')).toBeNull();
     expect((await preview('superadmin', 'user', f.person.marcus)).body?.['error']).toBe('person_already_linked');
   });
 
   it('409 person_is_placeholder: an unknown parent is never linked', async () => {
-    expect(await put('superadmin', 'user', placeholder)).toMatchObject({ status: 409, body: { error: 'person_is_placeholder' } });
+    expect(await put('superadmin', 'user', placeholder)).toMatchObject({
+      status: 409,
+      body: { error: 'person_is_placeholder' },
+    });
     expect((await preview('superadmin', 'user', placeholder)).body?.['error']).toBe('person_is_placeholder');
     expect(await personOf('user')).toBeNull();
   });
@@ -223,7 +267,10 @@ describe('every refusal', () => {
       personId: f.person.priya,
     });
     expect(invited.status).toBe(201);
-    expect(await put('superadmin', 'user', f.person.priya)).toMatchObject({ status: 409, body: { error: 'person_has_open_invitation' } });
+    expect(await put('superadmin', 'user', f.person.priya)).toMatchObject({
+      status: 409,
+      body: { error: 'person_has_open_invitation' },
+    });
     expect((await as('superadmin', 'POST', `/api/admin/links/${invited.body?.['linkId']}/revoke`)).status).toBe(204);
     expect((await put('superadmin', 'user', f.person.priya)).status).toBe(200);
   });
@@ -234,29 +281,48 @@ describe('every refusal', () => {
       role: 'user',
       personId: f.person.priya,
     });
-    await sql`update account_links set expires_at = now() - interval '1 hour' where id = ${invited.body?.['linkId']}`.execute(t.owner);
+    await sql`update account_links set expires_at = now() - interval '1 hour' where id = ${invited.body?.['linkId']}`.execute(
+      t.owner,
+    );
     expect((await put('superadmin', 'user', f.person.priya)).status).toBe(200);
   });
 
   it('409 account_already_linked: the page was out of date (a link or change made meanwhile)', async () => {
     // The page thinks the Member has nobody; they are linked to Marcus.
-    expect(await put('superadmin', 'member', f.person.sofia, null)).toMatchObject({ status: 409, body: { error: 'account_already_linked' } });
+    expect(await put('superadmin', 'member', f.person.sofia, null)).toMatchObject({
+      status: 409,
+      body: { error: 'account_already_linked' },
+    });
     expect(await personOf('member')).toBe(f.person.marcus);
     // The page thinks Sofia, but it is Marcus.
-    expect(await put('superadmin', 'member', f.person.leo, f.person.sofia)).toMatchObject({ status: 409, body: { error: 'account_already_linked' } });
-    expect(await unlink('superadmin', 'member', f.person.sofia)).toMatchObject({ status: 409, body: { error: 'account_already_linked' } });
+    expect(await put('superadmin', 'member', f.person.leo, f.person.sofia)).toMatchObject({
+      status: 409,
+      body: { error: 'account_already_linked' },
+    });
+    expect(await unlink('superadmin', 'member', f.person.sofia)).toMatchObject({
+      status: 409,
+      body: { error: 'account_already_linked' },
+    });
     expect(await personOf('member')).toBe(f.person.marcus);
   });
 
   it('409 account_not_linked: unlinking an account with no person', async () => {
-    expect(await unlink('superadmin', 'user', f.person.marcus)).toMatchObject({ status: 409, body: { error: 'account_not_linked' } });
+    expect(await unlink('superadmin', 'user', f.person.marcus)).toMatchObject({
+      status: 409,
+      body: { error: 'account_not_linked' },
+    });
   });
 
   it('a concurrent double link: exactly one account gets the person', async () => {
-    const results = await Promise.all([put('superadmin', 'user', f.person.priya), put('superadmin', 'unlinked', f.person.priya)]);
+    const results = await Promise.all([
+      put('superadmin', 'user', f.person.priya),
+      put('superadmin', 'unlinked', f.person.priya),
+    ]);
     expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
     expect(results.find((r) => r.status === 409)?.body?.['error']).toBe('person_already_linked');
-    const holders = await sql<{ n: string }>`select count(*) as n from users where person_id = ${f.person.priya}`.execute(t.owner);
+    const holders = await sql<{
+      n: string;
+    }>`select count(*) as n from users where person_id = ${f.person.priya}`.execute(t.owner);
     expect(Number(holders.rows[0]!.n)).toBe(1);
   });
 
@@ -275,7 +341,9 @@ describe('every refusal', () => {
 describe('the preview (advice only)', () => {
   it('says what a Member may edit afterwards, and what they lose', async () => {
     // Marcus's account added Leo; Daniel's line: Marcus, Sofia, Gabriel (and Leo below Marcus).
-    await sql`update people set created_by = ${f.account.member.id} where id in (${f.person.leo}, ${f.person.gabriel})`.execute(t.owner);
+    await sql`update people set created_by = ${f.account.member.id} where id in (${f.person.leo}, ${f.person.gabriel})`.execute(
+      t.owner,
+    );
     const toDaniel = await preview('superadmin', 'member', f.person.daniel);
     expect(toDaniel.body).toMatchObject({
       role: 'member',
@@ -348,7 +416,11 @@ describe('deleting a person who has an account', () => {
 describe('an invitation never links a placeholder (the 0011 gap, fixed in 0016)', () => {
   it('the route says 409 person_is_placeholder', async () => {
     expect(
-      await as('superadmin', 'POST', '/api/admin/invitations', { email: 'unknown@example.com', role: 'user', personId: placeholder }),
+      await as('superadmin', 'POST', '/api/admin/invitations', {
+        email: 'unknown@example.com',
+        role: 'user',
+        personId: placeholder,
+      }),
     ).toMatchObject({ status: 409, body: { error: 'person_is_placeholder' } });
   });
 
@@ -360,14 +432,21 @@ describe('an invitation never links a placeholder (the 0011 gap, fixed in 0016)'
         ),
       ),
     ).rejects.toThrow(/person_is_placeholder/);
-    const open = await sql<{ n: string }>`select count(*) as n from account_links where person_id = ${placeholder}`.execute(t.owner);
+    const open = await sql<{
+      n: string;
+    }>`select count(*) as n from account_links where person_id = ${placeholder}`.execute(t.owner);
     expect(Number(open.rows[0]!.n)).toBe(0);
   });
 
   it('an ordinary person can still be invited', async () => {
     expect(
-      (await as('superadmin', 'POST', '/api/admin/invitations', { email: 'priya@example.com', role: 'user', personId: f.person.priya }))
-        .status,
+      (
+        await as('superadmin', 'POST', '/api/admin/invitations', {
+          email: 'priya@example.com',
+          role: 'user',
+          personId: f.person.priya,
+        })
+      ).status,
     ).toBe(201);
   });
 });

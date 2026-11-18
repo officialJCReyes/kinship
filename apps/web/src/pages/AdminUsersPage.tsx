@@ -6,6 +6,7 @@ import * as api from '../api.js';
 import { useSession } from '../auth.js';
 import { InviteDialog } from '../admin/InviteDialog.js';
 import { LinkDialog } from '../admin/LinkDialog.js';
+import { LinkPersonDialog } from '../admin/LinkPersonDialog.js';
 import type { ShownLink } from '../admin/LinkDialog.js';
 import { useAccounts, useRefreshAccounts } from '../admin/queries.js';
 import { ActionButton } from '../components/ActionButton.js';
@@ -20,7 +21,16 @@ import { useNotices } from '../notices.js';
 const STATUS_CLASS = { active: 'pill ok', invited: 'pill', expired: 'pill gray' } as const;
 
 /** What a row's button is about to do to a link, kept while its confirmation or request is open. */
-type Pending = { kind: 'revoke'; linkId: string; name: string } | { kind: 'busy' } | null;
+type Pending =
+  | { kind: 'revoke'; linkId: string; name: string }
+  | { kind: 'unlink'; accountId: string; name: string; person: { id: string; name: string } }
+  | { kind: 'busy' }
+  | null;
+
+/** Focus goes back to the row's person button once a dialog is gone and the list has re-rendered. */
+const personButtonId = (accountId: string) => `person-action-${accountId}`;
+const focusPersonButton = (accountId: string) =>
+  window.setTimeout(() => document.getElementById(personButtonId(accountId))?.focus(), 0);
 
 function RowStatus({ account }: { account: AccountSummary }) {
   return <span className={STATUS_CLASS[account.status]}>{t(`users.status.${account.status}` as MessageKey)}</span>;
@@ -39,6 +49,7 @@ export function AdminUsersPage() {
   const [inviting, setInviting] = useState(false);
   const [shown, setShown] = useState<ShownLink | null>(null);
   const [pending, setPending] = useState<Pending>(null);
+  const [linking, setLinking] = useState<AccountSummary | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
 
   if (!me) return <Loading />;
@@ -71,6 +82,14 @@ export function AdminUsersPage() {
       await api.revokeLink(linkId);
       await refresh();
       notify('success', t('users.revoked'));
+    });
+
+  const unlink = (accountId: string, name: string, personId: string) =>
+    run(async () => {
+      await api.unlinkAccountPerson(accountId, personId);
+      await refresh();
+      notify('success', t('users.unlink.done', { name }));
+      focusPersonButton(accountId);
     });
 
   const busy = pending?.kind === 'busy';
@@ -145,6 +164,40 @@ export function AdminUsersPage() {
     );
   };
 
+  // Link, change and unlink an account's person (accounts only; an invitation is linked when it is made).
+  const personActions = (account: AccountSummary) => {
+    if (account.kind !== 'account') return null;
+    const name = nameOf(account);
+    const reason = account.canLinkPerson ? undefined : t('users.cannotManage');
+    const person = account.person;
+    return (
+      <div className="actions wrap">
+        <ActionButton
+          small
+          id={personButtonId(account.id)}
+          disabled={busy}
+          disabledReason={reason}
+          aria-label={t(person ? 'users.link.changeFor' : 'users.link.actionFor', { name })}
+          onClick={() => setLinking(account)}
+        >
+          {t(person ? 'users.link.change' : 'users.link.action')}
+        </ActionButton>
+        {person ? (
+          <ActionButton
+            small
+            danger
+            disabled={busy}
+            disabledReason={reason}
+            aria-label={t('users.link.unlinkFor', { name, person: person.name })}
+            onClick={() => setPending({ kind: 'unlink', accountId: account.id, name, person })}
+          >
+            {t('users.link.unlink')}
+          </ActionButton>
+        ) : null}
+      </div>
+    );
+  };
+
   return (
     <section className="card">
       <div className="profile-head">
@@ -202,6 +255,7 @@ export function AdminUsersPage() {
                     ) : (
                       <span className="muted">{t('users.notLinked')}</span>
                     )}
+                    {personActions(account)}
                   </td>
                   <td>{t(`role.${account.role}` as MessageKey)}</td>
                   <td>
@@ -251,7 +305,42 @@ export function AdminUsersPage() {
           }}
         />
       ) : null}
+      {linking ? (
+        <LinkPersonDialog
+          account={linking}
+          takenPersonIds={takenPersonIds}
+          onClose={() => {
+            const id = linking.id;
+            setLinking(null);
+            focusPersonButton(id);
+          }}
+          onDone={(personName) => {
+            const id = linking.id;
+            setLinking(null);
+            void refresh();
+            notify('success', t('users.link.done', { name: nameOf(linking), person: personName }));
+            focusPersonButton(id);
+          }}
+        />
+      ) : null}
       {shown ? <LinkDialog shown={shown} onClose={() => setShown(null)} /> : null}
+      {pending?.kind === 'unlink' ? (
+        <Dialog title={t('users.unlink.title', { name: pending.name })} onClose={() => setPending(null)}>
+          <p>{t('users.unlink.body', { name: pending.name, person: pending.person.name })}</p>
+          <div className="actions">
+            <button className="button" type="button" onClick={() => setPending(null)}>
+              {t('common.cancel')}
+            </button>
+            <button
+              className="button danger"
+              type="button"
+              onClick={() => void unlink(pending.accountId, pending.name, pending.person.id)}
+            >
+              {t('users.unlink.confirm')}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
       {pending?.kind === 'revoke' ? (
         <Dialog title={t('users.revoke.title')} onClose={() => setPending(null)}>
           <p>{t('users.revoke.body', { name: pending.name })}</p>

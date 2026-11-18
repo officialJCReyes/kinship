@@ -30,6 +30,7 @@ function account(partial: Partial<AccountSummary> & Pick<AccountSummary, 'id' | 
     invitation: null,
     setPasswordLink: null,
     canSetPasswordLink: false,
+    canLinkPerson: true,
     ...partial,
   };
 }

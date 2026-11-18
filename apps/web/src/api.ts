@@ -22,6 +22,9 @@ import type {
   ChangePasswordRequest,
   ChildResponse,
   InvitationInput,
+  LinkPersonInput,
+  LinkPersonResponse,
+  LinkPreview,
   LinkCreated,
   LinkLookup,
   LabelInput,
@@ -77,7 +80,7 @@ interface Reply {
 }
 
 async function send(
-  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
   signal?: AbortSignal,
@@ -390,6 +393,32 @@ export async function createSetPasswordLink(accountId: string): Promise<LinkCrea
   const reply = await send('POST', path, {});
   if (reply.status !== 201) fail(path, reply);
   return reply.body as LinkCreated;
+}
+
+/** Advice before linking an account to a person (the PUT checks everything again). */
+export async function fetchLinkPreview(
+  accountId: string,
+  personId: string,
+  signal?: AbortSignal,
+): Promise<LinkPreview> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/link-preview?personId=${encodeURIComponent(personId)}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as LinkPreview;
+}
+
+/** Links an account to a person, or changes the link. `currentPersonId` is what the page believes it is now. */
+export async function linkAccountPerson(accountId: string, input: LinkPersonInput): Promise<LinkPersonResponse> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/person`;
+  const reply = await send('PUT', path, input);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as LinkPersonResponse;
+}
+
+export async function unlinkAccountPerson(accountId: string, currentPersonId: string): Promise<void> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/person?currentPersonId=${encodeURIComponent(currentPersonId)}`;
+  const reply = await send('DELETE', path);
+  if (reply.status !== 204) fail(path, reply);
 }
 
 // --- Public links and passwords. ---

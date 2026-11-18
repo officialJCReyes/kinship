@@ -465,7 +465,8 @@ export const en = {
   'users.link.checking': 'Checking what this changes…',
   'users.link.preview.member': '{account} will be able to edit {person}.',
   'users.link.preview.created': 'Also the {count} people {account} added below {person}.',
-  'users.link.preview.loses': 'Through the old link {account} could edit {count} other people, and will no longer be able to.',
+  'users.link.preview.loses':
+    'Through the old link {account} could edit {count} other people, and will no longer be able to.',
   'users.link.preview.other': 'This changes who {account} is on the tree. It does not change what they may edit.',
   'users.link.confirm': 'Link account',
   'users.link.confirmChange': 'Change link',

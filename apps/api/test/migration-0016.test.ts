@@ -41,14 +41,27 @@ describe('migration 0016 on a populated database (migrations 0001 to 0015 with t
       // Fingerprint: only definerFunctions and functionExecute grow, by exactly these five functions; nothing else moves.
       const after = await fingerprint(test.owner, appRole);
       const names = ['can_link_for', 'check_link', 'link_account_person', 'unlink_account_person', 'link_preview'];
-      const fresh = (list: string[]) => list.filter((entry) => names.some((n) => entry.startsWith(`kinship_auth.${n}(`)));
+      const fresh = (list: string[]) =>
+        list.filter((entry) => names.some((n) => entry.startsWith(`kinship_auth.${n}(`)));
       expect(fresh(after.definerFunctions)).toHaveLength(5);
-      expect(fresh(after.functionExecute).sort()).toEqual(fresh(after.functionExecute).filter((e) => e.endsWith('=true')).sort());
+      expect(fresh(after.functionExecute).sort()).toEqual(
+        fresh(after.functionExecute)
+          .filter((e) => e.endsWith('=true'))
+          .sort(),
+      );
       expect(fresh(after.functionExecute)).toHaveLength(5);
-      const without = (list: string[]) => list.filter((entry) => !names.some((n) => entry.startsWith(`kinship_auth.${n}(`)));
+      const without = (list: string[]) =>
+        list.filter((entry) => !names.some((n) => entry.startsWith(`kinship_auth.${n}(`)));
       expect(without(after.definerFunctions)).toEqual(beforePrints.definerFunctions);
       expect(without(after.functionExecute)).toEqual(beforePrints.functionExecute);
-      for (const key of ['tables', 'policies', 'tableGrants', 'columnGrants', 'schemaPrivileges', 'defaultPrivileges'] as const) {
+      for (const key of [
+        'tables',
+        'policies',
+        'tableGrants',
+        'columnGrants',
+        'schemaPrivileges',
+        'defaultPrivileges',
+      ] as const) {
         expect(after[key]).toEqual(beforePrints[key]);
       }
 
@@ -85,8 +98,11 @@ describe('migration 0016 on a populated database (migrations 0001 to 0015 with t
         sql`select * from kinship_auth.link_account_person(${family.account.user.id}::uuid, ${family.person.priya}::uuid, null)`,
       );
       expect(
-        (await sql<{ person_id: string }>`select person_id from users where id = ${family.account.user.id}`.execute(test.owner))
-          .rows[0]?.person_id,
+        (
+          await sql<{ person_id: string }>`select person_id from users where id = ${family.account.user.id}`.execute(
+            test.owner,
+          )
+        ).rows[0]?.person_id,
       ).toBe(family.person.priya);
     } finally {
       await dir.remove();
@@ -103,14 +119,18 @@ describe('migration 0016 on a populated database (migrations 0001 to 0015 with t
       await runMigrations(test.owner, { dir: dir.dir, appRole: test.config.appUser });
       const family = await buildFamily(test.owner);
       const placeholder = (
-        await sql<{ id: string }>`insert into people (given_name, surname, gender, is_placeholder) values ('', '', 'female', true) returning id`.execute(
+        await sql<{
+          id: string;
+        }>`insert into people (given_name, surname, gender, is_placeholder) values ('', '', 'female', true) returning id`.execute(
           test.owner,
         )
       ).rows[0]!.id;
       const invite = (person: string, email: string) =>
         test.owner.transaction().execute(async (trx) => {
           await sql`select set_config('kinship.user_id', ${family.account.superadmin.id}, true)`.execute(trx);
-          return sql`select * from kinship_auth.create_invitation(${email}, 'user', ${person}::uuid, null, ${`h-${email}`})`.execute(trx);
+          return sql`select * from kinship_auth.create_invitation(${email}, 'user', ${person}::uuid, null, ${`h-${email}`})`.execute(
+            trx,
+          );
         });
       // Before 0016 the gap exists (documented in ADR 0020): the old function accepts the placeholder.
       await expect(invite(placeholder, 'old@example.com')).resolves.toBeDefined();
