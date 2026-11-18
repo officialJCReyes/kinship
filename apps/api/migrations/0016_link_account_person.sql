@@ -231,17 +231,27 @@ END
 $fn$;
 
 -- ---------------------------------------------------------------------------
--- Rights, as in 0011: nothing for PUBLIC, execute for the app role.
+-- Rights. Nothing for PUBLIC; execute for the app role, on these five functions by name. Not 0011's "ALL FUNCTIONS IN
+-- SCHEMA" form: it would also hand the app role kinship_auth.setup_insert_person and setup_insert_union, which 0012
+-- keeps out of its reach on purpose. (create_invitation, replaced above, keeps the rights it already has.)
 -- ---------------------------------------------------------------------------
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA kinship_auth FROM PUBLIC;
-
 DO $$
 DECLARE
   app_role text := current_setting('kinship.app_role', true);
+  fn text;
 BEGIN
   IF app_role IS NULL OR app_role = '' THEN
     RAISE EXCEPTION 'kinship.app_role is not set; run migrations through the KinShip migration runner';
   END IF;
-  EXECUTE format('GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA kinship_auth TO %I', app_role);
+  FOREACH fn IN ARRAY ARRAY[
+    'kinship_auth.can_link_for(uuid, text, uuid, text)',
+    'kinship_auth.check_link(uuid, uuid)',
+    'kinship_auth.link_account_person(uuid, uuid, uuid)',
+    'kinship_auth.unlink_account_person(uuid, uuid)',
+    'kinship_auth.link_preview(uuid, uuid)'
+  ] LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', fn);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO %I', fn, app_role);
+  END LOOP;
 END
 $$;
