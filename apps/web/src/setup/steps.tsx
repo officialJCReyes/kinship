@@ -289,6 +289,14 @@ export function PartnerStep({ state, errors, set }: StepProps) {
           error={widowedProblem}
         />
       </div>
+      <div className="setup-grid">
+        <DateInput
+          label={t('setup.partner.birth')}
+          draft={p.birth}
+          onChange={(birth) => change({ birth })}
+          externalError={errors['family.partner.birth']}
+        />
+      </div>
       {showsMarried ? (
         <Field
           label={t('setup.partner.marriedSurname')}

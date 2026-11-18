@@ -242,6 +242,7 @@ export const en = {
   'setup.partner.intro': 'Skip this if you are single or want to add them later.',
   'setup.partner.status': 'Relationship',
   'setup.partner.surname': 'Birth (maiden) surname',
+  'setup.partner.birth': 'Birth date (optional)',
   'setup.partner.marriedSurname': 'Married surname (optional)',
   'setup.partner.marriedSurnameHelp':
     'Leave blank if they kept their birth surname. Both surnames stay on their profile.',
