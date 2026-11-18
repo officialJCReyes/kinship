@@ -33,6 +33,19 @@ export function canMakeSetPasswordLink(actor: { id: string; role: Role }, target
   return actor.id !== target.id && ROLES_RESETTABLE_BY[actor.role].includes(target.role);
 }
 
+/**
+ * May this account link that one to a person, change the link or remove it (ADR 0020)? A SuperAdmin any account; a Family
+ * Admin a Member or a User; anyone who manages accounts their own. The database functions (0016) check the same rule.
+ */
+export function canLinkPerson(actor: { id: string; role: Role }, target: { id: string; role: Role }): boolean {
+  if (actor.role !== 'superadmin' && actor.role !== 'familyadmin') return false;
+  return (
+    actor.id === target.id ||
+    actor.role === 'superadmin' ||
+    (actor.role === 'familyadmin' && (target.role === 'member' || target.role === 'user'))
+  );
+}
+
 /** An invitation lasts 7 days, a set-password link 24 hours. */
 export const INVITATION_HOURS = 7 * 24;
 export const SET_PASSWORD_LINK_HOURS = 24;
@@ -90,10 +103,57 @@ export interface AccountSummary {
   setPasswordLink: OpenLinkSummary | null;
   /** The asking admin may make a set-password link for this account. */
   canSetPasswordLink: boolean;
+  /** The asking admin may link this account to a person, change the link or remove it (canLinkPerson). */
+  canLinkPerson: boolean;
 }
 
 export interface AccountsResponse {
   accounts: AccountSummary[];
+}
+
+/**
+ * Body of PUT /api/admin/accounts/:id/person (link, or change the link). `currentPersonId` is the person the page believes
+ * the account is linked to now (null for none): if another admin changed it since, the answer is 409 account_already_linked.
+ */
+export interface LinkPersonInput {
+  personId: string;
+  currentPersonId: string | null;
+}
+
+/** Answer of PUT /api/admin/accounts/:id/person. */
+export interface LinkPersonResponse {
+  accountId: string;
+  person: { id: string; name: string };
+}
+
+/** Query of DELETE /api/admin/accounts/:id/person, the same guard as LinkPersonInput.currentPersonId. */
+export interface UnlinkPersonQuery {
+  currentPersonId: string;
+}
+
+/**
+ * Advice for GET /api/admin/accounts/:id/link-preview?personId=, never a decision (the PUT checks everything again).
+ * Only a Member's edit rights depend on the link, so the three counts are 0 for every other role.
+ */
+export interface LinkPreview {
+  role: Role;
+  person: { id: string; name: string };
+  current: { id: string; name: string } | null;
+  /** Everyone below the person: children, theirs and so on. */
+  descendantsInLine: number;
+  /** Of those, the people this account added: it may edit them after the link (and the person). */
+  createdByAccountInLine: number;
+  /** People the account may edit through its current link and would no longer be able to edit. */
+  losesEdit: number;
+}
+
+/** The structured log line written for every link, change and unlink (ADR 0020): ids only, no names or emails. */
+export interface AccountPersonLogLine {
+  event: 'account_person_linked' | 'account_person_unlinked';
+  actor: string;
+  account: string;
+  from: string | null;
+  to: string | null;
 }
 
 /** Body of POST /api/links/lookup and /api/links/accept: the token is in the body, never in a URL. */
@@ -142,6 +202,10 @@ export const ACCOUNT_ERROR_CODES = [
   'email_taken',
   'invitation_exists',
   'person_already_linked',
+  'account_already_linked',
+  'person_is_placeholder',
+  'person_has_open_invitation',
+  'account_not_linked',
   'role_not_allowed',
   'account_not_found',
   'invalid_current_password',
@@ -155,6 +219,9 @@ export const ACCOUNT_ROUTES = [
   { method: 'POST', path: '/api/admin/links/:id/regenerate', access: 'admin' },
   { method: 'POST', path: '/api/admin/links/:id/revoke', access: 'admin' },
   { method: 'POST', path: '/api/admin/accounts/:id/set-password-link', access: 'admin' },
+  { method: 'GET', path: '/api/admin/accounts/:id/link-preview', access: 'admin' },
+  { method: 'PUT', path: '/api/admin/accounts/:id/person', access: 'admin' },
+  { method: 'DELETE', path: '/api/admin/accounts/:id/person', access: 'admin' },
   { method: 'POST', path: '/api/links/lookup', access: 'public' },
   { method: 'POST', path: '/api/links/accept', access: 'public' },
   { method: 'POST', path: '/api/auth/password', access: 'signed-in' },

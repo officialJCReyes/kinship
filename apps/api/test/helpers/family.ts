@@ -144,7 +144,7 @@ export async function signInAll(app: FastifyInstance, family: Family) {
   for (const key of ACCOUNTS) {
     cookies[key] = cookieHeader(await login(app, family.account[key].email));
   }
-  return async function as(who: Who, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: unknown) {
+  return async function as(who: Who, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: unknown) {
     const response = await app.inject({
       method,
       url,

@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { canMakeSetPasswordLink, ROLES_INVITABLE_BY } from '@kinship/shared';
+import { canLinkPerson, canMakeSetPasswordLink, ROLES_INVITABLE_BY } from '@kinship/shared';
 import type {
+  AccountPersonLogLine,
   AccountsResponse,
   AccountSummary,
   InvitationInput,
   LinkCreated,
+  LinkPersonInput,
+  LinkPersonResponse,
+  LinkPreview,
   OpenLinkSummary,
   Role,
 } from '@kinship/shared';
@@ -12,14 +16,17 @@ import type { FastifyInstance } from 'fastify';
 import {
   createInvitation,
   createResetLink,
+  linkAccountPerson,
+  linkPreview,
   listInviters,
   listOpenLinks,
   regenerateLink,
   revokeLink,
+  unlinkAccountPerson,
 } from '../auth/links.js';
 import { generateLinkToken, hashToken } from '../auth/tokens.js';
-import { ApiError, badRequest, forbidden, notFound } from '../errors.js';
-import { isUuid } from '../people/store.js';
+import { ApiError, badRequest, conflict, forbidden, notFound } from '../errors.js';
+import { getPerson, isUuid } from '../people/store.js';
 import { isValidEmail, normalizeEmail } from './shared.js';
 import type { RouteLimit } from './shared.js';
 
@@ -64,16 +71,19 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       if (!isValidEmail(email)) throw badRequest('invalid_email');
       if (!ROLES_INVITABLE_BY[actor.role].includes(body.role)) throw new ApiError(403, 'role_not_allowed');
       if (body.personId != null && !isUuid(body.personId)) throw notFound('person_not_found');
+      const personId = body.personId ?? null;
       const token = generateLinkToken();
-      const created = await request.withTransaction((trx) =>
-        createInvitation(trx, {
+      const created = await request.withTransaction(async (trx) => {
+        // A placeholder ("Unknown father") is never the person to link. The database function refuses it too.
+        if (personId && (await getPerson(trx, personId))?.is_placeholder) throw conflict('person_is_placeholder');
+        return createInvitation(trx, {
           email,
           role: body.role,
           personId: body.personId ?? null,
           note: body.note ?? null,
           tokenHash: hashToken(token),
-        }),
-      );
+        });
+      });
       void reply.code(201);
       return { linkId: created.id, kind: 'invite', token, expiresAt: created.expiresAt.toISOString() };
     },
@@ -138,6 +148,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           invitation: null,
           setPasswordLink: reset ? summary(reset) : null,
           canSetPasswordLink: canMakeSetPasswordLink(actor, { id: user.id, role: user.role }),
+          canLinkPerson: canLinkPerson(actor, { id: user.id, role: user.role }),
         };
       });
       const invitations: AccountSummary[] = links
@@ -157,10 +168,126 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           invitation: { ...summary(link), note: link.note },
           setPasswordLink: null,
           canSetPasswordLink: false,
+          canLinkPerson: false,
         }));
       return { accounts: [...accounts, ...invitations] };
     });
   });
+
+  // --- link an existing account to a person (#8, migration 0016, ADR 0020) ---------------------------------------------
+  const nullableUuid = { type: ['string', 'null'], maxLength: 64 };
+
+  app.get(
+    '/api/admin/accounts/:id/link-preview',
+    {
+      config: limit,
+      schema: {
+        params: idParams,
+        querystring: {
+          type: 'object',
+          required: ['personId'],
+          additionalProperties: false,
+          properties: { personId: { type: 'string', maxLength: 64 } },
+        },
+      },
+    },
+    async (request): Promise<LinkPreview> => {
+      const { id } = request.params as { id: string };
+      const { personId } = request.query as { personId: string };
+      if (!isUuid(id)) throw notFound('account_not_found');
+      if (!isUuid(personId)) throw notFound('person_not_found');
+      return request.withTransaction(async (trx) => {
+        const row = await linkPreview(trx, id, personId);
+        const names = await personNames(trx, [personId, ...(row.current_person_id ? [row.current_person_id] : [])]);
+        return {
+          role: row.account_role,
+          person: { id: personId, name: names.get(personId) ?? '' },
+          current: row.current_person_id
+            ? { id: row.current_person_id, name: names.get(row.current_person_id) ?? '' }
+            : null,
+          descendantsInLine: Number(row.descendants_in_line),
+          createdByAccountInLine: Number(row.created_by_account_in_line),
+          losesEdit: Number(row.loses_edit),
+        };
+      });
+    },
+  );
+
+  app.put(
+    '/api/admin/accounts/:id/person',
+    {
+      config: limit,
+      schema: {
+        params: idParams,
+        body: {
+          type: 'object',
+          required: ['personId', 'currentPersonId'],
+          additionalProperties: false,
+          properties: { personId: { type: 'string', maxLength: 64 }, currentPersonId: nullableUuid },
+        },
+      },
+    },
+    async (request): Promise<LinkPersonResponse> => {
+      const { id } = request.params as { id: string };
+      const body = request.body as LinkPersonInput;
+      const actor = request.user;
+      if (!actor) throw forbidden();
+      if (!isUuid(id)) throw notFound('account_not_found');
+      if (!isUuid(body.personId)) throw notFound('person_not_found');
+      if (body.currentPersonId !== null && !isUuid(body.currentPersonId)) throw badRequest('invalid_request');
+      const result = await request.withTransaction(async (trx) => {
+        const previous = await linkAccountPerson(trx, id, body.personId, body.currentPersonId);
+        const names = await personNames(trx, [body.personId]);
+        return { previous, name: names.get(body.personId) ?? '' };
+      });
+      // After the commit, and only when something changed. Ids only: no names, no emails (ADR 0020).
+      if (result.previous !== body.personId) {
+        const line: AccountPersonLogLine = {
+          event: 'account_person_linked',
+          actor: actor.id,
+          account: id,
+          from: result.previous,
+          to: body.personId,
+        };
+        request.log.info(line, line.event);
+      }
+      return { accountId: id, person: { id: body.personId, name: result.name } };
+    },
+  );
+
+  app.delete(
+    '/api/admin/accounts/:id/person',
+    {
+      config: limit,
+      schema: {
+        params: idParams,
+        querystring: {
+          type: 'object',
+          required: ['currentPersonId'],
+          additionalProperties: false,
+          properties: { currentPersonId: { type: 'string', maxLength: 64 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const { currentPersonId } = request.query as { currentPersonId: string };
+      const actor = request.user;
+      if (!actor) throw forbidden();
+      if (!isUuid(id)) throw notFound('account_not_found');
+      if (!isUuid(currentPersonId)) throw badRequest('invalid_request');
+      const previous = await request.withTransaction((trx) => unlinkAccountPerson(trx, id, currentPersonId));
+      const line: AccountPersonLogLine = {
+        event: 'account_person_unlinked',
+        actor: actor.id,
+        account: id,
+        from: previous,
+        to: null,
+      };
+      request.log.info(line, line.event);
+      return reply.code(204).send();
+    },
+  );
 
   app.post(
     '/api/admin/links/:id/regenerate',
@@ -193,4 +320,11 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       return { linkId: created.id, kind: 'reset', token, expiresAt: created.expiresAt.toISOString() };
     },
   );
+}
+
+/** Display names of some people, by id (placeholders have an empty name; none is ever linked). */
+async function personNames(trx: Parameters<typeof getPerson>[0], ids: string[]): Promise<Map<string, string>> {
+  // placeholders: included (people looked up by id)
+  const rows = await trx.selectFrom('people').select(['id', 'given_name', 'surname']).where('id', 'in', ids).execute();
+  return new Map(rows.map((p) => [p.id, `${p.given_name} ${p.surname}`.trim()]));
 }

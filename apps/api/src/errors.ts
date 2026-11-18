@@ -53,6 +53,14 @@ export function fromDatabaseError(error: unknown): ApiError | undefined {
       return notFound('link_not_found');
     case 'KS027':
       return conflict('link_exists');
+    case 'KS040':
+      return conflict('account_already_linked');
+    case 'KS041':
+      return conflict('person_is_placeholder');
+    case 'KS042':
+      return conflict('person_has_open_invitation');
+    case 'KS043':
+      return conflict('account_not_linked');
     case 'KS030': // the one answer for every bad link (see accept_invitation)
       return notFound('invalid_link');
     case 'KS011':
