@@ -4,6 +4,10 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.2.0-rc.3] - 2026-11-18
+
+**A third release candidate for 0.2.0. The database changes twice more (migrations 0015 and 0016, schema 14 to 16, no data changes):** a safety copy is made first, and nothing in your tree is touched. Upgrading from rc.1 or rc.2 is an image update; from 0.1.0-alpha.2 read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) first. Release candidates are offered by the in-app update check only when "Include pre-releases" is on.
+
 ### Added
 
 - **A brother or sister for someone with no parents.** Add relative no longer asks you to add a parent first. When the person has no parents on the tree, KinShip adds an "Unknown father" and an "Unknown mother" for them and links both children to them, in one step. They are dashed cards on the chart; give one a name (Add details) and it becomes an ordinary person. They never appear in the people list, in search or in counts.
@@ -107,7 +111,8 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 - **No update notice, no "What's new" popup, no file storage, no email, no single sign-on, no password reset by email.** Later releases add them.
 - **No upgrade promise.** Until 0.2, a new release may require starting with an empty database.
 
-[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.2...HEAD
+[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.3...HEAD
+[0.2.0-rc.3]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...v0.2.0-rc.1
 [0.1.0-alpha.2]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.1...v0.1.0-alpha.2

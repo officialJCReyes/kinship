@@ -234,7 +234,7 @@ jobs:
           cache-from: type=gha,scope=web
       - name: Upgrade the previous release in place, and restore its safety copy on an empty database
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
-      # The automatic start above moves forward with every release (0.2.0-rc.1, then rc.2, then 0.2.0, ...), so the upgrade
+      # The automatic start above moves forward with every release (0.2.0-rc.1, then rc.2, then rc.3, then 0.2.0, ...), so the upgrade
       # that real installations still make from the first alpha-to-0.2 jump would stop being tested. This step pins it: same
       # job, same images, so it adds no build time and no new check name. It runs even when the step above failed, so one
       # failure never hides the other. A pinned version without scripts/upgrade-test/seed-<version>.sh fails loudly.
@@ -242,6 +242,13 @@ jobs:
         if: ${{ !cancelled() }}
         env:
           PREVIOUS_TAG: v0.1.0-alpha.2
+        run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
+      # The release candidates between them: rc.1 is what a few installs still run, and it is neither the newest published release
+      # (the first step above) nor the first alpha-to-0.2 jump. Same job and images again, so no new check name.
+      - name: Upgrade 0.2.0-rc.1 in place (pinned), and restore its safety copy on an empty database
+        if: ${{ !cancelled() }}
+        env:
+          PREVIOUS_TAG: v0.2.0-rc.1
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
 
   # Not a required check (yet). A real browser against the real web, api and Postgres containers.

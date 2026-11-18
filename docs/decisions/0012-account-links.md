@@ -68,4 +68,4 @@ Unknown, expired, used and revoked tokens all get status **404**, code `invalid_
 
 ## Not built (issues)
 
-Disabling and deleting accounts, role editing, the Sign-in column, linking an existing account to a person (issue #8, 0.4), password reset by email and the password-changed email (0.4), a session list (1.1).
+Disabling and deleting accounts, role editing, the Sign-in column, linking an existing account to a person (issue #8; *built in 0.2.0, see [ADR 0020](0020-link-account-to-person.md); linking an SSO identity stays in 0.4*), password reset by email and the password-changed email (0.4), a session list (1.1).

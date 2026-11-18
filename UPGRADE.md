@@ -6,12 +6,14 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 **0.2 starts the data promise:** from here an upgrade keeps your data, and a safety copy of the database is made before each database change. The notes below are in the order the changes were made, newest first; the parts that need you to act are at the top.
 
-### Upgrading from 0.1.0-alpha.2 (or earlier): do these two things first
+### Upgrading from 0.1.0-alpha.2: do these two things first
+
+**From 0.1.0-alpha.1, go through alpha.2 first** (update to `0.1.0-alpha.2`, start it once, then continue here), **or start fresh**. That jump (migrations 0003 to 0016 at once) is not tested. From 0.2.0-rc.1 or rc.2 none of this applies: skip to "Then change `KINSHIP_VERSION`" below.
 
 1. **Add the backups folder to your `compose.yml`** (copy the new `compose.yml` from the release, which has it) and create the folder: `mkdir -p data/backups && sudo chown 1000:1000 data/backups` (Docker Desktop on macOS and Windows does not need the `chown`). Without it the api will not start the upgrade, and prints exactly these lines.
 2. **Set `BACKUP_PASSPHRASE` in `.env`** (at least 16 characters; `openssl rand -base64 32` is good) and **keep a copy somewhere other than the server**. It encrypts every backup and the safety copy.
 
-Then change `KINSHIP_VERSION` to the new version (the release's `env.example` shows every new setting), `docker compose pull && docker compose up -d`. The first start writes a safety copy (`data/backups/pre-upgrade-0006-to-0014.tar.enc` from alpha.2), then applies migrations 0007 to 0014. **Back up first anyway** (INSTALL.md, "Back up and restore"): the safety copy sits on the same disk. Going back is a restore of that backup; there are no down-migrations.
+Then change `KINSHIP_VERSION` to the new version (the release's `env.example` shows every new setting), `docker compose pull && docker compose up -d`. The first start writes one safety copy (`data/backups/pre-upgrade-0006-to-0016.tar.enc` from alpha.2; `pre-upgrade-0014-to-0016.tar.enc` from rc.1 or rc.2), then applies the migrations: 0007 to 0016 from alpha.2, 0015 and 0016 from rc.1 or rc.2. **Back up first anyway** (INSTALL.md, "Back up and restore"): the safety copy sits on the same disk. Going back is a restore of that backup; there are no down-migrations.
 
 What changes for people: every Married relationship with a deceased partner becomes Widowed (see "Names and relationships" below); everyone sees dates as "Jan 1, 2026" until they change it in My settings; admins see a "What's new" popup once. An alpha account may not be linked to a person: an admin links it in **Admin → Users** ("Link to a person", see below), or you open **Family tree** and choose who to start from meanwhile.
 
@@ -21,14 +23,12 @@ What changes for people: every Married relationship with a deceased partner beco
 - **What it is for:** accounts made by an alpha or a release candidate may be linked to nobody (the first-run person was optional, and so was the person on an invitation). In **Admin → Users**, an admin can now **link** such an account to a person, **change** the link or **unlink** it. Linking an account to a person makes it that person on the tree (Home, My profile and the tree open on them) and, for a Member, lets it edit that person and the people it added below them. The dialog says what changes before you save. A SuperAdmin links any account; a Family Admin links Members, Users and their own account.
 - **A person who has an open invitation cannot be linked** until you revoke the invitation. An "Unknown father or mother" cannot be linked, and an invitation can no longer name one (before, the screen hid them but the API did not refuse them).
 - **API:** new `GET /api/admin/accounts/:id/link-preview?personId=`, `PUT /api/admin/accounts/:id/person` and `DELETE /api/admin/accounts/:id/person?currentPersonId=` (admins only), new error codes `account_already_linked`, `person_is_placeholder`, `person_has_open_invitation` and `account_not_linked`, and `canLinkPerson` on each row of `GET /api/admin/accounts`. Each link, change and unlink writes one line to the api log (`account_person_linked` or `account_person_unlinked`, with the ids of the admin, the account and the people, never names or emails).
-- The safety copy is named by schema numbers as always (`pre-upgrade-0015-to-0016` from the release after 0.2.0-rc.2 that has 0015).
 
 ### Unknown parents (database change, back up first)
 
 - **No action is needed, and no data changes.** Migration 0015 adds one column to every person, `is_placeholder`, `false` for everyone who exists already, and lets only a placeholder have no name. A placeholder is an "Unknown father" or "Unknown mother" that KinShip adds when you add a brother or sister to someone with no parents. It has no name and no dates; giving it a name makes it an ordinary person.
 - Placeholders are real rows in the database, so a backup holds them and a restore brings them back. They are left out of the people list, search and counts, and a future GEDCOM export will not write them.
 - **API:** new `POST /api/people/:id/siblings` (admins only; one transaction). `Person` has a new field `isPlaceholder`. A script that added a sibling with `POST /api/people` and `POST /api/people/:id/parents` still works for a person who has parents.
-- The safety copy is named by schema numbers as always (`pre-upgrade-0014-to-0015` from 0.2.0-rc.2).
 
 ### Update check, What's changing and What's new (database change, back up first)
 

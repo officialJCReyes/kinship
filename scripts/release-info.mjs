@@ -8,7 +8,7 @@
 //
 // Rules (design/kinship-release-and-deployment-plan.md, sections 3, 4, 5 and 7):
 //   - a release is a tag vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-pre.N, and it must match the
-//     version in every package.json, or nothing is built;
+//     version in every package.json (the four of the apps and packages, and e2e/), or nothing is built;
 //   - images get the exact version and sha-<7 chars>; a stable release also gets MAJOR.MINOR,
 //     `latest` (only if no newer stable tag exists) and, from 1.0, MAJOR; a pre-release gets
 //     only the exact version and the sha tag and never moves `latest`;
@@ -26,6 +26,7 @@ export const PACKAGE_FILES = [
   'apps/api/package.json',
   'apps/web/package.json',
   'packages/shared/package.json',
+  'e2e/package.json',
 ];
 
 const VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z]+(?:\.[0-9A-Za-z]+)*))?$/;

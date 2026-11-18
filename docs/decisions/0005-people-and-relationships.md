@@ -101,7 +101,7 @@ The people, relationship and tree routes are capped at **600 requests a minute p
 ## Consequences and known gaps
 
 - No UI. The web app's `AuthUser` type gained `personId`; the setup page does not send a person yet (step 9).
-- No way yet to link or unlink an account and a person other than setup and direct SQL (Users page, 0.4). A person linked to an account cannot be deleted until then.
+- No way yet to link or unlink an account and a person other than setup and direct SQL (Users page, 0.4). A person linked to an account cannot be deleted until then. *(Update: an admin links, changes and unlinks an account's person in Admin → Users from 0.2.0, see [ADR 0020](0020-link-account-to-person.md); unlinking lifts the delete block.)*
 - The "automatic Widowed" behaviour and the relationship naming (step, half, in-law, cousin titles) are not built.
 - Optimistic concurrency (two admins editing one person) and change history are not built (0.5).
 - The advisory lock serializes parent-link writes; fine for a family, not for bulk imports (GEDCOM import in 0.7 should write in one transaction).

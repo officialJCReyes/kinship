@@ -12,7 +12,7 @@ An audit of all 33 issues against the release plan and the mockup found items fr
 
 - **Moved to 0.3.0:** the in-app Restore button (#73; restore stays a command in 0.2), profile photos and encrypted media upload (#98), changing an account's role (#57), disabling and deleting accounts (#56), the per-user default chart view (#48; the plan said 1.5).
 - **Moved to 0.5.0:** the Edit details fields for birth and death places, cause of death and marriage place (part of #17), with the Places library. Draft PR #91 (marriage place) is therefore not part of 0.2.0: it waits for 0.5.0 and is rebuilt against the Places library, or is closed. Its migration number (0015) must not be assumed; the next migration is numbered when it is written, and 0.2.0 may use 0015 for #8 or placeholder parents instead.
-- **Pulled into 0.2.0:** linking an existing account to a person (#8; the plan said 0.4 for SSO linking). Not built yet.
+- **Pulled into 0.2.0:** linking an existing account to a person (#8; the plan said 0.4 for SSO linking). **Built in #101, see [ADR 0020](0020-link-account-to-person.md).**
 - **Accepted cut:** crossing minimisation in the tree layout (#21), now 0.3.0.
 - **Deferred, no release:** a family default color scheme (#47) and a one-color logo (#50).
 - **Required checks before tagging 0.2.0:** "Upgrade test (previous release)" (ADR 0016) and "End-to-end (Playwright)" are to be added to the "Protect main" ruleset by JC. Until then CLAUDE.md's list stands.
