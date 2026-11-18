@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KinShip features</title>
+<meta name="description" content="What KinShip does today and what each upcoming release adds: relationships, backups, chart views, health history, reports and DNA.">
+<meta name="theme-color" content="#1E4D4A">
+<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="../assets/favicon.ico" sizes="any">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div style="width:100%;min-width:320px">
+<header style="border-bottom:1px solid #D9E0DB;background:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:12px 32px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px">
+<a class="logo" href="../" aria-label="KinShip home"><img src="../assets/kinship-logo-horizontal.svg" alt="KinShip" width="118" height="44"></a>
+<nav aria-label="Main" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 24px;font-size:15px;font-weight:500">
+<a class="nav cur" aria-current="page" href="../features/">Features</a>
+<a class="nav" href="../get-started/">Get started</a>
+<a class="nav" href="../docs/">Docs</a>
+<a class="nav" href="../roadmap/">Roadmap</a>
+<a class="nav" href="../about/">About</a>
+<a class="btn2" style="min-height:44px" href="https://github.com/officialJCReyes/kinship">GitHub</a>
+</nav>
+</div>
+</header>
+<main id="main">
+
+<section style="max-width:1120px;margin:0 auto;padding:64px 32px 24px">
+<h1 style="font-weight:600;font-size:48px;line-height:1.1;letter-spacing:-0.02em;margin:0;max-width:760px">Everything a family archive needs, shown in the order it ships</h1>
+<p class="lead" style="margin-top:20px;max-width:680px">Every feature carries the release that brings it, so you always know what works today and what is coming.</p>
+<div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin-top:24px;font-size:14px;color:#3F4B47">
+<span class="chip ok">Available now</span><span class="chip soon">In progress</span><span class="chip later">Planned</span><span>Release numbers match the <a href="../roadmap/">roadmap</a>.</span>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:24px 32px 64px">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px">
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>People and relationships</h3><span class="chip ok">0.2.0</span></div><p>Partners, children, maiden and married surnames, custom labels, and step and half relatives worked out for you. Add a relative from a card with plus buttons. Flexible dates, including partial ones.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Backup and restore</h3><span class="chip ok">0.2.0</span></div><p>Encrypted backups with a test button and a command line, plus an automatic safety copy before any database change. In-app Restore arrives in 0.3.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Update notices</h3><span class="chip ok">0.2.0</span></div><p>Your SuperAdmin sees what is new, with a warning to back up first when a release changes the database. Nothing about your install is sent, and the check can be switched off.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Chart views</h3><span class="chip soon">0.3</span></div><p>Pedigree, Fan and Descendants alongside the Family tree, with siblings' partners drawn, an option for aunts, uncles and cousins, and a chart that opens centered on you.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Relationship finder</h3><span class="chip soon">0.3</span></div><p>How two people are related, with cousin levels, half, step and in-law names, and a plain explanation of "once removed".</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Search, timeline and map</h3><span class="chip soon">0.3</span></div><p>Find anyone fast, see a Memory of the day and who is coming up, browse a timeline, and place events on an OpenStreetMap map.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Photos and files</h3><span class="chip soon">0.3</span></div><p>Profile photos and media upload. Every file is encrypted by the app before it is stored.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Email and sign-in</h3><span class="chip later">0.4</span></div><p>Invites and password resets by email. OpenID Connect single sign-on (any standards-compliant provider, tested with Authentik) with roles set by group, enforced while it is on. Authenticator-app sign-in for SuperAdmins, and an in-app bell with birthday and remembrance reminders.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Sources and research</h3><span class="chip later">0.5</span></div><p>Sources, citations and reliability, a Places library, stories, a duplicate finder with merge and 30-day undo, and a history of who changed what. Optional automatic transcription of handwritten scans, off until an admin connects an engine.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Health history</h3><span class="chip later">0.6</span></div><p>Conditions and surgeries, private by default and shared person by person, enforced by Postgres row-level security. A family health report you can take to a doctor.</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>Reports, import and export</h3><span class="chip later">0.7</span></div><p>Life summary, family group sheet and outlines, printable or as PDF. GEDCOM 5.5.1 import with a preview and export that shows living people as "Living".</p></div>
+<div class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><h3>DNA</h3><span class="chip later">1.2 and 1.3</span></div><p>A DNA tab on each profile, haplogroup lines, then match lists checked against your tree. Raw files stay private and encrypted.</p></div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:72px 32px">
+<h2 class="h2" style="max-width:620px">The right access for each person</h2>
+<p class="lead" style="margin-top:14px;max-width:620px">Four roles keep the tree safe without making anyone ask for permission twice.</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;margin-top:36px">
+<div class="card"><h3>SuperAdmin</h3><p>Runs the installation: accounts, backups, storage and update checks.</p></div>
+<div class="card"><h3>Family Admin</h3><p>Edits everything in the tree and invites Members and Users.</p></div>
+<div class="card"><h3>Member</h3><p>Edits their own profile and their descendants, and adds sources.</p></div>
+<div class="card"><h3>User</h3><p>Reads the tree and photos. Nothing to break, and a good account for relatives who only want to look.</p></div>
+</div>
+</section>
+
+<section style="max-width:1120px;margin:0 auto;padding:0 32px 80px">
+<div style="background:#E0EDE1;border-radius:20px;padding:56px 32px;text-align:center">
+<h2 class="h2">See what works today</h2>
+<p class="lead" style="margin:14px auto 0;max-width:520px">Install 0.2.0 and add your first people, or follow the roadmap to 1.0.</p>
+<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:28px">
+<a class="btn" href="../get-started/">Get started</a>
+<a class="btn2" href="../roadmap/">See the roadmap</a>
+</div>
+</div>
+</section>
+</main>
+<footer style="background:#1E4D4A;color:#F6F4EC">
+<div style="max-width:1120px;margin:0 auto;padding:56px 32px 32px;display:flex;flex-wrap:wrap;gap:40px">
+<div style="flex:1.4 1 280px"><img src="../assets/kinship-logo-horizontal-reversed.svg" alt="KinShip" width="118" height="44" style="height:44px;width:auto;display:block"><p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#CFE0DA;max-width:340px">A self-hosted family tree. Free software under the AGPL-3.0-or-later license.</p></div>
+<div style="flex:1 1 140px"><h3 class="fh">Project</h3><a class="fl" href="../features/">Features</a><a class="fl" href="../roadmap/">Roadmap</a><a class="fl" href="https://github.com/officialJCReyes/kinship/releases">Releases</a></div>
+<div style="flex:1 1 140px"><h3 class="fh">Help</h3><a class="fl" href="../get-started/">Get started</a><a class="fl" href="../docs/">Docs</a><a class="fl" href="../about/#security">Security</a></div>
+<div style="flex:1 1 140px"><h3 class="fh">Source</h3><a class="fl" href="https://github.com/officialJCReyes/kinship">GitHub</a><a class="fl" href="https://github.com/officialJCReyes/kinship/issues">Issues</a><a class="fl" href="https://github.com/officialJCReyes/kinship/blob/main/LICENSE">License</a></div>
+</div>
+<div style="max-width:1120px;margin:0 auto;padding:20px 32px 32px;border-top:1px solid rgba(246,244,236,.2);display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:14px;color:#CFE0DA">
+<span>© KinShip contributors · Version 0.2.0</span>
+<span>The KinShip name and logo are not covered by the AGPL.</span>
+</div>
+</footer>
+</div>
+</body>
+</html>
