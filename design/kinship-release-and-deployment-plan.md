@@ -13,7 +13,7 @@ Companion to `kinship-v2-requirements.md`. Written at JC's request: a public Git
 - Every release is **reproducible and traceable**: a git tag, a changelog entry, and images with the same version tag.
 - **Real family data is safe across upgrades** from the first release anyone puts real data in.
 - The repo is public, so **no secrets, no real family data and no private health examples** ever go in it. The sample family is fictional.
-- Matches decisions already made: Docker Compose + Postgres 18, three services (`web`, `api`, `db`), same tag for web and api, external reverse proxy for TLS, no AI features.
+- Matches decisions already made: Docker Compose + Postgres 18, three services (`web`, `api`, `db`), same tag for web and api, external reverse proxy for TLS, and AI features that are optional and off by default (ADR 0021).
 - **The SuperAdmin is told when a new version is out, and what is in it** (section 7). The app sends nothing about the installation when it checks.
 
 ## 2. Repository (public, GitHub)
@@ -189,7 +189,8 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 
 ### v0.4.0 — "Email, sign-in and notifications"
 - Email through Resend or SMTP with the editable templates and a test button; invites and password resets by email.
-- Authentik OIDC single sign-on with the local login fallback; linking of SSO accounts to a person (the admin action to link an existing local account moved to 0.2.0).
+- **OpenID Connect single sign-on, enforced while it is on (decided by JC, Nov 18; design in `kinship-sso-oidc.md`).** While `OIDC_ENABLED=true`, local sign-in is refused for every role; setting it to `false` and restarting is the break glass. It is provider-agnostic: any standards-compliant OIDC provider should work, and Authentik is the one JC deploys and tests with. **Group membership claims decide the role** (a group maps to SuperAdmin, Family Admin, Member or User; an unmapped person gets User; SuperAdmin by group needs a local break-glass password and a local TOTP, both shipped in 0.4; SSO sign-ins are never asked for the TOTP; there can be more than one SuperAdmin and the last one can never be demoted). Linking of SSO accounts to a person (the admin action to link an existing local account moved to 0.2.0).
+- **Authenticator-app (TOTP) login for SuperAdmin accounts, pulled forward from 1.4 (JC, Nov 18).** It is the break-glass path when SSO is switched off. Required for every SuperAdmin, with one-time recovery codes and a `kinship` CLI reset (decided); other roles get it in 1.4 (**Proposed**). Only the OIDC group can make a SuperAdmin; there is no promote action.
 - In-app bell; birthday notifications (lead times, children under 18 excluded), remembrance days, optional weekly digest. **The update notice also appears in the SuperAdmin's bell** (no email).
 - Deployment page and Admin → System status for email and storage.
 
@@ -236,7 +237,7 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 - **1.1 — Storage and polish:** S3 and S3-compatible storage with the migrate-between-backends tool, S3 as a backup destination, MapTiler as the keyed map provider, Word (.docx) output, the family book (its health section includes surgeries under the same rules), the birthday and anniversary list, rate limiting and session management extras.
 - **1.2 — DNA (basic):** DNA tab on profiles (tests table, haplogroups, ethnicity estimate, admin upload on someone's behalf with the permission checkbox), the orange tree badge, the Health and DNA admin overview, Y-DNA and mtDNA lines. Visible to every account as decided; raw files private and encrypted.
 - **1.3 — DNA matches:** match lists, the cM check against the tree (ranges verified against published shared-cM data first), "good people to test next".
-- **1.4 — Sharing and safety:** suggest-a-change approval for Members, two-factor login and passkeys, calendar feed (ICS), hourglass chart, paternal and maternal line highlight, a people list view.
+- **1.4 — Sharing and safety:** suggest-a-change approval for Members, two-factor (TOTP) for every role and passkeys (a SuperAdmin's TOTP ships in 0.4), calendar feed (ICS), hourglass chart, paternal and maternal line highlight, a people list view.
 - **1.5 — Research tools:** research to-dos, alternate names and date ranges, Gramps XML import, printing a chart as a poster. *(The per-user default chart view moved to 0.3 on Nov 18.)*
 - **2.0 (only if needed):** adoptive, foster and guardian relationships (paused by JC) or multiple linked trees, if they require changing the data model.
 
@@ -364,6 +365,8 @@ volumes: { kinship-db: {}, kinship-files: {}, kinship-backups: {} }
 **Done (Nov 18): v0.2.0 "A tree you can trust" is published** (rc.1 Nov 17, rc.2 and rc.3 Nov 18; schema 16; the data promise starts here). The first `v0.2.0` tag's release run failed before publishing anything (a stable-only upgrade-test check and one flaky web test, fixed in #107); the unpublished tag was deleted and the fixed commit tagged (ADR 0017, Exceptions). The GitHub Release is Latest with `compose.yml`, `env.example` and `release-manifest.json` (stable, migration true, breaking false). The required checks now include the upgrade test and the end-to-end tests. Releases were manual up to 0.2.0; release-please opens the release pull request after it. The changelog heading and manifest date say 2026-11-23, the planned date; the release was made on Nov 18.
 
 **Decided (Nov 18, JC, after 0.2.0): the Family tree in 0.3.0.** Siblings' partners are always drawn; "Show aunts, uncles and cousins" is an option in the gear panel, off by default, built after crossing minimisation; a wide chart is fine, the chart opens centered on the home person and is navigated by scrolling or panning, and fitting the whole tree is not required. Closed PRs #91 and #92 now have tracking issues (#110 marriage place, 0.5.0; #109 calendar picker, 0.3.0).
+
+**Decided (Nov 18, JC): single sign-on is provider-agnostic OpenID Connect, with Authentik as the tested reference provider and group claims mapped to SuperAdmin, Family Admin, Member and User, unmapped people get User; SuperAdmin TOTP ships in 0.4; several SuperAdmins are allowed, the last can never be demoted** (0.4; `kinship-sso-oidc.md`). **AI features are optional and off by default** (ADR 0021): the Goals line above is reworded, and nothing may call an AI service before an admin connects an engine and the feature has been built and asked for.
 
 **Proposed, waiting for JC's yes**
 1. **Library picks inside the stack** (section 6): Fastify, Kysely with plain SQL migrations, Vite, own SVG tree drawing, Vitest and Playwright.

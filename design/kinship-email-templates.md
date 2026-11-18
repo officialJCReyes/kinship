@@ -28,8 +28,8 @@ Sent to each account at the lead time that person chose in My settings: on the d
 The relationship ("Father", "Sister") is worked out from the tree for the person receiving the email. **Children under 18 are never included**, and the footer says so. The footer links to My settings to change or turn off reminders.
 
 ## 3. Password reset (designed)
-Local accounts only. Two emails:
-- **Reset link.** Subject "Reset your KinShip password". Heading "Reset your password"; says someone asked to reset the password for the account (shows the account address); **Choose a new password** button; small print: the link works once and expires in 1 hour (with the clock time) and the full address to copy; "Good to know": ignore it if you did not ask, your current password keeps working; KinShip never emails or asks for your password; people who sign in with Authentik change their password there. A new request cancels the older link.
+Local accounts only, and the reset link only while single sign-on is off (local sign-in is refused while it is on, decided by JC, Nov 18). Two emails:
+- **Reset link.** Subject "Reset your KinShip password". Heading "Reset your password"; says someone asked to reset the password for the account (shows the account address); **Choose a new password** button; small print: the link works once and expires in 1 hour (with the clock time) and the full address to copy; "Good to know": ignore it if you did not ask, your current password keeps working; KinShip never emails or asks for your password; people who sign in with single sign-on change their password at their identity provider. A new request cancels the older link.
 - **Password changed.** Subject "Your KinShip password was changed". Says when it changed and that every other device was signed out; if it was not you, a **Secure my account** button (signs out everything and forces a new password) and a note that a family admin can lock the account. This is a security notice and **cannot be turned off**.
 
 ## 4. Weekly digest (designed) - off by default
