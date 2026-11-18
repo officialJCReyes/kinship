@@ -8,10 +8,16 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 - **A brother or sister for someone with no parents.** Add relative no longer asks you to add a parent first. When the person has no parents on the tree, KinShip adds an "Unknown father" and an "Unknown mother" for them and links both children to them, in one step. They are dashed cards on the chart; give one a name (Add details) and it becomes an ordinary person. They never appear in the people list, in search or in counts.
 
+- **Link an existing account to a person** ([#8](https://github.com/officialJCReyes/kinship/issues/8)). In Admin → Users an admin can link an account that has no person to a person on the tree, change the link, or unlink it. The dialog says what the link changes before anything is saved (for a Member: the person and the people they added below them). One person has at most one account and one account at most one person; a person with an open invitation, and an "Unknown father or mother", cannot be linked. A SuperAdmin links any account, a Family Admin Members, Users and their own. Every link, change and unlink is one line in the api log, with ids only.
+
+### Fixed
+
+- **An invitation can no longer be made for an "Unknown father or mother".** The Invite dialog never offered one, but the API accepted it, and accepting such an invitation would have failed with an unexplained error. It now answers `person_is_placeholder`.
+
 ### Changed
 
 - **Success messages are a small pill** at the top centre that fades after about 5 seconds (and waits while the pointer or keyboard focus is on it). Warnings are still bars with a Dismiss button.
-- The database changes once more (migration 0015, no data changes): see [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md).
+- The database changes twice more (migrations 0015 and 0016, no data changes): see [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md).
 
 ## [0.2.0-rc.2] - 2026-11-17
 

@@ -13,7 +13,15 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 Then change `KINSHIP_VERSION` to the new version (the release's `env.example` shows every new setting), `docker compose pull && docker compose up -d`. The first start writes a safety copy (`data/backups/pre-upgrade-0006-to-0014.tar.enc` from alpha.2), then applies migrations 0007 to 0014. **Back up first anyway** (INSTALL.md, "Back up and restore"): the safety copy sits on the same disk. Going back is a restore of that backup; there are no down-migrations.
 
-What changes for people: every Married relationship with a deceased partner becomes Widowed (see "Names and relationships" below); everyone sees dates as "Jan 1, 2026" until they change it in My settings; admins see a "What's new" popup once. An alpha account is still not linked to a person ([#8](https://github.com/officialJCReyes/kinship/issues/8)): open **Family tree** and choose who to start from.
+What changes for people: every Married relationship with a deceased partner becomes Widowed (see "Names and relationships" below); everyone sees dates as "Jan 1, 2026" until they change it in My settings; admins see a "What's new" popup once. An alpha account may not be linked to a person: an admin links it in **Admin → Users** ("Link to a person", see below), or you open **Family tree** and choose who to start from meanwhile.
+
+### Link an account to a person (database change, back up first)
+
+- **No action is needed, and no data changes.** Migration 0016 adds five functions and replaces one (`create_invitation`); it adds no table and no column, and no account is linked or unlinked by the upgrade. An account that had no person before still has none afterwards.
+- **What it is for:** accounts made by an alpha or a release candidate may be linked to nobody (the first-run person was optional, and so was the person on an invitation). In **Admin → Users**, an admin can now **link** such an account to a person, **change** the link or **unlink** it. Linking an account to a person makes it that person on the tree (Home, My profile and the tree open on them) and, for a Member, lets it edit that person and the people it added below them. The dialog says what changes before you save. A SuperAdmin links any account; a Family Admin links Members, Users and their own account.
+- **A person who has an open invitation cannot be linked** until you revoke the invitation. An "Unknown father or mother" cannot be linked, and an invitation can no longer name one (before, the screen hid them but the API did not refuse them).
+- **API:** new `GET /api/admin/accounts/:id/link-preview?personId=`, `PUT /api/admin/accounts/:id/person` and `DELETE /api/admin/accounts/:id/person?currentPersonId=` (admins only), new error codes `account_already_linked`, `person_is_placeholder`, `person_has_open_invitation` and `account_not_linked`, and `canLinkPerson` on each row of `GET /api/admin/accounts`. Each link, change and unlink writes one line to the api log (`account_person_linked` or `account_person_unlinked`, with the ids of the admin, the account and the people, never names or emails).
+- The safety copy is named by schema numbers as always (`pre-upgrade-0015-to-0016` from the release after 0.2.0-rc.2 that has 0015).
 
 ### Unknown parents (database change, back up first)
 
