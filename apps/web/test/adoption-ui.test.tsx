@@ -148,8 +148,9 @@ describe('Add relative and the type of link', () => {
     click('Add brother');
     const dialog = await screen.findByRole('dialog');
     const group = within(dialog).getByRole('group', { name: 'Type of parent-child link' });
-    // A brother joins an existing set, so both are available for Samuel; the default follows the adoptive set.
-    expect((within(group).getByRole('radio', { name: 'Adoptive' }) as HTMLInputElement).checked).toBe(true);
+    // Samuel has both sets, so both are available; a brother follows the birth set unless only the adoptive one exists.
+    expect((within(group).getByRole('radio', { name: 'Birth' }) as HTMLInputElement).checked).toBe(true);
+    expect((within(group).getByRole('radio', { name: 'Adoptive' }) as HTMLInputElement).disabled).toBe(false);
   });
 
   it('shows a Member no choice of link type', async () => {

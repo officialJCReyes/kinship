@@ -102,13 +102,19 @@ export function TreePanel({
               {t('tree.panel.birthSurname', { surname: displaySurname(person, 'birth') })}
             </div>
           ) : null}
-          <div className="muted">{lifespan(person)}</div>
-          <div className="pills">
-            <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
-              {person.deceased ? t('person.deceased') : t('person.living')}
-            </span>
-            {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
-          </div>
+          {person.isPlaceholder ? (
+            <p className="muted">{t('person.placeholderNote')}</p>
+          ) : (
+            <>
+              <div className="muted">{lifespan(person)}</div>
+              <div className="pills">
+                <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
+                  {person.deceased ? t('person.deceased') : t('person.living')}
+                </span>
+                {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
+              </div>
+            </>
+          )}
           <div className="panel-actions">
             <Link className="button" to={`/people/${person.id}`}>
               {t('tree.panel.openProfile')}
@@ -118,15 +124,17 @@ export function TreePanel({
               onClick={() => setOpen({ kind: 'edit' })}
               disabled={!d}
             >
-              {t('profile.edit')}
+              {person.isPlaceholder ? t('person.addDetails') : t('profile.edit')}
             </ActionButton>
-            <ActionButton
-              disabledReason={!d ? undefined : admin || d.permissions.addChild ? undefined : blocked}
-              onClick={() => setOpen({ kind: 'add' })}
-              disabled={!d || !around.data}
-            >
-              {t('profile.addRelative')}
-            </ActionButton>
+            {person.isPlaceholder ? null : (
+              <ActionButton
+                disabledReason={!d ? undefined : admin || d.permissions.addChild ? undefined : blocked}
+                onClick={() => setOpen({ kind: 'add' })}
+                disabled={!d || !around.data}
+              >
+                {t('profile.addRelative')}
+              </ActionButton>
+            )}
           </div>
           {otherFamily?.family && onOpenOther ? (
             <button

@@ -69,7 +69,7 @@ export function EditPersonDialog({ person, onClose }: { person: Person; onClose:
   });
   return (
     <PersonFormDialog
-      title={t('edit.title', { name: displayName(person) })}
+      title={t(person.isPlaceholder ? 'edit.titlePlaceholder' : 'edit.title', { name: displayName(person) })}
       initial={draftFromPerson(person)}
       submitLabel={t('common.save')}
       onClose={onClose}

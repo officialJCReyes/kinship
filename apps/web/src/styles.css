@@ -790,6 +790,43 @@ fieldset.choice label {
   background: var(--panel);
 }
 
+/* A success: a small pill, fixed at the top centre, gone after about 5 seconds. It never takes focus. */
+.notice-pills {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  z-index: 40;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+
+.notice-pill {
+  padding: 6px 14px;
+  border: 1px solid var(--leaf);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+  box-shadow: var(--shadow);
+  opacity: 1;
+  transition: opacity 0.4s ease;
+  pointer-events: auto;
+}
+
+.notice-pill.fading {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notice-pill {
+    transition: none;
+  }
+}
+
 .notice.warning {
   border-color: var(--amber);
   background: var(--amber-soft);
@@ -1148,6 +1185,26 @@ main.tree-main {
 
 .tnode.female .box {
   stroke: var(--g-female);
+}
+
+/* An unknown parent (ADR 0019): the same card, neutral and dashed, with a plus where the initials would be. */
+.tnode.placeholder .box {
+  stroke-dasharray: 6 4;
+}
+
+.tnode.placeholder .avatar {
+  stroke-dasharray: 3 3;
+}
+
+.tnode .plus {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.legend .swatch.placeholder {
+  border-style: dashed;
 }
 
 .tnode.deceased .box {

@@ -257,7 +257,8 @@ describe('add relative', () => {
     click('Add relative');
     expect(screen.getByRole('button', { name: 'Add father' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Add mother' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add brother' }).getAttribute('title')).toBe('Add a parent first');
+    // No "Add a parent first" rule any more: a brother or sister can be added to someone with no parents (ADR 0019).
+    expect(screen.getByRole('button', { name: 'Add brother' }).getAttribute('title')).toBeNull();
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -467,11 +468,18 @@ describe('add relative', () => {
     });
   });
 
-  it('adds a sibling with the same two parents, naming the shared relationship', async () => {
+  it('adds a sister with one call, and the server decides which parents she shares', async () => {
     const fetchMock = mockApi(
       haleRoutes(ADMIN, {
-        'POST /api/people': { status: 201, body: { person: { ...PEOPLE[8]!, id: 'sib' }, warnings: [] } },
-        'POST /api/people/sib/parents': { status: 201, body: { parentage: null, warnings: [] } },
+        'POST /api/people/marcus/siblings': {
+          status: 201,
+          body: {
+            person: { ...PEOPLE[8]!, id: 'sib' },
+            parentage: { unionId: 'u1', parentId: null, kind: 'birth', link: null },
+            placeholders: [],
+            warnings: [],
+          },
+        },
       }),
     );
     renderApp('/people/marcus');
@@ -482,13 +490,22 @@ describe('add relative', () => {
     type('Surname', 'Hale');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    const parentCalls = fetchMock.mock.calls
-      .filter(([url, init]) => String(url) === '/api/people/sib/parents' && init?.method === 'POST')
+    const calls = fetchMock.mock.calls
+      .filter(([url, init]) => String(url) === '/api/people/marcus/siblings' && init?.method === 'POST')
       .map(([, init]) => JSON.parse(String(init?.body)));
-    expect(parentCalls).toEqual([
-      { parentId: 'daniel', kind: 'birth' },
-      { parentId: 'elena', kind: 'birth', unionId: 'u1' },
-    ]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ kind: 'birth', sibling: { givenName: 'Tess', surname: 'Hale' } });
+    // Nothing else was created or linked from the browser.
+    expect(fetchMock.mock.calls.some(([url]) => String(url) === '/api/people')).toBe(false);
+  });
+
+  it('tells an admin that unknown parents are added when the person has none', async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/people/walter');
+    await screen.findByRole('heading', { name: 'Walter Hale' });
+    click('Add relative');
+    click('Add brother');
+    expect(screen.getByTestId('placeholder-note').textContent).toMatch(/unknown father and an unknown mother/);
   });
 });
 
