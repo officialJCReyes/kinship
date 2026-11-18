@@ -1,8 +1,10 @@
-# KinShip release and deployment plan (Nov 15, 2026, revised four times the same day)
+# KinShip release and deployment plan (Nov 15, 2026, revised five times the same day; scope updated Nov 18)
 
 Companion to `kinship-v2-requirements.md`. Written at JC's request: a public GitHub repository, Docker images built and hosted on GitHub so future users can deploy easily, a versioning scheme, and what ships in each version, starting below 1.0 and building to a v1 release.
 
 **Decided by JC (Nov 15):** license is **AGPL-3.0** (my recommendation, JC said "license is okay"); the repository owner is **officialJCReyes**; the repository is **public from day one**; the **trimmed 1.0** below is right; the **update check is a toggle inside the app, not an environment variable**; **no update email**; clicking an update notice opens a **popup with the changes**; after an update a **"What's new" popup** shows the changelog, **to every admin when they sign in** (SuperAdmin and Family Admins); **any breaking change or database migration must warn the SuperAdmin to take a backup first**; the **automatic safety copy before a migration is on by default**; the **support policy** (newest release only) and **release automation** (manual for 0.1, release-please from 0.2) were accepted. The update notice, both popups, the backup warning and the About page are **built in the mockup** (Admin → Updates; account menu → About KinShip).
+
+**Scope update, decided by JC on Nov 18 after the 0.2 scope audit (recorded as ADR 0018 in the repo):** several items from the original 0.2.0 list were not built and now have a release. **Moved to 0.3.0:** profile photos and encrypted media upload, the in-app Restore button (restore is a command in 0.2), changing an account's role, disabling and deleting accounts, crossing minimisation in the tree layout, and the per-user default chart view (from 1.5). **Moved to 0.5.0:** the Edit details fields for birth and death places, cause of death and marriage place, with the Places library. **Pulled into 0.2.0:** linking an existing account to a person (from 0.4; **built Nov 18 in PR #101, ADR 0020**). **Deferred with no release:** a family default color scheme and a one-color logo. **Release tags are annotated and unsigned** (`git tag -a`), as every published tag has been; the earlier "signed release tags" no longer holds. The upgrade test and the end-to-end tests are to be added to the required checks before the 0.2.0 tag. Sections 2 and 6 below carry these changes.
 
 **Stack decided by JC (Nov 15): PostgreSQL 18, a TypeScript API, an nginx `web` container, and a React UI** (section 6, Milestone 0).
 
@@ -44,7 +46,7 @@ Compose files are named `compose.yml` (not `docker-compose.yml`), as JC prefers.
 
 **Commits:** Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`; `feat!:` or a `BREAKING CHANGE:` footer marks a breaking change), so the changelog and release notes can be generated and breaking changes are never missed.
 
-**GitHub settings on day one:** two-factor on the account, secret scanning and push protection on, Dependabot (npm and Docker base images, GitHub Actions), private vulnerability reporting on, GitHub Discussions for questions (Issues for bugs only), signed release tags. (Done Nov 15: private vulnerability reporting, secret protection, push protection, dependency graph, Dependabot alerts and security updates are on.)
+**GitHub settings on day one:** two-factor on the account, secret scanning and push protection on, Dependabot (npm and Docker base images, GitHub Actions), private vulnerability reporting on, GitHub Discussions for questions (Issues for bugs and for tracking work left out of a release, as CONTRIBUTING now says), **annotated release tags** (changed Nov 18: the alphas and release candidates are unsigned annotated tags, made with `git tag -a`). (Done Nov 15: private vulnerability reporting, secret protection, push protection, dependency graph, Dependabot alerts and security updates are on.)
 
 ## 3. Container images (GitHub Container Registry)
 - **Registry:** `ghcr.io`. Images: **`ghcr.io/officialjcreyes/kinship-web`** and **`ghcr.io/officialjcreyes/kinship-api`**. (The registry requires lowercase, so the owner name is written in lowercase here.) The database is the official `postgres:18` image, not ours, so there are only two images to build.
@@ -167,29 +169,33 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 
 ### v0.2.0 — "A tree you can trust" (data promise starts)
 - Full relationship model: statuses and dates, children hanging from the union, maiden and married surnames, custom labels, derived step and half relatives, widowed set automatically.
-- Add relative as in the mockup (diagram of cards with plus buttons; Member = children only); Edit details; flexible date entry and per-user date format; profile photos; Media upload to local storage, **encrypted before it is stored**.
+- Add relative as in the mockup (diagram of cards with plus buttons; Member = children only); Edit details; flexible date entry and per-user date format. *(Changed Nov 18: profile photos and encrypted media upload moved to 0.3; the Edit details fields for birth and death places, cause of death and marriage place moved to 0.5 with the Places library.)*
 - Seven-step first-run wizard; My settings; the four color schemes.
-- **Built-in backup and restore** (local destination, encrypted archive, test and restore buttons, command line), because real data starts here. Automatic pre-migration safety copy.
+- **Built-in backup and restore** (local destination, encrypted archive, test button, command line; restore is a command in 0.2 and the in-app Restore button moved to 0.3 on Nov 18), because real data starts here. Automatic pre-migration safety copy.
 - **Admin → Updates:** update check toggle, banner, "What's changing" popup with the backup warning, and the "What's new" popup for admins after an update (section 7).
 - Upgrade test in the pipeline begins to run.
 - Invites by copied link (email comes in 0.4); password change.
+- **Link an existing account to a person** (an admin action; pulled in from 0.4 by JC on Nov 18; **built in PR #101, migration 0016, ADR 0020**), so accounts upgraded from an alpha are not left unlinked. Also in 0.2.0 from Nov 18: unknown parents ("placeholders") so a person with no parents can get a brother or sister (PR #100, migration 0015, ADR 0019), and the success message as a small pill.
 - Permissions: Admin edits all, Member own profile and descendants, User read only.
 
 ### v0.3.0 — "See the family"
 - All four chart views (Pedigree, Fan, Descendants) and the view switcher; the spouse's family leaf and flip; tree legend; centered page layouts.
+- **Who the Family tree draws (proposed Nov 18, waiting for JC's yes; see `kinship-tree-views-and-dna.md`):** today it draws only the person's own line, so **siblings' partners (a brother- or sister-in-law by blood) and aunts and uncles are not drawn**. Proposed: draw siblings' partners always (their parents behind the green leaf), and add an option "Show aunts, uncles and cousins", off by default, in the gear panel. The option depends on crossing minimisation (#21) below; if the layout slips it moves to 1.4.
 - Relationship finder with cousin levels, half and in-law and step names, the "once removed" explainer.
-- People search and a quick find box; Home with Memory of the day and Coming up; Jump to shortcuts.
+- People search and a quick find box (the search also sits inside the chart, with a result list that jumps to the person; the gear panel for tree display settings is proposed in `kinship-tree-settings-and-search.md`); Home with Memory of the day and Coming up; Jump to shortcuts.
 - Timeline and map (OpenStreetMap by default).
 - Performance target: 2,000 people draw and pan smoothly.
+- **Moved in from 0.2 and 1.5 (Nov 18, ADR 0018):** profile photos and Media upload to local storage, **encrypted before it is stored** (this adds a key, a volume and an UPGRADE step; issue #98); the in-app Restore button with a maintenance mode (#73); changing an account's role (#57); disabling and deleting accounts (#56); crossing minimisation in the tree layout (#21); the per-user default chart view (#48, from 1.5).
 
 ### v0.4.0 — "Email, sign-in and notifications"
 - Email through Resend or SMTP with the editable templates and a test button; invites and password resets by email.
-- Authentik OIDC single sign-on with the local login fallback; the linking of an account to one person.
+- Authentik OIDC single sign-on with the local login fallback; linking of SSO accounts to a person (the admin action to link an existing local account moved to 0.2.0).
 - In-app bell; birthday notifications (lead times, children under 18 excluded), remembrance days, optional weekly digest. **The update notice also appears in the SuperAdmin's bell** (no email).
 - Deployment page and Admin → System status for email and storage.
 
 ### v0.5.0 — "Research records"
 - Sources library, repositories, citations on birth, death and cause of death, reliability; typed life events; Places library with coordinates and merge; Stories and notes; Archive tab.
+- **The Edit details fields for birth and death places, cause of death and marriage place** (moved from 0.2 on Nov 18), built together with the Places library.
 - Members can add sources, places and stories; Users read only.
 - Files on facts. Duplicate people finder and **merge with 30-day undo** (it is needed once GEDCOM import exists, so it stays in 1.0).
 - Tree-wide change history (who changed what), since several people now edit.
@@ -197,14 +203,15 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 
 ### v0.6.0 — "Health, and privacy done right" (the most sensitive release)
 - Medical history on each profile: blood type, searchable conditions, cancer type, statuses; custom conditions with admin merge.
-- **Per-person sharing enforced by Postgres row-level security**, deceased records visible to all, private conditions, cause of death visible to all; edits by admins logged and notified.
-- Reports that respect it: medical patterns, **family health history for a doctor** with the "left out because not shared" counts.
-- Security review focused on this release: a test suite that logs in as every role and tries to read every record that should be hidden, run on every pull request from now on.
+- **Surgeries and procedures (added Nov 15; spec in `kinship-surgeries-and-procedures.md`):** a second section of the medical record: searchable procedure list (about 45 common ones), optional date and related condition, optional place from the Places library, notes, source URL and a Private checkbox; custom procedures with admin merge. **Private by default, like the rest of the record (confirmed by JC, Nov 15):** shared only with the people the person chooses, visible to all after death. Same row-level security policies as conditions (a `person_procedure` table and a shared `procedure_type` list), same change history and admin-edit email. Not an Events type, because events are visible to every account.
+- **Per-person sharing enforced by Postgres row-level security** (conditions and surgeries), deceased records visible to all, private conditions and surgeries, cause of death visible to all; edits by admins logged and notified.
+- Reports that respect it: medical patterns (conditions only), **family health history for a doctor** with the "left out because not shared" counts, **own surgeries listed with own conditions, and an optional (off by default) column for relatives' surgeries**; the life summary's health section lists surgeries too.
+- Security review focused on this release: a test suite that logs in as every role and tries to read every record that should be hidden, **including `person_procedure`**, run on every pull request from now on.
 - Release notes say plainly what is private and what is not.
 
 ### v0.7.0 — "Reports, import and export"
 - Core reports: life summary, family group sheet, ancestors and descendants outlines, data check; **print and PDF, and plain text**; sources as footnotes.
-- **GEDCOM 5.5.1 import** (with a preview and a list of what was skipped) and **export** (living people shown as "Living"); Import & export page.
+- **GEDCOM 5.5.1 import** (with a preview and a list of what was skipped) and **export** (living people shown as "Living"; medical data, surgeries included, is not exported; placeholders for unknown parents are skipped); Import & export page.
 
 ### v1.0.0-rc.1, rc.2 — "Release candidates" (no new features)
 - Security review of the whole app; accessibility pass (keyboard, screen reader, contrast in all four schemes and both themes); mobile pass.
@@ -226,22 +233,22 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 5. Docs, license, security policy and contribution guide are in place.
 
 ### After 1.0 (minor releases, in the order I would do them; JC can reorder)
-- **1.1 — Storage and polish:** S3 and S3-compatible storage with the migrate-between-backends tool, S3 as a backup destination, MapTiler as the keyed map provider, Word (.docx) output, the family book, the birthday and anniversary list, rate limiting and session management extras.
+- **1.1 — Storage and polish:** S3 and S3-compatible storage with the migrate-between-backends tool, S3 as a backup destination, MapTiler as the keyed map provider, Word (.docx) output, the family book (its health section includes surgeries under the same rules), the birthday and anniversary list, rate limiting and session management extras.
 - **1.2 — DNA (basic):** DNA tab on profiles (tests table, haplogroups, ethnicity estimate, admin upload on someone's behalf with the permission checkbox), the orange tree badge, the Health and DNA admin overview, Y-DNA and mtDNA lines. Visible to every account as decided; raw files private and encrypted.
 - **1.3 — DNA matches:** match lists, the cM check against the tree (ranges verified against published shared-cM data first), "good people to test next".
 - **1.4 — Sharing and safety:** suggest-a-change approval for Members, two-factor login and passkeys, calendar feed (ICS), hourglass chart, paternal and maternal line highlight, a people list view.
-- **1.5 — Research tools:** research to-dos, alternate names and date ranges, Gramps XML import, a per-user default chart view, printing a chart as a poster.
+- **1.5 — Research tools:** research to-dos, alternate names and date ranges, Gramps XML import, printing a chart as a poster. *(The per-user default chart view moved to 0.3 on Nov 18.)*
 - **2.0 (only if needed):** adoptive, foster and guardian relationships (paused by JC) or multiple linked trees, if they require changing the data model.
 
 ### Summary table
 | Version | Theme | Data safe? |
 |---|---|---|
 | 0.1 | It runs: pipeline, images, one tree view | No, may be wiped |
-| 0.2 | A tree you can trust: relationships, add relative, backup, update notice | **Yes, from here** |
-| 0.3 | All views, finder, search, timeline and map | Yes |
+| 0.2 | A tree you can trust: relationships, add relative, backup, update notice, linking accounts to people | **Yes, from here** |
+| 0.3 | All views, finder, search, timeline and map; photos and media, Restore button, role and account admin | Yes |
 | 0.4 | Email, invites, SSO, notifications | Yes |
 | 0.5 | Sources, places, stories, merge, change history | Yes |
-| 0.6 | Health and private sharing (row-level security) | Yes |
+| 0.6 | Health (conditions, surgeries) and private sharing (row-level security) | Yes |
 | 0.7 | Core reports, GEDCOM import and export | Yes |
 | 1.0-rc | Hardening, docs, upgrade tests | Yes |
 | **1.0** | **Stable core** | Yes, with the compatibility promise |
@@ -348,12 +355,18 @@ volumes: { kinship-db: {}, kinship-files: {}, kinship-backups: {} }
 - The design docs in `design/` contain JC's decisions, not personal data; review them once before making the repo public (it is public from day one, so do this before the first push).
 
 ## 10. Decisions
-**Decided (Nov 15):** AGPL-3.0; owner officialJCReyes; public from day one; trimmed 1.0; update check is an in-app toggle (no variable); no update email; click the notice for a popup of changes; What's new popup after an update, shown to every admin; backup warning on any migration or breaking change; automatic safety copy before a migration on by default; update notice, popups and About page built in the mockup; **stack: PostgreSQL 18, TypeScript API, nginx `web` container (separate, three services stay), React UI**; **support policy: newest release only**; **release automation: manual for 0.1, release-please from 0.2**.
+**Decided (Nov 15):** AGPL-3.0; owner officialJCReyes; public from day one; trimmed 1.0; update check is an in-app toggle (no variable); no update email; click the notice for a popup of changes; What's new popup after an update, shown to every admin; backup warning on any migration or breaking change; automatic safety copy before a migration on by default; update notice, popups and About page built in the mockup; **stack: PostgreSQL 18, TypeScript API, nginx `web` container (separate, three services stay), React UI**; **support policy: newest release only**; **release automation: manual for 0.1, release-please from 0.2**; **surgeries and procedures are part of the medical record in 0.6 and stay private by default (JC, Nov 15)**.
+
+**Decided (Nov 18, after the 0.2 scope audit; ADR 0018 in the repo):** photos and encrypted media upload, the in-app Restore button, role change, disable and delete accounts, crossing minimisation and the per-user default chart view move to 0.3.0; the Edit details fields for birth and death places, cause of death and marriage place move to 0.5.0 with the Places library (draft PR #91, marriage place, waits for 0.5.0); linking an existing account to a person is pulled into 0.2.0 (built, #101); a family default color scheme and a one-color logo are deferred with no release; release tags are annotated and unsigned; the upgrade test and the end-to-end tests become required checks before the 0.2.0 tag; issues are for bugs and for tracking work left out of a release.
+
+**Decided (Nov 18, Step 22 and 23):** unknown parents (placeholders) for a sibling with no parents, admin-only, with a single sibling route (ADR 0019, migration 0015); linking, changing and unlinking an account's person, admin-only with a hierarchy (SuperAdmin any account, Family Admin Member and User accounts and their own), ids-only log line, no audit table until 0.5 (ADR 0020, migration 0016); success messages as a 5-second pill.
 
 **Proposed, waiting for JC's yes**
 1. **Library picks inside the stack** (section 6): Fastify, Kysely with plain SQL migrations, Vite, own SVG tree drawing, Vitest and Playwright.
+2. **In-chart search and a gear panel of tree display settings** (0.3; see `kinship-tree-settings-and-search.md`).
+3. **Who the Family tree draws (Nov 18; see `kinship-tree-views-and-dna.md`):** siblings' partners always drawn, and an option "Show aunts, uncles and cousins" (off by default, in the gear panel, 0.3 after crossing minimisation, otherwise 1.4). Today neither is drawn.
 
-**Still open:** nothing blocks starting the repository. The mockup's final approval is JC's call.
+**Still open:** nothing blocks starting the repository. The mockup's final approval is JC's call. **The mockup does not yet show surgeries and procedures** (add the section to the Medical history tab, the Add dialog, the doctor report and the sample family before the 0.6 build prompt; suggested sample entries are in `kinship-surgeries-and-procedures.md`).
 
 ## 11. Risks
 - **Health privacy is the highest risk.** It is why 0.6 has its own security review and a permanent role-by-role test suite.

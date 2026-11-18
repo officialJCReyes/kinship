@@ -1,4 +1,4 @@
-# KinShip: home, tree views and DNA (Nov 14, 2026)
+# KinShip: home, tree views and DNA (Nov 14, 2026; Family tree coverage added Nov 18)
 
 Companion to `kinship-v2-requirements.md`. Navigation lives in `kinship-navigation.md` (five header tabs for admins, four for others; Health and DNA are on each profile).
 
@@ -12,7 +12,7 @@ All views share the person panel, pan, zoom, fit button and the same person node
 
 | View | What it shows | Notes |
 |---|---|---|
-| Family tree (default) | Your own line by generation, with couples and kids hanging from the union. **A spouse's parents and ancestors are hidden** and opened with a small green leaf on the spouse's card (see below) | Solid line together, dotted line ended or not a marriage |
+| Family tree (default) | Your own line by generation, with couples and kids hanging from the union. **A spouse's parents and ancestors are hidden** and opened with a small green leaf on the spouse's card (see below). **Siblings' partners and aunts and uncles are not drawn (see "Who the Family tree view draws")** | Solid line together, dotted line ended or not a marriage |
 | Pedigree | Direct ancestors of the selected person, left to right. Father above, mother below | 3, 4 or 5 generations. Column titles (Parents, Grandparents...). Missing parents show a dashed "Father/Mother not on the tree" slot |
 | Fan | Half-circle of ancestors, one ring per generation | 3, 4 or 5 generations. Left half is the father's side (green), right half the mother's side (amber). Names turn radial in outer rings. Missing ancestors are dashed outlines |
 | Descendants | Everyone below the selected person, left to right, children grouped under their parent | 2 to 5 generations. Each card lists partners ("m. Rosa", "div. Lucia", "sep. Anthony"). Stepchildren are not shown. A card at the depth limit says "N children below" |
@@ -20,6 +20,27 @@ All views share the person panel, pan, zoom, fit button and the same person node
 - Pedigree and fan follow blood parents only (adoption is paused).
 - Each view fits itself to the canvas when you switch view, change generations or click a new person; the fit button returns to that fit.
 - Not built yet: hourglass (ancestors left, descendants right), a per-user default view in My settings, printing a chart as PDF/poster.
+
+## Who the Family tree view draws (checked against the running app, Nov 18)
+JC compared the app (0.2.0 release candidate) with a real family and found that two groups of relatives are missing from the Family tree view. The behavior below is **what is built today**; it follows the rule "your own line", which is what the Family tree row above has always said. No requirement doc and no release in the plan promised the missing groups, so this is a gap in the specification, not a regression.
+
+**Drawn today**
+- The person in focus, their blood ancestors by generation, and the people on their own line.
+- The partner of the person in focus and of each person on the line, with the couple line, and the children hanging from the union.
+- In a family view (after a leaf flip): that person's parents and grandparents above, their partner and children below, and their **full** siblings next to them.
+
+**Not drawn today**
+- **A sibling's partner** (a sister's husband, a brother's wife, that is, the focus person's brother-in-law or sister-in-law by blood). Example from the app: in Melise's family view, her sister Marielis is drawn next to her under their father, but Marielis's husband Juan Jose is not. He still appears in the person panel (Partners) and in the Relationships lists.
+- **Aunts and uncles** on either side (the siblings of a parent or grandparent) with their partners, and the cousins below them.
+- Half-siblings in a family view (already documented below; they stay in the full chart and the other views). Stepchildren in Descendants (already documented).
+- I did not check nieces and nephews (a sibling's children); the same rule probably leaves them out.
+
+**Where these relatives can already be found:** the person panel and profile (Partners, Relationships), the relationship finder (0.3), and the family health history report, which lists aunts and uncles when asked.
+
+**Proposed, waiting for JC's yes (my recommendation in each case)**
+1. **Siblings' partners (and their children): draw them.** A sibling's partner is drawn beside the sibling with the couple line, and the partner's own parents stay behind the green leaf, exactly like an in-law such as Priya. It reuses a pattern that already exists and adds one card per sibling, so I would make it always on, in 0.3.
+2. **Aunts, uncles and cousins: an option, off by default.** A setting "Show aunts, uncles and cousins" in the chart's gear panel (see `kinship-tree-settings-and-search.md`). When on, the siblings of each parent are drawn beside that parent with their partners, and cousins hang below. It widens the chart a lot and the chart uses fixed positions (the same reason the in-law parents could not be expanded inline), so it needs the crossing-minimisation work (#21, now in 0.3) first. If the layout work slips, this is the item to move to 1.4 beside the hourglass chart, because the information is already reachable elsewhere.
+3. **Whichever is chosen, say so on the chart:** the legend gets a line, for example "Brothers- and sisters-in-law and aunts and uncles open from the person panel", so the missing relatives do not look like missing data.
 
 ## A spouse's side of the family (decided by JC, built Nov 14)
 **Decision:** one tree, with the spouse's family hidden until asked for. Not separate linked trees. Reasons: real families overlap (cousins marry, spouses remarry, shared ancestors), so separate trees would duplicate people and need constant merging; the relationship finder, reports, health history and DNA checks all need one connected graph; permissions and backups stay per person. Separate trees are kept only for families that genuinely do not connect (the setup wizard already says more trees can be added later). This matches MyHeritage, where the icon is a view change on one tree.
@@ -76,3 +97,4 @@ Third-party tests (AncestryDNA, 23andMe, MyHeritage, FamilyTreeDNA) give a raw d
 ## Open
 - Which DNA parts are in v1 (JC unsure). The release plan (`kinship-release-and-deployment-plan.md`) recommends a basic DNA release before 1.0 and match checking after it.
 - Confirm that match lists and raw files stay private (assumed).
+- **Siblings' partners and aunts and uncles in the Family tree (Nov 18):** approve the two proposals above (siblings' partners always drawn; aunts, uncles and cousins as an option, off by default) and the release for each.
