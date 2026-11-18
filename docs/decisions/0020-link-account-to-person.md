@@ -2,7 +2,7 @@
 
 - Status: **Accepted** (decisions by JC, 2026-11-18, after the step 23 phase 1 report)
 - Date: 2026-11-18
-- Builds on: [0005 People and relationships](0005-people-and-relationships.md), [0012 Invitations and passwords](0012-invitations-and-passwords.md), [0018 Scope audit](0018-scope-audit-0.2.md), [0019 Placeholder parents](0019-placeholder-parents.md)
+- Builds on: [0005 People and relationships](0005-people-and-relationships.md), [0012 Account links](0012-account-links.md), [0018 Scope audit](0018-scope-audit-0.2.md), [0019 Placeholder parents](0019-placeholder-parents.md)
 - Migration: `0016_link_account_person.sql`. Additive: five functions added, one replaced, no table, column or data change. No test or safety-copy name may assume 0016 is the last migration.
 
 ## Context
