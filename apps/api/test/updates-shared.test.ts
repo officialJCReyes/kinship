@@ -457,6 +457,23 @@ describe('a changelog written by release-please', () => {
     ]);
   });
 
+  it('is read next to the hand-written sections when release-please puts its section above [Unreleased]', () => {
+    // What release-please 17.11.2 does to this repository's CHANGELOG.md: the new section goes above `## [Unreleased]`.
+    const real =
+      '# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-11-18\n\n### Added\n\n- **Backups and restore.** One file.\n\n[Unreleased]: https://example.test/compare/v0.2.0...HEAD\n';
+    const entry =
+      '## [0.2.1](https://github.com/officialJCReyes/kinship/compare/v0.2.0...v0.2.1) (2026-11-19)\n\n\n### Bug Fixes\n\n* **api:** keep a thing ([abc1234](https://github.com/officialJCReyes/kinship/commit/abc1234))\n\n\n';
+    const merged = parseChangelog(real.replace('## [Unreleased]', `${entry}## [Unreleased]`));
+    expect(merged.slice(0, 2).map((s) => [s.version, s.date])).toEqual([
+      ['0.2.1', '2026-11-19'],
+      ['0.2.0', '2026-11-18'],
+    ]);
+    expect(merged[0]?.groups.map((g) => g.kind)).toEqual(['fixed']);
+    // An admin on 0.2.0 is shown only the new section; one on alpha.2 is shown both, and not the release candidates.
+    expect(sectionsBetween(merged, '0.2.0', '0.2.1').map((s) => s.version)).toEqual(['0.2.1']);
+    expect(sectionsBetween(merged, '0.1.0-alpha.2', '0.2.1').map((s) => s.version)).toEqual(['0.2.1', '0.2.0']);
+  });
+
   it('is found in the range an admin on alpha.2 is shown after updating', () => {
     const sections = sectionsBetween(parseChangelog(generated), '0.1.0-alpha.2', '0.2.0-alpha.2');
     expect(sections.map((s) => s.version)).toEqual(['0.2.0-alpha.2']);
