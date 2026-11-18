@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { describe, expect, it } from 'vitest';
 import { PEOPLE, treeFor } from './family.js';
-import { ancestorsIn, familyView, findLeaves, initials, leafLabel, nodeLabel, shortName } from '../src/tree/family.js';
+import { ancestorsIn, familyView, findLeaves, initials, leafLabel, nodeLabel } from '../src/tree/family.js';
 import { centerOn, clampScale, fitView, initialView, reveal, zoomAt } from '../src/tree/viewport.js';
 
 describe('family view', () => {
@@ -65,8 +65,6 @@ describe('nodes', () => {
     expect(nodeLabel(marcus)).toBe('Marcus Hale, born 1988, male');
     expect(nodeLabel(PEOPLE.find((p) => p.id === 'lena')!)).toBe('Lena Okafor, born 1989, other');
     expect(initials(marcus)).toBe('MH');
-    expect(shortName('Lena Okafor-Whitfield-Brandenburg')).toBe('Lena Okafor-Whit…');
-    expect(shortName('Short Name')).toBe('Short Name');
   });
 });
 

@@ -1408,7 +1408,7 @@ function updModal(m){
    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-act="updlater">Remind me later</button><button class="btn primary" data-close="1">Close</button></div>`)}
 function vAdmin(){
   const tab=S.tab.admin,sup=S.role==='superadmin';
-  const users=[['Marcus Hale','marcus','SuperAdmin','Local','Active'],['Priya Nair','priya','Family Admin','Authentik','Active'],['Daniel Hale','daniel','Member','Local','Active'],['Carla Hale','carla','Member','Authentik','Active'],['Jordan Reyes',null,'User','Authentik','Invited']];
+  const users=[['Marcus Hale','marcus','SuperAdmin','Local','Active'],['Priya Nair','priya','Family Admin','Authentik','Active'],['Daniel Hale','daniel','Member','Local','Active'],['Carla Hale','carla','Member','Authentik','Active'],['Jordan Calloway',null,'User','Authentik','Invited']];
   const mark=v=>v==='y'?'<span class="pill ok">Yes</span>':v==='n'?'<span class="pill gray">No</span>':`<span class="pill warn">${v}</span>`;
   const M=[['View public tree data and profile photos','y','y','y','y'],['Add and edit people, events, relationships','y','y','Own branch','n'],['Add sources, photos and documents','y','y','y','n'],['See deceased medical history','y','y','y','y'],['See living medical history','All','All','Shared + own','Own only'],['Import GEDCOM','y','y','n','n'],['Export GEDCOM','y','y','y','n'],['Manage users and link people to accounts','y','y','n','n'],['Configure SSO, languages and system settings','y','n','n','n']];
   const body={
@@ -1670,7 +1670,7 @@ const DNA={
     {prov:'23andMe',kind:'Autosomal + mtDNA',yr:2024,by:'marcus',on:'Jun 18, 2025',n:'about 640,000 markers',
       eth:{ver:'Ancestry Composition, 2025',r:[['British and Irish',38],['Iberian',33],['French and German',12],['Italian',9],['Broadly European',8]]},
       file:{name:'23andMe-raw-data.txt',size:'14.8 MB',on:'Jun 18, 2025'},
-      matches:[{name:'Naomi Brooks',pid:'naomi',cm:798,seg:31,long:72,pred:'Cousin'},{name:'Paul Hale',pid:'paul',cm:440,seg:19,long:58,pred:'Cousin'},{name:'Lucas Moreno',pid:'lucas',cm:131,seg:7,long:27,pred:'Distant cousin'},{name:'Dana Okafor',pid:null,cm:52,seg:3,long:19,pred:'Distant cousin'},{name:'Mateo Reyes',pid:null,cm:63,seg:4,long:21,pred:'Distant cousin'}]}
+      matches:[{name:'Naomi Brooks',pid:'naomi',cm:798,seg:31,long:72,pred:'Cousin'},{name:'Paul Hale',pid:'paul',cm:440,seg:19,long:58,pred:'Cousin'},{name:'Lucas Moreno',pid:'lucas',cm:131,seg:7,long:27,pred:'Distant cousin'},{name:'Dana Okafor',pid:null,cm:52,seg:3,long:19,pred:'Distant cousin'},{name:'Mateo Calloway',pid:null,cm:63,seg:4,long:21,pred:'Distant cousin'}]}
   ]},
   daniel:{share:'family',tests:[{prov:'FamilyTreeDNA',kind:'Y-DNA, 37 markers',yr:2023,by:'marcus',on:'Oct 21, 2026',n:'37 markers'}],y:'R-M269',consent:'Daniel agreed in person (recorded by Marcus Hale).'},
   carla:{share:'me',tests:[{prov:'23andMe',kind:'Autosomal + mtDNA',yr:2021,by:'marcus',on:'Nov 3, 2026',n:'about 640,000 markers'}],mt:'H1a',consent:'Carla agreed by email (recorded by Marcus Hale).'},

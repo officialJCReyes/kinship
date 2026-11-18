@@ -56,6 +56,34 @@ test('open the chart, select a person and read the panel', async ({ adminPage: p
   await expect(panel.getByRole('button', { name: 'Edit details' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Add relative' })).toBeVisible();
   await expect(page).toHaveURL(/[?&]sel=/);
+  // Selected is more than a ring: the card's fill is tinted, and its sex border colour is unchanged, in every scheme.
+  const box = (name: string) => person(page, name).locator('.box');
+  const paint = (name: string) =>
+    box(name).evaluate((b) => ({ fill: getComputedStyle(b).fill, stroke: getComputedStyle(b).stroke }));
+  const unselectedBefore = await paint('Sofia');
+  const selectedNow = await paint('Marcus');
+  expect(selectedNow.fill).not.toBe(unselectedBefore.fill);
+  for (const scheme of ['forest', 'sand', 'slate', 'graphite']) {
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(
+        ([s, t]) => {
+          document.documentElement.dataset['scheme'] = s;
+          document.documentElement.dataset['theme'] = t;
+        },
+        [scheme!, theme],
+      );
+      const selected = await paint('Marcus');
+      const other = await paint('Ben');
+      expect(selected.fill, `${scheme} ${theme}: selected fill differs`).not.toBe(other.fill);
+      expect(selected.stroke, `${scheme} ${theme}: male border`).toBe(
+        await box('Marcus').evaluate((b) => getComputedStyle(b).stroke),
+      );
+      const male = await person(page, 'Ben')
+        .locator('.box')
+        .evaluate((b) => getComputedStyle(b).stroke);
+      expect(selected.stroke, `${scheme} ${theme}: same border as another male card`).toBe(male);
+    }
+  }
   // Back works: the selection is in the address, so Back returns to the first state.
   await person(page, 'Sofia').click();
   await expect(panel.getByRole('heading', { name: `Sofia ${family}` })).toBeVisible();
@@ -148,6 +176,47 @@ test('keyboard: one tab stop, arrows move between people, Enter selects', async 
   await person(page, 'Sofia').focus();
   await page.keyboard.press('+');
   await expect.poll(() => page.locator('.tree-canvas > svg > g').getAttribute('transform')).not.toBe(before);
+});
+
+test('cards are one size, show the whole name, and show sex by border colour alone, in every colour scheme', async ({
+  adminPage: page,
+}) => {
+  // A long name and no gender, no birth date (an unknown-sex card is grey), in the same family.
+  const given = 'Nova Estelle Octavia';
+  const long = await createChild(
+    page.request,
+    daniel.id,
+    { givenName: given, surname: `${family}-Fernandez` },
+    unions.elena,
+  );
+  await page.goto(`/tree/${daniel.id}`);
+  const card = page.locator(`[data-node="${long.id}"]`);
+  await expect(card).toBeVisible();
+  await expect(card).toHaveAccessibleName(`${given} ${family}-Fernandez, unknown`);
+  await expect(card.locator('title')).toHaveText(`${given} ${family}-Fernandez`);
+  // no sex icon anywhere, and the whole name is there (up to three lines, no ellipsis)
+  await expect(page.locator('.tnode .glyph')).toHaveCount(0);
+  const text = (await card.locator('.name tspan').allTextContents()).join(' ').replace(/- /g, '-');
+  expect(text).toBe(`${given} ${family}-Fernandez`);
+  expect(await card.locator('.name tspan').count()).toBeLessThanOrEqual(3);
+  // every card is the same size
+  const heights = await page.locator('.tnode .box').evaluateAll((boxes) => boxes.map((b) => b.getAttribute('height')));
+  expect(new Set(heights).size).toBe(1);
+  // The border colour tells the sex, and it differs in all four schemes, light and dark.
+  const border = (id: string) => page.locator(`[data-node="${id}"] .box`).evaluate((b) => getComputedStyle(b).stroke);
+  for (const scheme of ['forest', 'sand', 'slate', 'graphite']) {
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(
+        ([s, t]) => {
+          document.documentElement.dataset['scheme'] = s;
+          document.documentElement.dataset['theme'] = t;
+        },
+        [scheme!, theme],
+      );
+      const colours = [await border(daniel.id), await border(sofia.id), await border(long.id)];
+      expect(new Set(colours).size, `${scheme} ${theme}: ${colours.join(' | ')}`).toBe(3);
+    }
+  }
 });
 
 test('an account linked to nobody is asked who to start from', async ({ page, adminApi }) => {

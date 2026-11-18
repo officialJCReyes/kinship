@@ -105,7 +105,7 @@ fi
 previous_version="${previous_tag#v}"
 echo "Upgrading from ${previous_tag} to ${current_version} (images tagged ${image_tag})"
 seed="$repo/scripts/upgrade-test/seed-${previous_version}.sh"
-[ -f "$seed" ] || fail "there is no seed for ${previous_version}: add scripts/upgrade-test/seed-${previous_version}.sh"
+[ -f "$seed" ] || fail "there is no seed for ${previous_version}: add scripts/upgrade-test/seed-${previous_version}.sh (copy the newest seed in scripts/upgrade-test/ and adjust it; the upgrade test starts every run from a published release, and needs one seed per release it can start from)"
 
 # ---- the previous release, as a user installed it ----------------------------------------------------------------------------
 step "Fetch ${previous_tag}'s own compose.yml and settings file from its release page"
@@ -126,6 +126,11 @@ set_env KINSHIP_BIND 127.0.0.1
 set_env PUBLIC_URL "$base"
 set_env DB_OWNER_PASSWORD "$owner_password"
 set_env DB_APP_PASSWORD "$app_password"
+
+# The backups folder, made before anything starts: a release from 0.2.0-rc.1 on bind-mounts it, and Docker would otherwise create it
+# owned by root, which this script could neither change nor remove. World-writable, like the chown in UPGRADE.md, so the api (uid
+# 1000) can write to it and this script can remove what it wrote.
+mkdir -p "$work/data/backups"; chmod 777 "$work/data/backups"
 
 step "Start ${previous_tag} from its published images"
 compose pull -q
@@ -151,7 +156,6 @@ save_logs
 step "Upgrade: the new compose.yml, the backups folder, a passphrase, the new version"
 compose down >/dev/null
 cp "$repo/compose.yml" "$work/compose.yml"
-mkdir -p "$work/data/backups"; chmod 777 "$work/data/backups"   # as the chown in UPGRADE.md; this script must be able to remove it
 printf '\nBACKUP_PASSPHRASE=%s\n' "$backup_passphrase" >> "$work/.env"
 set_env KINSHIP_VERSION "$image_tag"
 compose up -d --wait --wait-timeout 600 || fail "the new build did not become healthy"
@@ -184,27 +188,29 @@ done
 rm -f "$jar"
 expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar")" "sign-in of the admin"
 
+# A release that already keeps an upgrade log (0.2.0-rc.1 on) wrote its own row for its fresh install, with from_schema NULL; the
+# rows that count here are the ones from an upgrade (from_schema set).
 if [ "$previous_schema" != "$top_schema" ]; then
   step "The upgrade log says what happened"
-  expect 1 "$(sql "select count(*) from upgrade_log where event = 'migrate'")" "upgrade_log migrate rows"
-  expect "${previous_schema}|${top_schema}" "$(sql "select from_schema || '|' || to_schema from upgrade_log where event = 'migrate'")" "from and to schema numbers"
+  expect 1 "$(sql "select count(*) from upgrade_log where event = 'migrate' and from_schema is not null")" "upgrade_log migrate rows"
+  expect "${previous_schema}|${top_schema}" "$(sql "select from_schema || '|' || to_schema from upgrade_log where event = 'migrate' and from_schema is not null")" "from and to schema numbers"
   # A release that did not track its version leaves schema_info.app_version empty, and the log says so with NULL.
   if [ "$previous_version" = "0.1.0-alpha.2" ] || [ "$previous_version" = "0.1.0-alpha.1" ]; then
-    expect "" "$(sql "select coalesce(from_version, '') from upgrade_log where event = 'migrate'")" "from_version of a release that has none"
+    expect "" "$(sql "select coalesce(from_version, '') from upgrade_log where event = 'migrate' and from_schema is not null")" "from_version of a release that has none"
   else
-    expect "$previous_version" "$(sql "select from_version from upgrade_log where event = 'migrate'")" "from_version"
+    expect "$previous_version" "$(sql "select from_version from upgrade_log where event = 'migrate' and from_schema is not null")" "from_version"
   fi
-  expect "$current_version" "$(sql "select to_version from upgrade_log where event = 'migrate'")" "to_version"
+  expect "$current_version" "$(sql "select to_version from upgrade_log where event = 'migrate' and from_schema is not null")" "to_version"
 
   step "The safety copy exists, is listed, verifies in full, and nothing secret is in its name"
   safety="pre-upgrade-$(printf '%04d' "$previous_schema")-to-$(printf '%04d' "$top_schema").tar.enc"
-  expect "$safety" "$(sql "select safety_copy from upgrade_log where event = 'migrate'")" "the safety copy named in the log"
+  expect "$safety" "$(sql "select safety_copy from upgrade_log where event = 'migrate' and from_schema is not null")" "the safety copy named in the log"
   [ -f "$work/data/backups/$safety" ] || fail "$safety is not in the backups folder"
   compose exec -T api kinship backup-list | grep -q "^${safety} " || fail "kinship backup-list does not show $safety"
   compose exec -T api kinship backup-verify "$safety" --full || fail "kinship backup-verify --full failed for $safety"
 else
   step "The build has no database change over ${previous_tag}: no upgrade_log row is expected"
-  expect 0 "$(sql "select count(*) from upgrade_log where event = 'migrate'")" "upgrade_log migrate rows"
+  expect 0 "$(sql "select count(*) from upgrade_log where event = 'migrate' and from_schema is not null")" "upgrade_log migrate rows"
   safety=""
 fi
 
@@ -215,14 +221,18 @@ whats_new="$(curl -s -b "$jar" "${base}/api/updates/whats-new")"
 echo "$whats_new" | head -c 600; echo
 latest="$(curl -s -b "$jar" "${base}/api/updates/whats-new?latest=1")"
 expect "$current_version" "$(echo "$latest" | json "['to']")" "What's new (latest) names the running version"
+# The popup is for what changed since the version the admin last saw. An account of a release that does not track versions
+# (alpha.1 and alpha.2) counts as having seen 0.1.0-alpha.2; an account made by a release that does has seen that release.
+whats_new_floor="0.1.0-alpha.2"
+case "$previous_version" in 0.1.0-alpha.1 | 0.1.0-alpha.2) ;; *) whats_new_floor="$previous_version" ;; esac
 expected_show="$(node --input-type=module -e "
   import { readFileSync } from 'node:fs';
   import { parseChangelog, sectionsBetween, compareSemver, parseSemver } from '$repo/packages/shared/dist/index.js';
-  const running = process.argv[1], floor = '0.1.0-alpha.2';
+  const running = process.argv[1], floor = process.argv[2];
   const newer = compareSemver(parseSemver(running), parseSemver(floor)) > 0;
   const sections = sectionsBetween(parseChangelog(readFileSync('$repo/CHANGELOG.md', 'utf8')), floor, running).map((s) => s.version);
   console.log(JSON.stringify({ show: newer, sections }));
-" "$current_version")"
+" "$current_version" "$whats_new_floor")"
 expect "$(echo "$expected_show" | json "['show']")" "$(echo "$whats_new" | json "['show']")" "whether What's new is shown"
 expect "$(echo "$expected_show" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sections"])')" \
   "$(echo "$whats_new" | python3 -c 'import json,sys; print([s["version"] for s in json.load(sys.stdin)["sections"]])')" "the sections What's new lists"
