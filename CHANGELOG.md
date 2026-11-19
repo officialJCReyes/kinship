@@ -4,6 +4,14 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/officialJCReyes/kinship/compare/v0.2.0...v0.2.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **web:** make the good-status pill readable in the four light color schemes ([#121](https://github.com/officialJCReyes/kinship/issues/121)) ([ef5b3b5](https://github.com/officialJCReyes/kinship/commit/ef5b3b5d5638d21f9df338d3356635b6d4f05c70)), fixes [#44](https://github.com/officialJCReyes/kinship/issues/44)
+* **web:** show the KinShip logo in the header and on the sign-in, setup and About pages ([#120](https://github.com/officialJCReyes/kinship/issues/120)) ([eb06fc3](https://github.com/officialJCReyes/kinship/commit/eb06fc3ea6e1893971ee2c1b7c0ab82e7c839f72))
+
 ## [0.2.0] - 2026-11-18
 
 **KinShip 0.2.0, "A tree you can trust". The data promise starts here:** an upgrade keeps your data, and a safety copy of the database is made before every database change. If you run 0.1.0-alpha.2, read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before updating: it needs a backups folder and a backup passphrase first. From a 0.2.0 release candidate it is an image update.
