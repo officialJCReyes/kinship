@@ -39,7 +39,7 @@
 <div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">Docker with Compose</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">On Linux, Synology, Unraid or a Raspberry Pi.</div></div>
 <div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">amd64 or arm64</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">Images are built for both.</div></div>
 <div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">A reverse proxy</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">For HTTPS in front of port 8080.</div></div>
-<div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">A safe place for two secrets</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">Your file key and backup passphrase.</div></div>
+<div style="background:#fff;border:1px solid #D9E0DB;border-radius:12px;padding:18px 20px"><div style="font-weight:600">A safe place for your secrets</div><div style="font-size:14px;color:#5B6A65;margin-top:4px;line-height:1.5">A password manager for the backup passphrase.</div></div>
 </div>
 </section>
 
@@ -49,7 +49,21 @@
 curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/compose.yml
 curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/env.example
 cp env.example .env</pre></div></div>
-<div class="step"><div class="num">2</div><div style="min-width:0;flex:1"><h3>Set your secrets</h3><p>Open <code>.env</code> and set the database password and the file encryption key. Email, storage and map settings are optional and can wait. Prefer Docker secrets? Every secret also accepts a <code>_FILE</code> form.</p></div></div>
+<div class="step"><div class="num">2</div><div style="min-width:0;flex:1"><h3>Set your secrets</h3><p>Three secrets must be set in <code>.env</code>: two database passwords and the backup passphrase. Let <code>openssl</code> make them. This fills in only the values that still say <code>change-me</code>, so it is safe to run again, and it uses <code>openssl rand -hex 32</code> (256 bits, nothing a shell or SQL could misread). Everything else in <code>.env</code> is optional and can wait.</p>
+<pre class="code"><span class="cm"># Fill in the three secrets. Only a value that still says "change-me" is replaced,</span>
+<span class="cm"># so running this again never changes a secret you have already set.</span>
+fill() {
+  grep -q "^$1=change-me" .env || return 0
+  tmp=$(mktemp) &amp;&amp; awk -v k="$1" -v v="$(openssl rand -hex 32)" \
+    'index($0, k "=") == 1 { print k "=" v; next } { print }' .env &gt; "$tmp" &amp;&amp; cat "$tmp" &gt; .env &amp;&amp; rm -f "$tmp"
+}
+fill DB_OWNER_PASSWORD
+fill DB_APP_PASSWORD
+fill BACKUP_PASSPHRASE
+
+<span class="cm"># Show them, so you can copy BACKUP_PASSPHRASE into your password manager now.</span>
+grep -E '^(DB_OWNER_PASSWORD|DB_APP_PASSWORD|BACKUP_PASSPHRASE)=' .env</pre>
+<p>Copy the backup passphrase into a password manager now: backups do not contain it, and without it they cannot be opened.</p></div></div>
 <div class="step"><div class="num">3</div><div style="min-width:0;flex:1"><h3>Start it</h3><p>Create the backups folder first, so the api (which does not run as root) can write to it. Then three containers come up: web, api and the database. Only web publishes a port, 8080.</p>
 <pre class="code">mkdir -p data/backups &amp;&amp; sudo chown 1000:1000 data/backups
 docker compose up -d</pre></div></div>
@@ -58,7 +72,7 @@ docker compose up -d</pre></div></div>
 <div class="step"><div class="num">5</div><div style="min-width:0;flex:1"><h3>Run the first-run setup</h3><p>The first start prints a one-time setup token in the api log. Open your site, paste the token, and the wizard creates your SuperAdmin account and your tree in seven short steps, including your color scheme.</p>
 <pre class="code">docker compose logs api</pre></div></div>
 <div class="step"><div class="num">6</div><div style="min-width:0;flex:1"><h3>Turn on backups</h3><p>Set <code>BACKUP_PASSPHRASE</code> and <code>BACKUP_ENABLED=on</code> in <code>.env</code>, restart, then run <strong>Test the latest backup</strong> once in Admin → Backups.</p>
-<div class="warn" style="max-width:680px"><strong>Keep two things away from the server:</strong> your file encryption key and your backup passphrase. A backup is only useful if you can still open it after the server is gone.</div></div></div>
+<div class="warn" style="max-width:680px"><strong>Keep two things away from the server:</strong> your backup passphrase and a copy of your <code>.env</code>. A backup is only useful if you can still open it after the server is gone.</div></div></div>
 </section>
 
 <section style="background:#fff;border-top:1px solid #D9E0DB;border-bottom:1px solid #D9E0DB">
