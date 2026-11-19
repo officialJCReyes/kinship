@@ -51,7 +51,7 @@
 curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/compose.yml
 curl -LO https://github.com/officialJCReyes/kinship/releases/latest/download/env.example
 cp env.example .env</pre></div></div>
-<div class="step"><div class="num">2</div><div style="min-width:0;flex:1"><h3>Set your secrets</h3><p>Three secrets must be set in <code>.env</code>: two database passwords and the backup passphrase. Let <code>openssl</code> make them. This fills in only the values that still say <code>change-me</code>, so it is safe to run again, and it uses <code>openssl rand -hex 32</code> (256 bits, nothing a shell or SQL could misread). Everything else in <code>.env</code> is optional and can wait.</p>
+<div class="step"><div class="num">2</div><div style="min-width:0;flex:1"><h3>Set your secrets</h3><p>Set three secrets in <code>.env</code>: two database passwords and the backup passphrase. This fills in only the values that still say <code>change-me</code>, so it is safe to run again. Everything else in <code>.env</code> can wait.</p>
 <pre class="code"><span class="cm"># Fill in the three secrets. Only a value that still says "change-me" is replaced,</span>
 <span class="cm"># so running this again never changes a secret you have already set.</span>
 fill() {

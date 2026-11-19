@@ -99,3 +99,8 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace}
 .nav-js .site-nav .cur{box-shadow:none;border-left:3px solid #1E4D4A;padding-left:10px}
 .nav-js .site-nav .gh{margin-top:12px}
 }
+.to-top{position:fixed;right:20px;bottom:20px;z-index:20;display:none;min-height:44px;padding:10px 16px;border:1px solid #1E4D4A;border-radius:999px;background:#1E4D4A;color:#F6F4EC;font:inherit;font-size:15px;font-weight:500;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.to-top.show{display:inline-flex;align-items:center}
+.to-top:hover{background:#17403d}
+.to-top:focus-visible{outline:3px solid #C9A227;outline-offset:2px}
+@media print{.to-top{display:none!important}}
