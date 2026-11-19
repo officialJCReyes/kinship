@@ -17,10 +17,27 @@ chmod 600 .env
 
 ## 2. Fill in `.env`
 
-Open `.env`; every setting is explained in it. You must set these:
+Open `.env`; every setting is explained in it. Three secrets must be set: `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD` (two different database passwords) and `BACKUP_PASSPHRASE` (encrypts every backup). KinShip refuses to start while a database password still says `change-me`, and makes no backups while the passphrase does. Let `openssl` make them. Run this in the folder that holds `.env`:
 
-- `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD`: two different, long, random passwords. For example `openssl rand -base64 24`, twice. KinShip refuses to start while they still say `change-me`.
-- `BACKUP_PASSPHRASE`: at least 16 characters, for example `openssl rand -base64 32` (see step 3). Without it KinShip runs but makes no backups.
+```sh
+# Fill in the three secrets. Only a value that still says "change-me" is replaced,
+# so running this again never changes a secret you have already set.
+fill() {
+  grep -q "^$1=change-me" .env || return 0
+  tmp=$(mktemp) && awk -v k="$1" -v v="$(openssl rand -hex 32)" \
+    'index($0, k "=") == 1 { print k "=" v; next } { print }' .env > "$tmp" && cat "$tmp" > .env && rm -f "$tmp"
+}
+fill DB_OWNER_PASSWORD
+fill DB_APP_PASSWORD
+fill BACKUP_PASSPHRASE
+
+# Show them, so you can copy BACKUP_PASSPHRASE into your password manager now.
+grep -E '^(DB_OWNER_PASSWORD|DB_APP_PASSWORD|BACKUP_PASSPHRASE)=' .env
+```
+
+It uses `openssl rand -hex 32`: 64 characters (256 bits) of digits and the letters a to f, so nothing in it can be misread by a shell, by `.env` or by SQL. It only fills in the values that still say `change-me`, so you can run it again safely; it never overwrites a secret you set yourself. `openssl` is on macOS and nearly every Linux; on Windows use WSL or Git Bash. If you would rather choose your own, any value works as long as the two database passwords differ, none starts with `change-me`, and the passphrase is at least 16 characters.
+
+**Copy `BACKUP_PASSPHRASE` to a password manager now** (see step 3): the backups do not contain it, and without it they cannot be opened. `DB_OWNER_PASSWORD` is used by Postgres only when the database is first created, so do not generate a new one later (see the note beside it in `.env`).
 
 Worth a look before you start:
 
