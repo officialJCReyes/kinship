@@ -41,7 +41,7 @@ For tests that need a signed-in person, use the helpers in `apps/api/test/helper
 
 ## Commits and pull requests
 
-- Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `security:` (a security fix: it gets its own "Security" heading in the changelog and flags the release), `docs:`, `chore:`, `test:`, `refactor:`. Mark a breaking change with `!` (`feat!:`) or a `BREAKING CHANGE:` footer. The changelog and release notes are generated from these.
+- Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `security:` (a security fix: it gets its own "Security" heading in the changelog and flags the release), `docs:`, `chore:`, `test:`, `refactor:`. Mark a breaking change with `!` (`feat!:`) or a `BREAKING CHANGE:` footer. Changes that only touch the website use `docs(site):` or `chore(site):`, so they stay out of the changelog and do not raise the version. The changelog and release notes are generated from these.
 - Keep pull requests small, with tests for the change.
 - Database changes are new numbered, hand-written `.sql` migration files. Never edit a migration that has been released. Migrations are forward-only and follow expand-then-contract.
 
@@ -84,6 +84,7 @@ A release is a tag. [ADR 0004](docs/decisions/0004-release-and-images.md) explai
 1. Set the same version in the five `package.json` files (root, `apps/api`, `apps/web`, `packages/shared`, `e2e`), in `compose.yml` (two places) and in `.env.example`, and put a section for it in `CHANGELOG.md` (`## [0.2.0] - 2026-12-01`). Pre-releases look like `0.2.0-rc.1` and never become `latest`. From the release after 0.2.0 the **Release PR** workflow ([ADR 0017](docs/decisions/0017-release-please.md)) does all of this: on every push to `main` it opens or updates one pull request (it never makes a tag or a Release). The maintainer merges it, then continues at step 3. If the release needs an `UPGRADE.md` section, it must be on `main` first, with the version as its heading (`## 0.3.0`); the workflow's pull request does not write it.
 2. Merge that to `main` through a pull request, once CI is green.
 3. A pull request that touches the release files (the workflow, Dockerfiles, `compose.yml`, `.env.example`, the release scripts, `CHANGELOG.md`) runs the **Release** workflow as a dry run automatically. Once it is on `main` you can also start it by hand with "dry run" on. Either way it builds both images for amd64 and arm64, installs the stack from `compose.yml` and tests it, and pushes nothing.
+   Also update the website for the release in the same pull request, before tagging: the Roadmap and Features pages (status chips, "Soon" labels, "arrives in" sentences). The version number on the site is filled in by itself after the release is published ([ADR 0022](docs/decisions/0022-website-version.md)).
 4. Tag the merge commit and push the tag: `git tag -a v0.2.0 -m "KinShip 0.2.0" && git push origin v0.2.0`. The tag must match the version in the files, or the workflow stops before building.
 5. Watch the workflow. It re-runs CI, pushes the images, tests the pushed images as a real install, and only then creates the GitHub Release.
 

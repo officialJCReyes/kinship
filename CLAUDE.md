@@ -33,6 +33,7 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 ## Working style
 - Small PRs, one branch per part, tests with each change. Merge only when CI is green. Do not change the required CI job names (Lint, format, typecheck, build; Tests (Postgres 18); Dependency licenses; Build api image (not pushed); Build web image (not pushed)). End-to-end (Playwright) is not a required check.
 - Commit with `git commit -s` and let git config supply the sign-off. Never type a name or email by hand, including in squash and merge messages. Keep the Claude co-author line in squash and merge messages.
+- The website (`site/`) shows the current version from `@@VERSION@@` placeholders that the Website workflow fills in from the latest GitHub Release (ADR 0022); never type a version number into `site/` for "now". Wording tied to a release (Roadmap, Features, "Soon" labels) is updated by hand in the release pull request, before JC tags. Website-only commits are `docs(site):` or `chore(site):`, never `feat`/`fix`, so they do not raise the version.
 - Record each architectural decision as an ADR in `docs/decisions/`. Update CHANGELOG via Conventional Commits, and add an `UPGRADE.md` block for any migration or breaking change.
 - Report decisions you made on JC's behalf, known gaps, stale doc lines you noticed, new issues opened, test counts and exact CI job names at the end of each step.
 - Keep the whole e2e run well under the sign-in rate limit (30 a minute); do not add per-test sign-ins.
