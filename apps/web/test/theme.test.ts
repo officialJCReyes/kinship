@@ -74,20 +74,6 @@ const TEXT_PAIRS: Array<[string, string, string]> = [
   ['muted', 'info-soft', 'secondary text in an information notice'],
 ];
 
-/**
- * Pairs below 4.5 : 1 that are KNOWN and reported, not changed (the step brief: report a failing pair instead of
- * silently changing a color). Each is listed with the ratio measured when it was found; the test fails if the list is
- * out of date in either direction, so a fix has to remove its line here. All are the good-status pill (--ok text on the
- * accent tint, 13 px semi-bold) in the four light schemes; the dark schemes pass. See the issue linked in the report.
- */
-const KNOWN_BELOW_AA: Record<string, number> = {
-  'forest light --ok on --accent-soft': 4.4,
-  'sand light --ok on --accent-soft': 4.2,
-  'slate light --ok on --accent-soft': 4.32,
-  'graphite light --ok on --accent-soft': 4.34,
-};
-const FLOOR = 4.0; // a known pair must not get worse than this
-
 describe('the color schemes in styles.css', () => {
   it('has exactly the four schemes of the shared list, each in light and dark', () => {
     expect(COLOR_SCHEMES).toEqual(['forest', 'sand', 'slate', 'graphite']);
@@ -192,21 +178,13 @@ describe('the color schemes in styles.css', () => {
 describe('contrast, all 8 scheme and theme combinations', () => {
   for (const scheme of COLOR_SCHEMES) {
     for (const mode of MODES) {
-      it(`${scheme} ${mode}: every text pair reaches 4.5 : 1 (apart from the known, reported ones)`, () => {
+      it(`${scheme} ${mode}: every text pair reaches 4.5 : 1`, () => {
         const t = tokensFor(scheme, mode);
         const below = TEXT_PAIRS.flatMap(([fg, bg, where]) => {
           const ratio = contrast(t[fg]!, t[bg]!);
-          return ratio < 4.5 ? [{ id: `${scheme} ${mode} --${fg} on --${bg}`, ratio, where }] : [];
+          return ratio < 4.5 ? [`${scheme} ${mode} --${fg} on --${bg} (${where}): ${ratio.toFixed(2)}`] : [];
         });
-        const mine = Object.keys(KNOWN_BELOW_AA).filter((id) => id.startsWith(`${scheme} ${mode} `));
-        expect(
-          below.map((b) => b.id).sort(),
-          below.map((b) => `${b.id} (${b.where}): ${b.ratio.toFixed(2)}`).join('\n'),
-        ).toEqual(mine.sort());
-        for (const b of below) {
-          expect(b.ratio, b.id).toBeGreaterThanOrEqual(FLOOR);
-          expect(b.ratio, `${b.id} changed: update KNOWN_BELOW_AA`).toBeCloseTo(KNOWN_BELOW_AA[b.id]!, 1);
-        }
+        expect(below, below.join('\n')).toEqual([]);
       });
 
       it(`${scheme} ${mode}: the focus ring, the gender colors and the leaf reach 3 : 1 as graphics`, () => {
