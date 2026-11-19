@@ -28,6 +28,11 @@
   --ok-soft: #e0f1e3;
   --leaf: #4f8a4b;
   --amber: #f2a541;
+  /* The logo: its own colors, light or dark only (never the color scheme). */
+  --logo-ink: #1e4d4a;
+  --logo-word: #1e4d4a;
+  --logo-sail: #4f8a4b;
+  --logo-detail: #fbf6ee;
   --amber-soft: #fdf0d8;
   --info-soft: #e6eef0;
   --g-male: #2f6db5;
@@ -58,6 +63,10 @@
   --ok: #79d08a;
   --ok-soft: #173222;
   --leaf: #8cc488;
+  --logo-ink: #fbf6ee;
+  --logo-word: #fbf6ee;
+  --logo-sail: #8cc488;
+  --logo-detail: #1e4d4a;
   --amber-soft: #3a2d12;
   --info-soft: #1b2e2c;
   --g-male: #79aef0;
@@ -205,10 +214,21 @@ h1 {
   min-height: 56px;
 }
 
-.wordmark {
-  font: 600 22px/1 var(--display);
-  color: var(--accent);
+.brand {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+  color: var(--ink);
   text-decoration: none;
+}
+
+.logo {
+  display: block;
+  flex: none;
+}
+
+.logo-block {
+  margin-bottom: 10px;
 }
 
 nav a {

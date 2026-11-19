@@ -149,6 +149,36 @@ describe('the color schemes in styles.css', () => {
     }
   });
 
+  it('draws the logo in its own colors, which change with light or dark only, never with the scheme', () => {
+    const LOGO = ['logo-ink', 'logo-word', 'logo-sail', 'logo-detail'];
+    const expected = {
+      light: { 'logo-ink': '#1e4d4a', 'logo-word': '#1e4d4a', 'logo-sail': '#4f8a4b', 'logo-detail': '#fbf6ee' },
+      dark: { 'logo-ink': '#fbf6ee', 'logo-word': '#fbf6ee', 'logo-sail': '#8cc488', 'logo-detail': '#1e4d4a' },
+    };
+    for (const mode of MODES) {
+      for (const scheme of COLOR_SCHEMES) {
+        const t = tokensFor(scheme, mode);
+        for (const key of LOGO)
+          expect(t[key], `${scheme}/${mode} --${key}`).toBe(expected[mode][key as keyof (typeof expected)[Mode]]);
+      }
+    }
+    // No scheme block redefines a logo token.
+    for (const [name, tokens] of rules) {
+      if (name.includes('data-scheme')) for (const key of LOGO) expect(tokens[key], `${name} --${key}`).toBeUndefined();
+    }
+  });
+
+  it('reads the logo against the header panel at 3 : 1 or better in all 8 combinations', () => {
+    for (const scheme of COLOR_SCHEMES) {
+      for (const mode of MODES) {
+        const t = tokensFor(scheme, mode);
+        for (const key of ['logo-ink', 'logo-word', 'logo-sail']) {
+          expect(contrast(t[key]!, t['panel']!), `${scheme}/${mode} --${key} on --panel`).toBeGreaterThanOrEqual(3);
+        }
+      }
+    }
+  });
+
   it('sets the CSS color-scheme to the resolved theme', () => {
     expect(tokensFor('forest', 'light')['color-scheme']).toBe('light');
     expect(tokensFor('forest', 'dark')['color-scheme']).toBe('dark');

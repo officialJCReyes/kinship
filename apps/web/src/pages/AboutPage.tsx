@@ -2,6 +2,7 @@
 import { LICENSE_ID, SOURCE_URL } from '@kinship/shared';
 import { useQuery } from '@tanstack/react-query';
 import { fetchHealth, fetchVersion } from '../api.js';
+import { Logo } from '../components/Logo.js';
 import { WhatsNewButton } from '../components/WhatsNew.js';
 import { t } from '../i18n.js';
 
@@ -38,6 +39,9 @@ export function AboutPage() {
 
   return (
     <section className="card">
+      <div className="logo-block">
+        <Logo height={40} />
+      </div>
       <h1>{t('about.title')}</h1>
       <dl className="facts">
         <dt>{t('about.webVersion')}</dt>

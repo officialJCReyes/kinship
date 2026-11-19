@@ -3,6 +3,7 @@
 /** English, the only language at launch. Other languages add a file with the same keys. */
 export const en = {
   'app.name': 'KinShip',
+  'app.homeLink': 'KinShip home',
   'app.skipToContent': 'Skip to content',
   'nav.main': 'Main',
   'nav.about': 'About',
