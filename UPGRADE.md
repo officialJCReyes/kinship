@@ -23,7 +23,7 @@ Notes for upgrading from one release to the next, newest first. Read the section
          - ./data/backups:/var/lib/kinship/backups
    ```
    and create the folder: `mkdir -p data/backups && sudo chown 1000:1000 data/backups` (Docker Desktop on macOS and Windows does not need the `chown`). Without it the api will not start the upgrade, and it prints exactly these lines.
-2. **Set `BACKUP_PASSPHRASE` in `.env`** (at least 16 characters; `openssl rand -base64 32` is good), as in the new `env.example`, and **keep a copy somewhere other than the server**. It encrypts every backup and the safety copy.
+2. **Set `BACKUP_PASSPHRASE` in `.env`** (at least 16 characters; `openssl rand -hex 32` is good), as in the new `env.example`, and **keep a copy somewhere other than the server**. It encrypts every backup and the safety copy.
 3. **Back up first anyway** (INSTALL.md, "Back up and restore"): the safety copy sits on the same disk. Then change `KINSHIP_VERSION` to `0.2.0` and run `docker compose pull && docker compose up -d`.
 
 The safety copy can take minutes on a big database (the compose health check allows 10 minutes). If it cannot be made, the upgrade stops and your data is untouched; as a last resort start once with `KINSHIP_SAFETY_COPY=skip` (INSTALL.md, "Something wrong?"). With no passphrase the copy is a plain `.sql.gz` and the api warns. The newest three are kept. **Going back is a restore of a backup; there are no down-migrations.** A database owner role that is neither a superuser nor `BYPASSRLS` cannot make the copy: the upgrade goes on, says so in the log and the upgrade log, and backups need `BYPASSRLS` on that role (INSTALL.md).
