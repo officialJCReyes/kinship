@@ -534,3 +534,45 @@ test('the CHANGELOG shape with a release-please section above [Unreleased] is re
   // The hand-written section next to it is still found, with its own date, and does not swallow the new one.
   assert.equal(extractChangelogSection(merged, '0.2.0').date, '2026-11-18');
 });
+
+// CHANGELOG.md has no `## [Unreleased]` heading (release-please inserts a new section above the first `## ` heading, so an empty
+// Unreleased heading kept ending up under the new release). Everything must read such a file exactly as it reads one with the heading.
+test('a CHANGELOG without an [Unreleased] heading gives the same sections, the same prepare result and the same manifest', () => {
+  const entry =
+    '## [0.2.1](https://example.test/compare/v0.2.0...v0.2.1) (2026-11-19)\n\n\n### Bug Fixes\n\n* **api:** keep a thing ([abc1234](https://example.test/commit/abc1234))\n\n\n';
+  const old = CHANGELOG.replace('## [0.2.0] - 2026-12-01', `${entry}## [0.2.0] - 2026-12-01`);
+  const bare = old.replace('## [Unreleased]\n\n', '').replace('[Unreleased]: https://example.test/compare\n', '');
+  assert.ok(old.includes('Unreleased') && !bare.includes('Unreleased'));
+  for (const version of ['0.2.1', '0.2.0', '0.1.0-alpha.1']) {
+    assert.deepEqual(extractChangelogSection(bare, version), extractChangelogSection(old, version));
+  }
+  const run = (changelog) => {
+    const files = { 'CHANGELOG.md': changelog };
+    const info = prepare({ env: tagPush('v0.2.1'), read: repo('0.2.1', files), tags: ['v0.2.0'] });
+    const built = buildNotes({
+      version: '0.2.1',
+      prerelease: false,
+      read: repo('0.2.1', files),
+      git: fakeGit({}),
+      tags: ['v0.2.0'],
+    });
+    validateManifest(built.manifest);
+    return { info, built };
+  };
+  assert.deepEqual(run(bare), run(old));
+  // A release-please section inserted above the first `## ` heading of the bare file is the first section, and no heading is lost.
+  const next = bare.replace(
+    '## [0.2.1]',
+    '## [0.3.0](https://example.test/compare/v0.2.1...v0.3.0) (2026-12-01)\n\n\n### Features\n\n* **web:** a thing\n\n\n## [0.2.1]',
+  );
+  assert.equal(extractChangelogSection(next, '0.3.0').date, '2026-12-01');
+  assert.equal(extractChangelogSection(next, '0.2.1').date, '2026-11-19');
+});
+
+test('the real CHANGELOG.md has no [Unreleased] heading and every release in it is still found', () => {
+  const text = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
+  assert.ok(!/^## \[?Unreleased/im.test(text));
+  assert.ok(/^## /m.test(text.slice(text.indexOf('\n## '))));
+  assert.equal(extractChangelogSection(text, '0.2.1').date, '2026-11-19');
+  assert.equal(extractChangelogSection(text, '0.2.0').date, '2026-11-18');
+});

@@ -2,8 +2,6 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
 ## [0.2.1](https://github.com/officialJCReyes/kinship/compare/v0.2.0...v0.2.1) (2026-11-19)
 
 
@@ -153,7 +151,6 @@ All notable changes to KinShip are recorded here. The format follows [Keep a Cha
 - **No update notice, no "What's new" popup, no file storage, no email, no single sign-on, no password reset by email.** Later releases add them.
 - **No upgrade promise.** Until 0.2, a new release may require starting with an empty database.
 
-[Unreleased]: https://github.com/officialJCReyes/kinship/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/officialJCReyes/kinship/compare/v0.1.0-alpha.2...v0.2.0
 [0.2.0-rc.3]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/officialJCReyes/kinship/compare/v0.2.0-rc.1...v0.2.0-rc.2

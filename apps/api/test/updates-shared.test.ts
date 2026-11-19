@@ -474,6 +474,26 @@ describe('a changelog written by release-please', () => {
     expect(sectionsBetween(merged, '0.1.0-alpha.2', '0.2.1').map((s) => s.version)).toEqual(['0.2.1', '0.2.0']);
   });
 
+  it('reads a CHANGELOG with no [Unreleased] heading exactly as one with it, and the real file has none', () => {
+    const withHeading =
+      '# Changelog\n\n## [Unreleased]\n\n## [0.2.1](https://example.test/compare/v0.2.0...v0.2.1) (2026-11-19)\n\n\n### Bug Fixes\n\n* **api:** keep a thing\n\n## [0.2.0] - 2026-11-18\n\n### Added\n\n- **Backups and restore.** One file.\n\n[Unreleased]: https://example.test/compare/v0.2.1...HEAD\n[0.2.0]: https://example.test/tag\n';
+    const without = withHeading
+      .replace('## [Unreleased]\n\n', '')
+      .replace('[Unreleased]: https://example.test/compare/v0.2.1...HEAD\n', '');
+    expect(without).not.toContain('Unreleased');
+    expect(parseChangelog(without)).toEqual(parseChangelog(withHeading));
+    const sections = parseChangelog(without);
+    expect(sectionsBetween(sections, '0.2.0', '0.2.1').map((s) => s.version)).toEqual(['0.2.1']);
+    expect(sectionsBetween(sections, '0.1.0-alpha.2', '0.2.1').map((s) => s.version)).toEqual(['0.2.1', '0.2.0']);
+    const real = readFileSync(new URL('../../../CHANGELOG.md', import.meta.url), 'utf8');
+    expect(real).not.toMatch(/^## \[?Unreleased/im);
+    expect(
+      parseChangelog(real)
+        .slice(0, 2)
+        .map((s) => s.version),
+    ).toEqual(['0.2.1', '0.2.0']);
+  });
+
   it('is found in the range an admin on alpha.2 is shown after updating', () => {
     const sections = sectionsBetween(parseChangelog(generated), '0.1.0-alpha.2', '0.2.0-alpha.2');
     expect(sections.map((s) => s.version)).toEqual(['0.2.0-alpha.2']);
