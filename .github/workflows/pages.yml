@@ -3,6 +3,11 @@
 # Publishes the project website (the static files in site/) to GitHub Pages at
 # https://officialjcreyes.github.io/kinship/. There is no build step and no custom domain. Pages must be switched on once by hand:
 # Settings > Pages > Build and deployment > Source: GitHub Actions. The site uses only relative links, so it works under /kinship/.
+#
+# The current version on the pages is written as @@VERSION@@ in site/ and is filled in here from the latest published GitHub Release,
+# so it never goes ahead of what can be pulled. The site is rebuilt when site/ changes on main, and again whenever the Release workflow
+# finishes on a tag push (the Release is created only after the images are pushed and smoke-tested). It can also be started by hand.
+# Wording that depends on a release (the roadmap, "Soon" chips) is edited by hand in the release pull request; see ADR 0022.
 name: Website
 
 on:
@@ -11,6 +16,9 @@ on:
     paths:
       - 'site/**'
       - '.github/workflows/pages.yml'
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 # No permissions by default; the jobs ask for what they need.
@@ -23,20 +31,47 @@ concurrency:
 jobs:
   deploy:
     name: Publish the website
+    # A workflow_run only counts when the Release workflow succeeded on a pushed tag (not a dry run, not a pull request).
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: read # check out the repository
+      contents: read # check out the repository and read the latest release
       pages: write # publish to GitHub Pages
       id-token: write # prove to Pages that this run is the publisher
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Always the site on main, even when started by a Release run on a tag.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - name: Fill in the current version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # "latest" is the newest published stable release; release candidates are pre-releases and never count.
+          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          version="${tag#v}"
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Latest release tag '${tag}' is not a stable version number"
+            exit 1
+          fi
+          echo "Publishing the site for version ${version}"
+          rm -rf _site
+          cp -R site _site
+          rm -f _site/README.md # notes for contributors, not part of the website
+          find _site -name '*.html' -exec sed -i "s/@@VERSION@@/${version}/g" {} +
+          if grep -rq --include='*.html' '@@VERSION@@' _site; then
+            echo "::error::A version placeholder was left in the site"
+            exit 1
+          fi
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
