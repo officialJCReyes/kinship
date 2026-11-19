@@ -2,27 +2,15 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
 ## [0.2.1](https://github.com/officialJCReyes/kinship/compare/v0.2.0...v0.2.1) (2026-11-19)
-
-
-### Features
-
-* **site:** add the project website for GitHub Pages ([#114](https://github.com/officialJCReyes/kinship/issues/114)) ([e5769f5](https://github.com/officialJCReyes/kinship/commit/e5769f5621a834a5342cec623d26f28847332c2b))
-* **site:** make the chart view tabs clickable ([#115](https://github.com/officialJCReyes/kinship/issues/115)) ([baaf296](https://github.com/officialJCReyes/kinship/commit/baaf29672f8f1d8c3d4f91ad424d38c9565ed52e))
 
 
 ### Bug Fixes
 
-* **site:** wrap long names in the chart illustrations ([#116](https://github.com/officialJCReyes/kinship/issues/116)) ([fabbaae](https://github.com/officialJCReyes/kinship/commit/fabbaaeda194e3036d4bdfc382255c48a25295f1))
-* **web:** make the good-status pill readable in the four light color schemes ([#121](https://github.com/officialJCReyes/kinship/issues/121)) ([ef5b3b5](https://github.com/officialJCReyes/kinship/commit/ef5b3b5d5638d21f9df338d3356635b6d4f05c70))
+* **web:** make the good-status pill readable in the four light color schemes ([#121](https://github.com/officialJCReyes/kinship/issues/121)) ([ef5b3b5](https://github.com/officialJCReyes/kinship/commit/ef5b3b5d5638d21f9df338d3356635b6d4f05c70)), fixes [#44](https://github.com/officialJCReyes/kinship/issues/44)
 * **web:** show the KinShip logo in the header and on the sign-in, setup and About pages ([#120](https://github.com/officialJCReyes/kinship/issues/120)) ([eb06fc3](https://github.com/officialJCReyes/kinship/commit/eb06fc3ea6e1893971ee2c1b7c0ab82e7c839f72))
-
-
-### Documentation
-
-* refresh the README screenshots with the header logo ([#122](https://github.com/officialJCReyes/kinship/issues/122)) ([b6f36ba](https://github.com/officialJCReyes/kinship/commit/b6f36ba7111e9c29139ad7d9c4ae90d4460e12b0))
-
-## [Unreleased]
 
 ## [0.2.0] - 2026-11-18
 
