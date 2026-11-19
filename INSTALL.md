@@ -17,7 +17,7 @@ chmod 600 .env
 
 ## 2. Fill in `.env`
 
-Open `.env`; every setting is explained in it. Three secrets must be set: `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD` (two different database passwords) and `BACKUP_PASSPHRASE` (encrypts every backup). KinShip refuses to start while a database password still says `change-me`, and makes no backups while the passphrase does. Let `openssl` make them. Run this in the folder that holds `.env`:
+Open `.env`; every setting is explained in it. Three secrets must be set: `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD` (two different database passwords) and `BACKUP_PASSPHRASE` (encrypts every backup). Let `openssl` make them. Run this in the folder that holds `.env`:
 
 ```sh
 # Fill in the three secrets. Only a value that still says "change-me" is replaced,
@@ -35,9 +35,9 @@ fill BACKUP_PASSPHRASE
 grep -E '^(DB_OWNER_PASSWORD|DB_APP_PASSWORD|BACKUP_PASSPHRASE)=' .env
 ```
 
-It uses `openssl rand -hex 32`: 64 characters (256 bits) of digits and the letters a to f, so nothing in it can be misread by a shell, by `.env` or by SQL. It only fills in the values that still say `change-me`, so you can run it again safely; it never overwrites a secret you set yourself. `openssl` is on macOS and nearly every Linux; on Windows use WSL or Git Bash. If you would rather choose your own, any value works as long as the two database passwords differ, none starts with `change-me`, and the passphrase is at least 16 characters.
+It only fills in values that still say `change-me`, so it is safe to run again. `openssl` is on macOS and most Linux; on Windows use WSL or Git Bash. To choose your own instead, keep the two database passwords different and the passphrase at least 16 characters.
 
-**Copy `BACKUP_PASSPHRASE` to a password manager now** (see step 3): the backups do not contain it, and without it they cannot be opened. `DB_OWNER_PASSWORD` is used by Postgres only when the database is first created, so do not generate a new one later (see the note beside it in `.env`).
+**Copy `BACKUP_PASSPHRASE` to a password manager now.** Backups do not contain it, and without it they cannot be opened. Do not change `DB_OWNER_PASSWORD` after the first start (see the note beside it in `.env`).
 
 Worth a look before you start:
 
@@ -49,13 +49,13 @@ Worth a look before you start:
 
 ## 3. Create the backups folder
 
-KinShip writes its backups to `./data/backups` next to `compose.yml` (see "Back up and restore" below). Create it before the first start, so the api (which runs as user 1000, not as root) can write to it:
+KinShip writes its backups to `./data/backups` next to `compose.yml`. Create it before the first start so the api (user 1000, not root) can write to it:
 
 ```sh
 mkdir -p data/backups && sudo chown 1000:1000 data/backups
 ```
 
-Docker Desktop on macOS and Windows does not need the `chown`. Also set `BACKUP_PASSPHRASE` in `.env` (step 2): it encrypts every backup, it must be at least 16 characters, and **you must keep a copy somewhere other than this server** (a password manager is a good place). Without it KinShip still runs, but it makes no backups and says so in Admin.
+Docker Desktop on macOS and Windows does not need the `chown`. Without a usable `BACKUP_PASSPHRASE` (step 2) KinShip still runs but makes no backups, and says so in Admin.
 
 ## 4. Start it
 
@@ -64,44 +64,44 @@ docker compose up -d
 docker compose ps        # wait until web, api and db say "healthy"
 ```
 
-The first start downloads the images and creates the database. Only the `web` service publishes a port (plain HTTP, 8080 by default); the database and the api are not reachable from outside.
+Only the `web` service publishes a port (plain HTTP, 8080 by default); the database and the api are not reachable from outside.
 
 ## 5. First run: create your account
 
-A fresh install must be set up before anyone can sign in, and setup needs a one-time token, so a stranger who finds your site first cannot claim it. The token is printed in the api log:
+Setup needs a one-time token, so a stranger who finds your site first cannot claim it. The token is printed in the api log:
 
 ```sh
 docker compose logs api
 ```
 
-Look for the box that says **"KinShip is not set up yet"** and copy the token. Open your site (for example `http://localhost:8080`), and the setup wizard appears. It has seven steps, with a progress bar:
+Look for the box that says **"KinShip is not set up yet"** and copy the token. Open your site (for example `http://localhost:8080`) and the setup wizard starts. It has seven steps:
 
-1. **Account**: the setup token, your name, your email (also your sign-in name) and a password of at least 12 characters. The token is checked when you press **Next**.
-2. **Tree**: a name for your tree (suggested from your surname, like "Hale Family") and the color scheme.
-3. **You**: your given name and surname (suggested from your name), your birth date and gender. This creates you as the first person on the tree and links your account to you.
-4. **Partner**, 5. **Parents** and 6. **Children**: optional. Press **Skip this step** to leave one out, or fill in what you know. You can add everyone else from the tree afterwards.
-7. **Review**: a list of the people who will be created. Press **Create my tree**.
+1. **Account**: the setup token, your name, your email (also your sign-in name) and a password of at least 12 characters.
+2. **Tree**: a name for your tree and the color scheme.
+3. **You**: your name, birth date and gender. This creates you as the first person on the tree and links your account to you.
+4. **Partner**, 5. **Parents** and 6. **Children**: optional; press **Skip this step** to leave one out.
+7. **Review**: press **Create my tree**.
 
-**Nothing is created until the last step**, and then everything is created at once: if anything fails, nothing is kept and your token still works. If you refresh the page or close the tab before then, the wizard starts again from step 1 (nothing you typed is stored in the browser). The shortest way through is steps 1 to 3 and then Review. You become the SuperAdmin and are signed in, and your own place on the family tree opens. The setup page never appears again once an account exists; if the connection drops right after you press **Create my tree**, open the sign-in page and use the email and password you chose.
+Nothing is created until the last step, and then everything is created at once; if it fails, nothing is kept and your token still works. Refreshing or closing the tab restarts the wizard from step 1. You become the SuperAdmin and are signed in. The setup page never appears again once an account exists; if the connection drops right after **Create my tree**, sign in with the email and password you chose.
 
 ## 6. Add your family
 
 Open **People** and **Add person**, or open your profile (**My profile**) and use **Add relative** to add parents, partners, children and brothers and sisters. **Family tree** draws them: drag to pan, scroll or pinch to zoom, and click a person to see their details. A small green leaf on someone opens their own family (a spouse's parents, or an adopted person's other family).
 
-If you restart before finishing, a new token is made (look in the log again). The token stops working once setup is done.
+If you restart before finishing, a new token is made (look in the log again).
 
 ## Behind a reverse proxy
 
-KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HTTPS (Caddy, Nginx Proxy Manager, Traefik, a Cloudflare Tunnel, and so on) and point it at that port (`http://<this machine>:8080`). Then:
+KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HTTPS (Caddy, Nginx Proxy Manager, Traefik, a Cloudflare Tunnel) and point it at `http://<this machine>:8080`. Then:
 
 - Set `PUBLIC_URL` to your `https://` address.
-- Your proxy must pass on the original `Host` header (or send `X-Forwarded-Host`), and should send `X-Forwarded-Proto` and `X-Forwarded-For`. The common proxies do this by default.
-- `TRUST_PROXY` tells KinShip which proxies to believe about those headers. The default trusts private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), which covers a proxy on the same machine, in Docker, or on your home or office network. If your proxy reaches KinShip from a public address, add that address. Do not set it to `true` if the web port can be reached directly from the internet.
-- If this is wrong you will see it: sign-in cookies are not marked `Secure` over HTTPS, every visitor shares one rate limit, or signing in fails with a "csrf" error.
+- Your proxy must pass on the original `Host` header (or send `X-Forwarded-Host`) and should send `X-Forwarded-Proto` and `X-Forwarded-For`. Common proxies do this by default.
+- `TRUST_PROXY` tells KinShip which proxies to believe about those headers. The default trusts private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). If your proxy reaches KinShip from a public address, add that address. Do not set it to `true` if the web port can be reached directly from the internet.
+- If it is wrong you will see it: sign-in cookies are not marked `Secure` over HTTPS, every visitor shares one rate limit, or signing in fails with a "csrf" error.
 
 ## Inviting people
 
-Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link: copy it and send it yourself, because KinShip sends no email yet. The link works once and lasts 7 days. It is shown only once; if you lose it, make a new link (that cancels the old one). Whoever opens it chooses a password and is signed in. An account that is linked to nobody (made by an early release, or invited without a person) can be linked later: **Admin → Users → Link to a person** (and **Change** or **Unlink** once it has one); the dialog says what the link changes before you save.
+Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link to copy and send yourself (it sends no email). The link works once, lasts 7 days and is shown only once; if you lose it, make a new one (that cancels the old). Whoever opens it chooses a password and is signed in. An account linked to nobody can be linked later under **Admin → Users → Link to a person**.
 
 ## Locked out? Set a new password
 
@@ -117,30 +117,30 @@ For a script, pipe the password in: `printf '%s' "$NEW_PASSWORD" | docker compos
 
 ## Updating
 
-**Admin → Updates** (SuperAdmin only) tells you when a new version exists, and **What's changing** shows what it brings. Read it, and [UPGRADE.md](UPGRADE.md), first. **Back up before every update** (Admin → Backups → Back up now, then download it or copy it off the server): the notice asks for that when a release changes the database or has a breaking change, and keeps the steps hidden until you have a backup from the last 24 hours or tick that you have one you can restore.
+**Admin → Updates** (SuperAdmin only) tells you when a new version exists, and **What's changing** shows what it brings. Read it, and [UPGRADE.md](UPGRADE.md), first. **Back up before every update** (Admin → Backups → Back up now, then copy it off the server). When a release changes the database or breaks something, the notice hides the steps until you have a backup from the last 24 hours.
 
 1. Change `KINSHIP_VERSION` in `.env` to the new version (both images always share it).
 2. `docker compose pull && docker compose up -d`.
 
-KinShip never updates itself: it cannot change its own containers. The web and the api must always be the same version; if they are not (one image was updated and the other was not), KinShip answers every request with a page that says so, and starts working again as soon as both match.
+KinShip never updates itself. The web and the api must be the same version; if they differ, KinShip shows a page that says so and works again once both match.
 
-After an update, every admin (SuperAdmin and Family Admin) sees a **What's new** popup once, at their next sign-in, with the changes since the version they last saw. It is read from the changelog inside the image, so it works with no internet. It can be opened again from **Account menu → About KinShip → What's new**.
+After an update, every admin sees a **What's new** popup once at their next sign-in. It can be opened again from **Account menu → About KinShip → What's new**.
 
-Database changes are applied automatically when the api starts (in order, and the api refuses to start if an already-applied migration file was edited). **Before it applies any, it writes a safety copy of the database** to `data/backups/pre-upgrade-<from>-to-<to>.tar.enc` (encrypted with your backup passphrase; the newest three are kept) and checks that it opens. It is a net under your own backup, not a replacement: it sits on the same server. If the copy cannot be made the upgrade does not start and your data is untouched; the api log says why and how to fix it. On a big database the copy can take minutes: the site shows nothing, and `docker compose ps` says "starting", until the copy and the change are done.
+Database changes are applied automatically when the api starts. **Before it applies any, it writes an encrypted safety copy of the database** to `data/backups/pre-upgrade-<from>-to-<to>.tar.enc` (the newest three are kept) and checks that it opens. It sits on the same server, so it does not replace your own backup. If the copy cannot be made the upgrade does not start and your data is untouched; the api log says why. On a big database the copy can take minutes, and `docker compose ps` says "starting" until it is done.
 
 To go back after a database change there are no down-migrations: put the old version back and restore the backup you took (see "Back up and restore").
 
 ### The update check
 
-Once a day KinShip reads GitHub's public list of releases for this project (`api.github.com`), with a conditional request, and shows a notice to the SuperAdmin on the Admin pages. It sends **nothing about your installation**: no version, no name, no count of anything, no account, no token (GitHub sees your server's address, as with any download). There is no email. It is a switch inside the app, **Admin → Updates → Check for new versions** (on by default), and not a setting in `.env`. Turn it off on a server with no internet access: with it on and no internet, the check just fails quietly and the page shows when the last one worked. **Include pre-releases** (off) also offers release candidates. **Check now** runs it at once (at most one a minute).
+Once a day KinShip reads GitHub's public list of releases for this project (`api.github.com`) and shows a notice to the SuperAdmin. It sends **nothing about your installation**; GitHub sees your server's address, as with any download. There is no email. The switch is **Admin → Updates → Check for new versions** (on by default), not a setting in `.env`. With no internet access the check fails quietly; turn it off if you like. **Include pre-releases** (off) also offers release candidates, and **Check now** runs it at once.
 
-If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_PROXY` if some addresses must not use it) in `.env`; the check uses it, and nothing else in KinShip makes outgoing web requests. The proxy address is never shown or logged.
+If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_PROXY`) in `.env`. Nothing else in KinShip makes outgoing web requests.
 
 ## Back up and restore
 
-**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database (KinShip 0.2 stores no photos or other files yet; the archive has a place for them). It is encrypted with `BACKUP_PASSPHRASE`. **The backup does not contain that passphrase: keep it somewhere other than this server.** Without the passphrase a backup cannot be opened by anyone, including you.
+**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database (0.2 stores no photos or other files yet). It is encrypted with `BACKUP_PASSPHRASE`, which the backup does not contain: keep it somewhere other than this server. Without it nobody can open the backup.
 
-**Making them.** Backups run on a schedule inside the api (every day at 03:00 by default; change it, how many to keep and the time zone in **Admin → Backups**, which only the SuperAdmin sees). **Back up now** makes one at once, and **Test the latest backup** restores the newest one into a temporary database, compares it with what was backed up, and throws it away. **Download** asks for your password again. From the command line:
+**Making them.** Backups run on a schedule inside the api (every day at 03:00 by default; change the schedule, how many to keep and the time zone in **Admin → Backups**, SuperAdmin only). **Back up now** makes one at once, and **Test the latest backup** restores the newest one into a temporary database, compares it, and throws it away. **Download** asks for your password again. From the command line:
 
 ```sh
 docker compose exec api kinship backup              # make one now
@@ -162,7 +162,7 @@ docker compose run --rm api kinship restore kinship-2026-11-14-0300.tar.enc   # 
 docker compose up -d
 ```
 
-It first decrypts and checks the whole backup; refuses one made by a newer KinShip, from a newer PostgreSQL, with other database role names, or while KinShip is still running; makes a safety copy of what is there (`pre-restore-<time>.tar.enc`); then replaces the database in **one transaction** that checks the result before it commits. If anything fails, the database is exactly as it was. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date by the same start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
+It checks the whole backup first, makes a safety copy of what is there (`pre-restore-<time>.tar.enc`), then replaces the database in **one transaction**; if anything fails, the database is exactly as it was. It refuses a backup made by a newer KinShip or PostgreSQL, one with other database role names, and any restore while KinShip is running. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date at the next start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
 
 ### A new machine, after a disaster
 
