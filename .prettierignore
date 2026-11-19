@@ -9,3 +9,5 @@ pnpm-lock.yaml
 e2e/artifacts/
 e2e/.stack/
 site/
+# release-please rewrites this file on every release pull request, without spaces.
+.release-please-manifest.json
