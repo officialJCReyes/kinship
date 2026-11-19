@@ -4,6 +4,7 @@
 - Date: 2026-11-18
 - Builds on: [0004 Releases and images](0004-release-and-images.md), [0017 release-please](0017-release-please.md)
 - Code: `.github/workflows/pages.yml`, `site/`. Design note: `design/kinship-website.md`.
+- Amended by: [0023 The website's Docs are built from the repository's Markdown](0023-docs-on-the-site-from-the-repository.md) (the site has one build step now, run before the version is filled in).
 
 ## Context
 
