@@ -22,7 +22,7 @@ a:focus-visible,button:focus-visible{outline:3px solid #F2A541;outline-offset:2p
 .h2{font-family:Fraunces,Georgia,serif;font-weight:600;color:#17231F;margin:0;letter-spacing:-0.01em;font-size:38px;line-height:1.15}
 .h2s{font-size:34px}
 .lead{font-size:18px;line-height:1.6;color:#3F4B47;margin:0}
-.chip{display:inline-flex;align-items:center;flex:none;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+.vtab{font:inherit;font-weight:500;padding:6px 12px;border:0;border-radius:8px;background:transparent;color:#5B6A65;cursor:pointer}.vtab:hover{background:#E4E2D6;color:#1E4D4A}.vtab[aria-selected="true"]{background:#fff;color:#1E4D4A;font-weight:600}.vtab:focus-visible{outline:2px solid #1E4D4A;outline-offset:2px}[hidden]{display:none!important}.chip{display:inline-flex;align-items:center;flex:none;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
 .ok{background:#E0EDE1;color:#1E4D4A}
 .soon{background:#F6E7C1;color:#5C4100}
 .later{background:#E9ECE9;color:#3F4B47}

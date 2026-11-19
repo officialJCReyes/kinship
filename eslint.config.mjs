@@ -28,5 +28,10 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: { ...reactHooks.configs.recommended.rules },
   },
+  {
+    // The project website's script runs in the browser.
+    files: ['site/**/*.js'],
+    languageOptions: { globals: globals.browser },
+  },
   prettier,
 );
