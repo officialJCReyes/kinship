@@ -69,14 +69,23 @@ export const SIDEBAR = [
 
 const escapeHtml = (text) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const stripTags = (html) =>
-  html
-    .replace(/<[^>]+>/g, '')
+/** Heading HTML to plain text: tags removed (repeatedly, so nested fragments cannot rebuild one), entities decoded, no angle brackets left. */
+export function stripTags(html) {
+  let text = html;
+  for (let previous = ''; previous !== text;) {
+    previous = text;
+    text = text.replace(/<[^>]*>/g, '');
+  }
+  return text
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&');
+    .replace(/&amp;/g, '&')
+    .replace(/[<>]/g, '');
+}
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export function pandocAvailable() {
   try {
@@ -108,7 +117,7 @@ export function rewriteHref(href, srcPath, ctx) {
   if (href.startsWith('#')) return href;
   const [target, ...rest] = href.split('#');
   const fragment = rest.length ? `#${rest.join('#')}` : '';
-  const github = new RegExp(`^${REPO.replace(/[.]/g, '\\.')}/(?:blob|tree)/main/(.+)$`).exec(target);
+  const github = new RegExp(`^${escapeRegExp(REPO)}/(?:blob|tree)/main/(.+)$`).exec(target);
   let path;
   if (github) {
     path = github[1].replace(/\/$/, '');

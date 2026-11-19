@@ -4,7 +4,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { DOCS, SIDEBAR, buildDocsPages, pandocAvailable, rewriteHref, shapeBody } from './build-docs.mjs';
+import { DOCS, SIDEBAR, buildDocsPages, pandocAvailable, rewriteHref, shapeBody, stripTags } from './build-docs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'https://github.com/officialJCReyes/kinship';
@@ -120,4 +120,10 @@ test('the real INSTALL, UPGRADE and backup-format documents build into pages', {
 test('every sidebar entry names a page that exists', () => {
   const slugs = new Set(DOCS.map((doc) => doc.slug));
   for (const { items } of SIDEBAR) for (const item of items) assert.ok(item.href || slugs.has(item.page), item.label);
+});
+
+test('stripTags leaves plain text, even when tags are nested to rebuild a tag', () => {
+  assert.equal(stripTags('1. Fill in <code>.env</code> &amp; go'), '1. Fill in .env & go');
+  assert.equal(stripTags('<<b>script>alert(1)<</b>/script>'), 'scriptalert(1)/script');
+  assert.ok(!/[<>]/.test(stripTags('a &lt;script&gt; b')));
 });
