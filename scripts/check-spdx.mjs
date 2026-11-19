@@ -3,13 +3,15 @@
 // Fails if a source file has no "SPDX-License-Identifier: AGPL-3.0-or-later"
 // line near the top. Checks every file git knows about (tracked, or new and not
 // ignored), so a new file is caught before it is even committed.
-// Exempt: Markdown, JSON, lockfiles, images, the LICENSE text and design/.
+// Exempt: Markdown, JSON, lockfiles, images, the LICENSE text, design/ and the logo's path data (see EXEMPT).
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 
 const NEEDS_HEADER = /\.(ts|tsx|mts|cts|js|mjs|cjs|sql|ya?ml|sh|css|html)$|(^|\/)(Dockerfile[^/]*|\.dockerignore)$/;
-const EXEMPT = /^(design|node_modules)\//;
+// apps/web/src/brand/logo-paths.ts is the outlined KinShip wordmark. The logo and the name are not AGPL (TRADEMARK.md), so
+// that one file must not carry the AGPL line; it is exempt by its exact path and nothing else is.
+const EXEMPT = /^(design|node_modules)\/|^apps\/web\/src\/brand\/logo-paths\.ts$/;
 const HEADER = 'SPDX-License-Identifier: AGPL-3.0-or-later';
 
 const listed = (...args) =>

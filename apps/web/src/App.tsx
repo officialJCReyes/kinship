@@ -3,6 +3,7 @@ import { useLayoutEffect } from 'react';
 import { Link, NavLink, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useSession, useSetupStatus } from './auth.js';
 import { AccountMenu } from './components/AccountMenu.js';
+import { Logo } from './components/Logo.js';
 import { WhatsNewHost } from './components/WhatsNew.js';
 import { VersionMismatchPage } from './pages/VersionMismatchPage.js';
 import { useVersionMismatch } from './lib/version-mismatch.js';
@@ -108,8 +109,8 @@ export function App() {
       </a>
       <header className="site-header">
         <div className="page-width site-header-inner">
-          <Link to="/" className="wordmark">
-            {t('app.name')}
+          <Link to="/" className="brand" aria-label={t('app.homeLink')}>
+            <Logo height={38} />
           </Link>
           {signedIn ? (
             <nav aria-label={t('nav.main')}>
