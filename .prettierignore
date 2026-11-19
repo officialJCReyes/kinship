@@ -9,5 +9,7 @@ pnpm-lock.yaml
 e2e/artifacts/
 e2e/.stack/
 site/
+# The website's docs template and landing body: hand-written like site/, with {{tokens}} the build script fills in.
+scripts/site-docs/
 # release-please rewrites this file on every release pull request, without spaces.
 .release-please-manifest.json
