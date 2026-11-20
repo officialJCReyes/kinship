@@ -8,7 +8,7 @@ Companion to `kinship-v2-requirements.md`. Navigation lives in `kinship-navigati
 ## Tree views (built)
 All views share the person panel, pan, zoom, fit button and the same person nodes. Clicking anyone selects them and, in the three new views, re-centers the chart on them. **The chart background is plain: the dot grid was removed at JC's request (Nov 14).**
 
-**View switcher (decided by JC, built Nov 14):** one icon button at the top right of the chart shows the current view. Clicking it opens a panel of icons only (no words): Family tree, Pedigree, Fan, Descendants, then the generations choice as numbers (3, 4, 5; 2 to 5 for Descendants) for every view except Family tree. Tooltips and accessible labels carry the names. Choosing a view closes the panel; clicking elsewhere closes it too.
+**View switcher (decided by JC, Nov 14; not built: the app has the Family tree only until step 32 of 0.3.0):** one icon button at the top right of the chart shows the current view. Clicking it opens a panel of icons only (no words): Family tree, Pedigree, Fan, Descendants, then the generations choice as numbers (3, 4, 5; 2 to 5 for Descendants) for every view except Family tree. Tooltips and accessible labels carry the names. Choosing a view closes the panel; clicking elsewhere closes it too.
 
 | View | What it shows | Notes |
 |---|---|---|
