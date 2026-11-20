@@ -1971,3 +1971,71 @@ pre.code {
     align-items: flex-start;
   }
 }
+
+/* The chart's top bar: the family label, the search box and the people counter. */
+.tree-overlay.top-left {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  /* leave room on the right for "Center on me" */
+  max-width: calc(100% - 20px - 150px);
+}
+
+.tree-search {
+  position: relative;
+  width: 260px;
+  max-width: 100%;
+}
+
+.tree-search input {
+  width: 100%;
+}
+
+.tree-search .picker-list {
+  min-width: 260px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.tree-search .picker-list li {
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-search .result-more {
+  cursor: default;
+  font-size: 13px;
+}
+
+.tree-search-none {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 2px 0 0;
+  padding: 6px 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.tree-count {
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .tree-overlay.top-left {
+    max-width: calc(100% - 20px);
+    flex-direction: column;
+  }
+  .tree-search {
+    width: min(260px, calc(100vw - 80px));
+  }
+  .tree-count {
+    align-self: flex-start;
+  }
+}

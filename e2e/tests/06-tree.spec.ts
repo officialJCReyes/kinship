@@ -6,6 +6,7 @@ import { createChild, createPerson, createUnion } from '../support/api.js';
 import type { Made } from '../support/api.js';
 import { surname, uniq } from '../support/data.js';
 import { expect, tabTo, test } from '../support/fixtures.js';
+import { BASE_URL } from '../support/stack.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -236,4 +237,48 @@ test('an account linked to nobody is asked who to start from', async ({ page, ad
   await expect(person(page, 'Marcus')).toBeVisible();
   // A Member linked to nobody cannot edit a relationship from the chart: the line only has its tooltip.
   await expect(page.locator(`[data-union="${unions.elena}"] .hit.editable`)).toHaveCount(0);
+});
+
+test('search in the chart: by nickname, jump to someone drawn, re-root on someone who is not, and the people counter', async ({
+  adminPage: page,
+}) => {
+  const patched = await page.request.patch(`/api/people/${sofia.id}`, {
+    headers: { 'X-KinShip-Request': '1', Origin: BASE_URL },
+    data: { nickname: 'Sosa' },
+  });
+  expect(patched.status()).toBe(200);
+  const stranger = await createPerson(page.request, {
+    givenName: 'Wallace',
+    surname: surname('Quill'),
+    nickname: 'Wally',
+  });
+
+  await page.goto(`/tree/${daniel.id}`);
+  const counter = page.locator('.tree-count');
+  await expect(counter).toHaveText(/^\d+ of \d+ people$/);
+  const [, drawn, everyone] = /^(\d+) of (\d+) people$/.exec((await counter.textContent())!)!.map(Number);
+  expect(drawn!).toBeGreaterThan(5);
+  expect(everyone!).toBeGreaterThan(drawn!);
+
+  // Someone who is drawn: found by the nickname alone, which the result says; Enter selects them in the same chart.
+  const search = page.getByRole('combobox', { name: 'Find someone in the tree' });
+  await search.fill('sosa');
+  const option = page.getByRole('option', { name: new RegExp(`^Sofia ${family}.*also called Sosa`) });
+  await expect(option).toBeVisible();
+  await search.press('Enter');
+  await expect(page).toHaveURL(new RegExp(`/tree/${daniel.id}\\?sel=${sofia.id}`));
+  await expect(
+    page.getByRole('complementary', { name: 'Selected person' }).getByRole('heading', { name: `Sofia ${family}` }),
+  ).toBeVisible();
+  // (other journeys may add people meanwhile, so the total is only a number)
+  await expect(counter).toHaveText(new RegExp(`^${drawn} of \\d+ people$`));
+
+  // Someone who is not drawn: the chart is re-rooted on them, and the counter follows what is drawn.
+  await search.fill('wally');
+  await page.getByRole('option', { name: /^Wallace .*also called Wally/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/tree/${stranger.id}\\?sel=${stranger.id}`));
+  await expect(
+    page.getByRole('complementary', { name: 'Selected person' }).getByRole('heading', { name: /^Wallace / }),
+  ).toBeVisible();
+  await expect(counter).toHaveText(/^1 of \d+ people$/);
 });

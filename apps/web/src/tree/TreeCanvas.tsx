@@ -252,6 +252,8 @@ export interface TreeCanvasProps {
   onSelect: (id: string) => void;
   onLeaf: (leaf: Leaf) => void;
   onCouple: (unionId: string) => void;
+  /** Scroll this person into view (no zoom change) when `n` changes: the chart's search chose someone already drawn. */
+  revealRequest?: { id: string; n: number } | null;
   topLeft?: ReactNode;
   topRight?: ReactNode;
 }
@@ -474,6 +476,20 @@ export function TreeCanvas(props: TreeCanvasProps) {
     },
     [layout, apply, box, cullNow],
   );
+  // The search chose someone who is drawn: bring their card into view without changing the zoom (the same move as the
+  // keyboard makes), and draw it if it was off screen.
+  const revealN = props.revealRequest?.n;
+  const revealId = props.revealRequest?.id;
+  useEffect(() => {
+    if (revealN === undefined || revealId === undefined) return;
+    const placed = layout.byId.get(revealId);
+    if (!placed) return;
+    apply(
+      reveal(view.current, { x: placed.x - NODE_W / 2, y: placed.y - 24, width: NODE_W, height: NODE_H + 24 }, box()),
+    );
+    cullNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealN]);
   useEffect(() => {
     const pending = pendingFocus.current;
     if (!pending) return;

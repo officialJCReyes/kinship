@@ -31,6 +31,7 @@ export function TreePanel({
   me,
   otherFamily,
   onOpenOther,
+  expandSignal,
 }: {
   personId: string;
   fallback: Person | undefined;
@@ -38,8 +39,16 @@ export function TreePanel({
   /** The selected person's other family (birth or adoptive), if they have one: the keyboard path to the second leaf. */
   otherFamily?: Leaf | undefined;
   onOpenOther?: (leaf: Leaf) => void;
+  /** Changes when the panel should open (the search chose someone); the viewer's remembered choice is left alone. */
+  expandSignal?: number;
 }) {
   const [collapsed, setCollapsed] = useState(recallPanelCollapsed);
+  // Open when asked (adjusting state while rendering, not in an effect).
+  const [seenSignal, setSeenSignal] = useState(expandSignal ?? 0);
+  if ((expandSignal ?? 0) !== seenSignal) {
+    setSeenSignal(expandSignal ?? 0);
+    setCollapsed(false);
+  }
   const [open, setOpen] = useState<Open>(null);
   const detail = usePersonDetail(personId);
   const around = useFamilyAround(personId);
