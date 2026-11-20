@@ -254,6 +254,13 @@ jobs:
         env:
           PREVIOUS_TAG: v0.2.0-rc.1
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
+      # 0.2.1 (schema 16) is the last release before migration 0017 (names). Once 0.3.0 is published the first step above starts from
+      # 0.3.0, so this pin keeps the 0.2.1 to 0.3 jump, with its account settings move, tested.
+      - name: Upgrade 0.2.1 in place (pinned), and restore its safety copy on an empty database
+        if: ${{ !cancelled() }}
+        env:
+          PREVIOUS_TAG: v0.2.1
+        run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
 
   # Not a required check (yet). A real browser against the real web, api and Postgres containers.
   e2e:

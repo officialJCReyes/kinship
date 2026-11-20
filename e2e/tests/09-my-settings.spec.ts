@@ -43,7 +43,14 @@ test.afterAll(async () => {
   // Leave the admin's settings as they were, for anything that runs after this file.
   await admin.request.patch('/api/auth/me', {
     headers: { 'X-KinShip-Request': '1', Origin: BASE_URL },
-    data: { colorScheme: 'forest', theme: 'device', dateFormat: 'mdy', nameForm: 'maiden_married' },
+    data: {
+      colorScheme: 'forest',
+      theme: 'device',
+      dateFormat: 'mdy',
+      nameForm: 'maiden_married',
+      showPrefix: true,
+      showSuffix: true,
+    },
   });
   await adminContext.close();
 });
@@ -164,4 +171,42 @@ test('a Member changes only their own settings; the admin keeps theirs; the logi
     'light',
   ]);
   await context.close();
+});
+
+test('the Names card: the four forms and the prefix and suffix switches change a name on the profile', async () => {
+  const page = admin;
+  const patched = await page.request.patch(`/api/people/${rosa.id}`, {
+    headers: { 'X-KinShip-Request': '1', Origin: BASE_URL },
+    data: { namePrefix: 'Dr.', nameSuffix: 'Jr.' },
+  });
+  expect(patched.status()).toBe(200);
+  const heading = async (name: string) => {
+    await page.goto(`/people/${rosa.id}`);
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  };
+  const choose = async (form: string) => {
+    await page.goto('/settings');
+    await page.getByLabel('How to show married women’s names').selectOption(form);
+    await expect(page.getByText('Saved.')).toBeAttached();
+  };
+
+  await choose('maiden_married');
+  await heading(`Dr. Rosa ${mendez} (Hale) Jr.`);
+  await choose('married_born');
+  await heading(`Dr. Rosa ${married} (born ${mendez}) Jr.`);
+  await choose('married');
+  await heading(`Dr. Rosa ${married} Jr.`);
+
+  // The switches: prefixes off, then suffixes off.
+  await page.goto('/settings');
+  await page.getByLabel('Show prefixes (Dr., Sir)').uncheck();
+  await expect(page.getByLabel('Show prefixes (Dr., Sir)')).not.toBeChecked();
+  await heading(`Rosa ${married} Jr.`);
+  await page.goto('/settings');
+  await page.getByLabel('Show suffixes (Jr., II)').uncheck();
+  await expect(page.getByLabel('Show suffixes (Jr., II)')).not.toBeChecked();
+  await heading(`Rosa ${married}`);
+  // The profile's Facts still list them: they are the person's data, not a display choice.
+  await expect(page.locator('dl.facts').first().getByText('Prefix', { exact: true })).toBeVisible();
+  await expect(page.locator('dl.facts').first().getByText('Suffix', { exact: true })).toBeVisible();
 });

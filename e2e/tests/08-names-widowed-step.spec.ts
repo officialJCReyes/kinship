@@ -74,6 +74,8 @@ test('a new partner with a second and a married surname shows on Facts and on th
 
   await page.goto(`/tree/${daniel.id}`);
   await expect(person(page, 'Elena', ruiz)).toBeVisible();
+  // The default form is Maiden name (Married name): both birth surnames, then the married one in brackets.
+  await expect(page.getByRole('button', { name: new RegExp(`^Elena ${ruiz} Vega \\(${hale}\\)`) })).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(`^Elena ${hale}`) })).toHaveCount(0);
 });
 
