@@ -896,6 +896,7 @@ export const en = {
   'tree.legend.genderOther': 'Other or unknown',
   'tree.legend.deceased': 'Deceased',
   'tree.legend.placeholder': 'Dashed card: an unknown parent. Click it to add details',
+  'tree.legend.search': 'Someone not on the chart? Search for them above, or open them from the person panel.',
   'tree.legend.leaf': 'Leaf: opens that person’s own family',
   'tree.notice.chartLoadFailed': 'The chart could not be loaded.',
 

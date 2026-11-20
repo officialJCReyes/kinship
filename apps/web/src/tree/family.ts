@@ -36,22 +36,27 @@ const sameParentage = (a: Parentage | undefined, b: Parentage | undefined): bool
 
 /**
  * A person's own family, from a response loaded around them with collateral=true: their ancestors, their full
- * brothers and sisters, their partners and the children of those partners. Half-siblings, and everybody else on the
- * main chart, are left out. Someone whose parents are then not drawn keeps `hasParents`, so they get a leaf.
+ * brothers and sisters, their partners and children, and each brother's or sister's partners and children (so the
+ * nieces and nephews and the in-laws). Parents of those partners stay behind a leaf. Half-siblings, aunts, uncles,
+ * cousins and everybody else on the main chart are left out. Someone whose parents are then not drawn keeps `hasParents`, so they get a leaf.
  */
 export function familyView(tree: TreeResponse, personId: string): TreeResponse {
   const own = tree.parentage[personId];
   const keep = new Set<string>([personId, ...ancestorsIn(tree, personId)]);
+  const siblings: string[] = [];
   for (const [child, link] of Object.entries(tree.parentage)) {
-    if (child !== personId && sameParentage(link, own)) keep.add(child); // full brothers and sisters
+    if (child !== personId && sameParentage(link, own)) siblings.push(child); // full brothers and sisters
   }
-  const myUnions = tree.unions.filter((u) => u.partnerIds.includes(personId));
-  for (const u of myUnions) {
+  for (const id of siblings) keep.add(id);
+  // The person and each full sibling: their partners, and the children of those relationships or of them alone.
+  const households = [personId, ...siblings];
+  const unionsOf = tree.unions.filter((u) => households.some((id) => u.partnerIds.includes(id)));
+  for (const u of unionsOf) {
     for (const partner of u.partnerIds) keep.add(partner);
   }
   for (const [child, link] of Object.entries(tree.parentage)) {
-    const fromMyUnion = link.unionId !== null && myUnions.some((u) => u.id === link.unionId);
-    if (fromMyUnion || link.parentId === personId) keep.add(child); // their children
+    const fromUnion = link.unionId !== null && unionsOf.some((u) => u.id === link.unionId);
+    if (fromUnion || (link.parentId !== null && households.includes(link.parentId))) keep.add(child);
   }
 
   const unions = tree.unions.filter((u) => keep.has(u.partnerIds[0]) && keep.has(u.partnerIds[1]));

@@ -759,6 +759,9 @@ function Legend() {
           </svg>
           <span>{t('tree.legend.other')}</span>
         </div>
+        <div className="legend-row">
+          <span>{t('tree.legend.search')}</span>
+        </div>
       </div>
     </details>
   );

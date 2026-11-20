@@ -14,6 +14,7 @@ const family = surname('Hale');
 const lenaFamily = surname('Okafor');
 let daniel: Made;
 let sofia: Made;
+let marcus: Made;
 let unions: { elena: string; carla: string; lena: string };
 
 const person = (page: import('@playwright/test').Page, given: string, surnameText = family) =>
@@ -26,7 +27,7 @@ test('build a family: two partners, children, an in-law with parents', async ({ 
   const carla = await createPerson(request, { givenName: 'Carla', surname: family, gender: 'female', birth: '1965' });
   const married = await createUnion(request, daniel.id, elena.id, 'married', '1985');
   const divorced = await createUnion(request, daniel.id, carla.id, 'divorced', '1993');
-  await createChild(request, daniel.id, { givenName: 'Marcus', surname: family, gender: 'male' }, married);
+  marcus = await createChild(request, daniel.id, { givenName: 'Marcus', surname: family, gender: 'male' }, married);
   sofia = await createChild(request, daniel.id, { givenName: 'Sofia', surname: family, gender: 'female' }, married);
   await createChild(request, daniel.id, { givenName: 'Ben', surname: family, gender: 'male' }, divorced);
   // Carla's own son from before: hangs from her alone, and the chart draws him under her (issue #22).
@@ -151,6 +152,25 @@ test('the leaf flips to an in-law’s family and back', async ({ adminPage: page
   await expect(page.getByText('Lena’s family', { exact: true })).toBeHidden();
   await expect(person(page, 'Marcus')).toBeVisible();
   await expect(page).not.toHaveURL(/of=/);
+});
+
+test('a brother’s or sister’s partner is in a family view, with a leaf for their parents', async ({
+  adminPage: page,
+}) => {
+  await page.goto(`/tree/${daniel.id}?of=${marcus.id}`);
+  await expect(page.getByText('Marcus’s family', { exact: true })).toBeVisible();
+  await expect(person(page, 'Sofia')).toBeVisible();
+  const lena = person(page, 'Lena', lenaFamily);
+  await expect(lena).toBeVisible();
+  // Her parents stay behind the leaf, with the right count; her own relationship to Sofia is drawn.
+  await expect(person(page, 'Femi', lenaFamily)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Show Lena’s family (2 people)' })).toBeVisible();
+  await expect(page.locator(`[data-union="${unions.lena}"]`)).toBeVisible();
+  // Daniel's ex-partner is not part of Marcus's family.
+  await expect(person(page, 'Carla')).toHaveCount(0);
+  // The counter counts what is drawn, and the legend says where to find anyone else.
+  await expect(page.locator('.tree-count')).toContainText(' of ');
+  await expect(page.getByText('Someone not on the chart?', { exact: false })).toBeVisible();
 });
 
 test('keyboard: one tab stop, arrows move between people, Enter selects', async ({ adminPage: page }) => {

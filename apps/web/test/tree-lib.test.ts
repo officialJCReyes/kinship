@@ -93,3 +93,80 @@ describe('pan and zoom arithmetic', () => {
     expect(reveal(v, { x: 500, y: 10, width: 50, height: 50 }, { width: 400, height: 400 }).x).toBe(-174);
   });
 });
+
+describe('family view: brothers’ and sisters’ partners and children', () => {
+  // The Hale fixture has no married sibling, so build one on top of Marcus: Marcus's sister Sofia gets a husband Hugo
+  // (whose parents Gus and Hilda are known) and a daughter Mia; Sofia also has a half-brother and an aunt's family.
+  const base = treeFor('marcus', { up: 3, down: 2, collateral: true });
+  const person = (id: string, over: Record<string, unknown> = {}) => ({
+    ...PEOPLE.find((p) => p.id === 'sofia')!,
+    id,
+    givenName: id,
+    surname: 'Test',
+    hasParents: false,
+    ...over,
+  });
+  const tree = {
+    ...base,
+    people: [
+      ...base.people,
+      person('hugo', { hasParents: true, ancestorCount: 2 }),
+      person('mia'),
+      person('sam'), // Daniel's brother (an uncle of Marcus)
+      person('sue'), // the uncle's wife
+      person('cora'), // a cousin
+    ],
+    unions: [
+      ...base.unions,
+      { ...base.unions[0]!, id: 'ux1', partnerIds: ['sofia', 'hugo'] as [string, string] },
+      { ...base.unions[0]!, id: 'ux2', partnerIds: ['sam', 'sue'] as [string, string] },
+    ],
+    parentage: {
+      ...base.parentage,
+      mia: { unionId: 'ux1', parentId: null, kind: 'birth' as const, link: null },
+      sam: { unionId: 'u0', parentId: null, kind: 'birth' as const, link: null },
+      cora: { unionId: 'ux2', parentId: null, kind: 'birth' as const, link: null },
+    },
+  };
+  const view = familyView(tree, 'marcus');
+  const ids = view.people.map((p) => p.id);
+
+  it('keeps a sibling’s partner and their children', () => {
+    expect(ids).toEqual(expect.arrayContaining(['sofia', 'hugo', 'mia']));
+    expect(view.unions.map((u) => u.id)).toContain('ux1');
+    expect(view.parentage['mia']).toMatchObject({ unionId: 'ux1' });
+  });
+  it('still drops aunts, uncles, cousins and half-siblings', () => {
+    for (const id of ['sam', 'sue', 'cora', 'carla', 'priya', 'ben']) expect(ids).not.toContain(id);
+    expect(view.unions.map((u) => u.id)).not.toContain('ux2');
+  });
+  it('leaves the partner’s parents behind a leaf with their count', () => {
+    const hugo = view.people.find((p) => p.id === 'hugo')!;
+    expect(view.parentage['hugo']).toBeUndefined();
+    expect(hugo.hasParents).toBe(true);
+    expect(hugo.ancestorCount).toBe(2);
+    expect(findLeaves(view, 'marcus', tree, true).find((l) => l.personId === 'hugo')?.count).toBe(2);
+  });
+  it('keeps the invariant', () => {
+    const drawn = new Set(ids);
+    for (const u of view.unions) expect(u.partnerIds.every((p) => drawn.has(p))).toBe(true);
+    for (const [child, link] of Object.entries(view.parentage)) {
+      expect(drawn.has(child)).toBe(true);
+      if (link.parentId) expect(drawn.has(link.parentId)).toBe(true);
+      else expect(view.unions.some((u) => u.id === link.unionId)).toBe(true);
+    }
+  });
+  it('Marcus’s view of the Hale family gains Lena, with a leaf for her parents', () => {
+    const hale = familyView(treeFor('marcus', { up: 3, down: 1, collateral: true }), 'marcus');
+    expect(hale.people.map((p) => p.id).sort()).toEqual([
+      'daniel',
+      'elena',
+      'lena',
+      'marcus',
+      'rosa',
+      'sofia',
+      'walter',
+    ]);
+    expect(hale.people.find((p) => p.id === 'lena')?.ancestorCount).toBe(3);
+  });
+});
