@@ -346,7 +346,7 @@ const P = {
   naomi:{n:'Naomi Brooks',given:'Naomi',sur:'Brooks',b:1990,d:null,bp:'Yonkers, NY',g:'Female',gen:3,cx:1400,par:['carla','anthony'],shared:false},
   joseph:{n:'Joseph Hale',given:'Joseph',sur:'Hale',b:1902,d:1980,bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Male',gen:0,cx:1060,par:[]},
   anna:{n:'Anna Walsh Hale',given:'Anna',sur:'Walsh Hale',maiden:'Walsh',married:'Walsh Hale',b:1905,d:1990,bp:'Dublin, Ireland',dp:'Yonkers, NY',g:'Female',gen:0,cx:1260,par:[]},
-  samuel:{n:'Samuel Hale',given:'Samuel',sur:'Hale',pre:'Dr.',b:1936,d:2015,bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Male',gen:1,cx:1600,par:['joseph','anna']},
+  samuel:{n:'Samuel Hale',given:'Samuel',sur:'Hale',pre:'Dr.',b:1936,d:2015,bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Male',gen:1,cx:1600,par:['joseph','anna'],adp:['joseph','anna'],bio:['frank','ruth'],adn:'1938'},
   lucia:{n:'Lucia Ortiz',given:'Lucia',sur:'Ortiz',b:1932,d:2010,bp:'Newark, NJ',dp:'Newark, NJ',g:'Female',gen:1,cx:560,par:[]},
   ines:{n:'Ines Hale',given:'Ines',sur:'Hale',b:1952,d:null,bp:'New York, NY',g:'Female',gen:2,cx:120,par:['walter','lucia'],shared:false},
   paul:{n:'Paul Hale',given:'Paul',sur:'Hale',b:1960,d:null,bp:'Yonkers, NY',g:'Male',gen:2,cx:1700,par:['samuel'],shared:false},
@@ -356,7 +356,9 @@ const P = {
   lakshmi:{n:'Lakshmi Nair',given:'Lakshmi',sur:'Nair',b:1934,d:2019,bp:'Kochi, India',dp:'Edison, NJ',g:'Female',gen:1,cx:0,par:[],hid:true},
   raj:{n:'Raj Nair',given:'Raj',sur:'Nair',b:1958,d:null,bp:'Kochi, India',g:'Male',gen:2,cx:0,par:['hari','lakshmi'],hid:true,shared:false},
   meera:{n:'Meera Iyer Nair',given:'Meera',sur:'Iyer Nair',maiden:'Iyer',married:'Iyer Nair',b:1961,d:null,bp:'Chennai, India',g:'Female',gen:2,cx:0,par:[],hid:true,shared:false},
-  arjun:{n:'Arjun Nair',given:'Arjun',sur:'Nair',b:1991,d:null,bp:'Edison, NJ',g:'Male',gen:3,cx:0,par:['raj','meera'],hid:true,shared:false}
+  arjun:{n:'Arjun Nair',given:'Arjun',sur:'Nair',b:1991,d:null,bp:'Edison, NJ',g:'Male',gen:3,cx:0,par:['raj','meera'],hid:true,shared:false},
+  ruth:{n:'Ruth Doyle',given:'Ruth',sur:'Doyle',b:1913,d:1988,bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Female',gen:0,cx:0,par:[],hid:true},
+  frank:{n:'Frank Doyle',given:'Frank',sur:'Doyle',b:1909,d:1971,bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Male',gen:0,cx:0,par:[],hid:true}
 };
 const STATUSES=['Married','Divorced','Separated','Widowed','Engaged','Partner','Friends','Annulment','Unknown','Other'];
 const CODE={Married:'M',Divorced:'D',Separated:'S',Widowed:'W',Engaged:'E',Partner:'P',Friends:'F',Annulment:'A',Unknown:'?',Other:'\u2026'};
@@ -373,7 +375,8 @@ const UNIONS=[
  {a:'walter',b:'lucia',st:'Divorced',md:DT('Sep','2','1951'),mp:'New York, NY',ed:DT('','','1954')},
  {a:'joseph',b:'anna',st:'Widowed',auto:true,md:DT('Jun','11','1927'),mp:'Yonkers, NY',ed:null},
  {a:'hari',b:'lakshmi',st:'Widowed',auto:true,md:DT('Nov','2','1955'),mp:'Kochi, India',ed:null},
- {a:'raj',b:'meera',st:'Married',md:DT('Feb','14','1986'),mp:'Chennai, India',ed:null}
+ {a:'raj',b:'meera',st:'Married',md:DT('Feb','14','1986'),mp:'Chennai, India',ed:null},
+ {a:'frank',b:'ruth',st:'Unknown',md:DT('','',''),mp:'',ed:null}
 ];
 const isM=st=>['Married','Widowed'].includes(st);
 const dotted=st=>!['Married','Engaged','Partner','Widowed'].includes(st);
@@ -703,11 +706,15 @@ function parOrd(id){
   if(ps.length===1)return P[ps[0]].g==='Male'?[ps[0],null]:[null,ps[0]];
   return [null,null];
 }
+/* Card names wrap on words and the font steps down until the name fits; nothing is cut (ADR 0006 in the app) */
+function wrapN(t,m){const out=[];let cur='';t.split(' ').forEach(w=>{const c=cur?cur+' '+w:w;if(c.length<=m||!cur)cur=c;else{out.push(cur);cur=w}});if(cur)out.push(cur);return out}
+function nameFit(t,mx,ml){let fs=13,l=wrapN(t,mx);while(l.length>ml&&fs>9){fs-=.5;l=wrapN(t,Math.floor(mx*13/fs))}return {l,fs}}
+function nameTxt(f,x,top){const lh=f.fs+3;return {svg:`<text x="${x}" style="font-size:${f.fs}px">${f.l.map((ln,i)=>`<tspan x="${x}" y="${(top+i*lh+f.fs*.82).toFixed(1)}">${esc(ln)}</tspan>`).join('')}</text>`,end:top+f.l.length*lh}}
 function pbox(id,x,y,w,h,third){
-  const p=P[id],cy=y+h/2,mx=Math.floor((w-58)/6.6),nm=dname(id)+(p.d?' †':''),nn=nm.length>mx?nm.slice(0,mx-1)+'…':nm;
+  const p=P[id],cy=y+h/2,mx=Math.floor((w-58)/6.6),nm=dname(id)+(p.d?' †':''),f=nameFit(nm,mx,2),blk=f.l.length*(f.fs+3)+16+(third?14:0),nt=nameTxt(f,x+48,cy-blk/2);
   return `<g class="pnode ${p.d?'dec':''} ${S.sel===id?'sel':''}" data-p="${id}" tabindex="0" role="button" aria-label="${esc(p.n)}">
     <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10"/><circle cx="${x+25}" cy="${cy}" r="15"/>${PHOTO[id]?`<clipPath id="cp-${id}"><circle cx="${x+25}" cy="${cy}" r="15"/></clipPath><image href="${PHOTO[id]}" x="${x+10}" y="${cy-15}" width="30" height="30" preserveAspectRatio="xMidYMid slice" clip-path="url(#cp-${id})" style="pointer-events:none"/>`:`<text class="ini" x="${x+25}" y="${cy+4}" text-anchor="middle">${ini(id)}</text>`}
-    ${dnaBadge(id,x+36,cy+12)}<text x="${x+48}" y="${third?y+22:cy-3}">${esc(nn)}</text><text class="s" x="${x+48}" y="${third?y+38:cy+14}">${span(id)}</text>${third?`<text class="s" x="${x+48}" y="${y+53}">${esc(third)}</text>`:''}</g>`;
+    ${dnaBadge(id,x+36,cy+12)}${nt.svg}<text class="s" x="${x+48}" y="${(nt.end+12).toFixed(1)}">${span(id)}</text>${third?`<text class="s" x="${x+48}" y="${(nt.end+26).toFixed(1)}">${esc(third)}</text>`:''}</g>`;
 }
 function pedSvg(){
   const G=S.gn.pedigree,W=190,H=52,CG=46,SL=H+14,y0=34;let out='';
@@ -789,18 +796,18 @@ function treeSvg(){
     out+=`<g class="pnode ${p.d?'dec':''} ${S.sel===id?'sel':''}" data-p="${id}" tabindex="0" role="button" aria-label="${esc(p.n)}">
       <rect x="${x}" y="${y}" width="${W}" height="${H}" rx="10"/>
       <circle cx="${x+26}" cy="${y+H/2}" r="16"/>${PHOTO[id]?`<clipPath id="cp-${id}"><circle cx="${x+26}" cy="${y+H/2}" r="16"/></clipPath><image href="${PHOTO[id]}" x="${x+10}" y="${y+H/2-16}" width="32" height="32" preserveAspectRatio="xMidYMid slice" clip-path="url(#cp-${id})" style="pointer-events:none"/>`:`<text class="ini" x="${x+26}" y="${y+H/2+4}" text-anchor="middle">${ini(id)}</text>`}
-      ${dnaBadge(id,x+38,y+H/2+12)}<text x="${x+50}" y="${y+28}">${esc(dname(id).length>17?dname(id).slice(0,16)+'…':dname(id))}${p.d?' †':''}</text>
-      <text class="s" x="${x+50}" y="${y+46}">${span(id)}</text></g>${hasBranch(id)?brIcon(id,x,y,W,.52):''}`;
+      ${dnaBadge(id,x+38,y+H/2+12)}${(()=>{const f=nameFit(dname(id)+(p.d?' †':''),17,2),nt=nameTxt(f,x+50,y+H/2-(f.l.length*(f.fs+3)+16)/2);return nt.svg+`<text class="s" x="${x+50}" y="${(nt.end+12).toFixed(1)}">${span(id)}</text>`})()}</g>${hasBranch(id)?brIcon(id,x,y,W,.52):''}`;
   });
   return out;
 }
 function relList(id){
   const p=P[id],rows=[];
-  p.par.forEach(x=>rows.push([P[x].g==='Male'?'Father':'Mother',x]));
+  if(p.adp){p.adp.forEach(x=>rows.push([P[x].g==='Male'?'Adoptive father':'Adoptive mother',x]));(p.bio||[]).forEach(x=>rows.push([P[x].g==='Male'?'Birth father':'Birth mother',x]))}else p.par.forEach(x=>rows.push([P[x].g==='Male'?'Father':'Mother',x]));
   p.par.forEach(par=>unionsOf(par).forEach(u=>{const o=otherOf(u,par);if(!p.par.includes(o)&&isM(u.st))rows.push([P[o].g==='Male'?'Stepfather':'Stepmother',o])}));
   unionsOf(id).forEach(u=>{const o=otherOf(u,id);rows.push([partnerLabel(u.st,P[o].g,!!P[o].d),o,false,u.i])});
   siblings(id).forEach(x=>{const sh=p.par.filter(q=>P[x].par.includes(q)).length,m=P[x].g==='Male';rows.push([sh<2?(m?'Half-brother':'Half-sister'):(m?'Brother':'Sister'),x])});
-  children(id).forEach(x=>rows.push([P[x].g==='Male'?'Son':'Daughter',x]));
+  children(id).forEach(x=>rows.push([(P[x].adp&&P[x].adp.includes(id)?'Adopted ':'')+(P[x].g==='Male'?(P[x].adp&&P[x].adp.includes(id)?'son':'Son'):(P[x].adp&&P[x].adp.includes(id)?'daughter':'Daughter')),x]));
+  Object.keys(P).filter(k=>P[k].adp&&!P[k].par.includes(id)&&(P[k].adp.includes(id)||(P[k].bio||[]).includes(id))).forEach(k=>rows.push([(P[k].adp.includes(id)?'Adopted ':'Birth ')+(P[k].g==='Male'?'son':'daughter'),k]));
   unionsOf(id).forEach(u=>{if(!isM(u.st))return;const o=otherOf(u,id);children(o).filter(k=>!P[k].par.includes(id)).forEach(k=>rows.push([P[k].g==='Male'?'Stepson':'Stepdaughter',k]))});
   (EXTRAS[id]||[]).forEach(([l,x])=>rows.push([l,x,true]));
   return rows;
@@ -841,7 +848,8 @@ function vProfile(){
       <div>Gender</div><div>${p.g}</div>
       <div>Linked account</div><div>${p.self?'Marcus Hale (local login), SuperAdmin':(p.d?'None (deceased)':(ACCT[id]?'Linked (Member)':'Not linked'))}</div>
       <div>Profile photo</div><div>Visible to every signed-in account</div></div>
-      <div style="margin-top:14px"><h3>Relationships</h3><div class="row" style="margin-top:6px">${relList(id).map(([l,x,c])=>`<button class="btn sm" data-p="${x}">${esc(P[x].n)} <span class="muted">${l}${c?' (custom)':''}</span></button>`).join('')||'<span class="muted">None recorded</span>'}</div></div>
+      ${idBody(id)}
+      ${adoptNote(id)}<div style="margin-top:14px"><h3>Relationships</h3><div class="row" style="margin-top:6px">${relList(id).map(([l,x,c])=>`<button class="btn sm" data-p="${x}">${esc(P[x].n)} <span class="muted">${l}${c?' (custom)':''}</span></button>`).join('')||'<span class="muted">None recorded</span>'}</div></div>
       ${unionCards(id)}<div style="margin-top:14px"><h3>Sources</h3>${srcIds.length?`<ol style="margin:6px 0 0;padding-left:18px">${srcIds.map(s=>`<li id="src-${s}" value="${s.slice(1)}">${esc(SRC[s].t)} ${SRC[s].u?`<a class="mono" href="${SRC[s].u}">${SRC[s].u.replace('https://','')}</a>`:''}</li>`).join('')}</ol>`:'<div class="muted">No sources yet.</div>'}
       <button class="btn sm" style="margin-top:8px" data-modal="source" ${canCite()?'':'disabled'}>Add source with URL</button></div>`,
     stories:storiesBody(id),
@@ -1088,7 +1096,7 @@ function vRelate(){
 }
 
 /* ---------- Reports (fixed templates, no AI) ---------- */
-const REPORTS=[['life','Life summary','A readable biography written from the recorded facts. Works for living and deceased people.'],['desc','Descendants','Outline of children, grandchildren and so on, with spouses.'],['anc','Ancestors','Parents, grandparents and further back, by generation.'],['fhh','Family health history','A one-page summary for a doctor visit: parents, brothers and sisters, children, grandparents, aunts and uncles.'],['med','Medical patterns','Conditions that repeat among a person\u2019s blood relatives, from records you can see.'],['fgs','Family group sheet','One page for a couple: both partners, their marriage and every child.'],['book','Family book','A printable book: title page, contents, a chapter for each person and an index.'],['dq','Data check','Missing places, sources and parents to tidy up.']];
+const REPORTS=[['rrs','Records request sheet','A letter and fact sheet to ask a civil registry or archive for a deceased person’s records. English or Spanish.'],['life','Life summary','A readable biography written from the recorded facts. Works for living and deceased people.'],['desc','Descendants','Outline of children, grandchildren and so on, with spouses.'],['anc','Ancestors','Parents, grandparents and further back, by generation.'],['fhh','Family health history','A one-page summary for a doctor visit: parents, brothers and sisters, children, grandparents, aunts and uncles.'],['med','Medical patterns','Conditions that repeat among a person\u2019s blood relatives, from records you can see.'],['fgs','Family group sheet','One page for a couple: both partners, their marriage and every child.'],['book','Family book','A printable book: title page, contents, a chapter for each person and an index.'],['dq','Data check','Missing places, sources and parents to tidy up.']];
 function medReport(id){
   const rels=Object.keys(P).filter(x=>x!==id).map(x=>({x,r:blood(id,x)})).filter(o=>o.r);
   const vis=rels.filter(o=>canSeeMed(o.x)&&MED[o.x]);
@@ -1211,7 +1219,7 @@ function dqReport(){
 function vReports(){
   const r=S.rep,id=r.who,needsWho=r.type!=='dq',medOk=canSeeMed(id)&&!P[id].minor;
   let doc='';
-  if(r.type==='life')doc=lifeReport(id,r);else if(r.type==='desc')doc=descReport(id);else if(r.type==='anc')doc=ancReport(id);else if(r.type==='med')doc=medReport(id);else if(r.type==='fhh')doc=fhReport(id);else if(r.type==='fgs')doc=fgsReport(id,r.u);else if(r.type==='book')doc=bookReport(id,r.bk);else doc=dqReport();
+  if(r.type==='life')doc=lifeReport(id,r);else if(r.type==='desc')doc=descReport(id);else if(r.type==='anc')doc=ancReport(id);else if(r.type==='med')doc=medReport(id);else if(r.type==='fhh')doc=fhReport(id);else if(r.type==='rrs')doc=rrsReport(id);else if(r.type==='fgs')doc=fgsReport(id,r.u);else if(r.type==='book')doc=bookReport(id,r.bk);else doc=dqReport();
   return `<div class="stack" style="max-width:1100px"><div class="row between"><h1>Reports</h1><div class="row noprint"><button class="btn sm" data-act="rprint">Print or save as PDF</button><button class="btn sm" data-act="rexp">Word (.docx)</button><button class="btn sm" data-act="rexp">Plain text</button></div></div>
     <div style="display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;align-items:start" class="repgrid">
       <div class="stack noprint"><div class="card pad">${REPORTS.map(([k,n,d])=>`<button class="rtype" data-act="rtype" data-v="${k}" aria-pressed="${r.type===k}"><b>${n}</b><small>${d}</small></button>`).join('')}</div>
@@ -1220,7 +1228,7 @@ function vReports(){
           ${r.type==='book'?`<div class="stack" style="gap:6px;margin-top:10px"><label class="row" style="gap:8px"><input type="checkbox" name="bopt" value="ev" ${r.bk.ev?'checked':''}> Life events lists</label>
           <label class="row" style="gap:8px"><input type="checkbox" name="bopt" value="med" ${r.bk.med?'checked':''}> Health histories (only those you can see)</label>
           <label class="row" style="gap:8px"><input type="checkbox" name="bopt" value="src" ${r.bk.src?'checked':''}> Citations and sources</label><div class="muted" style="font-size:12px">Health is off by default in a book you plan to hand around.</div></div>`:''}
-          ${r.type==='fhh'?fhOpts(id):''}${r.type==='life'?`<div class="stack" style="gap:6px;margin-top:10px"><label class="row" style="gap:8px"><input type="checkbox" name="ropt" value="ev" ${r.ev?'checked':''}> Life events list</label>
+          ${r.type==='fhh'?fhOpts(id):''}${r.type==='rrs'?rrsOpts(id):''}${r.type==='life'?`<div class="stack" style="gap:6px;margin-top:10px"><label class="row" style="gap:8px"><input type="checkbox" name="ropt" value="ev" ${r.ev?'checked':''}> Life events list</label>
           <label class="row" style="gap:8px"><input type="checkbox" name="ropt" value="med" ${r.med&&medOk?'checked':''} ${medOk?'':'disabled'}> Health history${medOk?'':' (no access)'}</label>
           <label class="row" style="gap:8px"><input type="checkbox" name="ropt" value="src" ${r.src?'checked':''}> Citations and sources</label></div>`:''}</div>`:''}
         <div class="callout" style="font-size:12px">No AI. Every sentence is a fixed template filled with recorded facts, so the same data always gives the same report, and nothing is invented. Reports only include what your role can already see.</div></div>
@@ -1419,7 +1427,7 @@ function updModal(m){
    <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-act="updlater">Remind me later</button><button class="btn primary" data-close="1">Close</button></div>`)}
 function vAdmin(){
   const tab=S.tab.admin,sup=S.role==='superadmin';
-  const users=[['Marcus Hale','marcus','SuperAdmin','Local','Active'],['Priya Nair','priya','Family Admin','Authentik','Active'],['Daniel Hale','daniel','Member','Local','Active'],['Carla Hale','carla','Member','Authentik','Active'],['Jordan Calloway',null,'User','Authentik','Invited']];
+  const users=[['Marcus Hale','marcus','SuperAdmin','Local','Active'],['Priya Nair','priya','Family Admin','Authentik','Active'],['Daniel Hale','daniel','Member','Local','Active'],['Carla Hale','carla','Member','Authentik','Active'],['Jordan Reyes',null,'User','Authentik','Invited']];
   const mark=v=>v==='y'?'<span class="pill ok">Yes</span>':v==='n'?'<span class="pill gray">No</span>':`<span class="pill warn">${v}</span>`;
   const M=[['View public tree data and profile photos','y','y','y','y'],['Add and edit people, events, relationships','y','y','Own branch','n'],['Add sources, photos and documents','y','y','y','n'],['See deceased medical history','y','y','y','y'],['See living medical history','All','All','Shared + own','Own only'],['Import GEDCOM','y','y','n','n'],['Export GEDCOM','y','y','y','n'],['Manage users and link people to accounts','y','y','n','n'],['Configure SSO, languages and system settings','y','n','n','n']];
   const body={
@@ -1544,7 +1552,7 @@ chmod 600 ./secrets/file_encryption_key</pre></li>
 function vLogin(){return `<div class="center"><div class="card entry"><div style="margin-bottom:10px">${logo(52)}</div><div class="muted">Sign in to your family tree.</div>
   <button class="btn primary" data-act="sso" style="margin-top:16px">${t('sign_in_sso')}</button><div class="divider">or use a local account</div>
   <label for="lu">${t('username')}</label><input id="lu" type="text" autocomplete="username"><label for="lp">${t('password')}</label><input id="lp" type="password" autocomplete="current-password">
-  <button class="btn" data-go="tree">${t('sign_in')}</button><div class="muted" style="font-size:12px;margin-top:12px">Forgot your password? Ask a Family Admin to send a reset link.</div></div></div>`}
+  <button class="btn" data-go="tree">${t('sign_in')}</button>${(typeof PUB!=='undefined'&&PUB.on&&PUB.access==='everyone')?'<div class="divider">or</div><button class="btn" data-go="public">View the public family tree</button>':''}<div class="muted" style="font-size:12px;margin-top:12px">Forgot your password? Ask a Family Admin to send a reset link.</div></div></div>`}
 /* First-run setup: account, then the first tree and the closest relatives */
 const SU={step:0,f:{},kn:1};
 const SCHEMES=[['','Forest','#1e4d4a','#e0ede1'],['sand','Warm sand','#1e4d4a','#ece4d1'],['slate','Slate blue','#2f4b7c','#e1e8f3'],['graphite','Graphite','#2a2e35','#e7e8ea']];
@@ -1681,7 +1689,7 @@ const DNA={
     {prov:'23andMe',kind:'Autosomal + mtDNA',yr:2024,by:'marcus',on:'Jun 18, 2025',n:'about 640,000 markers',
       eth:{ver:'Ancestry Composition, 2025',r:[['British and Irish',38],['Iberian',33],['French and German',12],['Italian',9],['Broadly European',8]]},
       file:{name:'23andMe-raw-data.txt',size:'14.8 MB',on:'Jun 18, 2025'},
-      matches:[{name:'Naomi Brooks',pid:'naomi',cm:798,seg:31,long:72,pred:'Cousin'},{name:'Paul Hale',pid:'paul',cm:440,seg:19,long:58,pred:'Cousin'},{name:'Lucas Moreno',pid:'lucas',cm:131,seg:7,long:27,pred:'Distant cousin'},{name:'Dana Okafor',pid:null,cm:52,seg:3,long:19,pred:'Distant cousin'},{name:'Mateo Calloway',pid:null,cm:63,seg:4,long:21,pred:'Distant cousin'}]}
+      matches:[{name:'Naomi Brooks',pid:'naomi',cm:798,seg:31,long:72,pred:'Cousin'},{name:'Paul Hale',pid:'paul',cm:440,seg:19,long:58,pred:'Cousin'},{name:'Lucas Moreno',pid:'lucas',cm:131,seg:7,long:27,pred:'Distant cousin'},{name:'Dana Okafor',pid:null,cm:52,seg:3,long:19,pred:'Distant cousin'},{name:'Mateo Reyes',pid:null,cm:63,seg:4,long:21,pred:'Distant cousin'}]}
   ]},
   daniel:{share:'family',tests:[{prov:'FamilyTreeDNA',kind:'Y-DNA, 37 markers',yr:2023,by:'marcus',on:'Oct 21, 2026',n:'37 markers'}],y:'R-M269',consent:'Daniel agreed in person (recorded by Marcus Hale).'},
   carla:{share:'me',tests:[{prov:'23andMe',kind:'Autosomal + mtDNA',yr:2021,by:'marcus',on:'Nov 3, 2026',n:'about 640,000 markers'}],mt:'H1a',consent:'Carla agreed by email (recorded by Marcus Hale).'},
@@ -1824,7 +1832,7 @@ function vSettings(){
       <div class="muted" style="font-size:12px;margin-top:6px">Applies on the tree, the profile and search. Example: ${esc(dname('elena'))}. The default is Maiden name (Married name), for new and existing accounts.</div>
       <div class="stack" style="gap:8px;margin-top:10px"><label class="row" style="gap:8px"><input type="checkbox" id="nmPre" style="width:auto" ${S.npre?'checked':''}> Show prefixes (Dr., Sir)</label><label class="row" style="gap:8px"><input type="checkbox" id="nmSuf" style="width:auto" ${S.nsuf?'checked':''}> Show suffixes (Jr., II)</label></div>
       <div class="muted" style="font-size:12px;margin-top:6px">Only you see these choices. The chart’s gear panel shows the same settings.</div></div>
-    <div class="card pad"><h2>Display</h2><label class="muted" for="schemeSel2" style="display:block;margin-top:6px">Color scheme</label><select id="schemeSel2" style="width:100%"><option value="">Forest (original)</option><option value="sand">Warm sand</option><option value="slate">Slate blue</option><option value="graphite">Graphite</option></select><div class="muted" style="font-size:12px;margin-top:6px">Applies in light and dark mode. Only you see this choice.</div><label class="muted" for="dfSel" style="display:block;margin-top:6px">Date format</label><select id="dfSel" style="width:100%">${Object.entries(DFMT).map(([k,l])=>`<option value="${k}" ${S.df===k?'selected':''}>${l}</option>`).join('')}</select>
+    <div class="card pad"><h2>Display</h2><label class="muted" for="schemeSel2" style="display:block;margin-top:6px">Color scheme</label><select id="schemeSel2" style="width:100%"><option value="">Forest (original)</option><option value="sand">Warm sand</option><option value="slate">Slate blue</option><option value="graphite">Graphite</option></select><div class="muted" style="font-size:12px;margin-top:6px">Applies in light and dark mode. Only you see this choice.</div><label class="muted" for="linSel" style="display:block;margin-top:6px">When someone was adopted, show</label><select id="linSel" style="width:100%"><option value="adp" ${S.lin!=='bio'?'selected':''}>Their adoptive family (default)</option><option value="bio" ${S.lin==='bio'?'selected':''}>Their biological family</option></select><div class="muted" style="font-size:12px;margin-top:6px">Sets which parents the chart, relationship finder and reports follow. Both families are always listed on the person’s profile. Only you see this choice.</div><label class="muted" for="dfSel" style="display:block;margin-top:6px">Date format</label><select id="dfSel" style="width:100%">${Object.entries(DFMT).map(([k,l])=>`<option value="${k}" ${S.df===k?'selected':''}>${l}</option>`).join('')}</select>
       <div class="muted" style="font-size:12px;margin-top:6px">Your birthday shows as ${esc(fISO(bISO('marcus')))}. Dates are always typed as YYYY-MM-DD, whatever the format. This only changes how you see them.</div></div>
     <div class="card pad"><h2>Account</h2><div class="kv" style="margin-top:6px"><div>Name</div><div>Marcus Hale</div><div>Email</div><div>marcus@example.com</div><div>Linked person</div><div>Marcus Hale</div><div>Role</div><div>${ROLES[S.role]}</div><div>Sign-in</div><div>Local password</div></div></div>
     <div class="card pad"><h2>Coming up</h2>${ns.bd==='none'?'<div class="muted" style="margin-top:6px">Birthday reminders are off.</div>':`<div class="tblwrap"><table><thead><tr><th>Person</th><th>Birthday</th><th>Turns</th><th>Reminder</th></tr></thead><tbody>${up.slice(0,6).map(u=>`<tr><td>${esc(P[u.id].n)}</td><td class="num">${fmt(u.date)}${u.days<=7?` <span class="pill warn">${u.days===0?'today':u.days+'d'}</span>`:''}</td><td class="num">${u.age}</td><td class="num">${ns.email||ns.inapp?fmt(new Date(u.date.getTime()-leadD*864e5)):'Off'}</td></tr>`).join('')}</tbody></table></div>`}</div>
@@ -1931,6 +1939,7 @@ function modal(){
   {const nm=modal2(m,wrap);if(nm)return nm}
   if(m==='add')return addDiagram();
   if(m==='addform'){const rk=REL_MAP[S.relKind]||['Child',''];return wrap(`<h2>Add ${esc(S.relKind==='custom'?'relative':S.relKind||'relative')} to ${esc(P[S.sel].n)}</h2>
+    <label for="mlink">Type of parent-child link (when adding a parent or child)</label><select id="mlink"><option>Birth (biological)</option><option>Adoptive</option></select><div class="muted" style="font-size:12px;margin-top:4px">An adopted person can have both: their adoptive parents and their birth parents. Add each as its own link.</div>
     <label for="mrel">Relationship</label><select id="mrel">${(isAdmin()?['Parent','Partner','Child','Sibling','Custom label']:['Child']).map(o=>`<option ${o===rk[0]?'selected':''}>${o}</option>`).join('')}</select>${isAdmin()?'':'<div class="muted" style="font-size:12px;margin-top:4px">Members can add descendants to their own profile: children, and through them grandchildren. To add anyone else, ask an admin.</div>'}
     <label for="mstat">Relationship status (for partners)</label><select id="mstat">${STATUSES.map(x=>`<option>${x}</option>`).join('')}</select>
     <label for="mop">If adding a child: other parent</label><select id="mop">${unionsOf(S.sel).map(u=>`<option>${esc(P[otherOf(u,S.sel)].n)} (${u.st.toLowerCase()})</option>`).join('')}<option>Other parent is not on the tree</option></select>
@@ -1956,7 +1965,8 @@ function modal(){
     <label for="pbp">Birth place</label><input id="pbp" type="text" value="${esc(p.bp||'')}">${factPanel(S.sel,'birth')}
     <label for="pst">Status</label><select id="pst"><option ${p.d?'':'selected'}>Living</option><option ${p.d?'selected':''}>Deceased</option></select>
     <div id="pdw" class="${p.d?'':'hidden'}"><div class="grid2">${dIn('pd','Date of death',p.d?dISO(S.sel):'')}<div><label for="pdp">Place of death</label><input id="pdp" type="text" value="${esc(p.dp||'')}"></div></div>${factPanel(S.sel,'death')}<label for="pcod">Cause of death</label><input id="pcod" list="codlist" type="text" value="${esc(p.cod||'')}" placeholder="Heart disease, stroke, accident, old age"><datalist id="codlist">${['Heart disease','Cardiac arrest','Stroke','Cancer','Pneumonia','Diabetes complications','Accident','Natural causes (old age)','Unknown'].map(x=>`<option value="${x}">`).join('')}</datalist><div class="muted" style="font-size:12px;margin-top:4px">Visible to every account, like the rest of a deceased person\u2019s record. Leave it empty if nobody knows.</div>${factPanel(S.sel,'cod')}</div>
-    <div class="callout" style="margin-top:12px;font-size:12px">Marking someone deceased sets their marriages to Widowed and makes their medical history visible to every account. Marking them living again undoes the automatic Widowed.</div>
+    ${idEditBlock(S.sel)}
+    <div class="callout" style="margin-top:12px;font-size:12px">When someone is marked deceased, their identity numbers move from private to the family rule (parents, siblings, children, legally married spouse, admins). Marking someone deceased sets their marriages to Widowed and makes their medical history visible to every account. Marking them living again undoes the automatic Widowed.</div>
     <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-close="1">${t('cancel')}</button><button class="btn primary" data-act="savep">${t('save')}</button></div>`)}
   if(m==='union'){const u=UNIONS[S.uid],A=P[u.a],B=P[u.b];
     const dr=(pre,o)=>{o=o||DT('','','');return `<div class="dgrid"><select id="${pre}p" aria-label="Precision">${['Exactly','About','Before','After'].map(x=>`<option ${o.p===x?'selected':''}>${x}</option>`).join('')}</select><select id="${pre}m" aria-label="Month"><option value="">Month</option>${MON.map(x=>`<option ${o.m===x?'selected':''}>${x}</option>`).join('')}</select><select id="${pre}d" aria-label="Day"><option value="">Day</option>${[...Array(31)].map((_,i)=>`<option ${o.d==String(i+1)?'selected':''}>${i+1}</option>`).join('')}</select><input id="${pre}y" type="text" placeholder="Year" aria-label="Year" value="${esc(o.y||'')}"></div>`};
@@ -2063,7 +2073,7 @@ const SRC_TYPES=['Vital record','Marriage record','Census','Military record','Pa
 const QUAL=['Primary','Secondary','Questionable'];
 const QUAL_HELP={Primary:'An original record made at the time',Secondary:'A copy, index or later account',Questionable:'Unclear or possibly wrong'};
 const FK_LABEL={birth:'Birth',death:'Death',cod:'Cause of death',ev:'Event',any:'Any fact'};
-const FACTS={'walter:cod':{c:[{s:'s6',d:'Section A, page 7',q:'Secondary'}],f:[]},'walter:death':{c:[],f:['death-certificate-scan.pdf']},'rosa:birth':{c:[],f:['civil-registry-extract.jpg']}};
+const FACTS={'walter:birth':{c:[{s:'s1',d:'Certificate no. 4412',q:'Primary'}],f:[]},'walter:cod':{c:[{s:'s6',d:'Section A, page 7',q:'Secondary'}],f:[]},'walter:death':{c:[],f:['death-certificate-scan.pdf']},'rosa:birth':{c:[],f:['civil-registry-extract.jpg']}};
 P.walter.cod='Cardiac arrest';if(P.samuel)P.samuel.cod='Stroke';
 PLACES['Bronx, NY']=[40.85,-73.87];PLACES['Fort Dix, NJ']=[40.02,-74.59];
 const PL={
@@ -2237,6 +2247,7 @@ docker compose run --rm api kinship restore /var/lib/kinship/backups/${bkName(se
 function modal2(m,wrap){
   if(m==='updinfo'||m==='whatsnew'||m==='about')return updModal(m);
   const foot=(act,lab)=>`<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-close="1">${t('cancel')}</button><button class="btn primary" data-act="${act}">${lab||t('save')}</button></div>`;
+  if(m==='idadd')return idAddModal(wrap);
   if(m==='fact'){const id=S.sel;return wrap(`<h2>Sources and files</h2><div class="muted">${FK_LABEL[S.fk]||'Fact'} · ${esc(P[id].n)}</div>${factPanel(id,S.fk,true)}${foot('savefact','Add')}`)}
   if(m==='source'){const onP=S.view==='profile',id=S.sel;
     return wrap(`<h2>Add source</h2>
@@ -2278,15 +2289,214 @@ function modal2(m,wrap){
     <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-close="1">${t('cancel')}</button><button id="rsgo" class="btn primary" data-act="bkgo" disabled>Restore now</button></div>`)}
   return '';
 }
+/* ===== patch28: identity numbers, legally married spouse rule, records request sheet ===== */
+const ID_ANY='Civil registry reference',ID_OTHER='Other (your own label)';
+const ID_TYPES={
+ 'United States':[{n:'Social Security number',h:'9 digits',rx:/^\d{9}$/},{n:'Alien registration number (A-number)',h:'the letter A and 8 or 9 digits',rx:/^A?\d{8,9}$/}],
+ 'Mexico':[{n:'CURP',h:'18 letters and digits',rx:/^[A-Z0-9]{18}$/},{n:'Clave de elector (INE)',h:'18 letters and digits',rx:/^[A-Z0-9]{18}$/},{n:'RFC',h:'12 or 13 letters and digits',rx:/^[A-Z0-9]{12,13}$/}],
+ 'Dominican Republic':[{n:'Cédula de Identidad y Electoral',h:'11 digits, like 000-0000000-0',rx:/^\d{11}$/}],
+ 'Canada':[{n:'Social Insurance Number',h:'9 digits',rx:/^\d{9}$/}],
+ 'Spain':[{n:'DNI',h:'8 digits and a letter',rx:/^\d{8}[A-Z]$/},{n:'NIE',h:'X, Y or Z, 7 digits and a letter',rx:/^[XYZ]\d{7}[A-Z]$/}],
+ 'Italy':[{n:'Codice fiscale',h:'16 letters and digits',rx:/^[A-Z0-9]{16}$/}],
+ 'United Kingdom':[{n:'National Insurance number',h:'2 letters, 6 digits and a letter',rx:/^[A-Z]{2}\d{6}[A-Z]$/}]
+};
+const ID_COUNTRIES=Object.keys(ID_TYPES).concat(['Other country']);
+const idTypesFor=c=>(ID_TYPES[c]||[]).concat([{n:ID_OTHER,h:'',rx:null}]);
+function idWarn(c,ty,num){const t=idTypesFor(c).find(x=>x.n===ty);if(!t||!t.rx)return '';const s=String(num).replace(/[\s.\-]/g,'').toUpperCase();return t.rx.test(s)?'':'Does not look like '+t.h+'. You can still save it.'}
+/* All numbers are fictional */
+const IDN={
+ marcus:[{c:'United States',ty:'Social Security number',num:'900-70-6789'}],
+ rosa:[{c:'Dominican Republic',ty:'Cédula de Identidad y Electoral',num:'031-0123456-7',iss:'1998',note:'Number on the 1998 card'}],
+ ines:[{c:'United States',ty:'Social Security number',num:'900-58-1144'}],
+ walter:[{c:'United States',ty:'Social Security number',num:'900-12-3456'}],
+ samuel:[{c:'United States',ty:'Social Security number',num:'900-45-6781'}],
+ lucia:[{c:'United States',ty:'Social Security number',num:'900-33-2210'}]
+};
+S.idrev={};S.idf={c:'',ty:'',num:'',iss:'',note:'',lab:''};
+const IDACC=['marcus','priya','daniel','carla','sofia','rosa'];
+const LEGAL=['Married','Widowed','Separated'],MARR=['Married','Widowed','Separated','Divorced','Annulment'];
+const idWord=(rel,g)=>({parent:gnd(g,'father','mother','parent'),child:gnd(g,'son','daughter','child'),sibling:gnd(g,'brother','sister','sibling'),spouse:gnd(g,'husband','wife','spouse')})[rel];
+/* Is v a parent, child, sibling (half counts) or legally married spouse of s? Partners and engagements do not count. */
+const parentsAll=x=>[...new Set([...(P[x].par||[]),...(P[x].adp||[]),...(P[x].bio||[])])];
+function idRel(v,s){
+  if(v===s)return null;
+  if(parentsAll(s).includes(v))return 'parent';
+  if(parentsAll(v).includes(s))return 'child';
+  if(parentsAll(s).some(x=>parentsAll(v).includes(x)))return 'sibling';
+  if(UNIONS.some(u=>((u.a===v&&u.b===s)||(u.a===s&&u.b===v))&&LEGAL.includes(u.st)))return 'spouse';
+  return null;
+}
+function idRelLabel(v,s){
+  const r=idRel(v,s),g=P[v].g;
+  const ad=(a,b)=>(P[a].adp||[]).includes(b);
+  if(r==='parent')return (ad(s,v)?'adoptive ':(P[s].bio||[]).includes(v)?'birth ':'')+idWord('parent',g);
+  if(r==='child')return (ad(v,s)?'adopted ':'')+idWord('child',g);
+  if(r==='sibling'){const sh=parentsAll(v).filter(x=>parentsAll(s).includes(x)),sa=sh.length&&sh.every(x=>ad(v,x)||ad(s,x));return (sa?'adoptive ':'')+(sh.length<2?'half-':'')+idWord('sibling',g)}
+  if(r==='spouse'){const u=unionsOf(s).find(u=>otherOf(u,s)===v&&LEGAL.includes(u.st));return idWord('spouse',g)+(u?', '+u.st.toLowerCase():'')}
+  return idWord(r,g);
+}
+/* Who the viewer may see identity numbers of. The mockup lets you preview as another person. */
+const IDVIEWERS=['marcus','rosa','daniel','carla','ines','sofia','beatriz','lucas'];
+const viewer=()=>S.asv||'marcus';
+const youAre=()=>viewer()==='marcus'?'You':P[viewer()].given;
+function canSeeId(s){
+  const V=viewer(),adm=V==='marcus'&&isAdmin();
+  if(V===s)return {ok:true,why:(V==='marcus'?'Your own numbers.':'Their own numbers.')};
+  if(!dead(s)){const sh=(P[s].idsw||[]).includes(V);return {ok:sh,why:sh?'Shared with '+youAre().toLowerCase()+' by '+P[s].given+'.':'Private while '+P[s].given+' is living. Only the person can see them, plus anyone they choose to share with. Admins have no special access.'}}
+  if(adm)return {ok:true,why:'Deceased. You are an admin.'};
+  const r=idRel(V,s);
+  if(r)return {ok:true,why:'Deceased. '+youAre()+' can see them as '+P[s].given+'’s '+idWord(r,P[V].g)+(r==='spouse'?' (legally married)':'')+'.'};
+  return {ok:false,why:'Deceased. These are visible only to '+P[s].given+'’s parents, siblings, children and legally married spouse, and to admins. '+youAre()+(V==='marcus'?' are':' is')+' not one of them.'};
+}
+const canEditId=s=>dead(s)?((viewer()==='marcus'&&isAdmin())||!!idRel(viewer(),s)):s===viewer();
+function idAsSel(){return `<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><label for="idas" class="muted" style="font-size:12px">Mockup: preview as</label><select id="idas" style="width:auto">${IDVIEWERS.map(v=>`<option value="${v}" ${v===viewer()?'selected':''}>${esc(P[v].n)}${v==='marcus'?' (signed in, '+esc(ROLES[S.role]||S.role)+')':IDACC.includes(v)?'':' (no account yet)'}</option>`).join('')}</select></div>`}
+function idMask(n){const ch=[...String(n)];let k=0;for(let i=ch.length-1;i>=0;i--){if(/[A-Za-z0-9]/.test(ch[i])){k++;if(k>4)ch[i]='•'}}return ch.join('')}
+function idWho(s){
+  const nm=x=>esc(P[x].n);let b;
+  if(!dead(s)){const sw=P[s].idsw||[];
+    b=`<p style="margin:6px 0">While ${esc(P[s].given)} is living, only ${esc(P[s].given)} can see these numbers${sw.length?', plus '+sw.map(nm).join(', '):''}. Admins have no special access.</p><p style="margin:6px 0">After death they are visible to parents, siblings, children, a legally married spouse and admins.</p>`;
+  }else{
+    const q=Object.keys(P).filter(v=>idRel(v,s)).sort((a,c)=>P[a].b-P[c].b),ex=unionsOf(s).filter(u=>!LEGAL.includes(u.st));
+    b=`<div class="stack" style="gap:0">${q.map(v=>`<div class="lrow"><span>${nm(v)} <span class="muted">${esc(idRelLabel(v,s))}</span></span><span class="pill ${IDACC.includes(v)?'ok':'gray'}">${IDACC.includes(v)?'Has an account':'No account'}</span></div>`).join('')||'<div class="muted">Nobody on the tree yet.</div>'}<div class="lrow"><span>Admins</span><span class="pill ok">SuperAdmin and Family Admin</span></div></div>
+    ${ex.length?`<p class="muted" style="margin:8px 0 0;font-size:12px">Not counted: ${ex.map(u=>`${nm(otherOf(u,s))} (${u.st.toLowerCase()})`).join(', ')}. Only a legal marriage counts: Married, Widowed or Separated. A divorce, annulment, engagement or unmarried partner does not.</p>`:''}
+    <p class="muted" style="margin:6px 0 0;font-size:12px">Step relatives, in-laws and grandchildren do not see them.</p>`;
+  }
+  return `<details style="margin-top:8px"><summary style="cursor:pointer">Who can see these numbers</summary><div style="margin-top:8px">${b}</div></details>`;
+}
+function idBody(id){
+  const v=canSeeId(id),list=IDN[id]||[],canE=canEditId(id);
+  const head=`<div style="margin-top:14px"><div class="row between"><h3>Identity numbers</h3><div class="row" style="gap:6px">${dead(id)&&v.ok?`<button class="btn sm" data-act="gorrs:${id}">Records request sheet</button>`:''}${canE?'<button class="btn sm" data-modal="idadd">Add number</button>':''}</div></div>${idAsSel()}`;
+  if(!v.ok)return head+`<div class="callout" style="margin-top:8px"><b>Not shown to you.</b> ${esc(v.why)}</div></div>`;
+  const rows=list.map((e,i)=>{const rev=!!S.idrev[id+':'+i],w=idWarn(e.c,e.ty,e.num);
+    return `<tr><td>${esc(e.c)}<div class="muted" style="font-size:12px">${esc(e.ty)}</div></td><td><span class="mono">${esc(rev?e.num:idMask(e.num))}</span>${w?` <span class="pill warn" title="${esc(w)}">Format?</span>`:''}<div class="row" style="gap:4px;margin-top:4px"><button class="btn sm" data-act="idrev:${id}:${i}">${rev?'Hide':'Reveal'}</button><button class="btn sm" data-act="idcopy:${id}:${i}">Copy</button></div></td><td>${[e.iss?'Issued '+esc(fISO(e.iss)||e.iss):'',e.note?esc(e.note):''].filter(Boolean).join('<br>')||'<span class="muted">–</span>'}</td><td>${factSrc(id,'id'+i,[])}</td></tr>`}).join('');
+  return head+(list.length?`<div class="tblwrap"><table><thead><tr><th>Country and type</th><th>Number</th><th>Details</th><th>Sources and files</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="muted" style="margin-top:6px">No identity numbers on record.</div>')
+   +`<div class="muted" style="font-size:12px;margin-top:6px">${esc(v.why)} Numbers are encrypted in the database and masked until someone chooses Reveal. Reveal and Copy are written to the change history.</div>${idWho(id)}</div>`;
+}
+function idEditBlock(id){const n=(IDN[id]||[]).length,v=canSeeId(id);
+  return `<h3 style="margin-top:14px">Identity numbers</h3><div class="muted" style="font-size:12px;margin-top:4px">${v.ok?n+' on record. Add a Cédula, CURP, Social Security number or another ID.':'Private. You cannot see or change these numbers.'} They are encrypted, masked by default and never shown in emails or reports, except the records request sheet.</div>${v.ok&&canEditId(id)?'<div class="row" style="margin-top:6px"><button class="btn sm" data-act="idopen">Manage on the Facts tab</button></div>':''}`;
+}
+function idCapture(){
+  const g=i=>{const e=document.getElementById(i);return e?e.value:null},f=S.idf;
+  let x=g('idc');if(x!==null)f.c=x;x=g('idt');if(x!==null)f.ty=x;x=g('idn');if(x!==null)f.num=x;x=g('idi');if(x!==null)f.iss=x;x=g('idnote');if(x!==null)f.note=x;x=g('idl');if(x!==null)f.lab=x;
+}
+function idAddModal(wrap){
+  const id=S.sel,f=S.idf;
+  if(!f.c){const bp=P[id].bp||'';f.c=/Dominican/.test(bp)?'Dominican Republic':/Mexic/.test(bp)?'Mexico':/Canada/.test(bp)?'Canada':/Spain/.test(bp)?'Spain':/Ital/.test(bp)?'Italy':/England|Scotland|United Kingdom/.test(bp)?'United Kingdom':'United States'}
+  const types=idTypesFor(f.c),ty=types.find(x=>x.n===f.ty)||types[0],w=f.num?idWarn(f.c,ty.n,f.num):'';
+  return wrap(`<h2>Add identity number</h2><div class="muted">${esc(P[id].n)}${dead(id)?' (deceased)':''}</div>
+   <label for="idc">Country</label><select id="idc">${ID_COUNTRIES.map(c=>`<option ${c===f.c?'selected':''}>${esc(c)}</option>`).join('')}</select>
+   <label for="idt">Type</label><select id="idt">${types.map(t=>`<option ${t.n===ty.n?'selected':''}>${esc(t.n)}</option>`).join('')}</select>
+   ${ty.n===ID_OTHER?`<label for="idl">Your own label</label><input id="idl" type="text" value="${esc(f.lab)}" placeholder="Voter card, Passport, Military ID">`:''}
+   <label for="idn">Number (required)</label><input id="idn" type="text" value="${esc(f.num)}" autocomplete="off" placeholder="${ty.h?esc(ty.h):''}">
+   <div id="idw" class="muted" style="font-size:12px;margin-top:4px;color:var(--warn)">${esc(w)}</div>
+   ${ty.h?`<div class="muted" style="font-size:12px;margin-top:2px">Expected: ${esc(ty.h)}. This is only a hint. Old and foreign numbers vary, so it never blocks saving.</div>`:''}
+   ${dIn('idi','Issued (optional)',f.iss,'YYYY-MM-DD, YYYY-MM or YYYY')}
+   <label for="idnote">Note (optional)</label><input id="idnote" type="text" value="${esc(f.note)}" placeholder="Number on the old card; the new card differs">
+   <div class="callout" style="margin-top:12px;font-size:12px">${dead(id)?'Deceased: visible to their parents, siblings, children, legally married spouse and admins.':'Living: visible only to '+esc(P[id].given)+' and anyone they share with.'} Encrypted before it is saved. Masked until someone chooses Reveal. After saving you can attach a scan or a registry record under Sources and files.</div>
+   <div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn" data-close="1">${t('cancel')}</button><button class="btn primary" data-act="idsave">Add number</button></div>`);
+}
+/* ----- Records request sheet (deceased people only; fixed template, no AI) ----- */
+S.rep.rr={lang:'en',country:'United States',office:'',purpose:'fh',wanted:{birth:true,death:true,marriage:false,idcard:false,military:false,immig:false,burial:false,census:false},cod:false,kids:false,off:{},extra:''};
+const RR_OFFICE={
+ 'United States':{en:'The vital records office of the state where the event took place (for New York City, the NYC Department of Health or the Municipal Archives)',es:'La oficina de registros vitales del estado donde ocurrió el hecho (en la ciudad de Nueva York, el Departamento de Salud o el Archivo Municipal)'},
+ 'Mexico':{en:'The Registro Civil of the state or municipality where the record was made (RENAPO for CURP matters)',es:'El Registro Civil del estado o municipio donde se levantó el acta (RENAPO para asuntos de la CURP)'},
+ 'Dominican Republic':{en:'The Oficialía del Estado Civil where the event was registered, under the Junta Central Electoral',es:'La Oficialía del Estado Civil donde se registró el hecho, bajo la Junta Central Electoral'},
+ 'Canada':{en:'The vital statistics office of the province or territory where the event took place',es:'La oficina de estadísticas vitales de la provincia o territorio donde ocurrió el hecho'},
+ 'Spain':{en:'The Registro Civil of the place where the event was registered',es:'El Registro Civil del lugar donde se inscribió el hecho'},
+ 'Italy':{en:'The ufficio di stato civile of the comune where the event was registered',es:'El ufficio di stato civile del comune donde se inscribió el hecho'},
+ 'United Kingdom':{en:'The General Register Office (England and Wales), or the register office for Scotland or Northern Ireland',es:'El General Register Office (Inglaterra y Gales), o la oficina de registro de Escocia o Irlanda del Norte'},
+ 'Other country':{en:'The civil registry or archive where the record was made',es:'El registro civil o archivo donde se levantó el acta'}};
+const RR_REL_ES={Son:'hijo',Daughter:'hija',Grandson:'nieto',Granddaughter:'nieta','Great-grandson':'bisnieto','Great-granddaughter':'bisnieta',Nephew:'sobrino',Niece:'sobrina',Brother:'hermano',Sister:'hermana','Half-brother':'medio hermano','Half-sister':'media hermana',Husband:'esposo',Wife:'esposa',Father:'padre',Mother:'madre'};
+const RR_WANT={birth:['Birth record','Acta de nacimiento'],death:['Death record','Acta de defunción'],marriage:['Marriage record','Acta de matrimonio'],idcard:['Identity card record (cédula, CURP or similar)','Registro de la cédula o documento de identidad (cédula, CURP u otro)'],military:['Military record','Registro militar'],immig:['Immigration or naturalization record','Registro de inmigración o naturalización'],burial:['Burial record','Registro de sepultura'],census:['Census record','Registro de censo']};
+const RR_PURP={fh:['Family history','Historia familiar'],legal:['Legal or estate matter','Asunto legal o sucesión'],cit:['Citizenship application','Solicitud de ciudadanía'],other:['Other','Otro']};
+const RR_STAT_ES={Married:'casados',Widowed:'viudo o viuda',Separated:'separados',Divorced:'divorciados',Annulment:'matrimonio anulado'};
+const RR_QUAL_ES={Primary:'primaria',Secondary:'secundaria',Questionable:'dudosa'};
+const RRL={
+ en:{title:'Request for records of a deceased person',to:'To',date:'Date',intro:rel=>`I am writing to ask for copies of the records listed below for the person named on this sheet. I am their ${rel}. Please tell me the fee, any documents you need from me to show my relationship, and how to pay.`,person:'The person',name:'Full name',alt:'Also filed or known as',sex:'Sex',male:'Male',female:'Female',born:'Born',died:'Died',cod:'Cause of death',family:'Family',father:'Father',mother:'Mother (full name, with her maiden surname)',spouse:'Spouse or spouses',kids:'Children',nums:'Identity numbers on record',nonums:'Identity numbers are left out because you do not have access to them.',nonum2:'No identity numbers on record.',sources:'What is already known, and where it came from',wanted:'Records requested',from:'Requested by',reqname:'Name',relation:'Relationship to the person',purpose:'Purpose',addr:'Mailing address',phone:'Phone',email:'Email',sign:'Signature',notree:'Not on the tree',none:'None on record',thanks:'Thank you for your help.',bfather:'Birth father',bmother:'Birth mother (full name, with her maiden surname)',adopt:'Adoptive parents',adoptedin:'adopted in',adnote:'This person was adopted. Original birth records may be sealed or replaced by an amended record. Please tell me which record I should ask for and what proof you need.',warn:'This page contains identity numbers. Send it only to the office, and do not post it or share it.',rel:'reliability'},
+ es:{title:'Solicitud de documentos de una persona fallecida',to:'Dirigida a',date:'Fecha',intro:rel=>`Me dirijo a ustedes para solicitar copia de los documentos indicados a continuación, relativos a la persona cuyo nombre aparece en esta hoja. Soy su ${rel}. Les ruego indicarme el costo, los documentos que necesitan de mi parte para acreditar el parentesco y la forma de pago.`,person:'La persona',name:'Nombre completo',alt:'También registrada o conocida como',sex:'Sexo',male:'Masculino',female:'Femenino',born:'Nacimiento',died:'Fallecimiento',cod:'Causa de la muerte',family:'Familia',father:'Padre',mother:'Madre (nombre completo, con su apellido de soltera)',spouse:'Cónyuge o cónyuges',kids:'Hijos',nums:'Números de identidad registrados',nonums:'Se omiten los números de identidad porque usted no tiene acceso a ellos.',nonum2:'No hay números de identidad registrados.',sources:'Lo que ya se sabe y de dónde proviene',wanted:'Documentos solicitados',from:'Solicitante',reqname:'Nombre',relation:'Parentesco con la persona',purpose:'Motivo',addr:'Dirección postal',phone:'Teléfono',email:'Correo electrónico',sign:'Firma',notree:'No consta',none:'Ninguno registrado',thanks:'Agradezco de antemano su atención.',bfather:'Padre biológico',bmother:'Madre biológica (nombre completo, con su apellido de soltera)',adopt:'Padres adoptivos',adoptedin:'adoptado en',adnote:'Esta persona fue adoptada. Es posible que el acta de nacimiento original esté sellada o reemplazada por un acta modificada. Les ruego indicarme qué acta debo solicitar y qué pruebas necesitan.',warn:'Esta hoja contiene números de identidad. Envíela solo a la oficina y no la publique ni la comparta.',rel:'fiabilidad'}
+};
+function rrsOpts(id){
+  const r=S.rep.rr,v=canSeeId(id),nums=IDN[id]||[];
+  if(!dead(id))return `<div class="callout warn" style="font-size:12px;margin-top:10px">A records request sheet is made only for a deceased person.</div>`;
+  const lab=(f,tx)=>`<label for="${f}" style="font-size:12px;color:var(--muted)">${tx}</label>`;
+  const ck=(n,val,on,t)=>`<label class="row" style="gap:8px"><input type="checkbox" style="width:auto" name="${n}" value="${val}" ${on?'checked':''}> ${t}</label>`;
+  return `<div class="stack" style="gap:6px;margin-top:10px">
+   ${idAsSel()}
+   ${lab('rrl','Letter language')}<select id="rrl"><option value="en" ${r.lang==='en'?'selected':''}>English</option><option value="es" ${r.lang==='es'?'selected':''}>Spanish (Español)</option></select>
+   ${lab('rrc','Office is in')}<select id="rrc">${Object.keys(RR_OFFICE).map(c=>`<option ${c===r.country?'selected':''}>${esc(c)}</option>`).join('')}</select>
+   ${lab('rro','Addressed to (edit if you know the exact office)')}<textarea id="rro" rows="3" style="width:100%">${esc(r.office||RR_OFFICE[r.country][r.lang])}</textarea>
+   <div class="muted" style="font-size:12px">Suggested offices are examples, not live lookups. Check each office’s current rules before sending.</div>
+   <b style="font-size:13px;margin-top:6px">Records wanted</b>${Object.keys(RR_WANT).map(k=>ck('rrw',k,r.wanted[k],RR_WANT[k][0])).join('')}
+   ${lab('rrp','Purpose')}<select id="rrp">${Object.keys(RR_PURP).map(k=>`<option value="${k}" ${r.purpose===k?'selected':''}>${RR_PURP[k][0]}</option>`).join('')}</select>
+   <b style="font-size:13px;margin-top:6px">Include</b>${ck('rrf','cod',r.cod,'Cause of death')}${ck('rrf','kids',r.kids,'Children’s names')}
+   ${nums.length&&v.ok?`<b style="font-size:13px;margin-top:6px">Identity numbers</b>${nums.map((e,i)=>ck('rrn',i,!r.off[i],esc(e.ty)+' <span class="mono">'+esc(idMask(e.num))+'</span>')).join('')}`:''}
+   ${nums.length&&!v.ok?'<div class="muted" style="font-size:12px">Identity numbers are left out because you do not have access to them.</div>':''}
+   ${lab('rrx','Anything else to tell the office')}<textarea id="rrx" rows="3" style="width:100%" placeholder="Spelling variants, the town, the year">${esc(r.extra)}</textarea>
+   <button class="btn sm" data-act="rrscopy">Copy as text</button>
+   <div class="callout warn" style="font-size:12px">A printout with identity numbers is as sensitive as the numbers. Send it only to the office. Making or copying a sheet with numbers is written to the change history.</div></div>`;
+}
+function rrsReport(id){
+  const r=S.rep.rr,L=RRL[r.lang],es=r.lang==='es',p=P[id];
+  if(!dead(id))return `<h1>${L.title}</h1><div class="callout" style="margin-top:12px">A records request sheet is made only for a deceased person. ${esc(p.given)} is living.</div>`;
+  const today=new Date().toLocaleDateString(es?'es-US':'en-US',{year:'numeric',month:'long',day:'numeric'});
+  const office=r.office||RR_OFFICE[r.country][r.lang];
+  const relEn=relate(id,viewer()).label.replace(/\s*\(.*\)/,'').replace(/^Widow(er)?$/,m=>m==='Widow'?'Wife':'Husband'),relTxt=es?(RR_REL_ES[relEn]||relEn.toLowerCase()):relEn.toLowerCase();
+  const par=parOrd(id),nm=x=>x?esc(P[x].n):`<span class="muted">${L.notree}</span>`;
+  const alt=[p.maiden&&p.maiden!==p.sur?p.given+' '+p.maiden:null,p.married&&p.married!==p.sur?p.given+' '+p.married:null].filter(Boolean);
+  const sx=p.g==='Male'?L.male:p.g==='Female'?L.female:'';
+  const sp=unionsOf(id).filter(u=>MARR.includes(u.st)).map(u=>`${esc(P[otherOf(u,id)].n)} <span class="muted">(${es?RR_STAT_ES[u.st]:u.st.toLowerCase()}${u.md&&u.md.y?', '+esc(fd(u.md)):''})</span>`);
+  const kids=r.kids?children(id).sort((a,b)=>P[a].b-P[b].b).filter(k=>!P[k].minor):[];
+  const v=canSeeId(id),nums=(IDN[id]||[]).map((e,i)=>({e,i})).filter(o=>!r.off[o.i]);
+  const evs=EV.filter(e=>e.p.includes(id)),sids=[...new Set([...evs.flatMap(e=>e.s),...Object.keys(FACTS).filter(k=>k.startsWith(id+':')).flatMap(k=>FACTS[k].c.map(x=>x.s))])];
+  const wanted=Object.keys(RR_WANT).filter(k=>r.wanted[k]).map(k=>RR_WANT[k][es?1:0]);
+  const row=(a,b)=>`<div>${a}</div><div>${b}</div>`;
+  const blank=t=>`<div style="margin-top:14px"><div style="border-bottom:1px solid var(--ink);height:22px"></div><div class="muted" style="font-size:12px">${t}</div></div>`;
+  const incl=v.ok&&nums.length;
+  return `<h1>${L.title}</h1>
+   <div class="muted">${L.to}: <b>${esc(office)}</b>${r.country==='Other country'?'':' · '+esc(r.country)}</div>
+   <p style="margin-top:12px">${L.intro(esc(relTxt))}</p>
+   <h2>${L.person}</h2>
+   <div class="kv" style="grid-template-columns:210px 1fr">${row(L.name,'<b>'+esc(p.n)+'</b>')}${alt.length?row(L.alt,alt.map(esc).join('; ')):''}${sx?row(L.sex,sx):''}${row(L.born,esc(fISO(bISO(id))||'Unknown')+(p.bp?', '+esc(p.bp):''))}${row(L.died,esc(fISO(dISO(id))||'Unknown')+(p.dp?', '+esc(p.dp):''))}${r.cod&&p.cod?row(L.cod,esc(p.cod)):''}</div>
+   <h2>${L.family}</h2>
+   <div class="kv" style="grid-template-columns:210px 1fr">${p.adp?row(L.bfather,nm((p.bio||[]).find(x=>P[x].g==='Male')))+row(L.bmother,nm((p.bio||[]).find(x=>P[x].g==='Female')))+row(L.adopt,p.adp.map(x=>esc(P[x].n)).join('<br>')+(p.adn?' <span class="muted">('+L.adoptedin+' '+esc(p.adn)+')</span>':'')):row(L.father,nm(par[0]))+row(L.mother,nm(par[1]))}${row(L.spouse,sp.length?sp.join('<br>'):`<span class="muted">${L.none}</span>`)}${r.kids&&kids.length?row(L.kids,kids.map(k=>esc(P[k].n)+' <span class="muted">('+P[k].b+')</span>').join('<br>')):''}</div>
+   ${p.adp?`<p class="muted">${L.adnote}</p>`:''}
+   <h2>${L.nums}</h2>${!v.ok&&(IDN[id]||[]).length?`<p class="muted">${L.nonums}</p>`:nums.length&&v.ok?`<ul>${nums.map(o=>`<li>${esc(o.e.c)} · ${esc(o.e.ty)}: <span class="mono"><b>${esc(o.e.num)}</b></span>${o.e.note?' <span class="muted">('+esc(o.e.note)+')</span>':''}</li>`).join('')}</ul>`:`<p class="muted">${L.nonum2}</p>`}
+   <h2>${L.sources}</h2>${sids.length?`<ul>${sids.map(s=>{const x=SRCX[s]||{};const dt=Object.keys(FACTS).filter(k=>k.startsWith(id+':')).flatMap(k=>FACTS[k].c.filter(c=>c.s===s&&c.d).map(c=>c.d))[0];return `<li>${esc(SRC[s].t)}${dt?': '+esc(dt):''}${x.q?' <span class="muted">('+(es?RR_QUAL_ES[x.q]:x.q.toLowerCase())+' '+L.rel+')</span>':''}${x.r&&REPOS[x.r]?' <span class="muted">· '+esc(REPOS[x.r].n)+'</span>':''}</li>`}).join('')}</ul>`:`<p class="muted">${L.none}</p>`}
+   <h2>${L.wanted}</h2>${wanted.length?`<ul>${wanted.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>`:`<p class="muted">${L.none}</p>`}${r.extra.trim()?`<p>${esc(r.extra)}</p>`:''}
+   <h2>${L.from}</h2>
+   <div class="kv" style="grid-template-columns:210px 1fr">${row(L.reqname,'<b>'+esc(P[viewer()].n)+'</b>')}${row(L.relation,esc(relTxt))}${row(L.purpose,RR_PURP[r.purpose][es?1:0])}${row(L.date,esc(today))}</div>
+   ${blank(L.addr)}${blank(L.phone+' · '+L.email)}${blank(L.sign)}
+   <p style="margin-top:18px">${L.thanks}</p>
+   ${incl?`<div class="callout warn" style="font-size:12px;margin-top:14px">${L.warn}</div>`:''}`;
+}
+
+
+/* ===== patch29: adoptive link. Each person with an account chooses which family the chart follows. ===== */
+S.lin='adp';
+function applyLin(){Object.keys(P).forEach(k=>{const p=P[k];if(p.adp)p.par=(S.lin==='bio'?p.bio:p.adp).slice()})}
+function adoptNote(id){const p=P[id];if(!p.adp)return '';const bio=S.lin==='bio';
+  return `<div class="callout" style="margin-top:14px"><b>Adopted${p.adn?' in '+esc(p.adn):''}.</b> Your chart, relationship finder and reports follow ${esc(p.given)}’s <b>${bio?'biological':'adoptive'}</b> family. Both families are listed below.${bio?'':' Their birth parents are shown as a branch you can open with the leaf.'} <button class="btn sm" data-act="linset:${bio?'adp':'bio'}" style="margin-top:6px">Show the ${bio?'adoptive':'biological'} family instead</button><div class="muted" style="font-size:12px;margin-top:4px">This is your own setting (My settings → Display). It does not change what anyone else sees.</div></div>`}
 /* ----- handlers ----- */
 function myActs(a,e){
   const d=a.dataset;
+  if(d.modal==='idadd'){S.idf={c:'',ty:'',num:'',iss:'',note:'',lab:''}}
   if(d.modal&&d.fk){S.fk=d.fk;S.modal=d.modal;S.editIdx=null;render(true);return true}
   if(d.modal==='source'&&S.view!=='profile'){S.modal='source';render(true);return true}
   if(!d.act)return false;
   const i0=d.act.indexOf(':'),k=i0<0?d.act:d.act.slice(0,i0),arg=i0<0?'':d.act.slice(i0+1);
   const pls=Object.keys(PL);
   switch(k){
+  case 'linset':S.lin=arg;toast(arg==='bio'?'Now following the biological family for adopted people.':'Now following the adoptive family for adopted people.');S.focus=null;render(true);return true;
+  case 'idrev':{const [pp,ii]=arg.split(':'),k=pp+':'+ii;S.idrev[k]=!S.idrev[k];if(S.idrev[k])toast('Revealed. Written to the change history (mockup).');render(true);return true}
+  case 'idcopy':{const [pp,ii]=arg.split(':'),en=IDN[pp][+ii];try{navigator.clipboard&&navigator.clipboard.writeText(en.num)}catch(_){}toast('Number copied. Written to the change history (mockup).');return true}
+  case 'idopen':S.modal=null;S.tab.profile='facts';render(true);return true;
+  case 'idsave':{idCapture();const f=S.idf,ty=idTypesFor(f.c).find(x=>x.n===f.ty)||idTypesFor(f.c)[0],num=f.num.trim();
+    if(!num){toast('Enter the number.');return true}
+    const tn=ty.n===ID_OTHER?(f.lab.trim()||'Other ID'):ty.n;
+    (IDN[S.sel]=IDN[S.sel]||[]).push({c:f.c,ty:tn,num,iss:f.iss.trim(),note:f.note.trim()});
+    S.idf={c:'',ty:'',num:'',iss:'',note:'',lab:''};S.modal=null;toast('Identity number added. Encrypted and logged (mockup).');render(true);return true}
+  case 'gorrs':S.rep.type='rrs';S.rep.who=arg||S.sel;go('reports');return true;
+  case 'rrscopy':{const el=$('#paper'),tx=(el.innerText||el.textContent||'').replace(/\n{3,}/g,'\n\n').trim();try{navigator.clipboard&&navigator.clipboard.writeText(tx)}catch(_){}toast('Copied as text. If it has identity numbers, treat it like the numbers (logged, mockup).');return true}
   case 'updopen':S.bell=false;S.modal='updinfo';render(true);return true;
   case 'upddis':{const L=updVisible();if(L.length)S.upd.dis=L[0].v;toast('Hidden until the next version.');render(true);return true}
   case 'updlater':S.modal=null;toast('We will remind you tomorrow (mockup).');render(true);return true;
@@ -2339,6 +2549,17 @@ function myActs(a,e){
   return false}
 function myChange(e){const t=e.target,d=t.dataset||{};
   if(d.bk){const k=d.bk;S.bk.cfg[k]=t.type==='checkbox'?t.checked:(t.type==='number'?+t.value:t.value);toast('Backup settings saved (mockup).');render(true);return true}
+  if(t.id==='idc'||t.id==='idt'){idCapture();if(t.id==='idc')S.idf.ty='';render(true);return true}
+  if(t.id==='linSel'){S.lin=t.value;S.focus=null;toast(t.value==='bio'?'Now following the biological family for adopted people.':'Now following the adoptive family for adopted people.');render(true);return true}
+  if(t.id==='idas'){S.asv=t.value;render(true);return true}
+  if(t.id==='rrl'){S.rep.rr.lang=t.value;S.rep.rr.office='';render(true);return true}
+  if(t.id==='rrc'){S.rep.rr.country=t.value;S.rep.rr.office='';render(true);return true}
+  if(t.id==='rro'){S.rep.rr.office=t.value;render(true);return true}
+  if(t.id==='rrp'){S.rep.rr.purpose=t.value;render(true);return true}
+  if(t.id==='rrx'){S.rep.rr.extra=t.value;render(true);return true}
+  if(t.name==='rrw'){S.rep.rr.wanted[t.value]=t.checked;render(true);return true}
+  if(t.name==='rrf'){S.rep.rr[t.value]=t.checked;render(true);return true}
+  if(t.name==='rrn'){S.rep.rr.off[t.value]=!t.checked;render(true);return true}
   if(t.name==='fhopt'){S.rep.fh[t.value]=t.checked;render(true);return true}
   if(t.id==='fhnote'){S.rep.fh.note=t.value;render(true);return true}
   if(t.id==='sk'){S.stk=t.value;render(true);return true}
@@ -2349,6 +2570,7 @@ function myChange(e){const t=e.target,d=t.dataset||{};
   if(t.id==='evt'){$('#evcw').classList.toggle('hidden',!/^Other/.test(t.value));return true}
   return false}
 function myInput(e){const t=e.target;
+  if(t.id==='idn'){S.idf.num=t.value;const w=$('#idw');if(w){const c=S.idf.c,ty=S.idf.ty||idTypesFor(c)[0].n;w.textContent=idWarn(c,ty,t.value)}return true}
   if(t.id==='srcq'){S.srcq=t.value;$('#srcrows').innerHTML=srcRows();return true}
   if(t.id==='plq'){S.plq=t.value;$('#plrows').innerHTML=plRows();return true}
   if(t.id==='rsw'){const b=$('#rsgo');if(b)b.disabled=t.value!=='RESTORE';return true}
@@ -2357,6 +2579,7 @@ function myInput(e){const t=e.target;
 try{const v=localStorage.getItem('ks-scheme');if(v)document.documentElement.setAttribute('data-scheme',v)}catch(x){}
 const VIEWS={sources:vSources,places:vPlaces,stories:vStories,home:vHome,dna:vDna,relate:vRelate,reports:vReports,tree:vTree,media:vMedia,profile:vProfile,medical:vMedical,timeline:vTimeline,import:vImport,admin:vAdmin,deploy:vDeploy,settings:vSettings,login:vLogin,setup:vSetup};
 function render(keepScroll){
+  applyLin();
   const top=$('#main')?$('#main').scrollTop:0;
   if(S.view==='admin'&&!isAdmin())S.view='tree';
   if((S.view==='medical'||S.view==='dna')&&!isAdmin()){S.sel='marcus';S.tab.profile=S.view;S.view='profile'}
@@ -2499,7 +2722,7 @@ document.addEventListener('change',e=>{
   if(e.target.id==='mrel'||e.target.id==='mstat'){$('#mnnamew').classList.toggle('hidden',!($('#mrel').value==='Partner'&&$('#mstat').value==='Married'))}
   if(e.target.id==='ust'){$('#unnamew').classList.toggle('hidden',e.target.value!=='Married');const lab=END_LABEL[e.target.value],w=$('#uendw');if(lab){w.classList.remove('hidden');$('#uendl').textContent=lab}else w.classList.add('hidden')}
   if(e.target.id==='mpf'){S.mf.p=e.target.value;render(true)}
-  if(e.target.id==='nmSel'){S.nm=e.target.value;toast('Married women\u2019s names now show as: '+e.target.selectedOptions[0].text+'.');render(true)}
+  if(e.target.id==='nmSel'){S.nm=e.target.value;toast('Married women’s names now show as: '+e.target.selectedOptions[0].text+'.');render(true)}
   if(e.target.id==='nmPre'){S.npre=e.target.checked;toast('Prefixes '+(S.npre?'shown':'hidden')+'.');render(true)}
   if(e.target.id==='nmSuf'){S.nsuf=e.target.checked;toast('Suffixes '+(S.nsuf?'shown':'hidden')+'.');render(true)}
   if(e.target.id==='dfSel'){S.df=e.target.value;toast('Dates now show as '+DFMT[S.df].replace(' (day first)','')+'.');render(true)}
@@ -2566,7 +2789,7 @@ function initImport(){
   d.addEventListener('drop',e=>{const fl=e.dataTransfer.files[0];show(fl?fl.name:'sample.ged')});
   f.addEventListener('change',()=>show(f.files[0]?f.files[0].name:'sample.ged'));
 }
-(function init(){const h=location.hash.slice(1);if(VIEWS[h])S.view=h;render()})();
+</script><script src="patch-tr.js"></script><script>(function init(){const h=location.hash.slice(1);if(VIEWS[h])S.view=h;render()})();
 </script>
 </body>
 </html>
