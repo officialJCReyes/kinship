@@ -20,7 +20,9 @@ export type SessionUser = Omit<
   | 'colorScheme'
   | 'theme'
   | 'dateFormat'
-  | 'surnameChoice'
+  | 'nameForm'
+  | 'showPrefix'
+  | 'showSuffix'
   | 'passwordChangedAt'
   | 'passwordChangedVia'
 >;

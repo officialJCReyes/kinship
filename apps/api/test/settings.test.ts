@@ -29,7 +29,9 @@ const settingsOf = async (who: Parameters<typeof as>[0]) => {
     colorScheme: user.colorScheme,
     theme: user.theme,
     dateFormat: user.dateFormat,
-    surnameChoice: user.surnameChoice,
+    nameForm: user.nameForm,
+    showPrefix: user.showPrefix,
+    showSuffix: user.showSuffix,
   };
 };
 const asUser = <T>(userId: string, fn: Parameters<typeof withUserTransaction<T>>[2]) =>
@@ -37,13 +39,15 @@ const asUser = <T>(userId: string, fn: Parameters<typeof withUserTransaction<T>>
 const WHO = ['superadmin', 'familyadmin', 'member', 'unlinked', 'user'] as const;
 
 describe('defaults', () => {
-  it('gives every new account the defaults: Forest, Device, "Jan 1, 2026", married surname, adoptive family', async () => {
+  it('gives every new account the defaults: Forest, Device, "Jan 1, 2026", Maiden name (Married name), prefixes and suffixes shown, adoptive family', async () => {
     expect(DEFAULT_USER_SETTINGS).toEqual({
       lineageView: 'adoptive',
       colorScheme: 'forest',
       theme: 'device',
       dateFormat: 'mdy',
-      surnameChoice: 'married',
+      nameForm: 'maiden_married',
+      showPrefix: true,
+      showSuffix: true,
     });
     for (const who of WHO) expect(await settingsOf(who), who).toEqual(DEFAULT_USER_SETTINGS);
   });
@@ -64,7 +68,9 @@ describe('PATCH /api/auth/me', () => {
       colorScheme: 'graphite',
       theme: 'dark',
       dateFormat: 'eu',
-      surnameChoice: 'birth',
+      nameForm: 'maiden',
+      showPrefix: false,
+      showSuffix: false,
     };
     const changed = await as('superadmin', 'PATCH', '/api/auth/me', all);
     expect(changed.status).toBe(200);
@@ -73,7 +79,9 @@ describe('PATCH /api/auth/me', () => {
       ['colorScheme', ['forest', 'sand', 'slate', 'graphite']],
       ['theme', ['device', 'light', 'dark']],
       ['dateFormat', ['mdy', 'dmy', 'dmy2', 'long', 'iso', 'us', 'eu']],
-      ['surnameChoice', ['married', 'birth']],
+      ['nameForm', ['maiden_married', 'married_born', 'married', 'maiden']],
+      ['showPrefix', [true, false]],
+      ['showSuffix', [true, false]],
       ['lineageView', ['adoptive', 'birth']],
     ] as const) {
       for (const value of values) {
@@ -107,7 +115,11 @@ describe('PATCH /api/auth/me', () => {
       [{ colorScheme: 'neon' }, 'invalid_color_scheme'],
       [{ theme: 'sepia' }, 'invalid_theme'],
       [{ dateFormat: 'dd/mm' }, 'invalid_date_format'],
-      [{ surnameChoice: 'maiden' }, 'invalid_surname_choice'],
+      [{ nameForm: 'birth' }, 'invalid_name_form'],
+      [{ nameForm: 'married_name' }, 'invalid_name_form'],
+      [{ showPrefix: 'yes' }, 'invalid_show_prefix'],
+      [{ showSuffix: 1 }, 'invalid_show_suffix'],
+      [{ surnameChoice: 'birth' }, 'invalid_request'],
       [{ lineageView: 'biological' }, 'invalid_lineage'],
       [{ theme: 7 }, 'invalid_theme'],
       [{ colorScheme: null }, 'invalid_color_scheme'],
@@ -134,7 +146,14 @@ describe('PATCH /api/auth/me', () => {
   });
 
   it('has an English message for every settings error code', () => {
-    for (const code of ['invalid_color_scheme', 'invalid_theme', 'invalid_date_format', 'invalid_surname_choice']) {
+    for (const code of [
+      'invalid_color_scheme',
+      'invalid_theme',
+      'invalid_date_format',
+      'invalid_name_form',
+      'invalid_show_prefix',
+      'invalid_show_suffix',
+    ]) {
       expect(API_ERROR_CODES as readonly string[]).toContain(code);
       expect(en, code).toHaveProperty(`error.${code}`);
     }
@@ -144,14 +163,14 @@ describe('PATCH /api/auth/me', () => {
 describe('each account has its own settings', () => {
   it('a Member and a User change only their own; nobody else’s change', async () => {
     await as('member', 'PATCH', '/api/auth/me', { colorScheme: 'slate', theme: 'dark', dateFormat: 'iso' });
-    await as('user', 'PATCH', '/api/auth/me', { surnameChoice: 'birth' });
+    await as('user', 'PATCH', '/api/auth/me', { nameForm: 'maiden', showSuffix: false });
     expect(await settingsOf('member')).toEqual({
       ...DEFAULT_USER_SETTINGS,
       colorScheme: 'slate',
       theme: 'dark',
       dateFormat: 'iso',
     });
-    expect(await settingsOf('user')).toEqual({ ...DEFAULT_USER_SETTINGS, surnameChoice: 'birth' });
+    expect(await settingsOf('user')).toEqual({ ...DEFAULT_USER_SETTINGS, nameForm: 'maiden', showSuffix: false });
     for (const who of ['superadmin', 'familyadmin', 'unlinked'] as const) {
       expect(await settingsOf(who), who).toEqual(DEFAULT_USER_SETTINGS);
     }
@@ -184,21 +203,29 @@ describe('each account has its own settings', () => {
 });
 
 describe('the app role may change only the settings columns, and only on its own row', () => {
-  it('updates its own four columns and lineage_view', async () => {
+  it('updates its own settings columns and lineage_view', async () => {
     const me = f.account.member.id;
     await asUser(me, (trx) =>
-      sql`update users set color_scheme = 'sand', theme = 'light', date_format = 'us', surname_choice = 'birth', lineage_view = 'birth' where id = ${me}`.execute(
+      sql`update users set color_scheme = 'sand', theme = 'light', date_format = 'us', name_form = 'married', show_prefix = false, show_suffix = false, lineage_view = 'birth' where id = ${me}`.execute(
         trx,
       ),
     );
     const row =
-      await sql`select color_scheme, theme, date_format, surname_choice, lineage_view from users where id = ${me}`.execute(
+      await sql`select color_scheme, theme, date_format, name_form, show_prefix, show_suffix, lineage_view from users where id = ${me}`.execute(
         t.owner,
       );
     expect(row.rows).toEqual([
-      { color_scheme: 'sand', theme: 'light', date_format: 'us', surname_choice: 'birth', lineage_view: 'birth' },
+      {
+        color_scheme: 'sand',
+        theme: 'light',
+        date_format: 'us',
+        name_form: 'married',
+        show_prefix: false,
+        show_suffix: false,
+        lineage_view: 'birth',
+      },
     ]);
-    await sql`update users set color_scheme = 'forest', theme = 'device', date_format = 'mdy', surname_choice = 'married', lineage_view = 'adoptive' where id = ${me}`.execute(
+    await sql`update users set color_scheme = 'forest', theme = 'device', date_format = 'mdy', name_form = 'maiden_married', show_prefix = true, show_suffix = true, lineage_view = 'adoptive' where id = ${me}`.execute(
       t.owner,
     );
   });
@@ -230,7 +257,7 @@ describe('the app role may change only the settings columns, and only on its own
 
   it('refuses a value that is not on the list, even by raw SQL', async () => {
     const me = f.account.member.id;
-    for (const column of ['color_scheme', 'theme', 'date_format', 'surname_choice']) {
+    for (const column of ['color_scheme', 'theme', 'date_format', 'name_form']) {
       await expect(
         asUser(me, (trx) => sql`update users set ${sql.id(column)} = 'nonsense' where id = ${me}`.execute(trx)),
         column,

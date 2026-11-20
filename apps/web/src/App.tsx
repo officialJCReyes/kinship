@@ -82,11 +82,16 @@ export function App() {
   const mismatch = useVersionMismatch();
   const session = useSession(false);
   const signedIn = Boolean(session.data);
-  // The account's date format and surname choice feed the display store (signed out: the defaults). The page content
+  // The account's date format and name choices feed the display store (signed out: the defaults). The page content
   // is keyed by them, so changing one remounts the page once, memoized chart nodes included.
   const dateFormat = session.data?.user.dateFormat ?? DEFAULT_DISPLAY.dateFormat;
-  const surnameChoice = session.data?.user.surnameChoice ?? DEFAULT_DISPLAY.surnameChoice;
-  useLayoutEffect(() => setDisplay({ dateFormat, surnameChoice }), [dateFormat, surnameChoice]);
+  const nameForm = session.data?.user.nameForm ?? DEFAULT_DISPLAY.nameForm;
+  const showPrefix = session.data?.user.showPrefix ?? DEFAULT_DISPLAY.showPrefix;
+  const showSuffix = session.data?.user.showSuffix ?? DEFAULT_DISPLAY.showSuffix;
+  useLayoutEffect(
+    () => setDisplay({ dateFormat, nameForm, showPrefix, showSuffix }),
+    [dateFormat, nameForm, showPrefix, showSuffix],
+  );
   const display = useDisplay();
   // The account's color scheme and theme: applied to the page and written to the browser's mirror (signed out, the
   // mirror from the last visit stays, so the login page keeps the look).
@@ -128,7 +133,13 @@ export function App() {
       </header>
       <main id="main" className={fullWidth ? 'tree-main' : 'page-width'}>
         <NoticeList />
-        <Routes key={onSettings ? 'settings' : `${display.dateFormat}|${display.surnameChoice}`}>
+        <Routes
+          key={
+            onSettings
+              ? 'settings'
+              : `${display.dateFormat}|${display.nameForm}|${display.showPrefix}|${display.showSuffix}`
+          }
+        >
           <Route path="/setup" element={<SetupRoute />} />
           <Route path="/login" element={<LoginRoute />} />
           {/* Invitations and set-password links: for people who are not signed in, so outside RequireSignIn. */}

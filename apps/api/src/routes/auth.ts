@@ -216,7 +216,9 @@ export function settingsColumns(settings: Partial<UserSettings>) {
     ...(settings.colorScheme !== undefined ? { color_scheme: settings.colorScheme } : {}),
     ...(settings.theme !== undefined ? { theme: settings.theme } : {}),
     ...(settings.dateFormat !== undefined ? { date_format: settings.dateFormat } : {}),
-    ...(settings.surnameChoice !== undefined ? { surname_choice: settings.surnameChoice } : {}),
+    ...(settings.nameForm !== undefined ? { name_form: settings.nameForm } : {}),
+    ...(settings.showPrefix !== undefined ? { show_prefix: settings.showPrefix } : {}),
+    ...(settings.showSuffix !== undefined ? { show_suffix: settings.showSuffix } : {}),
   };
 }
 
@@ -238,7 +240,9 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
         'color_scheme',
         'theme',
         'date_format',
-        'surname_choice',
+        'name_form',
+        'show_prefix',
+        'show_suffix',
         'password_changed_at',
         'password_changed_via',
       ])
@@ -259,7 +263,9 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       colorScheme: result.user.color_scheme,
       theme: result.user.theme,
       dateFormat: result.user.date_format,
-      surnameChoice: result.user.surname_choice,
+      nameForm: result.user.name_form,
+      showPrefix: result.user.show_prefix,
+      showSuffix: result.user.show_suffix,
       passwordChangedAt: result.user.password_changed_at?.toISOString() ?? null,
       passwordChangedVia: result.user.password_changed_via,
     },

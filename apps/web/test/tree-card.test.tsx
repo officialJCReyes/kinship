@@ -114,9 +114,11 @@ describe('the side panel and the birth surname', () => {
     return panel;
   };
 
-  it('shows the birth surname when a married surname is the one shown, and not on the card', async () => {
+  const married = { ...ADMIN, nameForm: 'married' as const };
+
+  it('shows the birth surname when only the married surname is shown, and not on the card', async () => {
     change('elena', { marriedSurname: 'Hale' });
-    const panel = await panelFor(/^Elena Hale/);
+    const panel = await panelFor(/^Elena Hale/, married);
     expect(within(panel).getByRole('heading', { name: 'Elena Hale' })).toBeTruthy();
     expect(within(panel).getByText('Birth surname: Ruiz')).toBeTruthy();
     expect(card('elena').textContent).not.toContain('Ruiz');
@@ -124,8 +126,16 @@ describe('the side panel and the birth surname', () => {
 
   it('shows both birth surnames when there is a second one', async () => {
     change('elena', { marriedSurname: 'Hale', secondSurname: 'Vega' });
-    const panel = await panelFor(/^Elena Hale/);
+    const panel = await panelFor(/^Elena Hale/, married);
     expect(within(panel).getByText('Birth surname: Ruiz Vega')).toBeTruthy();
+  });
+
+  it('by default the card and the panel show Maiden name (Married name), and the panel adds no birth line', async () => {
+    change('elena', { marriedSurname: 'Ruiz Hale' });
+    const panel = await panelFor(/^Elena Ruiz \(Hale\)/);
+    expect(within(panel).getByRole('heading', { name: 'Elena Ruiz (Hale)' })).toBeTruthy();
+    expect(within(panel).queryByText(/Birth surname/)).toBeNull();
+    expect(card('elena').getAttribute('aria-label')).toMatch(/^Elena Ruiz \(Hale\), /);
   });
 
   it('shows nothing extra when there is no married surname, or when the account shows birth names', async () => {
@@ -135,7 +145,7 @@ describe('the side panel and the birth surname', () => {
     vi.unstubAllGlobals();
 
     change('elena', { marriedSurname: 'Hale' });
-    const birth = await panelFor(/^Elena Ruiz/, { ...ADMIN, surnameChoice: 'birth' as const });
+    const birth = await panelFor(/^Elena Ruiz/, { ...ADMIN, nameForm: 'maiden' as const });
     expect(within(birth).getByRole('heading', { name: 'Elena Ruiz' })).toBeTruthy();
     expect(within(birth).queryByText(/Birth surname/)).toBeNull();
   });

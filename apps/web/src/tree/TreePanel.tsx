@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { getDisplay } from '../lib/display.js';
 import { displayName, displaySurname } from '../lib/names.js';
 import type { AuthUser, Person, UnionWithChildren } from '@kinship/shared';
 import { useState } from 'react';
@@ -18,7 +19,7 @@ import { recallPanelCollapsed, rememberPanelCollapsed } from './remember.js';
 
 /** The surname part of the name shown differs from the birth surname (a married surname is in use). Not on the card. */
 export function birthSurnameShown(person: Person): boolean {
-  return displaySurname(person) !== displaySurname(person, 'birth');
+  return getDisplay().nameForm === 'married' && displaySurname(person) !== displaySurname(person, 'maiden');
 }
 
 type Open = { kind: 'edit' } | { kind: 'add' } | { kind: 'union'; union: UnionWithChildren } | null;
@@ -99,7 +100,7 @@ export function TreePanel({
           <h2 className="panel-name">{displayName(person)}</h2>
           {birthSurnameShown(person) ? (
             <div className="muted panel-birth-surname">
-              {t('tree.panel.birthSurname', { surname: displaySurname(person, 'birth') })}
+              {t('tree.panel.birthSurname', { surname: displaySurname(person, 'maiden') })}
             </div>
           ) : null}
           {person.isPlaceholder ? (

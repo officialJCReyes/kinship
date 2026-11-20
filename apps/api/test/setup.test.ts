@@ -108,7 +108,9 @@ describe('POST /api/setup', () => {
         colorScheme: 'forest',
         theme: 'device',
         dateFormat: 'mdy',
-        surnameChoice: 'married',
+        nameForm: 'maiden_married',
+        showPrefix: true,
+        showSuffix: true,
         passwordChangedAt: expect.any(String), // the first account records that its password was set at setup
         passwordChangedVia: 'setup',
       },
@@ -307,19 +309,33 @@ describe('POST /api/setup with the new account’s own display settings', () => 
     const response = await post(
       t.app,
       '/api/setup',
-      body(t.token, { settings: { colorScheme: 'slate', theme: 'dark', dateFormat: 'iso', surnameChoice: 'birth' } }),
+      body(t.token, {
+        settings: { colorScheme: 'slate', theme: 'dark', dateFormat: 'iso', nameForm: 'maiden', showSuffix: false },
+      }),
     );
     expect(response.statusCode).toBe(201);
     expect(response.json().user).toMatchObject({
       colorScheme: 'slate',
       theme: 'dark',
       dateFormat: 'iso',
-      surnameChoice: 'birth',
+      nameForm: 'maiden',
+      showPrefix: true,
+      showSuffix: false,
       lineageView: 'adoptive',
     });
-    const stored = await sql`select color_scheme, theme, date_format, surname_choice from users`.execute(t.owner);
+    const stored =
+      await sql`select color_scheme, theme, date_format, name_form, show_prefix, show_suffix from users`.execute(
+        t.owner,
+      );
     expect(stored.rows).toEqual([
-      { color_scheme: 'slate', theme: 'dark', date_format: 'iso', surname_choice: 'birth' },
+      {
+        color_scheme: 'slate',
+        theme: 'dark',
+        date_format: 'iso',
+        name_form: 'maiden',
+        show_prefix: true,
+        show_suffix: false,
+      },
     ]);
   });
 

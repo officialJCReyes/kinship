@@ -130,12 +130,12 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
   const parents = page.getByRole('heading', { name: 'Parents' }).locator('..');
   await expect(parents.getByRole('link', { name: /Daniel Hale/ })).toBeVisible();
   await expect(parents.getByRole('link', { name: /Elena Ruiz/ })).toBeVisible();
-  const marriage = page.getByRole('article', { name: 'Relationship with Priya Hale' });
+  const marriage = page.getByRole('article', { name: 'Relationship with Priya Nair (Hale)' });
   await expect(marriage.getByText('Married', { exact: true })).toBeVisible();
   await expect(marriage.getByRole('link', { name: /Leo Hale.*Son/ })).toBeVisible();
   // The partner's date of birth from the wizard was saved.
-  await marriage.getByRole('link', { name: 'Priya Hale' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Priya Hale' })).toBeVisible();
+  await marriage.getByRole('link', { name: 'Priya Nair (Hale)' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Priya Nair (Hale)' })).toBeVisible();
   await expect(page.getByText('Mar 14, 1962').first()).toBeVisible();
   await page.goBack();
   // My profile is in the account menu, not in the top navigation.

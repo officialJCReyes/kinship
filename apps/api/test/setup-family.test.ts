@@ -206,7 +206,13 @@ describe('POST /api/setup with a family', () => {
       t.app,
       '/api/setup',
       body(token, HALE, {
-        settings: { colorScheme: 'graphite', theme: 'dark', dateFormat: 'iso', surnameChoice: 'birth' },
+        settings: {
+          colorScheme: 'graphite',
+          theme: 'dark',
+          dateFormat: 'iso',
+          nameForm: 'married_born',
+          showPrefix: false,
+        },
       }),
     );
     expect(response.statusCode).toBe(201);
@@ -214,7 +220,9 @@ describe('POST /api/setup with a family', () => {
       colorScheme: 'graphite',
       theme: 'dark',
       dateFormat: 'iso',
-      surnameChoice: 'birth',
+      nameForm: 'married_born',
+      showPrefix: false,
+      showSuffix: true,
     });
   });
 

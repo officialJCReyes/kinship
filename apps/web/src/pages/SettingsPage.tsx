@@ -3,14 +3,14 @@ import {
   MIN_PASSWORD_LENGTH,
   DATE_FORMATS,
   LINEAGE_VIEWS,
-  SURNAME_CHOICES,
+  NAME_FORMS,
   THEMES,
   displayName as sharedDisplayName,
   formatPartialDate,
 } from '@kinship/shared';
 import type { AuthUser, MessageKey, UserSettings } from '@kinship/shared';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link } from 'react-router';
 import * as api from '../api.js';
@@ -29,8 +29,36 @@ import { usePersonDetail } from '../people/queries.js';
 
 /** A fixed, fictional date for the live example: the day and the month differ, so every format reads differently. */
 const EXAMPLE_DATE = { value: '2026-03-09', precision: 'exactly' } as const;
-/** A fixed, fictional person for the surname example. */
-const EXAMPLE_PERSON = { givenName: 'Rosa', surname: 'Mendez', secondSurname: null, marriedSurname: 'Mendez Hale' };
+/** A fixed, fictional person for the name example (Rosa Mendez, married name Hale). */
+const EXAMPLE_PERSON = {
+  givenName: 'Rosa',
+  surname: 'Mendez',
+  secondSurname: null,
+  marriedSurname: 'Mendez Hale',
+  namePrefix: 'Dr.',
+  nameSuffix: null,
+};
+
+/** A labelled on/off box. */
+function NameSwitch({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="option">
+      <input id={id} type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <span>
+        <label htmlFor={id}>{label}</label>
+      </span>
+    </div>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -229,22 +257,33 @@ export function SettingsPage() {
 
       <Section title={t('settings.names')}>
         <SelectField
-          label={t('settings.surnameChoice')}
-          value={user.surnameChoice}
-          onChange={(event) => change({ surnameChoice: event.target.value as UserSettings['surnameChoice'] })}
+          label={t('settings.nameForm')}
+          value={user.nameForm}
+          onChange={(event) => change({ nameForm: event.target.value as UserSettings['nameForm'] })}
           help={
             <>
-              {t('settings.surnameExample', { name: sharedDisplayName(EXAMPLE_PERSON, user.surnameChoice) })}{' '}
-              {t('settings.surnameHelp')}
+              {t('settings.nameExample', { name: sharedDisplayName(EXAMPLE_PERSON, user) })}{' '}
+              {t('settings.nameFormHelp')}
             </>
           }
         >
-          {SURNAME_CHOICES.map((choice) => (
-            <option key={choice} value={choice}>
-              {t(`settings.surname.${choice}` as MessageKey)}
+          {NAME_FORMS.map((form) => (
+            <option key={form} value={form}>
+              {t(`settings.nameForm.${form}` as MessageKey)}
             </option>
           ))}
         </SelectField>
+        <NameSwitch
+          label={t('settings.showPrefix')}
+          checked={user.showPrefix}
+          onChange={(value) => change({ showPrefix: value })}
+        />
+        <NameSwitch
+          label={t('settings.showSuffix')}
+          checked={user.showSuffix}
+          onChange={(value) => change({ showSuffix: value })}
+        />
+        <div className="muted field-help">{t('settings.namesNote')}</div>
       </Section>
 
       <Section title={t('settings.family')}>
