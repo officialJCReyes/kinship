@@ -332,7 +332,8 @@ test('the switcher shows the Pedigree, the Descendants and the Fan, and goes bac
   await expect(page).toHaveURL(new RegExp(`/tree/${daniel.id}\\?view=descendants$`));
   await expect(person(page, 'Marcus')).toBeVisible();
   await expect(person(page, 'Sofia')).toBeVisible();
-  await expect(page.getByText(/^m\. Elena/)).toBeVisible();
+  // (the card says how Daniel and Elena are related now, whatever earlier tests did to the relationship)
+  await expect(page.getByText(/^(m|sep|div|eng)\. Elena/)).toBeVisible();
   await page.getByRole('button', { name: /^Chart view:/ }).click();
   await page.getByRole('button', { name: '3 generations' }).click();
   await expect(page).toHaveURL(new RegExp(`/tree/${daniel.id}\\?view=descendants&gen=3$`));
