@@ -295,6 +295,27 @@ export const TWO_COUSIN_MARRIAGES: Spec = {
   kids: { daniel: 'wr', mara: 'wr', marcus: 'de', sofia: 'de', priya: 'mr', kit: 'mr', leo: 'mp', mia: 'sk' },
 };
 
+/**
+ * Five children of one couple, each married to the only child of a different couple: five children lines that all
+ * run along each other (the most lanes any family here needs). Not in NAMED_FAMILIES: the families it measures are
+ * the ones in the plan, this one tests how far a gap between rows grows.
+ */
+export const FIVE_IN_LAW_FAMILIES: Spec = (() => {
+  const people: Spec['people'] = [
+    ['rt', '1900'],
+    ['ru', '1902'],
+  ];
+  const unions: NonNullable<Spec['unions']> = [['ur', 'rt', 'ru']];
+  const kids: Record<string, string> = {};
+  for (let i = 1; i <= 5; i += 1) {
+    people.push([`c${i}`, String(1930 + i)], [`s${i}`, String(1930 + i)], [`g${i}a`, '1900'], [`g${i}b`, '1901']);
+    unions.push([`uc${i}`, `c${i}`, `s${i}`], [`ug${i}`, `g${i}a`, `g${i}b`]);
+    kids[`c${i}`] = 'ur';
+    kids[`s${i}`] = `ug${i}`;
+  }
+  return { focal: 'c1', people, unions, kids };
+})();
+
 /** All the named families, for tests that go through every one. */
 export const NAMED_FAMILIES: Record<string, Spec> = {
   HALE,

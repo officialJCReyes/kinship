@@ -39,6 +39,18 @@ export const PITCH = NODE_W + COUPLE_GAP;
 const BRACKET = 14;
 const ROOT_GAP = 64;
 export const MARGIN = 40;
+/** Two buses of different families that would run along each other get their own line (ADR 0025). */
+export const BUS_LANES = true;
+/** Sibling order may leave birth order when that removes an overlap or a crossing (ADR 0025). */
+export const REDUCE_CROSSINGS = true;
+/** Distance between two lanes of buses inside one gap between rows. A gap holds three at its usual height. */
+export const LANE_PITCH = 14;
+const FREE_LANES = 3;
+
+export interface LayoutOptions {
+  busLanes?: boolean;
+  reduceCrossings?: boolean;
+}
 
 /** What the layout needs from a tree response. */
 export interface LayoutInput {
@@ -196,9 +208,96 @@ interface Block {
   attach: number;
 }
 
+// ---------------------------------------------------------------- bus lanes
+
+/** The horizontal piece of one family's children line, and where its verticals leave it. */
+interface BusSpec {
+  key: string;
+  /** Where the line hangs from the parents. */
+  hx: number;
+  /** Where each child's line leaves it. */
+  xs: number[];
+  lo: number;
+  hi: number;
+}
+
+const busesOverlap = (a: BusSpec, b: BusSpec): boolean => Math.min(a.hi, b.hi) - Math.max(a.lo, b.lo) > 1;
+
+function permutations(n: number): number[][] {
+  if (n <= 1) return [[...Array(n).keys()]];
+  const out: number[][] = [];
+  const walk = (prefix: number[], rest: number[]) => {
+    if (rest.length === 0) out.push(prefix);
+    for (let i = 0; i < rest.length; i += 1) walk([...prefix, rest[i]!], [...rest.slice(0, i), ...rest.slice(i + 1)]);
+  };
+  walk([], [...Array(n).keys()]);
+  return out;
+}
+
+/** Most buses in a component for which every order of colouring is tried. */
+const LANE_SEARCH_LIMIT = 6;
+
+/**
+ * Lanes for the buses of one gap between rows. Buses that do not share a stretch stay on the middle line, exactly
+ * where they always were. A group of buses that overlap (one family's children line passing under another's) is
+ * given lanes: first fit in each order of colouring, and the order with the fewest crossings, then the fewest
+ * lanes, wins (ties go to the earliest order, so the same data always gives the same lanes).
+ */
+export function assignLanes(buses: BusSpec[]): Map<string, { lane: number; lanes: number }> {
+  const sorted = [...buses].sort((a, b) => a.lo - b.lo || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  const result = new Map<string, { lane: number; lanes: number }>();
+  let component: BusSpec[] = [];
+  let reach = -Infinity;
+  const flush = () => {
+    if (component.length === 0) return;
+    const items = component;
+    if (items.length === 1) {
+      result.set(items[0]!.key, { lane: 0, lanes: 1 });
+      return;
+    }
+    const overlap = items.map((a) => items.map((b) => a !== b && busesOverlap(a, b)));
+    let best: { score: number; lane: number[]; lanes: number } | null = null;
+    const orders = items.length <= LANE_SEARCH_LIMIT ? permutations(items.length) : [[...items.keys()]];
+    for (const order of orders) {
+      const lane: number[] = new Array<number>(items.length).fill(-1);
+      for (const i of order) {
+        let l = 0;
+        while (items.some((_, j) => lane[j] === l && overlap[i]![j])) l += 1;
+        lane[i] = l;
+      }
+      let crossings = 0;
+      for (let a = 0; a < items.length; a += 1) {
+        for (let b = 0; b < items.length; b += 1) {
+          if (a === b || lane[a] === lane[b]) continue;
+          const bus = items[b]!;
+          // a's line down to its bus passes every bus above it; its children's lines pass every bus below it.
+          if (lane[b]! < lane[a]! && items[a]!.hx > bus.lo && items[a]!.hx < bus.hi) crossings += 1;
+          if (lane[b]! > lane[a]!) crossings += items[a]!.xs.filter((x) => x > bus.lo && x < bus.hi).length;
+        }
+      }
+      const lanes = Math.max(...lane) + 1;
+      const score = crossings * 1000 + lanes;
+      if (!best || score < best.score) best = { score, lane, lanes };
+    }
+    items.forEach((item, i) => result.set(item.key, { lane: best!.lane[i]!, lanes: best!.lanes }));
+  };
+  for (const bus of sorted) {
+    if (component.length > 0 && bus.lo >= reach - 1) {
+      flush();
+      component = [];
+      reach = -Infinity;
+    }
+    component.push(bus);
+    reach = Math.max(reach, bus.hi);
+  }
+  flush();
+  return result;
+}
+
 // ---------------------------------------------------------------- the layout
 
-export function layoutTree(input: LayoutInput): Layout {
+export function layoutTree(input: LayoutInput, options: LayoutOptions = {}): Layout {
+  const busLanes = options.busLanes ?? BUS_LANES;
   const people = new Map(input.people.map((p) => [p.id, p]));
   const unionList = input.unions.filter((u) => people.has(u.partnerIds[0]) && people.has(u.partnerIds[1]));
   const unionById = new Map(unionList.map((u) => [u.id, u]));
@@ -558,6 +657,49 @@ export function layoutTree(input: LayoutInput): Layout {
     node.y += MARGIN;
   }
 
+  // Bus lanes: where the children lines of one family would run along another's, each gets its own line. The
+  // gap between two rows keeps its height unless a group needs more than FREE_LANES lines.
+  const hangPoint = (info: { unionId: string | null; parentId: string | null }): number => {
+    if (info.unionId) {
+      const [a, b] = unionById.get(info.unionId)!.partnerIds;
+      return (byId.get(a)!.x + byId.get(b)!.x) / 2;
+    }
+    return byId.get(info.parentId!)!.x;
+  };
+  const busRow = (info: { unionId: string | null; parentId: string | null }): number =>
+    byId.get(info.unionId ? unionById.get(info.unionId)!.partnerIds[0] : info.parentId!)!.row;
+  const laneOf = new Map<string, { lane: number; lanes: number }>();
+  const extraBelow: number[] = []; // extra height of the gap under each row
+  if (busLanes) {
+    const byGap = new Map<number, BusSpec[]>();
+    for (const [key, info] of hangInfo) {
+      const kids = hangByKey.get(key)!.children.filter((id) => byId.has(id));
+      if (kids.length === 0) continue;
+      const hx = hangPoint(info);
+      const xs = kids.map((id) => byId.get(id)!.x);
+      const row = busRow(info);
+      const list = byGap.get(row) ?? [];
+      list.push({ key, hx, xs, lo: Math.min(hx, ...xs), hi: Math.max(hx, ...xs) });
+      byGap.set(row, list);
+    }
+    for (const [row, buses] of byGap) {
+      const lanes = assignLanes(buses);
+      let most = 1;
+      for (const [key, value] of lanes) {
+        laneOf.set(key, value);
+        most = Math.max(most, value.lanes);
+      }
+      extraBelow[row] = Math.max(0, most - FREE_LANES) * LANE_PITCH;
+    }
+    let pushed = 0;
+    const pushOf: number[] = [];
+    for (let row = 0; row <= Math.max(...nodes.map((n) => n.row), 0); row += 1) {
+      pushOf[row] = pushed;
+      pushed += extraBelow[row] ?? 0;
+    }
+    if (pushed > 0) for (const node of nodes) node.y += pushOf[node.row]!;
+  }
+
   // 8. Lines.
   const rowBottom = (id: string) => byId.get(id)!.y + NODE_H;
   const couples: PlacedCouple[] = [];
@@ -607,7 +749,10 @@ export function layoutTree(input: LayoutInput): Layout {
     const parentBottom = Math.max(
       ...(info.unionId ? unionById.get(info.unionId)!.partnerIds : [info.parentId!]).map(rowBottom),
     );
-    const bus = parentBottom + ROW_GAP / 2;
+    const slot = laneOf.get(key);
+    const bus = slot
+      ? parentBottom + (ROW_GAP + (extraBelow[busRow(info)] ?? 0)) / 2 + (slot.lane - (slot.lanes - 1) / 2) * LANE_PITCH
+      : parentBottom + ROW_GAP / 2;
     const xs = kids.map((id) => byId.get(id)!.x);
     let d = `M${hx} ${hy}V${bus}`;
     const lo = Math.min(hx, ...xs);
