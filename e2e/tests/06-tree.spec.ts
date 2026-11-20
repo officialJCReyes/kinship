@@ -302,3 +302,51 @@ test('search in the chart: by nickname, jump to someone drawn, re-root on someon
   ).toBeVisible();
   await expect(counter).toHaveText(/^1 of \d+ people$/);
 });
+
+test('the switcher shows the Pedigree, the Descendants and the Fan, and goes back to the Family tree', async ({
+  adminPage: page,
+}) => {
+  await page.goto(`/tree/${marcus.id}`);
+  const switcher = page.getByRole('button', { name: /^Chart view:/ });
+  await expect(switcher).toHaveAccessibleName('Chart view: Family tree');
+  const choose = async (name: string) => {
+    await page.getByRole('button', { name: /^Chart view:/ }).click();
+    await page.getByRole('group', { name: 'View' }).getByRole('button', { name, exact: true }).click();
+  };
+
+  // Pedigree: Marcus and his parents, with the father above the mother; Daniel's own parents are not on the tree.
+  await choose('Pedigree');
+  await expect(page).toHaveURL(new RegExp(`/tree/${marcus.id}\\?view=pedigree$`));
+  await expect(switcher).toHaveAccessibleName('Chart view: Pedigree');
+  await expect(person(page, 'Daniel')).toBeVisible();
+  await expect(person(page, 'Elena')).toBeVisible();
+  await expect(page.getByText('Father not on the tree').first()).toBeVisible();
+  await expect(page.getByText('Grandparents', { exact: true })).toBeVisible();
+  // Choosing a person makes them the centre of the chart, in the same view.
+  await person(page, 'Daniel').click();
+  await expect(page).toHaveURL(new RegExp(`/tree/${daniel.id}\\?view=pedigree$`));
+  await expect(person(page, 'Marcus')).toHaveCount(0);
+
+  // Descendants: Daniel's children under him, the partners listed on his card, and the generations choice.
+  await choose('Descendants');
+  await expect(page).toHaveURL(new RegExp(`/tree/${daniel.id}\\?view=descendants$`));
+  await expect(person(page, 'Marcus')).toBeVisible();
+  await expect(person(page, 'Sofia')).toBeVisible();
+  await expect(page.getByText(/^m\. Elena/)).toBeVisible();
+  await page.getByRole('button', { name: /^Chart view:/ }).click();
+  await page.getByRole('button', { name: '3 generations' }).click();
+  await expect(page).toHaveURL(new RegExp(`/tree/${daniel.id}\\?view=descendants&gen=3$`));
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('group', { name: 'View' })).toHaveCount(0);
+
+  // Fan: Marcus in the middle, his father on the father's side.
+  await page.goto(`/tree/${marcus.id}?view=fan`);
+  await expect(page.getByRole('button', { name: new RegExp(`^Daniel ${family}.*father’s side$`) })).toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(`^Elena ${family}.*mother’s side$`) })).toBeVisible();
+
+  // Back to the Family tree: no view in the address, the whole family drawn again, with its couple lines.
+  await choose('Family tree');
+  await expect(page).toHaveURL(new RegExp(`/tree/${marcus.id}$`));
+  await expect(page.locator('[data-union]').first()).toBeAttached();
+  await expect(switcher).toHaveAccessibleName('Chart view: Family tree');
+});
