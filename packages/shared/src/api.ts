@@ -6,7 +6,7 @@ import { PEOPLE_ERROR_CODES } from './people.js';
 import { SETUP_ERROR_CODES } from './setup.js';
 import { UPDATE_ERROR_CODES } from './updates.js';
 import type { SetupFamily } from './setup.js';
-import type { ColorScheme, DateFormat, SurnameChoice, Theme, UserSettings } from './settings.js';
+import type { ColorScheme, DateFormat, NameForm, Theme, UserSettings } from './settings.js';
 import type { LineageView } from './people.js';
 
 /** Response of GET /api/version. `schema` is the database schema number, or null when the database is unreachable. */
@@ -46,7 +46,9 @@ export interface AuthUser {
   colorScheme: ColorScheme;
   theme: Theme;
   dateFormat: DateFormat;
-  surnameChoice: SurnameChoice;
+  nameForm: NameForm;
+  showPrefix: boolean;
+  showSuffix: boolean;
   /** When and how the password last changed (ISO time and a code), or null when it was set before KinShip recorded it. */
   passwordChangedAt: string | null;
   passwordChangedVia: PasswordChangeCode | null;
@@ -107,7 +109,9 @@ export const API_ERROR_CODES = [
   'invalid_color_scheme',
   'invalid_theme',
   'invalid_date_format',
-  'invalid_surname_choice',
+  'invalid_name_form',
+  'invalid_show_prefix',
+  'invalid_show_suffix',
   // Invitations, set-password links and passwords (see accounts.ts).
   ...ACCOUNT_ERROR_CODES,
   // People and relationships (see people.ts).

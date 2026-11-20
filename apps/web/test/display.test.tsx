@@ -92,69 +92,77 @@ function withNames(id: string, names: { secondSurname?: string | null; marriedSu
   saved.push(() => Object.assign(person, before));
 }
 
-describe('the account’s surname choice, on every screen', () => {
-  const birth = { ...ADMIN, surnameChoice: 'birth' as const };
+describe('the account’s name form, on every screen', () => {
+  const maiden = { ...ADMIN, nameForm: 'maiden' as const };
   const elena = () => PEOPLE.find((p) => p.id === 'elena')!;
 
-  it('married: the married surname replaces both surnames; birth: the surname and the second surname', () => {
+  it('the default is Maiden name (Married name); each form is its own text', () => {
     withNames('elena', { secondSurname: 'Vega', marriedSurname: 'Ruiz Hale' });
-    expect(displayName(elena())).toBe('Elena Ruiz Hale');
-    setDisplay({ ...DEFAULT_DISPLAY, surnameChoice: 'birth' });
-    expect(displayName(elena())).toBe('Elena Ruiz Vega');
+    expect(displayName(elena())).toBe('Elena Ruiz Vega (Hale)');
+    const text = (nameForm: 'maiden_married' | 'married_born' | 'married' | 'maiden') => {
+      setDisplay({ ...DEFAULT_DISPLAY, nameForm });
+      return displayName(elena());
+    };
+    expect(text('married_born')).toBe('Elena Ruiz Hale (born Ruiz Vega)');
+    expect(text('married')).toBe('Elena Ruiz Hale');
+    expect(text('maiden')).toBe('Elena Ruiz Vega');
   });
 
-  it('is the same under both choices for a person with no married surname, and for one with only a second surname', () => {
+  it('is the same under all four forms for a person with no married surname, and for one with only a second surname', () => {
     withNames('marcus', { secondSurname: 'Okafor' });
     const marcus = PEOPLE.find((p) => p.id === 'marcus')!;
     const daniel = PEOPLE.find((p) => p.id === 'daniel')!;
-    for (const surnameChoice of ['married', 'birth'] as const) {
-      setDisplay({ ...DEFAULT_DISPLAY, surnameChoice });
-      expect(displayName(daniel), surnameChoice).toBe('Daniel Hale');
-      expect(displayName(marcus), surnameChoice).toBe('Marcus Hale Okafor');
+    for (const nameForm of ['maiden_married', 'married_born', 'married', 'maiden'] as const) {
+      setDisplay({ ...DEFAULT_DISPLAY, nameForm });
+      expect(displayName(daniel), nameForm).toBe('Daniel Hale');
+      expect(displayName(marcus), nameForm).toBe('Marcus Hale Okafor');
     }
   });
 
-  it('initials follow the surname that shows', () => {
+  it('initials follow the surname that shows, and skip a particle', () => {
     withNames('elena', { marriedSurname: 'Hale' });
-    expect(initials(elena())).toBe('EH');
-    setDisplay({ ...DEFAULT_DISPLAY, surnameChoice: 'birth' });
     expect(initials(elena())).toBe('ER');
+    setDisplay({ ...DEFAULT_DISPLAY, nameForm: 'married' });
+    expect(initials(elena())).toBe('EH');
+    setDisplay({ ...DEFAULT_DISPLAY, nameForm: 'maiden' });
+    expect(initials(elena())).toBe('ER');
+    expect(initials({ ...elena(), surnameParticle: 'de la', marriedSurname: null })).toBe('ER');
   });
 
   it('the profile, the list, a chart node and the picker show the choice', async () => {
     withNames('elena', { secondSurname: 'Vega', marriedSurname: 'Ruiz Hale' });
 
-    // Married (the default): profile heading and the people list.
+    // The default form, Maiden name (Married name): profile heading and the people list.
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/elena');
-    expect(await screen.findByRole('heading', { name: 'Elena Ruiz Hale' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Elena Ruiz Vega (Hale)' })).toBeTruthy();
     cleanup();
     vi.unstubAllGlobals();
     mockApi(haleRoutes(ADMIN));
     renderApp('/people');
-    expect(await screen.findByRole('link', { name: 'Elena Ruiz Hale' })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Elena Ruiz Vega (Hale)' })).toBeTruthy();
     cleanup();
 
-    // Birth names: the same screens, and the chart and the picker too.
+    // Maiden names: the same screens, and the chart and the picker too.
     vi.unstubAllGlobals();
-    mockApi(haleRoutes(birth));
+    mockApi(haleRoutes(maiden));
     renderApp('/people/elena');
     expect(await screen.findByRole('heading', { name: 'Elena Ruiz Vega' })).toBeTruthy();
     cleanup();
     vi.unstubAllGlobals();
-    mockApi(haleRoutes(birth));
+    mockApi(haleRoutes(maiden));
     renderApp('/people');
     expect(await screen.findByRole('link', { name: 'Elena Ruiz Vega' })).toBeTruthy();
     cleanup();
     vi.unstubAllGlobals();
-    mockApi(haleRoutes(birth));
+    mockApi(haleRoutes(maiden));
     renderApp('/tree/daniel');
     expect(await screen.findByRole('button', { name: /^Elena Ruiz Vega/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /^Elena Ruiz Hale/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Elena Ruiz Vega \(Hale\)/ })).toBeNull();
     cleanup();
     vi.unstubAllGlobals();
     mockApi(
-      haleRoutes(birth, { '/api/people?q=el&limit=8': { status: 200, body: { items: [elena()], nextCursor: null } } }),
+      haleRoutes(maiden, { '/api/people?q=el&limit=8': { status: 200, body: { items: [elena()], nextCursor: null } } }),
     );
     renderApp('/people/ben');
     await screen.findByRole('heading', { name: 'Ben Hale' });
@@ -170,8 +178,8 @@ describe('the account’s surname choice, on every screen', () => {
     withNames('elena', { secondSurname: 'Vega', marriedSurname: 'Ruiz Hale' });
     mockApi(haleRoutes(ADMIN));
     const { client } = renderApp('/people/elena');
-    expect(await screen.findByRole('heading', { name: 'Elena Ruiz Hale' })).toBeTruthy();
-    client.setQueryData(['auth', 'me'], { user: birth, treeName: 'Hale Family' });
+    expect(await screen.findByRole('heading', { name: 'Elena Ruiz Vega (Hale)' })).toBeTruthy();
+    client.setQueryData(['auth', 'me'], { user: maiden, treeName: 'Hale Family' });
     expect(await screen.findByRole('heading', { name: 'Elena Ruiz Vega' })).toBeTruthy();
   });
 });

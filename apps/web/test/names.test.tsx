@@ -44,15 +44,17 @@ describe('displayName', () => {
     );
   });
 
-  it('lets a married surname that is set replace both surnames, by default', () => {
-    expect(displayName(rosa)).toBe('Rosa Mendez Hale');
-    expect(displaySurname(rosa)).toBe('Mendez Hale');
+  it('lets the Married name form show the married surname alone', () => {
+    expect(displayName(rosa, 'married')).toBe('Rosa Mendez Hale');
+    expect(displaySurname(rosa, 'married')).toBe('Mendez Hale');
   });
 
-  it('keeps the birth surnames when the viewer chooses them, or when no married surname is set', () => {
-    expect(displayName(rosa, 'birth')).toBe('Rosa Mendez Ortiz');
-    expect(displayName({ ...rosa, marriedSurname: null })).toBe('Rosa Mendez Ortiz');
-    expect(displayName({ ...rosa, marriedSurname: '' })).toBe('Rosa Mendez Ortiz');
+  it('keeps the birth surnames when the viewer chooses them; with no married surname every form shows them', () => {
+    expect(displayName(rosa, 'maiden')).toBe('Rosa Mendez Ortiz');
+    for (const form of ['maiden_married', 'married_born', 'married', 'maiden'] as const) {
+      expect(displayName({ ...rosa, marriedSurname: null }, form)).toBe('Rosa Mendez Ortiz');
+      expect(displayName({ ...rosa, marriedSurname: '' }, form)).toBe('Rosa Mendez Ortiz');
+    }
   });
 });
 
@@ -61,7 +63,7 @@ describe('names on screen', () => {
     withNames('elena', { secondSurname: 'Vega', marriedSurname: 'Ruiz Hale' });
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/elena');
-    expect(await screen.findByRole('heading', { name: 'Elena Ruiz Hale' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Elena Ruiz Vega (Hale)' })).toBeTruthy();
     const facts = screen.getAllByRole('term').map((el) => el.textContent);
     expect(facts).toEqual(expect.arrayContaining(['Birth surname', 'Second surname', 'Married surname']));
     const term = (name: string) => screen.getAllByRole('term').find((el) => el.textContent === name)!;

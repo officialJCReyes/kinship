@@ -1,29 +1,121 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // How a person's name is shown. The ONE place that decides it, for the web app now and for reports and
-// exports later (they will read both surnames separately and not use this).
+// exports later (they will read the parts separately and not use this). The rules are in ADR 0024.
 
-import { DEFAULT_SURNAME_CHOICE } from './settings.js';
-import type { SurnameChoice } from './settings.js';
+import { DEFAULT_NAME_FORM, DEFAULT_SHOW_PREFIX, DEFAULT_SHOW_SUFFIX } from './settings.js';
+import type { NameForm } from './settings.js';
 
-/** The parts of a person that make up their name. The second and married surnames may be left out. */
+/** The parts of a person that make up their name. Everything except the given name and surname is optional. */
 export interface NameParts {
   givenName: string;
+  /** The birth surname, without any particle ("Cruz" for "de la Cruz"). */
   surname: string;
   secondSurname?: string | null | undefined;
   marriedSurname?: string | null | undefined;
+  /** Dr., Sir. */
+  namePrefix?: string | null | undefined;
+  /** Jr., II. */
+  nameSuffix?: string | null | undefined;
+  /** Never part of a displayed name; shown on the profile and searched. */
+  nickname?: string | null | undefined;
+  /** de, de la, van: written before the birth surname. */
+  surnameParticle?: string | null | undefined;
+}
+
+/** What one account chooses about names (the `nameForm`, `showPrefix` and `showSuffix` settings). */
+export interface NameDisplay {
+  nameForm: NameForm;
+  showPrefix: boolean;
+  showSuffix: boolean;
+}
+
+export const DEFAULT_NAME_DISPLAY: NameDisplay = {
+  nameForm: DEFAULT_NAME_FORM,
+  showPrefix: DEFAULT_SHOW_PREFIX,
+  showSuffix: DEFAULT_SHOW_SUFFIX,
+};
+
+/** One character without accents and in lower case, for comparing names. */
+function fold(char: string): string {
+  return char.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
 /**
- * The surname part of a name: the surname, then the second surname when set. When a married surname is set
- * and chosen, it replaces both.
+ * The married surname without a maiden name it starts with: "Mendez Hale" with maiden "Mendez" is "Hale". Ignores case
+ * and accents, and only strips a whole word (a space must follow). Returns null when nothing is left, which means the
+ * married surname adds nothing to the maiden name.
  */
-export function displaySurname(person: NameParts, choice: SurnameChoice = DEFAULT_SURNAME_CHOICE): string {
-  if (choice === 'married' && person.marriedSurname) return person.marriedSurname;
-  return person.secondSurname ? `${person.surname} ${person.secondSurname}` : person.surname;
+export function marriedPart(married: string, maiden: string): string | null {
+  const target = Array.from(maiden).map(fold).join('');
+  const chars = Array.from(married);
+  let seen = '';
+  for (let i = 0; i < chars.length; i += 1) {
+    seen += fold(chars[i] ?? '');
+    if (seen.length > target.length) break;
+    if (seen === target) {
+      const rest = chars.slice(i + 1);
+      if (rest.length === 0) return null;
+      if (!/^\s/.test(rest[0] ?? '')) break;
+      const text = rest.join('').trim();
+      return text === '' ? null : text;
+    }
+  }
+  return married;
 }
 
-/** The given name, then the surname part: "Rosa Mendez Ortiz", or "Rosa Mendez Hale" with a married surname. */
-export function displayName(person: NameParts, choice: SurnameChoice = DEFAULT_SURNAME_CHOICE): string {
-  return `${person.givenName} ${displaySurname(person, choice)}`;
+/** The birth name's surname part: the particle, the surname, then the second surname ("de la Navarro Ortiz"). */
+function maidenName(person: NameParts): string {
+  return [person.surnameParticle, person.surname, person.secondSurname].filter(Boolean).join(' ');
+}
+
+/**
+ * The surname part of a name in the account's chosen form (ADR 0024). A person with no married surname, or one that
+ * adds nothing to the birth name, shows the maiden name in every form.
+ */
+export function displaySurname(person: NameParts, form: NameForm = DEFAULT_NAME_FORM): string {
+  const maiden = maidenName(person);
+  const married = person.marriedSurname;
+  if (!married) return maiden;
+  // A married surname that repeats the birth name (with or without the second surname) adds only what follows it.
+  const birthOnly = [person.surname, person.secondSurname].filter(Boolean).join(' ');
+  let rest: string | null = married;
+  for (const candidate of [birthOnly, person.surname]) {
+    const stripped = marriedPart(married, candidate);
+    if (stripped !== married) {
+      rest = stripped;
+      break;
+    }
+  }
+  if (rest === null) return maiden;
+  const extra = rest;
+  switch (form) {
+    case 'maiden_married':
+      return `${maiden} (${extra})`;
+    case 'married_born':
+      return `${married} (born ${maiden})`;
+    case 'married':
+      return married;
+    case 'maiden':
+      return maiden;
+  }
+}
+
+/**
+ * The name as one account sees it: prefix, given name, surname part, suffix. The prefix and suffix follow the account's
+ * switches. The nickname is never part of it.
+ */
+export function displayName(person: NameParts, display: NameForm | Partial<NameDisplay> = {}): string {
+  const options: NameDisplay = {
+    ...DEFAULT_NAME_DISPLAY,
+    ...(typeof display === 'string' ? { nameForm: display } : display),
+  };
+  return [
+    options.showPrefix ? person.namePrefix : null,
+    person.givenName,
+    displaySurname(person, options.nameForm),
+    options.showSuffix ? person.nameSuffix : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }

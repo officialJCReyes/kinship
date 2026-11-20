@@ -75,7 +75,12 @@ export interface Database {
     color_scheme: Generated<'forest' | 'sand' | 'slate' | 'graphite'>;
     theme: Generated<'device' | 'light' | 'dark'>;
     date_format: Generated<'mdy' | 'dmy' | 'dmy2' | 'long' | 'iso' | 'us' | 'eu'>;
+    /** Replaced by name_form (0017); kept for now (expand, then contract) and no longer read. */
     surname_choice: Generated<'married' | 'birth'>;
+    /** How a married woman's name is shown, and whether prefixes and suffixes show (0017). */
+    name_form: Generated<'maiden_married' | 'married_born' | 'married' | 'maiden'>;
+    show_prefix: Generated<boolean>;
+    show_suffix: Generated<boolean>;
     /** When the account last signed in, and how its password last changed (0011). null: unknown (older than 0011). */
     last_sign_in_at: Date | null;
     password_changed_at: Date | null;
@@ -96,6 +101,11 @@ export interface Database {
     second_surname: string | null;
     /** The surname taken at marriage, optional (0007). */
     married_surname: string | null;
+    /** Dr., Sir; Jr., II; a nickname; de, de la (0017). All optional. */
+    name_prefix: string | null;
+    name_suffix: string | null;
+    nickname: string | null;
+    surname_particle: string | null;
     gender: 'male' | 'female' | 'other' | null;
     /** As typed: YYYY, YYYY-MM or YYYY-MM-DD. The generated *_from and *_to columns exist but are only used in SQL. */
     birth_date: string | null;

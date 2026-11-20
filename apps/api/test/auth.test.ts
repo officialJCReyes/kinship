@@ -56,7 +56,9 @@ describe('POST /api/auth/login', () => {
         colorScheme: 'forest',
         theme: 'device',
         dateFormat: 'mdy',
-        surnameChoice: 'married',
+        nameForm: 'maiden_married',
+        showPrefix: true,
+        showSuffix: true,
         passwordChangedAt: null, // set directly in the database by the test, so how it changed is unknown
         passwordChangedVia: null,
       },

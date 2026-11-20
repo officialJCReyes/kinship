@@ -1,6 +1,6 @@
 # 0011. An account's own display settings
 
-- Status: **Accepted** (decisions by JC, 2026-11-16)
+- Status: **Accepted** (decisions by JC, 2026-11-16). The surname choice is amended by [0024](0024-names.md): it became four name forms plus prefix and suffix switches.
 - Date: 2026-11-16
 - Builds on: [0003 Accounts and sessions](0003-accounts-and-sessions.md), [0007 Birth and adoptive parent links](0007-adoption-parentage.md), [0008 Second and married surnames](0008-names-and-widowed.md)
 - Sources: `design/kinship-color-schemes.md`, `design/kinship-v2-requirements.md` (dates, surnames), `design/kinship-adoption.md`, the mockup's My settings page. Where the mockup differs (the surname choice sits in the relationship forms there, the theme only in the preview bar, the family view is not on its My settings page), the step brief won.

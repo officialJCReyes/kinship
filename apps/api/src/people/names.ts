@@ -1,17 +1,36 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { LABEL_MAX_LENGTH, NAME_MAX_LENGTH } from '@kinship/shared';
+import { AFFIX_MAX_LENGTH, LABEL_MAX_LENGTH, NAME_MAX_LENGTH } from '@kinship/shared';
 import { badRequest } from '../errors.js';
 
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
 /** A name: Unicode-normalized (NFC), trimmed, 1 to 100 characters, no control characters. */
-type NameCode = 'invalid_given_name' | 'invalid_surname' | 'invalid_second_surname' | 'invalid_married_surname';
+type NameCode =
+  | 'invalid_given_name'
+  | 'invalid_surname'
+  | 'invalid_second_surname'
+  | 'invalid_married_surname'
+  | 'invalid_name_prefix'
+  | 'invalid_name_suffix'
+  | 'invalid_nickname'
+  | 'invalid_surname_particle';
+
+/** The longest each optional part may be, in characters (the migration's CHECKs say the same). */
+const MAX_LENGTH: Partial<Record<NameCode, number>> = {
+  invalid_name_prefix: AFFIX_MAX_LENGTH,
+  invalid_name_suffix: AFFIX_MAX_LENGTH,
+  invalid_surname_particle: AFFIX_MAX_LENGTH,
+};
 
 export function cleanName(raw: unknown, code: NameCode): string {
   if (typeof raw !== 'string') throw badRequest(code);
   const name = raw.normalize('NFC').trim();
-  if (Array.from(name).length < 1 || Array.from(name).length > NAME_MAX_LENGTH || CONTROL_CHARACTERS.test(name)) {
+  if (
+    Array.from(name).length < 1 ||
+    Array.from(name).length > (MAX_LENGTH[code] ?? NAME_MAX_LENGTH) ||
+    CONTROL_CHARACTERS.test(name)
+  ) {
     throw badRequest(code);
   }
   return name;

@@ -61,10 +61,10 @@ test('a new partner with a second and a married surname shows on Facts and on th
   await expect(dialog).toBeHidden();
 
   await page
-    .getByRole('link', { name: new RegExp(`Elena ${hale}`) })
+    .getByRole('link', { name: new RegExp(`Elena ${ruiz}`) })
     .first()
     .click();
-  await expect(page.getByRole('heading', { level: 1, name: `Elena ${hale}` })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: `Elena ${ruiz} Vega (${hale})` })).toBeVisible();
   const facts = page.locator('dl.facts').first();
   await expect(facts.getByText('Birth surname')).toBeVisible();
   await expect(facts.getByText(ruiz, { exact: true })).toBeVisible();
@@ -73,8 +73,8 @@ test('a new partner with a second and a married surname shows on Facts and on th
   elena = { id: page.url().split('/').pop()!, givenName: 'Elena', surname: ruiz };
 
   await page.goto(`/tree/${daniel.id}`);
-  await expect(person(page, 'Elena', hale)).toBeVisible();
-  await expect(person(page, 'Elena', ruiz)).toHaveCount(0);
+  await expect(person(page, 'Elena', ruiz)).toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(`^Elena ${hale}`) })).toHaveCount(0);
 });
 
 test('marking someone deceased turns the marriage into Widowed, and marking them living turns it back', async () => {
@@ -118,7 +118,7 @@ test('a step-parent and a stepchild come through the Married relationship, and n
   // Carla: Daniel's second wife Elena is her stepmother. Her mother Priya's divorce gives nothing.
   await page.goto(`/people/${carla.id}`);
   const steps = page.getByRole('list', { name: 'Step relatives' });
-  await expect(steps.getByRole('link', { name: new RegExp(`Elena ${hale}.*Stepmother`) })).toBeVisible();
+  await expect(steps.getByRole('link', { name: new RegExp(`Elena ${ruiz}.*Stepmother`) })).toBeVisible();
   await expect(steps.getByRole('link')).toHaveCount(1);
 
   // Elena: Carla is her stepdaughter, and the relationship card lists Daniel's children from another relationship.
@@ -141,7 +141,7 @@ test('a custom label between the step pair replaces the derived title on both pr
   await page.getByRole('button', { name: 'Other relationship' }).click();
   const dialog = page.getByRole('dialog', { name: /^Other relationship for/ });
   await dialog.getByRole('combobox', { name: 'The other person' }).fill('Elena');
-  await dialog.getByRole('option', { name: new RegExp(`Elena ${hale}`) }).click();
+  await dialog.getByRole('option', { name: new RegExp(`Elena ${ruiz}`) }).click();
   await dialog.getByLabel(/^What they are to/).fill('Godmother');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();

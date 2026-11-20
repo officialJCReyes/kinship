@@ -49,6 +49,8 @@ export type LineageView = (typeof LINEAGE_VIEWS)[number];
 export const DEFAULT_LINEAGE_VIEW: LineageView = 'adoptive';
 
 export const NAME_MAX_LENGTH = 100;
+/** Prefix (Dr.), suffix (Jr.) and surname particle (de la); the nickname uses NAME_MAX_LENGTH. */
+export const AFFIX_MAX_LENGTH = 30;
 /** A custom relationship label (Godmother, Guardian) and its optional reverse. */
 export const LABEL_MAX_LENGTH = 60;
 export const SEARCH_MAX_LENGTH = 100;
@@ -67,6 +69,14 @@ export interface PersonInput {
   secondSurname?: string | null;
   /** The surname taken at marriage. Null or blank means none. */
   marriedSurname?: string | null;
+  /** Dr., Sir. Null or blank means none. */
+  namePrefix?: string | null;
+  /** Jr., II. Null or blank means none. */
+  nameSuffix?: string | null;
+  /** Null or blank means none. */
+  nickname?: string | null;
+  /** de, de la, van: written before the birth surname, which stays bare. Null or blank means none. */
+  surnameParticle?: string | null;
   gender?: Gender | null;
   birth?: PartialDateInput | null;
   deceased?: boolean;
@@ -81,6 +91,10 @@ export interface Person {
   surname: string;
   secondSurname: string | null;
   marriedSurname: string | null;
+  namePrefix: string | null;
+  nameSuffix: string | null;
+  nickname: string | null;
+  surnameParticle: string | null;
   gender: Gender | null;
   birth: PartialDate | null;
   deceased: boolean;
@@ -360,6 +374,10 @@ export const PEOPLE_ERROR_CODES = [
   'invalid_surname',
   'invalid_second_surname',
   'invalid_married_surname',
+  'invalid_name_prefix',
+  'invalid_name_suffix',
+  'invalid_nickname',
+  'invalid_surname_particle',
   'invalid_gender',
   'invalid_date',
   'invalid_precision',

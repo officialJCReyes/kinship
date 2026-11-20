@@ -103,7 +103,7 @@ describe('My settings', () => {
         colorScheme: 'slate',
         theme: 'dark',
         dateFormat: 'iso',
-        surnameChoice: 'birth',
+        nameForm: 'maiden',
         lineageView: 'birth',
       }),
     );
@@ -118,8 +118,8 @@ describe('My settings', () => {
     expect((screen.getByLabelText('Theme') as HTMLSelectElement).value).toBe('dark');
     expect((screen.getByLabelText('Date format') as HTMLSelectElement).value).toBe('iso');
     expect(screen.getByText(/Example: 2026-03-09\./)).toBeTruthy();
-    expect((screen.getByLabelText('Which surname shows') as HTMLSelectElement).value).toBe('birth');
-    expect(screen.getByText(/Example: Rosa Mendez\./)).toBeTruthy();
+    expect((screen.getByLabelText('How to show married women’s names') as HTMLSelectElement).value).toBe('maiden');
+    expect(screen.getByText(/Example: Dr\. Rosa Mendez\./)).toBeTruthy();
     expect((screen.getByLabelText('When someone was adopted, show') as HTMLSelectElement).value).toBe('birth');
     const account = screen.getByRole('heading', { name: 'Account' }).closest('section')!;
     expect(within(account).getByText('Marcus Hale')).toBeTruthy();
@@ -144,6 +144,45 @@ describe('My settings', () => {
     expect(screen.getByText(/Example: Mar 9, 2026\./)).toBeTruthy();
   });
 
+  it('has a Names card: four forms, an example that follows the choice, and prefix and suffix switches', async () => {
+    const fetchMock = mockApi(
+      haleRoutes(ADMIN, {
+        'PATCH /api/auth/me': meWith({ ...ADMIN, nameForm: 'married_born' }),
+      }),
+    );
+    renderApp('/settings');
+    const select = (await screen.findByLabelText('How to show married women’s names')) as HTMLSelectElement;
+    expect([...select.options].map((o) => `${o.value}=${o.textContent}`)).toEqual([
+      'maiden_married=Maiden name (Married name)',
+      'married_born=Married name (born Maiden name)',
+      'married=Married name',
+      'maiden=Maiden name',
+    ]);
+    expect(select.value).toBe('maiden_married');
+    expect(screen.getByText(/Example: Dr\. Rosa Mendez \(Hale\)\./)).toBeTruthy();
+    expect((screen.getByLabelText('Show prefixes (Dr., Sir)') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Show suffixes (Jr., II)') as HTMLInputElement).checked).toBe(true);
+    expect(
+      screen.getByText(/Only you see these choices\. The chart’s gear panel shows the same settings\./),
+    ).toBeTruthy();
+
+    fireEvent.change(select, { target: { value: 'married_born' } });
+    await waitFor(() => expect(bodyOf(fetchMock, 'PATCH /api/auth/me')).toEqual({ nameForm: 'married_born' }));
+    await screen.findByText(/Example: Dr\. Rosa Mendez Hale \(born Mendez\)\./);
+  });
+
+  it('turns prefixes off and on, sending only that switch', async () => {
+    const fetchMock = mockApi(
+      haleRoutes(ADMIN, { 'PATCH /api/auth/me': meWith({ ...ADMIN, showPrefix: false, showSuffix: true }) }),
+    );
+    renderApp('/settings');
+    await screen.findByLabelText('How to show married women’s names');
+    fireEvent.click(screen.getByLabelText('Show prefixes (Dr., Sir)'));
+    await waitFor(() => expect(bodyOf(fetchMock, 'PATCH /api/auth/me')).toEqual({ showPrefix: false }));
+    await screen.findByText(/Example: Rosa Mendez \(Hale\)\./);
+    expect((screen.getByLabelText('Show prefixes (Dr., Sir)') as HTMLInputElement).checked).toBe(false);
+  });
+
   it('applies a change at once, sends only that setting, and rewrites the mirror', async () => {
     const fetchMock = mockApi(
       haleRoutes(ADMIN, {
@@ -152,7 +191,7 @@ describe('My settings', () => {
           colorScheme: 'sand',
           theme: 'device',
           dateFormat: 'mdy',
-          surnameChoice: 'married',
+          nameForm: 'maiden_married',
         }),
       }),
     );

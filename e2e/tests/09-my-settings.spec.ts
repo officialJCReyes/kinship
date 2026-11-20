@@ -43,12 +43,12 @@ test.afterAll(async () => {
   // Leave the admin's settings as they were, for anything that runs after this file.
   await admin.request.patch('/api/auth/me', {
     headers: { 'X-KinShip-Request': '1', Origin: BASE_URL },
-    data: { colorScheme: 'forest', theme: 'device', dateFormat: 'mdy', surnameChoice: 'married' },
+    data: { colorScheme: 'forest', theme: 'device', dateFormat: 'mdy', nameForm: 'maiden_married' },
   });
   await adminContext.close();
 });
 
-test('Rosa has a birth surname and a married surname, and the defaults show the married one and "Jun 4, 1934"', async () => {
+test('Rosa has a birth surname and a married surname, and the defaults show "Maiden name (Married name)" and "Jun 4, 1934"', async () => {
   rosa = await createPerson(admin.request, {
     givenName: 'Rosa',
     surname: mendez,
@@ -57,12 +57,12 @@ test('Rosa has a birth surname and a married surname, and the defaults show the 
     birth: '1934-06-04',
   });
   await admin.goto(`/people/${rosa.id}`);
-  await expect(admin.getByRole('heading', { level: 1, name: `Rosa ${married}` })).toBeVisible();
+  await expect(admin.getByRole('heading', { level: 1, name: `Rosa ${mendez} (Hale)` })).toBeVisible();
   await expect(admin.getByText('Jun 4, 1934', { exact: true })).toBeVisible();
   expect(await attributes(admin)).toEqual(['forest', expect.stringMatching(/^(light|dark)$/)]);
 });
 
-test('choosing Slate blue, Dark, ISO and birth names in My settings changes the page, a date and a name at once', async () => {
+test('choosing Slate blue, Dark, ISO and maiden names in My settings changes the page, a date and a name at once', async () => {
   const page = admin;
   await page.getByRole('button', { name: 'Account menu' }).click();
   await page.getByRole('menuitem', { name: 'My settings' }).click();
@@ -71,7 +71,7 @@ test('choosing Slate blue, Dark, ISO and birth names in My settings changes the 
   await page.getByRole('radio', { name: 'Slate blue' }).click();
   await page.getByLabel('Theme').selectOption('dark');
   await page.getByLabel('Date format').selectOption('iso');
-  await page.getByLabel('Which surname shows').selectOption('birth');
+  await page.getByLabel('How to show married women’s names').selectOption('maiden');
   await expect(page.getByRole('radio', { name: 'Slate blue' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByText(/Example: 2026-03-09\./)).toBeVisible();
   await expect.poll(() => attributes(page)).toEqual(['slate', 'dark']);
@@ -148,7 +148,7 @@ test('a Member changes only their own settings; the admin keeps theirs; the logi
     colorScheme: 'slate',
     theme: 'dark',
     dateFormat: 'iso',
-    surnameChoice: 'birth',
+    nameForm: 'maiden',
   });
   await admin.reload();
   expect(await attributes(admin)).toEqual(['slate', 'dark']);
