@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useSession } from '../auth.js';
 import { ErrorState, Loading } from '../components/States.js';
+import { TreeSearch } from './TreeSearch.js';
 import { PersonPicker } from '../components/PersonPicker.js';
 import { t } from '../i18n.js';
 import { canEditUnion } from '../people/permissions.js';
@@ -64,6 +65,8 @@ export function TreePage() {
   const lineage: LineageView | undefined = rawLineage === 'birth' || rawLineage === 'adoptive' ? rawLineage : undefined;
   const [editing, setEditing] = useState<UnionWithChildren | null>(null);
   const [flip, setFlip] = useState<'out' | 'in' | null>(null);
+  // The search chose someone who is drawn: ask the chart to scroll to them and the panel to open.
+  const [found, setFound] = useState<{ id: string; n: number } | null>(null);
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
@@ -110,6 +113,20 @@ export function TreePage() {
         return next;
       }),
     [setParams],
+  );
+
+  // A person chosen in the chart's search. Someone drawn is selected and brought into view (no change of zoom). Someone not
+  // drawn makes that person the new root, selected: the chart is re-centred on them as when a leaf re-roots it.
+  const find = useCallback(
+    (person: Person) => {
+      if (people.has(person.id)) {
+        select(person.id);
+        setFound((previous) => ({ id: person.id, n: (previous?.n ?? 0) + 1 }));
+      } else {
+        void navigate(`/tree/${person.id}?sel=${encodeURIComponent(person.id)}`);
+      }
+    },
+    [people, select, navigate, setFound],
   );
 
   // A turn of about half a second, then the other chart; with reduced motion the other chart is just there.
@@ -205,6 +222,7 @@ export function TreePage() {
         me={me}
         otherFamily={otherLeaves.get(selectedId)}
         onOpenOther={openLeaf}
+        expandSignal={found?.n ?? 0}
       />
       <div className={`tree-stage${flip ? ` flip-${flip}` : ''}`}>
         <TreeCanvas
@@ -221,14 +239,24 @@ export function TreePage() {
           onSelect={select}
           onLeaf={openLeaf}
           onCouple={openUnion}
+          revealRequest={found}
           topLeft={
-            of && owner ? (
-              <span className="tree-label">
-                {lineage
-                  ? t(`tree.familyOf.${lineage}`, { name: owner.givenName })
-                  : t('tree.familyOf', { name: owner.givenName })}
+            <>
+              {of && owner ? (
+                <span className="tree-label">
+                  {lineage
+                    ? t(`tree.familyOf.${lineage}`, { name: owner.givenName })
+                    : t('tree.familyOf', { name: owner.givenName })}
+                </span>
+              ) : null}
+              <TreeSearch onChoose={find} />
+              <span className="tree-count">
+                {t('tree.count', {
+                  shown: shown.people.filter((p) => !p.isPlaceholder).length,
+                  total: shown.totalPeople,
+                })}
               </span>
-            ) : null
+            </>
           }
           topRight={
             me.personId && me.personId !== id ? (

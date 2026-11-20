@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { displayName } from '../lib/names.js';
 import type { Person } from '@kinship/shared';
-import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import * as api from '../api.js';
 import { t } from '../i18n.js';
 import { lifespan } from '../lib/people.js';
-import { useDebounced } from '../lib/useDebounced.js';
-import { peopleKey } from '../people/queries.js';
+import { usePeopleLookup } from '../people/queries.js';
 
 interface PersonPickerProps {
   label: string;
@@ -25,13 +22,9 @@ export function PersonPicker({ label, value, onChange, excludeIds = [] }: Person
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const query = useDebounced(text.trim(), 200);
-  const results = useQuery({
-    queryKey: [...peopleKey, 'picker', query],
-    queryFn: ({ signal }) => api.listPeople({ q: query, limit: 8 }, signal),
-    enabled: query !== '' && !value,
-  });
-  const options = (results.data?.items ?? []).filter((person) => !excludeIds.includes(person.id));
+  const lookup = usePeopleLookup(text, { limit: 8, enabled: !value });
+  const query = lookup.query;
+  const options = lookup.items.filter((person) => !excludeIds.includes(person.id));
 
   if (value) {
     return (
@@ -114,7 +107,7 @@ export function PersonPicker({ label, value, onChange, excludeIds = [] }: Person
           </li>
         ))}
       </ul>
-      {showList && !results.isFetching && options.length === 0 ? (
+      {showList && !lookup.isFetching && options.length === 0 ? (
         <div className="muted field-help" role="status">
           {t('picker.none')}
         </div>

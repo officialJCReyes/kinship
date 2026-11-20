@@ -1,10 +1,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { keepPreviousData, queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { LineageView } from '@kinship/shared';
+import { useDebounced } from '../lib/useDebounced.js';
 import * as api from '../api.js';
 
 /** Everything people-related is cached under 'people', so one call refreshes it all after a change. */
 export const peopleKey = ['people'] as const;
+
+/**
+ * A name lookup for a combobox: the text is debounced, then the first `limit` matches are asked for (the same endpoint and
+ * matching as the People page). `hasMore` says the list was cut, so a box can ask for a longer word.
+ */
+export function usePeopleLookup(
+  text: string,
+  { limit = 8, enabled = true }: { limit?: number; enabled?: boolean } = {},
+) {
+  const query = useDebounced(text.trim(), 200);
+  const results = useQuery({
+    queryKey: [...peopleKey, 'lookup', query, limit],
+    queryFn: ({ signal }) => api.listPeople({ q: query, limit }, signal),
+    enabled: enabled && query !== '',
+  });
+  return {
+    query,
+    items: results.data?.items ?? [],
+    hasMore: results.data?.nextCursor != null,
+    isFetching: results.isFetching,
+  };
+}
 
 export function usePeopleSearch(q: string) {
   return useInfiniteQuery({
