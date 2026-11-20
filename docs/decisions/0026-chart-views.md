@@ -3,7 +3,7 @@
 - Status: **Accepted** (design by JC, 2026-11-14 and 2026-11-18; the answers of 2026-11-21, step 32)
 - Date: 2026-11-21
 - Amends: [0006 The Family tree chart](0006-tree-view.md) (0.3 "can reuse `TreeCanvas`"; "never cut" for a name)
-- Builds on: [0007 Adoption](0007-adoption.md) (which parents a chart follows), [0024 Names](0024-names.md), [0025 Fewer crossing lines](0025-layout-crossings.md)
+- Builds on: [0007 Adoption](0007-adoption-parentage.md) (which parents a chart follows), [0024 Names](0024-names.md), [0025 Fewer crossing lines](0025-layout-crossings.md)
 - Sources: `design/kinship-tree-views-and-dna.md` ("Tree views"), `design/kinship-mockup.html` (the views, the switcher), the step 32 phase 1 report.
 
 ## Context
