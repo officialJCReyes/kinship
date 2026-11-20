@@ -5,39 +5,32 @@ Companion to `kinship-v2-requirements.md`. Navigation lives in `kinship-navigati
 ## Home tab (draft)
 **JC decided to keep all of the draft cards:** Memory of the day, Coming up (next birthdays, children excluded, honouring My settings), Recent activity, The family at a glance (people, living, generations, relationships, sources, DNA results), Needs attention (admins only: missing birth places, events without sources, link to the data check report) and Jump to shortcuts (includes "My health and DNA"). Activity items must never reveal private health data (who a record is shared with). Details of Memory of the day are in `kinship-navigation.md`.
 
-## Tree views (built)
+## Tree views (built; the switcher, Pedigree, Fan and Descendants shipped in step 32 on Nov 20, ADR 0026)
 All views share the person panel, pan, zoom, fit button and the same person nodes. Clicking anyone selects them and, in the three new views, re-centers the chart on them. **The chart background is plain: the dot grid was removed at JC's request (Nov 14).**
 
-**View switcher (decided by JC, Nov 14; not built: the app has the Family tree only until step 32 of 0.3.0):** one icon button at the top right of the chart shows the current view. Clicking it opens a panel of icons only (no words): Family tree, Pedigree, Fan, Descendants, then the generations choice as numbers (3, 4, 5; 2 to 5 for Descendants) for every view except Family tree. Tooltips and accessible labels carry the names. Choosing a view closes the panel; clicking elsewhere closes it too.
+**View switcher (decided by JC, Nov 14; built in step 32, Nov 20; addressed as `?view=pedigree|fan|descendants&gen=N`, defaults 4, 4 and 5, not remembered between visits):** one icon button at the top right of the chart shows the current view. Clicking it opens a panel of icons only (no words): Family tree, Pedigree, Fan, Descendants, then the generations choice as numbers (3, 4, 5; 2 to 5 for Descendants) for every view except Family tree. Tooltips and accessible labels carry the names. Choosing a view closes the panel; clicking elsewhere closes it too.
 
 | View | What it shows | Notes |
 |---|---|---|
-| Family tree (default) | Your own line by generation, with couples and kids hanging from the union. **A spouse's parents and ancestors are hidden** and opened with a small green leaf on the spouse's card (see below). **Siblings' partners and aunts and uncles are not drawn (see "Who the Family tree view draws")** | Solid line together, dotted line ended or not a marriage |
+| Family tree (default) | Your own line by generation, with couples and kids hanging from the union. **A spouse's parents and ancestors are hidden** and opened with a small green leaf on the spouse's card (see below). **Siblings' partners, aunts, uncles and cousins are drawn in the main chart; a family view keeps siblings' partners (see "Who the Family tree view draws")** | Solid line together, dotted line ended or not a marriage |
 | Pedigree | Direct ancestors of the selected person, left to right. Father above, mother below | 3, 4 or 5 generations. Column titles (Parents, Grandparents...). Missing parents show a dashed "Father/Mother not on the tree" slot |
 | Fan | Half-circle of ancestors, one ring per generation | 3, 4 or 5 generations. Left half is the father's side (green), right half the mother's side (amber). Names turn radial in outer rings. Missing ancestors are dashed outlines |
 | Descendants | Everyone below the selected person, left to right, children grouped under their parent | 2 to 5 generations. Each card lists partners ("m. Rosa", "div. Lucia", "sep. Anthony"). Stepchildren are not shown. A card at the depth limit says "N children below" |
 
-- Pedigree and fan follow blood parents only (adoption is paused).
+- Pedigree and Fan follow blood (birth) parents only, whatever the viewer's lineage setting. Descendants follows the viewer's lineage view and shows no marker on adopted children (JC, Nov 20; see `kinship-adoption.md`).
 - Each view fits itself to the canvas when you switch view, change generations or click a new person; the fit button returns to that fit.
 - Not built yet: hourglass (ancestors left, descendants right), a per-user default view in My settings, printing a chart as PDF/poster.
 
-## Who the Family tree view draws (checked against the running app, Nov 18)
-JC compared the app (0.2.0 release candidate) with a real family and found that two groups of relatives are missing from the Family tree view. The behavior below is **what is built today**; it follows the rule "your own line", which is what the Family tree row above has always said. No requirement doc and no release in the plan promised the missing groups, so this is a gap in the specification, not a regression.
+## Who the Family tree view draws (corrected Nov 20 from the code, steps 30 and 31)
+**What is built.** The API (`GET /api/tree/:id`, the chart asks for up 3, down 2, collateral on) returns the person in focus, their ancestors up to 3 generations, their descendants down 2, and with `collateral` every descendant of the topmost ancestors within depth, plus the partners of everyone included. So **the main chart draws siblings and their partners, nieces and nephews, aunts and uncles, and cousins** (within those depth limits), with the couples' children hanging from their unions. A person's in-law parents are hidden behind the logo-green leaf. Half-siblings stay in the full chart.
 
-**Drawn today**
-- The person in focus, their blood ancestors by generation, and the people on their own line.
-- The partner of the person in focus and of each person on the line, with the couple line, and the children hanging from the union.
-- In a family view (after a leaf flip): that person's parents and grandparents above, their partner and children below, and their **full** siblings next to them.
+**The family view (after a leaf flip) trims on the client** (`familyView` in `apps/web/src/tree/family.ts`): the person, their ancestors, their **full** siblings, the focal person's own partners and children, **and (since step 30, Nov 20) each full sibling's partners and the children of those couples or of the sibling alone**; the partner's parents stay behind a leaf. Half-siblings, aunts, uncles and cousins stay out of a family view. A sibling's partner's children from a different union are not kept.
 
-**Not drawn today**
-- **A sibling's partner** (a sister's husband, a brother's wife, that is, the focus person's brother-in-law or sister-in-law by blood). Example from the app: in Melise's family view, her sister Marielis is drawn next to her under their father, but Marielis's husband Juan Jose is not. He still appears in the person panel (Partners) and in the Relationships lists.
-- **Aunts and uncles** on either side (the siblings of a parent or grandparent) with their partners, and the cousins below them.
-- Half-siblings in a family view (already documented below; they stay in the full chart and the other views). Stepchildren in Descendants (already documented).
-- I did not check nieces and nephews (a sibling's children); the same rule probably leaves them out.
+**History.** On Nov 18 JC compared a family view with a real family and found sibling partners and aunts and uncles missing; the notes then said the main chart did not draw them either, which was wrong (checked against the code on Nov 20). Only the family view was missing the sibling partners; step 30 fixed it. Example: Marcus's family view now shows Lena (Sofia's fiancée) with a leaf for her parents. Nieces and nephews appear in the main chart and, through a sibling's couple, in a family view.
 
-**Where these relatives can already be found:** the person panel and profile (Partners, Relationships), the relationship finder (0.3), and the family health history report, which lists aunts and uncles when asked.
+**Where these relatives can also be found:** the person panel and profile (Partners, Relationships), search in the chart (step 29), the relationship finder (0.3, step 34) and the family health history report.
 
-**Decided by JC, Nov 18: yes to both (release 0.3.0).** Text below is the approved design; the build prompt carries it.
+**Decided by JC, Nov 18: yes to both (release 0.3.0).** Text below is the approved design. **Status (Nov 20): item 1 is built (the main chart already did it; step 30 added it to the family view); item 2 is not built, and because aunts, uncles and cousins are drawn today, step 33 makes the option's off-by-default state a behaviour change; item 3 moves to step 33; item 4 is built as a neutral legend line (step 30).**
 1. **Siblings' partners (and their children): draw them.** A sibling's partner is drawn beside the sibling with the couple line, and the partner's own parents stay behind the green leaf, exactly like an in-law such as Priya. It reuses a pattern that already exists and adds one card per sibling, so it is always on, in 0.3.
 2. **Aunts, uncles and cousins: an option, off by default.** A setting "Show aunts, uncles and cousins" in the chart's gear panel (see `kinship-tree-settings-and-search.md`). When on, the siblings of each parent are drawn beside that parent with their partners, and cousins hang below. It widens the chart a lot and the chart uses fixed positions (the same reason the in-law parents could not be expanded inline), so it needs the crossing-minimisation work (#21, now in 0.3) first. **JC (Nov 18): a wide chart is fine.** Width is not the concern, so the option is not held back for it; the build order still puts crossing minimisation first because crossing lines make cousins hard to read. If #21 slips, JC decides then whether the option ships anyway or moves to 1.4 (the information is reachable elsewhere).
 3. **Navigation (JC, Nov 18):** the chart opens **centered on the home person** (the person in focus), and the viewer **scrolls or pans left, right, up and down** to move around. The whole tree does not have to fit in the view, so a wider tree is accepted. Fit-to-screen stays available as a button but is not the opening view; Center on me stays. Phase 1 reports what the chart does today (opening view, wheel and drag behavior) so the change is small.
@@ -52,13 +45,13 @@ JC compared the app (0.2.0 release candidate) with a real family and found that 
 - **Clicking the leaf flips the tree** (a short 3D turn, about half a second, skipped for people who ask their device to reduce motion) to her side: her parents and grandparents above, her partner (with a couple line) and children below, and her full siblings next to her. A small label at the top left says "Priya's family".
 - **There is no "Back to full chart" button (JC, Nov 14).** Both the normal chart and a family view are full charts, just centered differently. To move between them, use the leaf: in Priya's view, the leaf on Marcus (whose parents are on the main chart) flips back to the normal chart. A leaf on a hidden ancestor (for example Raj, whose parents are not drawn) flips to that person's family.
 - Choosing a hidden person from a Relationships list (for example Raj) opens the view centered on him.
-- Switching to Pedigree, Fan or Descendants goes back to the normal chart. The view is a display setting only: nothing in the data changes, and each person has their own.
+- Switching from a family view to any other view goes back to the normal chart (Pedigree, Fan and Descendants are rooted on the selected person and have no family flip or leaves). The view is a display setting only: nothing in the data changes, and each person has their own.
 - Half-siblings are not drawn in a family view (for example Gabriel in Marcus's view); they stay in the full chart and the other views.
 - Bug fixed Nov 14: the first version did nothing when clicked, because the chart's drag-to-pan handler captured the press before the click could reach the control. The leaf, the label and the zoom buttons are now excluded from panning.
 - The in-law side is real data: five people were added to the sample family (Priya's parents Raj Nair and Meera Iyer Nair, her brother Arjun, and Raj's parents Hari and Lakshmi Nair), so the relationship finder, reports and the family health history now see them (Raj is Marcus's father-in-law). The sample family is now 29 people.
 - Not built: expanding the in-law parents inline in the main chart (the chart uses fixed positions, so there was no room without stretching the divorced couple's line), a family-wide setting for which branches start open.
 
-## DNA badge on the tree (built, decided by JC)
+## DNA badge on the tree (mockup only; no DNA data exists in the app, so the badge is built with DNA in 1.2; deferred out of step 32 by JC, Nov 20)
 A small orange DNA badge sits on the person's avatar in the Family tree, Pedigree and Descendants views (and on fan segments and the fan centre), tooltip "DNA results on file (contents may be private)". It shows for everyone who has uploaded DNA, for every role. The tree legend explains the badge.
 
 ## DNA (mocked up)
@@ -98,4 +91,4 @@ Third-party tests (AncestryDNA, 23andMe, MyHeritage, FamilyTreeDNA) give a raw d
 ## Open
 - Which DNA parts are in v1 (JC unsure). The release plan (`kinship-release-and-deployment-plan.md`) recommends a basic DNA release before 1.0 and match checking after it.
 - Confirm that match lists and raw files stay private (assumed).
-- **Siblings' partners and aunts and uncles in the Family tree (Nov 18): decided.** Both approved for 0.3.0 (siblings' partners always drawn; aunts, uncles and cousins as an option, off by default). Open: what the chart does today when it opens, and whether nieces and nephews are drawn (to be checked in 0.3 phase 1).
+- **Siblings' partners and aunts and uncles in the Family tree (Nov 18): decided; status Nov 20.** Siblings' partners are drawn (main chart already, family view since step 30). Aunts, uncles and cousins as an off-by-default option comes in step 33. Nieces and nephews are drawn in the main chart. What the chart does when it opens today: `initialView` fits the whole chart when it fits at 0.45 zoom or more, otherwise centres on the focal person at 0.7; the Nov 18 decision (open centred on the home person, scroll to move) is built in step 33.
