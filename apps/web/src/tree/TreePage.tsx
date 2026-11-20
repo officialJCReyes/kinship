@@ -20,7 +20,7 @@ import { TreeCanvas } from './TreeCanvas.js';
 import { TreePanel } from './TreePanel.js';
 import { AVAILABLE_VIEWS, parseTreeView, treeViewQuery, viewState } from './treeView.js';
 import type { TreeViewName } from './treeView.js';
-import { familyModel, pedigreeModel } from './viewModels.js';
+import { descendantsModel, familyModel, pedigreeModel } from './viewModels.js';
 import type { ChartModel } from './viewModels.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
@@ -91,8 +91,9 @@ export function TreePage() {
   const current = useMemo<ChartModel | null>(() => {
     if (isFamily) return familyModel({ id, of, lineage, main: main.data, family: family.data });
     if (view === 'pedigree') return ancestors.data ? pedigreeModel(ancestors.data, id, gen) : null;
+    if (view === 'descendants') return descendants.data ? descendantsModel(descendants.data, id, gen) : null;
     return null;
-  }, [isFamily, view, id, gen, of, lineage, main.data, family.data, ancestors.data]);
+  }, [isFamily, view, id, gen, of, lineage, main.data, family.data, ancestors.data, descendants.data]);
   // The chart on screen stays until the next one has arrived, so choosing a view or a person does not blink to empty.
   // (Staying in the Family tree keeps its own loading state, as it always had.)
   const [kept, setKept] = useState<ChartModel | null>(null);
