@@ -89,6 +89,32 @@ describe('the layout of every family is the same today (the "off" path of the ne
   }
 });
 
+describe('the Family tree layout does not know about the other views', () => {
+  it('has none of the fields the Pedigree and Descendants layouts add, and equals the golden file', () => {
+    const inputs = layoutInputs();
+    const golden = JSON.parse(readFileSync(GOLDEN, 'utf8')) as Record<string, unknown>;
+    for (const name of [
+      'HALE',
+      'SIBLINGS',
+      'REMARRIAGE',
+      'WIDOW',
+      'HALE chart of Marcus',
+      'HALE family view of Marcus',
+    ]) {
+      const layout = layoutTree(inputs[name]!);
+      expect(layout.nodeHeight, name).toBeUndefined();
+      expect(layout.titles, name).toBeUndefined();
+      expect(layout.slots, name).toBeUndefined();
+      expect(layout.navigate, name).toBeUndefined();
+      expect(
+        layout.nodes.every((n) => n.note === undefined),
+        name,
+      ).toBe(true);
+      expect(snapshot(layout), name).toEqual(golden[name]);
+    }
+  });
+});
+
 describe('bus lanes', () => {
   const inputs = layoutInputs();
   const heightOf = (name: string, options: Parameters<typeof layoutTree>[1]) =>

@@ -71,6 +71,8 @@ export interface PlacedNode {
   /** Top of the box. */
   y: number;
   row: number;
+  /** A line under the dates (the Descendants view lists partners here). */
+  note?: string;
 }
 
 export interface PlacedCouple {
@@ -101,7 +103,27 @@ export interface PlacedLink {
   /** The relationship (or the single parent) the children hang from. */
   unionId: string | null;
   parentId: string | null;
+  /** The rectangle the line covers, when it is not the parents' bottom down to the children (the other views). */
+  bounds?: [x0: number, y0: number, x1: number, y1: number];
 }
+
+/** A slot where a person is missing (Pedigree: "Father not on the tree"). */
+export interface PlacedSlot {
+  key: string;
+  x: number;
+  y: number;
+  label: string;
+}
+
+/** A heading above a column of cards. */
+export interface PlacedTitle {
+  key: string;
+  x: number;
+  y: number;
+  text: string;
+}
+
+export type NavigationKey = 'ArrowLeft' | 'ArrowRight' | 'ArrowUp' | 'ArrowDown';
 
 export interface Layout {
   nodes: PlacedNode[];
@@ -112,6 +134,16 @@ export interface Layout {
   height: number;
   /** Who is left and right of whom in each row, for the keyboard. */
   rows: string[][];
+  /** Card height when it is not NODE_H (the Descendants view adds a line for partners). */
+  nodeHeight?: number;
+  /** Column titles and empty slots (Pedigree and Descendants). The Family tree layout has neither. */
+  titles?: PlacedTitle[];
+  slots?: PlacedSlot[];
+  /**
+   * Where an arrow key goes from a person, for layouts that are not rows of couples. Without it the canvas moves along
+   * the row, up to a parent and down to a child (the Family tree).
+   */
+  navigate?: (id: string, key: NavigationKey) => string | undefined;
 }
 
 // ---------------------------------------------------------------- contours

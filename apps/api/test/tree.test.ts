@@ -531,3 +531,55 @@ describe("a brother's or sister's partner (the chart draws them; the family view
     });
   }
 });
+
+describe('what the Pedigree, Fan and Descendants views ask for (ADR 0026)', () => {
+  it('ancestors with lineage=birth follow the birth parents of an adopted person, whatever the viewer’s own setting', async () => {
+    const mk = (n: string) => insertPersonRow(t.owner, n, 'Views');
+    const [adoptee, birthDad, birthMum, adoptDad, adoptMum] = [
+      await mk('Adoptee'),
+      await mk('BirthDad'),
+      await mk('BirthMum'),
+      await mk('AdoptDad'),
+      await mk('AdoptMum'),
+    ];
+    const birth = await insertUnionRow(t.owner, birthDad, birthMum, 'married');
+    const adoptive = await insertUnionRow(t.owner, adoptDad, adoptMum, 'married');
+    await linkChild(t.owner, adoptee, { union: birth });
+    await linkChild(t.owner, adoptee, { union: adoptive }, 'adoptive', '1990');
+
+    const ids = (body: Json) => new Set<string>(body.people.map((p: Json) => p.id));
+    const blood = await tree(adoptee, 'up=2&down=0&collateral=false&lineage=birth');
+    expect(ids(blood)).toEqual(new Set([adoptee, birthDad, birthMum]));
+    expectInvariant(blood);
+    // Without the override the signed-in account's own setting (adoptive for these accounts) decides.
+    const mine = await tree(adoptee, 'up=2&down=0&collateral=false');
+    expect(ids(mine).has(adoptDad)).toBe(true);
+    expect(ids(mine).has(birthDad)).toBe(false);
+  });
+
+  it('descendants: one more generation than is drawn gives the children below the limit; the partner’s own children come along', async () => {
+    const mk = (n: string) => insertPersonRow(t.owner, n, 'Below');
+    const [top, partner, kid, grand, great, step] = [
+      await mk('Top'),
+      await mk('Partner'),
+      await mk('Kid'),
+      await mk('Grand'),
+      await mk('Great'),
+      await mk('Step'),
+    ];
+    const u = await insertUnionRow(t.owner, top, partner, 'married');
+    await linkChild(t.owner, kid, { union: u });
+    await linkChild(t.owner, grand, { parent: kid });
+    await linkChild(t.owner, great, { parent: grand });
+    await linkChild(t.owner, step, { parent: partner }); // the partner's child from before: the client leaves it out
+
+    const ids = (body: Json) => new Set<string>(body.people.map((p: Json) => p.id));
+    const three = await tree(top, 'up=0&down=2&collateral=false');
+    expect(ids(three).has(grand)).toBe(true);
+    expect(ids(three).has(great)).toBe(false);
+    const four = await tree(top, 'up=0&down=3&collateral=false');
+    expect(ids(four).has(great)).toBe(true);
+    expect(ids(four).has(step)).toBe(true); // one hop for a partner: the view drops it (stepchildren are not shown)
+    expectInvariant(four);
+  });
+});

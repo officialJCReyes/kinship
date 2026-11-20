@@ -210,6 +210,16 @@ describe('the chart', () => {
   });
 });
 
+describe('the view in the address', () => {
+  it('draws the Family tree, and no switcher, while it is the only view on offer', async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus?view=pedigree&gen=5');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    expect(screen.getByRole('group', { name: 'Legend' }).textContent).toContain('Solid line');
+    expect(screen.queryByRole('button', { name: /^Chart view:/ })).toBeNull();
+  });
+});
+
 describe('the layout', () => {
   const positions = () =>
     Object.fromEntries(

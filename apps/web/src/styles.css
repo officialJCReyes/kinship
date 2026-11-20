@@ -2057,3 +2057,86 @@ pre.code {
     align-self: flex-start;
   }
 }
+
+/* The chart's view switcher: one icon button at the top right; its panel is icons only. */
+.view-switcher {
+  position: relative;
+}
+
+.view-trigger {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+}
+
+.view-trigger[aria-expanded='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.view-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.view-group {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.view-group .button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.view-group .button:last-child {
+  border-right: 0;
+}
+
+.view-group .button.num {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.view-group .button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.view-generations-icon {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .view-panel {
+    flex-wrap: wrap;
+    max-width: calc(100vw - 20px);
+  }
+}
+
+.view-group .button:focus-visible {
+  outline-offset: -3px;
+}

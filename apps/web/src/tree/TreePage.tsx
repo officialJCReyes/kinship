@@ -10,16 +10,19 @@ import { TreeSearch } from './TreeSearch.js';
 import { PersonPicker } from '../components/PersonPicker.js';
 import { t } from '../i18n.js';
 import { canEditUnion } from '../people/permissions.js';
-import { chartQuery, familyQuery } from '../people/queries.js';
+import { ancestorsQuery, chartQuery, descendantsQuery, familyQuery } from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 
-import { familyView, findLeaves, findOtherLeaves } from './family.js';
 import type { Leaf } from './family.js';
-import { layoutTree, relationsOf } from './layout.js';
 import { prefersReducedMotion } from './motion.js';
 import { recallRoot, rememberRoot } from './remember.js';
 import { TreeCanvas } from './TreeCanvas.js';
 import { TreePanel } from './TreePanel.js';
+import { AVAILABLE_VIEWS, parseTreeView, treeViewQuery, viewState } from './treeView.js';
+import type { TreeViewName } from './treeView.js';
+import { familyModel } from './viewModels.js';
+import type { ChartModel } from './viewModels.js';
+import { ViewSwitcher } from './ViewSwitcher.js';
 
 /** /tree: the chart rooted on you, or (for an account linked to nobody) a page to choose who to start from. */
 export function TreeIndexPage() {
@@ -51,17 +54,23 @@ export function TreeIndexPage() {
   );
 }
 
-/** /tree/:id, and /tree/:id?of=:personId for the flipped family view. ?sel= is the selected person. */
+/**
+ * /tree/:id, and /tree/:id?of=:personId for the flipped family view. ?sel= is the selected person.
+ * /tree/:id?view=pedigree|fan|descendants&gen=N is one of the views that follow one person (ADR 0026).
+ */
 export function TreePage() {
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const client = useQueryClient();
   const me = useSession(false).data?.user;
-  const of = params.get('of');
-  const sel = params.get('sel');
+  const { view, gen } = parseTreeView(params);
+  const isFamily = view === 'family';
+  // The family view and the selection belong to the Family tree; the other views are about one person, who is the root.
+  const of = isFamily ? params.get('of') : null;
+  const sel = isFamily ? params.get('sel') : null;
   // A family view can follow one family for the whole flip: ?of=…&lineage=birth (or adoptive).
-  const rawLineage = params.get('lineage');
+  const rawLineage = isFamily ? params.get('lineage') : null;
   const lineage: LineageView | undefined = rawLineage === 'birth' || rawLineage === 'adoptive' ? rawLineage : undefined;
   const [editing, setEditing] = useState<UnionWithChildren | null>(null);
   const [flip, setFlip] = useState<'out' | 'in' | null>(null);
@@ -70,63 +79,67 @@ export function TreePage() {
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
-  const main = useQuery(chartQuery(id));
+  const main = useQuery({ ...chartQuery(id), enabled: isFamily });
   const family = useQuery({ ...familyQuery(of ?? '', lineage), enabled: of !== null });
+  const ancestors = useQuery({ ...ancestorsQuery(id, gen), enabled: view === 'pedigree' || view === 'fan' });
+  const descendants = useQuery({ ...descendantsQuery(id, gen), enabled: view === 'descendants' });
+  const active = isFamily ? main : view === 'descendants' ? descendants : ancestors;
   useEffect(() => {
-    if (main.isSuccess) rememberRoot(id);
-  }, [main.isSuccess, id]);
+    if (active.isSuccess) rememberRoot(id);
+  }, [active.isSuccess, id]);
 
-  const focalId = of ?? id;
-  const familyData = family.data;
-  const shown = useMemo(
-    () => (of ? (familyData ? familyView(familyData, of) : undefined) : main.data),
-    [of, familyData, main.data],
-  );
-  const people = useMemo(() => new Map((shown?.people ?? []).map((p) => [p.id, p as Person])), [shown]);
-  const layout = useMemo(
-    () =>
-      shown ? layoutTree({ focalId, people: shown.people, unions: shown.unions, parentage: shown.parentage }) : null,
-    [shown, focalId],
-  );
-  const relations = useMemo(() => (shown ? relationsOf(shown) : null), [shown]);
-  const leaves = useMemo(
-    () =>
-      new Map(
-        (shown ? findLeaves(shown, focalId, main.data, of !== null, of !== null ? lineage : undefined) : []).map(
-          (leaf) => [leaf.personId, leaf],
-        ),
-      ),
-    [shown, focalId, main.data, of, lineage],
-  );
-  const otherLeaves = useMemo(
-    () => new Map((shown ? findOtherLeaves(shown, main.data, of !== null) : []).map((leaf) => [leaf.personId, leaf])),
-    [shown, main.data, of],
-  );
-  const unionsById = useMemo(() => new Map((shown?.unions ?? []).map((u) => [u.id, u])), [shown]);
+  const current = useMemo<ChartModel | null>(() => {
+    if (isFamily) return familyModel({ id, of, lineage, main: main.data, family: family.data });
+    return null;
+  }, [isFamily, id, of, lineage, main.data, family.data]);
+  // The chart on screen stays until the next one has arrived, so choosing a view or a person does not blink to empty.
+  // (Staying in the Family tree keeps its own loading state, as it always had.)
+  const [kept, setKept] = useState<ChartModel | null>(null);
+  if (current && current !== kept) setKept(current);
+  const chart = current ?? (!isFamily || kept?.view !== 'family' ? kept : null);
+  const busy = chart !== null && chart !== current;
 
-  const selectedId = sel ?? focalId;
+  const focalId = chart?.focalId ?? id;
+  const shown = chart?.shown;
+  const people = useMemo(() => chart?.people ?? new Map<string, Person>(), [chart]);
+  const chartFamily = chart?.view === 'family';
+
+  const selectedId = chartFamily ? (sel ?? focalId) : focalId;
+  /** The chart rooted on a person, in the view the address names. */
+  const rootUrl = useCallback(
+    (personId: string, keep?: string) => {
+      const query = [treeViewQuery({ view, gen }), keep ?? ''].filter(Boolean).join('&');
+      return `/tree/${personId}${query ? `?${query}` : ''}`;
+    },
+    [view, gen],
+  );
   const select = useCallback(
-    (personId: string) =>
+    (personId: string) => {
+      // In the Family tree a click selects; in the other views it makes that person the root, as the views are about one person.
+      if (!chartFamily) return void navigate(rootUrl(personId));
       setParams((previous) => {
         const next = new URLSearchParams(previous);
         next.set('sel', personId);
         return next;
-      }),
-    [setParams],
+      });
+    },
+    [chartFamily, navigate, rootUrl, setParams],
   );
 
-  // A person chosen in the chart's search. Someone drawn is selected and brought into view (no change of zoom). Someone not
-  // drawn makes that person the new root, selected: the chart is re-centred on them as when a leaf re-roots it.
+  // A person chosen in the chart's search. In the Family tree someone drawn is selected and brought into view (no change
+  // of zoom); someone not drawn becomes the new root, selected. In the other views the person always becomes the root.
   const find = useCallback(
     (person: Person) => {
-      if (people.has(person.id)) {
+      if (!isFamily) {
+        void navigate(rootUrl(person.id));
+      } else if (people.has(person.id)) {
         select(person.id);
         setFound((previous) => ({ id: person.id, n: (previous?.n ?? 0) + 1 }));
       } else {
         void navigate(`/tree/${person.id}?sel=${encodeURIComponent(person.id)}`);
       }
     },
-    [people, select, navigate, setFound],
+    [isFamily, people, select, navigate, rootUrl, setFound],
   );
 
   // A turn of about half a second, then the other chart; with reduced motion the other chart is just there.
@@ -164,18 +177,32 @@ export function TreePage() {
     [navigate, id, sel, turnTo],
   );
 
+  // The switcher: a new view is about the person selected now, and a family view goes back to the normal chart.
+  const switchView = useCallback(
+    (next: TreeViewName) => {
+      const query = treeViewQuery(viewState(next));
+      void navigate(`/tree/${sel ?? of ?? id}${query ? `?${query}` : ''}`);
+    },
+    [navigate, sel, of, id],
+  );
+  const switchGen = useCallback(
+    (next: number) => void navigate(`/tree/${id}?${treeViewQuery({ view, gen: next })}`),
+    [navigate, id, view],
+  );
+
+  const unionsById = chart?.unionsById;
   const canEdit = useCallback(
     (unionId: string) => {
-      const union = unionsById.get(unionId);
+      const union = unionsById?.get(unionId);
       return Boolean(union && canEditUnion(me, union));
     },
     [me, unionsById],
   );
   const openUnion = useCallback(
     (unionId: string) => {
-      const union = unionsById.get(unionId);
-      if (!union || !layout) return;
-      const link = layout.links.find((l) => l.unionId === unionId);
+      const union = unionsById?.get(unionId);
+      if (!union || !chart) return;
+      const link = chart.layout.links.find((l) => l.unionId === unionId);
       setEditing({
         ...union,
         children: (link?.childIds ?? []).map((id) => ({
@@ -186,19 +213,19 @@ export function TreePage() {
         })),
       });
     },
-    [unionsById, layout, setEditing, shown],
+    [unionsById, chart, setEditing, shown],
   );
 
   if (!me) return null;
-  const failure = main.error ?? (of ? family.error : null);
+  const failure = active.error ?? (of ? family.error : null);
   if (failure) {
     return (
       <div className="page-width">
-        <ErrorState error={failure} onRetry={() => void (main.isError ? main.refetch() : family.refetch())} />
+        <ErrorState error={failure} onRetry={() => void (active.isError ? active.refetch() : family.refetch())} />
       </div>
     );
   }
-  if (!shown || !layout || !relations) {
+  if (!chart || !shown) {
     return (
       <div className="page-width">
         <Loading />
@@ -214,35 +241,36 @@ export function TreePage() {
       ])
     : null;
   return (
-    <div className="tree-page">
+    <div className="tree-page" aria-busy={busy || undefined}>
       <h1 className="sr-only">{t('tree.title')}</h1>
       <TreePanel
         personId={selectedId}
         fallback={people.get(selectedId)}
         me={me}
-        otherFamily={otherLeaves.get(selectedId)}
+        otherFamily={chart.otherLeaves.get(selectedId)}
         onOpenOther={openLeaf}
         expandSignal={found?.n ?? 0}
       />
       <div className={`tree-stage${flip ? ` flip-${flip}` : ''}`}>
         <TreeCanvas
-          key={`${id}|${of ?? ''}|${lineage ?? ''}`}
-          layout={layout}
+          key={chart.key}
+          layout={chart.layout}
           people={people}
           focalId={focalId}
           selectedId={selectedId}
-          leaves={leaves}
-          otherLeaves={otherLeaves}
-          parents={relations.parents}
-          children={relations.children}
+          leaves={chart.leaves}
+          otherLeaves={chart.otherLeaves}
+          parents={chart.parents}
+          children={chart.children}
           canEditUnion={canEdit}
           onSelect={select}
           onLeaf={openLeaf}
           onCouple={openUnion}
           revealRequest={found}
+          view={chart.view}
           topLeft={
             <>
-              {of && owner ? (
+              {of && owner && chartFamily ? (
                 <span className="tree-label">
                   {lineage
                     ? t(`tree.familyOf.${lineage}`, { name: owner.givenName })
@@ -259,11 +287,16 @@ export function TreePage() {
             </>
           }
           topRight={
-            me.personId && me.personId !== id ? (
-              <button className="button" type="button" onClick={() => void navigate(`/tree/${me.personId}`)}>
-                {t('tree.centerOnMe')}
-              </button>
-            ) : null
+            <>
+              {me.personId && me.personId !== id ? (
+                <button className="button" type="button" onClick={() => void navigate(rootUrl(me.personId!))}>
+                  {t('tree.centerOnMe')}
+                </button>
+              ) : null}
+              {AVAILABLE_VIEWS.length > 1 ? (
+                <ViewSwitcher view={view} gen={gen} views={AVAILABLE_VIEWS} onView={switchView} onGen={switchGen} />
+              ) : null}
+            </>
           }
         />
       </div>

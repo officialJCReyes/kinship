@@ -74,6 +74,29 @@ export function chartQuery(id: string) {
   });
 }
 
+/**
+ * Pedigree and Fan: the blood ancestors of a person, `gen` generations (the person is the first). `lineage=birth`
+ * makes the walk follow birth parents whatever the viewer's own setting is (ADR 0026).
+ */
+export function ancestorsQuery(id: string, gen: number) {
+  return queryOptions({
+    queryKey: [...peopleKey, 'ancestors', id, gen],
+    queryFn: ({ signal }) =>
+      api.fetchTree(id, { up: gen - 1, down: 0, collateral: false, lineage: 'birth' as LineageView }, signal),
+  });
+}
+
+/**
+ * Descendants: everyone below a person, `gen` generations (the person is the first) and one more, so a card at the
+ * limit can say how many children are below it. The viewer's own lineage view applies (ADR 0026).
+ */
+export function descendantsQuery(id: string, gen: number) {
+  return queryOptions({
+    queryKey: [...peopleKey, 'descendants', id, gen],
+    queryFn: ({ signal }) => api.fetchTree(id, { up: 0, down: gen, collateral: false }, signal),
+  });
+}
+
 /** A spouse's (or adopted person's) family view. `lineage` overrides the viewer's own setting for the whole view. */
 export function familyQuery(id: string, lineage?: LineageView) {
   return queryOptions({
