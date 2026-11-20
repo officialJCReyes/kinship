@@ -72,7 +72,7 @@ export function familyView(tree: TreeResponse, personId: string): TreeResponse {
       for (const id of known) count += tree.people.find((q) => q.id === id)?.ancestorCount ?? 0;
       return { ...p, ancestorCount: count };
     });
-  return { lineage: tree.lineage, focalId: personId, people, unions, parentage };
+  return { lineage: tree.lineage, focalId: personId, totalPeople: tree.totalPeople, people, unions, parentage };
 }
 
 export type LeafTarget =

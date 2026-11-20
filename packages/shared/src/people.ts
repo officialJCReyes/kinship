@@ -281,6 +281,8 @@ export interface TreeResponse {
   /** The family this response follows for adopted people: the viewer's own setting, or the `lineage` override. */
   lineage: LineageView;
   focalId: string;
+  /** Everyone the viewer may see (placeholders left out), for the chart's "N of M people" counter. */
+  totalPeople: number;
   people: TreePerson[];
   unions: Union[];
   parentage: Record<string, Parentage>;

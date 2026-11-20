@@ -5,6 +5,8 @@
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, insertUser, login, cookieHeader, CSRF } from './helpers/app.js';
+import { countPeople } from '../src/people/store.js';
+import { withUserTransaction } from '../src/request-context.js';
 import type { TestApp } from './helpers/app.js';
 
 let t: TestApp;
@@ -78,6 +80,28 @@ describe('about 2,000 people', () => {
       expect(ms).toBeLessThan(1500);
       expect(body.people.length).toBeGreaterThan(5);
     }
+  });
+
+  it('counts everyone the viewer may see for the chart counter ("N of M people") at about two thousand, cheaply', async () => {
+    const body = (await get(`/api/tree/${focal}?up=3&down=2&collateral=true`)).json() as { totalPeople: number };
+    expect(body.totalPeople).toBe(total);
+    // The count alone, as the viewer (row-level security applies), median of nine.
+    const user = (await sql<{ id: string }>`select id from users where email = 'admin@example.com'`.execute(t.owner))
+      .rows[0]!.id;
+    const times: number[] = [];
+    for (let i = 0; i < 9; i++) {
+      const started = performance.now();
+      const n = await withUserTransaction(t.db, user, async (trx) => {
+        return countPeople(trx);
+      });
+      times.push(performance.now() - started);
+      expect(n).toBe(total);
+    }
+    times.sort((a, b) => a - b);
+    console.log(
+      `count of ${total} people under row-level security: median ${times[4]!.toFixed(2)} ms (a whole transaction)`,
+    );
+    expect(times[4]!).toBeLessThan(50);
   });
 
   it("answers a person's profile data quickly and small (the profile asks for it on every page)", async () => {

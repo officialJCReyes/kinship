@@ -5,6 +5,8 @@
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { UntypedDb } from '../src/db.js';
+import { countPeople } from '../src/people/store.js';
+import { withUserTransaction } from '../src/request-context.js';
 import { createTestApp } from './helpers/app.js';
 import type { TestApp } from './helpers/app.js';
 import { buildFamily, insertPersonRow, insertUnionRow, linkChild, signInAll } from './helpers/family.js';
@@ -26,6 +28,34 @@ const tree = async (focal: string, query = 'up=3&down=2&collateral=true'): Promi
   expect(response.status).toBe(200);
   return response.body as Json;
 };
+
+describe('totalPeople, for the chart counter', () => {
+  it('is everyone the viewer may see, and leaves placeholders out', async () => {
+    const real = Number(
+      (await sql<{ n: string }>`select count(*) as n from people where not is_placeholder`.execute(t.owner)).rows[0]!.n,
+    );
+    expect((await tree(f.person.marcus)).totalPeople).toBe(real);
+    await sql`insert into people (given_name, surname, gender, is_placeholder) values ('', '', 'male', true)`.execute(
+      t.owner,
+    );
+    const body = await tree(f.person.marcus);
+    expect(body.totalPeople).toBe(real);
+    expect(body.people.length).toBeLessThanOrEqual(body.totalPeople + 1);
+    // Every role reads the same number, a smaller drawing does not change it.
+    for (const who of ['member', 'familyadmin', 'unlinked'] as const) {
+      const r = await as(who, 'GET', `/api/tree/${f.person.leo}?up=0&down=0`);
+      expect(r.body?.totalPeople, who).toBe(real);
+      expect(r.body?.people.length).toBeLessThan(real);
+    }
+  });
+
+  it('counts only what row-level security shows: an account that does not exist sees none', async () => {
+    const n = await withUserTransaction(t.db, '00000000-0000-4000-8000-000000000000', async (trx) => {
+      return countPeople(trx);
+    });
+    expect(n).toBe(0);
+  });
+});
 
 const idsOf = (body: Json) => (body.people as Json[]).map((x) => x.id as string);
 
