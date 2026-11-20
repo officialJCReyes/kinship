@@ -210,6 +210,32 @@ describe('the chart', () => {
   });
 });
 
+describe('the layout', () => {
+  const positions = () =>
+    Object.fromEntries(
+      Array.from(document.querySelectorAll('[data-node]')).map((n) => [
+        n.getAttribute('data-node'),
+        n.parentElement?.getAttribute('transform'),
+      ]),
+    );
+
+  it('does not move a card when a person is selected, the panel opens or the search box is used', async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    const before = positions();
+    expect(Object.keys(before).length).toBeGreaterThan(5);
+    fireEvent.click(node(/^Sofia Hale/));
+    await screen.findByRole('complementary', { name: 'Selected person' });
+    expect(positions()).toEqual(before);
+    fireEvent.click(node(/^Walter Hale/));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: /Walter/ })).toBeTruthy());
+    expect(positions()).toEqual(before);
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Lena' } });
+    expect(positions()).toEqual(before);
+  });
+});
+
 describe('where the chart starts', () => {
   it('sends a linked account to their own person, and offers Center on me from another root', async () => {
     mockApi(haleRoutes(MEMBER));

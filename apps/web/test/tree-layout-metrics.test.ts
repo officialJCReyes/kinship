@@ -5,7 +5,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { assignLanes, LANE_PITCH, layoutTree } from '../src/tree/layout.js';
+import { assignLanes, EXTRA_LAYOUTS, LANE_PITCH, layoutTree } from '../src/tree/layout.js';
 import { defects, measureLayout } from '../src/tree/layoutMetrics.js';
 import { bigFamily, bigFamilyWithCousins, family, FIVE_IN_LAW_FAMILIES, NAMED_FAMILIES } from './layout-fixtures.js';
 import { layoutInputs, snapshot } from './layout-inputs.js';
@@ -18,7 +18,7 @@ const PINNED: Record<string, [number, number, number, number]> = {
   HALE: [0, 0, 0, 1580],
   SIBLINGS: [0, 0, 0, 3616],
   REMARRIAGE: [0, 0, 0, 3179],
-  COUSINS: [1, 0, 0, 3408],
+  COUSINS: [0, 0, 0, 2968],
   WIDOW: [0, 0, 0, 1612],
   THREE_UNIONS: [1, 0, 0, 3578],
   GENERATIONS: [2, 0, 1, 2526],
@@ -140,6 +140,74 @@ describe('bus lanes', () => {
     expect([...assignLanes([bus('a', 0, 100), bus('b', 50, 200)])]).toEqual(
       [...assignLanes([bus('b', 50, 200), bus('a', 0, 100)])].sort(([x], [y]) => (x < y ? -1 : 1)),
     );
+  });
+});
+
+describe('cousin marriages', () => {
+  const inputs = layoutInputs();
+  const lanesOnly = { reduceCrossings: false };
+  const orderOf = (layout: ReturnType<typeof layoutTree>, ids: string[]) =>
+    [...ids].sort((a, b) => layout.byId.get(a)!.x - layout.byId.get(b)!.x);
+
+  it('take a brother or sister out of birth order when that removes a defect (COUSINS: Sofia before Marcus)', () => {
+    const before = layoutTree(inputs['COUSINS']!, lanesOnly);
+    const after = layoutTree(inputs['COUSINS']!);
+    expect(orderOf(before, ['marcus', 'sofia'])).toEqual(['marcus', 'sofia']); // birth order
+    expect(orderOf(after, ['marcus', 'sofia'])).toEqual(['sofia', 'marcus']);
+    expect(defects(measureLayout(before))).toBe(1);
+    expect(defects(measureLayout(after))).toBe(0);
+    expect(measureLayout(after).length).toBeLessThan(measureLayout(before).length);
+  });
+
+  it('never change a family that has nothing to remove, and never raise the defects of any', () => {
+    for (const [name, input] of Object.entries(inputs)) {
+      const plain = layoutTree(input, lanesOnly);
+      const reduced = layoutTree(input);
+      expect(defects(measureLayout(reduced)), name).toBeLessThanOrEqual(defects(measureLayout(plain)));
+      if (defects(measureLayout(plain)) === 0) expect(snapshot(reduced), name).toEqual(snapshot(plain));
+    }
+  });
+
+  it('leave two cousin marriages and the cross-generation family as the plan documents (known limits)', () => {
+    expect(defects(measureLayout(layoutTree(inputs['TWO_COUSIN_MARRIAGES']!)))).toBe(1);
+    expect(defects(measureLayout(layoutTree(inputs['GENERATIONS']!)))).toBe(3);
+    expect(defects(measureLayout(layoutTree(inputs['THREE_UNIONS']!)))).toBe(1);
+  });
+
+  it('try at most EXTRA_LAYOUTS orders: 20 cousin marriages leave 20 minus that many defects', () => {
+    const m = measureLayout(layoutTree(bigFamilyWithCousins(2000, 20)));
+    expect(m.crossings + m.overlaps + m.throughCards).toBe(20 - EXTRA_LAYOUTS);
+  });
+
+  it('give the same positions whatever order the people, relationships and links arrive in', () => {
+    for (const [name, input] of Object.entries(inputs)) {
+      const shuffled = {
+        ...input,
+        people: [...input.people].reverse(),
+        unions: [...input.unions].reverse(),
+        parentage: Object.fromEntries(Object.entries(input.parentage).reverse()),
+      };
+      expect(snapshot(layoutTree(shuffled)).nodes, name).toEqual(snapshot(layoutTree(input)).nodes);
+      expect(snapshot(layoutTree(shuffled)).links, name).toEqual(snapshot(layoutTree(input)).links);
+    }
+  });
+
+  it('keep couples side by side with the children centred under the couple line', () => {
+    const layout = layoutTree(inputs['COUSINS']!);
+    for (const c of layout.couples) {
+      const row = layout.rows[layout.byId.get(c.left)!.row]!;
+      expect(row.indexOf(c.right) - row.indexOf(c.left)).toBe(1);
+      expect(c.hangX).toBeCloseTo((c.x1 + c.x2) / 2, 3);
+    }
+    for (const link of layout.links) {
+      if (!link.unionId) continue;
+      const xs = link.childIds.map((id) => layout.byId.get(id)!.x);
+      const couple = layout.couples.find((c) => c.unionId === link.unionId)!;
+      // A partner with parents on two sides can sit off the middle; the others are centred.
+      if (link.childIds.every((id) => !['priya'].includes(id))) {
+        expect((Math.min(...xs) + Math.max(...xs)) / 2).toBeCloseTo(couple.hangX, 0);
+      }
+    }
   });
 });
 
