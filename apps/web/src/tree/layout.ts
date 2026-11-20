@@ -25,6 +25,7 @@
 //    birth order. It is "good enough", not crossing-free.
 import { displayName } from '../lib/names.js';
 import type { Parentage, TreePerson, Union, UnionStatus } from '@kinship/shared';
+import { defects, measureLayout } from './layoutMetrics.js';
 
 export const NODE_W = 184;
 /** Fits three lines of name and the dates line (see cardText.ts); every card is this tall. */
@@ -296,8 +297,76 @@ export function assignLanes(buses: BusSpec[]): Map<string, { lane: number; lanes
 
 // ---------------------------------------------------------------- the layout
 
+/** Most extra layouts tried to remove a defect by changing the order of some brothers and sisters. */
+export const EXTRA_LAYOUTS = 8;
+
+/**
+ * A set of brothers and sisters (everyone who hangs from one relationship or parent) in which somebody's partner
+ * has parents who are drawn too, so there is a second line to follow.
+ */
+interface SiblingSet {
+  hangKey: string;
+  row: number;
+  /** The anchors of the groups in the set, in the order they are drawn. */
+  order: string[];
+  /** For each anchor: the hangs of the parents of the partners in the group (the other families). */
+  targets: Map<string, string[]>;
+}
+
+/** Where a hang is drawn, from a finished layout (the middle of the couple line, or the parent's own box). */
+function hangX(layout: Layout, key: string): number | null {
+  if (key.startsWith('u:')) return layout.couples.find((c) => c.unionId === key.slice(2))?.hangX ?? null;
+  return layout.byId.get(key.slice(2))?.x ?? null;
+}
+
+/**
+ * The Family tree layout. Brothers and sisters are in birth order. When a partner's own parents are drawn too (cousins
+ * who married) and that leaves a line overlapping or crossing another, the order of those brothers and sisters is
+ * tried with the partner's family nearer (the average place of their parents, then birth); an order is kept only if
+ * it lowers the defect count of `measureLayout`, and at most EXTRA_LAYOUTS more layouts are made (ADR 0025).
+ */
 export function layoutTree(input: LayoutInput, options: LayoutOptions = {}): Layout {
   const busLanes = options.busLanes ?? BUS_LANES;
+  const reduce = options.reduceCrossings ?? REDUCE_CROSSINGS;
+  let best = layoutOnce(input, busLanes, undefined);
+  if (!reduce || best.sets.length === 0) return best.layout;
+  let score = defects(measureLayout(best.layout));
+  const orders = new Map<string, string[]>();
+  const tried = new Set<string>();
+  let budget = EXTRA_LAYOUTS;
+  while (score > 0 && budget > 0) {
+    const set = best.sets.find((s) => !tried.has(s.hangKey));
+    if (!set) break;
+    tried.add(set.hangKey);
+    const own = hangX(best.layout, set.hangKey);
+    if (own === null) continue;
+    const key = (anchor: string): number => {
+      const xs = [own, ...(set.targets.get(anchor) ?? []).map((t) => hangX(best.layout, t) ?? own)];
+      return xs.reduce((a, b) => a + b, 0) / xs.length;
+    };
+    const next = set.order
+      .map((anchor, index) => ({ anchor, index, at: key(anchor) }))
+      .sort((a, b) => a.at - b.at || a.index - b.index)
+      .map((x) => x.anchor);
+    if (next.every((anchor, i) => anchor === set.order[i])) continue;
+    const trial = new Map(orders).set(set.hangKey, next);
+    const made = layoutOnce(input, busLanes, trial);
+    budget -= 1;
+    const trialScore = defects(measureLayout(made.layout));
+    if (trialScore < score) {
+      score = trialScore;
+      best = made;
+      orders.set(set.hangKey, next);
+    }
+  }
+  return best.layout;
+}
+
+function layoutOnce(
+  input: LayoutInput,
+  busLanes: boolean,
+  orders: ReadonlyMap<string, string[]> | undefined,
+): { layout: Layout; sets: SiblingSet[] } {
   const people = new Map(input.people.map((p) => [p.id, p]));
   const unionList = input.unions.filter((u) => people.has(u.partnerIds[0]) && people.has(u.partnerIds[1]));
   const unionById = new Map(unionList.map((u) => [u.id, u]));
@@ -503,8 +572,15 @@ export function layoutTree(input: LayoutInput, options: LayoutOptions = {}): Lay
   }
 
   // 6. Blocks, bottom up.
-  const sortedAnchored = (hang: Hang): Group[] =>
-    hang.anchored.map((id) => groups.get(id)!).sort((a, b) => byBirth(a.anchor!, b.anchor!));
+  const sortedAnchored = (hang: Hang): Group[] => {
+    const set = hang.anchored.map((id) => groups.get(id)!);
+    const order = orders?.get(hang.key);
+    const rank = (g: Group) => {
+      const at = order ? order.indexOf(g.anchor!) : -1;
+      return at < 0 ? Infinity : at;
+    };
+    return set.sort((a, b) => (order ? rank(a) - rank(b) : 0) || byBirth(a.anchor!, b.anchor!));
+  };
   const blocks = new Map<string, Block>();
   const build = (group: Group): Block => {
     const cached = blocks.get(group.id);
@@ -772,7 +848,26 @@ export function layoutTree(input: LayoutInput, options: LayoutOptions = {}): Lay
   for (let i = 0; i < rows.length; i += 1) rows[i] ??= [];
   const width = nodes.length > 0 ? Math.max(...nodes.map((n) => n.x + NODE_W / 2)) + MARGIN : MARGIN * 2;
   const height = nodes.length > 0 ? Math.max(...nodes.map((n) => n.y + NODE_H)) + MARGIN : MARGIN * 2;
-  return { nodes, byId, couples, links, width, height, rows };
+  // Brothers and sisters with a second family to follow, for the order search.
+  const sets: SiblingSet[] = [];
+  for (const group of groups.values()) {
+    for (const hang of group.hangs) {
+      const kids = sortedAnchored(hang);
+      if (kids.length < 2) continue;
+      const targets = new Map<string, string[]>();
+      for (const kid of kids) {
+        const other = kid.members
+          .filter((m) => m !== kid.anchor && parentsOf.has(m))
+          .map((m) => hangOfChild.get(m)!)
+          .filter((key) => key !== hang.key);
+        if (other.length > 0) targets.set(kid.anchor!, other.sort());
+      }
+      if (targets.size === 0) continue;
+      sets.push({ hangKey: hang.key, row: group.row, order: kids.map((k) => k.anchor!), targets });
+    }
+  }
+  sets.sort((a, b) => a.row - b.row || (a.hangKey < b.hangKey ? -1 : a.hangKey > b.hangKey ? 1 : 0));
+  return { layout: { nodes, byId, couples, links, width, height, rows }, sets };
 }
 
 /** Parents and children of each person, for keyboard movement. */
