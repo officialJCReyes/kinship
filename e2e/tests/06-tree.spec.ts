@@ -165,7 +165,7 @@ test('a brother’s or sister’s partner is in a family view, with a leaf for t
   // Her parents stay behind the leaf, with the right count; her own relationship to Sofia is drawn.
   await expect(person(page, 'Femi', lenaFamily)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Show Lena’s family (2 people)' })).toBeVisible();
-  await expect(page.locator(`[data-union="${unions.lena}"]`)).toBeVisible();
+  await expect(page.locator(`[data-union="${unions.lena}"]`)).toHaveCount(1);
   // Daniel's ex-partner is not part of Marcus's family.
   await expect(person(page, 'Carla')).toHaveCount(0);
   // The counter counts what is drawn, and the legend says where to find anyone else.
