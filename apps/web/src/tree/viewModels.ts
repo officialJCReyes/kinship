@@ -7,6 +7,7 @@ import { familyView, findLeaves, findOtherLeaves } from './family.js';
 import type { Leaf } from './family.js';
 import { layoutTree, relationsOf } from './layout.js';
 import type { Layout } from './layout.js';
+import { layoutDescendants } from './descendantsLayout.js';
 import { layoutPedigree } from './pedigreeLayout.js';
 import type { TreeViewName } from './treeView.js';
 
@@ -78,6 +79,25 @@ export function pedigreeModel(tree: TreeResponse, id: string, gen: number): Char
   return {
     key: `pedigree|${id}|${gen}`,
     view: 'pedigree',
+    focalId: id,
+    shown,
+    people: peopleOf(shown),
+    layout,
+    parents: new Map(),
+    children: new Map(),
+    leaves: new Map(),
+    otherLeaves: new Map(),
+    unionsById: new Map(),
+  };
+}
+
+/** Descendants: everyone below a person, `gen` generations, from a response asked for with the viewer's lineage. */
+export function descendantsModel(tree: TreeResponse, id: string, gen: number): ChartModel {
+  const { layout, ids } = layoutDescendants(tree, id, gen);
+  const shown = justThese(tree, ids);
+  return {
+    key: `descendants|${id}|${gen}`,
+    view: 'descendants',
     focalId: id,
     shown,
     people: peopleOf(shown),
