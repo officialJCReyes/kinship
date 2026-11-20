@@ -16,11 +16,12 @@ import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 import type { Leaf } from './family.js';
 import { prefersReducedMotion } from './motion.js';
 import { recallRoot, rememberRoot } from './remember.js';
+import { FanCanvas } from './FanCanvas.js';
 import { TreeCanvas } from './TreeCanvas.js';
 import { TreePanel } from './TreePanel.js';
 import { AVAILABLE_VIEWS, parseTreeView, treeViewQuery, viewState } from './treeView.js';
 import type { TreeViewName } from './treeView.js';
-import { descendantsModel, familyModel, pedigreeModel } from './viewModels.js';
+import { descendantsModel, familyModel, fanModel, pedigreeModel } from './viewModels.js';
 import type { ChartModel } from './viewModels.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
@@ -91,6 +92,7 @@ export function TreePage() {
   const current = useMemo<ChartModel | null>(() => {
     if (isFamily) return familyModel({ id, of, lineage, main: main.data, family: family.data });
     if (view === 'pedigree') return ancestors.data ? pedigreeModel(ancestors.data, id, gen) : null;
+    if (view === 'fan') return ancestors.data ? fanModel(ancestors.data, id, gen) : null;
     if (view === 'descendants') return descendants.data ? descendantsModel(descendants.data, id, gen) : null;
     return null;
   }, [isFamily, view, id, gen, of, lineage, main.data, family.data, ancestors.data, descendants.data]);
@@ -242,6 +244,36 @@ export function TreePage() {
         string,
       ])
     : null;
+  const topLeft = (
+    <>
+      {of && owner && chartFamily ? (
+        <span className="tree-label">
+          {lineage
+            ? t(`tree.familyOf.${lineage}`, { name: owner.givenName })
+            : t('tree.familyOf', { name: owner.givenName })}
+        </span>
+      ) : null}
+      <TreeSearch onChoose={find} />
+      <span className="tree-count">
+        {t('tree.count', {
+          shown: shown.people.filter((p) => !p.isPlaceholder).length,
+          total: shown.totalPeople,
+        })}
+      </span>
+    </>
+  );
+  const topRight = (
+    <>
+      {me.personId && me.personId !== id ? (
+        <button className="button" type="button" onClick={() => void navigate(rootUrl(me.personId!))}>
+          {t('tree.centerOnMe')}
+        </button>
+      ) : null}
+      {AVAILABLE_VIEWS.length > 1 ? (
+        <ViewSwitcher view={view} gen={gen} views={AVAILABLE_VIEWS} onView={switchView} onGen={switchGen} />
+      ) : null}
+    </>
+  );
   return (
     <div className="tree-page" aria-busy={busy || undefined}>
       <h1 className="sr-only">{t('tree.title')}</h1>
@@ -254,53 +286,37 @@ export function TreePage() {
         expandSignal={found?.n ?? 0}
       />
       <div className={`tree-stage${flip ? ` flip-${flip}` : ''}`}>
-        <TreeCanvas
-          key={chart.key}
-          layout={chart.layout}
-          people={people}
-          focalId={focalId}
-          selectedId={selectedId}
-          leaves={chart.leaves}
-          otherLeaves={chart.otherLeaves}
-          parents={chart.parents}
-          children={chart.children}
-          canEditUnion={canEdit}
-          onSelect={select}
-          onLeaf={openLeaf}
-          onCouple={openUnion}
-          revealRequest={found}
-          view={chart.view}
-          topLeft={
-            <>
-              {of && owner && chartFamily ? (
-                <span className="tree-label">
-                  {lineage
-                    ? t(`tree.familyOf.${lineage}`, { name: owner.givenName })
-                    : t('tree.familyOf', { name: owner.givenName })}
-                </span>
-              ) : null}
-              <TreeSearch onChoose={find} />
-              <span className="tree-count">
-                {t('tree.count', {
-                  shown: shown.people.filter((p) => !p.isPlaceholder).length,
-                  total: shown.totalPeople,
-                })}
-              </span>
-            </>
-          }
-          topRight={
-            <>
-              {me.personId && me.personId !== id ? (
-                <button className="button" type="button" onClick={() => void navigate(rootUrl(me.personId!))}>
-                  {t('tree.centerOnMe')}
-                </button>
-              ) : null}
-              {AVAILABLE_VIEWS.length > 1 ? (
-                <ViewSwitcher view={view} gen={gen} views={AVAILABLE_VIEWS} onView={switchView} onGen={switchGen} />
-              ) : null}
-            </>
-          }
-        />
+        {chart.fan ? (
+          <FanCanvas
+            key={chart.key}
+            layout={chart.fan}
+            people={people}
+            selectedId={selectedId}
+            onSelect={select}
+            topLeft={topLeft}
+            topRight={topRight}
+          />
+        ) : (
+          <TreeCanvas
+            key={chart.key}
+            layout={chart.layout}
+            people={people}
+            focalId={focalId}
+            selectedId={selectedId}
+            leaves={chart.leaves}
+            otherLeaves={chart.otherLeaves}
+            parents={chart.parents}
+            children={chart.children}
+            canEditUnion={canEdit}
+            onSelect={select}
+            onLeaf={openLeaf}
+            onCouple={openUnion}
+            revealRequest={found}
+            view={chart.view}
+            topLeft={topLeft}
+            topRight={topRight}
+          />
+        )}
       </div>
       {editing && names ? (
         <EditUnionDialog

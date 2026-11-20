@@ -924,6 +924,11 @@ export const en = {
   'tree.descendants.noPartner': 'No partner on record',
   'tree.descendants.below.one': '{n} child below',
   'tree.descendants.below.many': '{n} children below',
+  'tree.fan.chartLabel': 'Fan chart',
+  'tree.fan.help':
+    'Arrow keys move between people: up to the father, down towards the person in the middle, left and right around the ring. Enter or Space makes the person the middle of the chart, plus and minus zoom, 0 fits the chart.',
+  'tree.fan.fatherSide': 'father’s side',
+  'tree.fan.motherSide': 'mother’s side',
   'tree.legend.fatherSide': 'Father’s side',
   'tree.legend.motherSide': 'Mother’s side',
   'tree.legend.fanMissing': 'Dashed outline: not on the tree',

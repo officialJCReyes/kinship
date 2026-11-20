@@ -38,6 +38,11 @@
   --g-male: #2f6db5;
   --g-female: #cf4f3b;
   --g-other: #6f7f79;
+  /* The Fan chart: the father's side (green) and the mother's side (amber): a tint for the fill, a darker line. */
+  --side-father: #e1eede;
+  --side-father-line: #4f8a4b;
+  --side-mother: #fcecc8;
+  --side-mother-line: #9a6410;
   --shadow: 0 1px 2px rgba(23, 35, 31, 0.06), 0 4px 14px rgba(23, 35, 31, 0.06);
   /* System fonts only: nothing is fetched from a third party. */
   --display: Georgia, 'Times New Roman', serif;
@@ -72,6 +77,10 @@
   --g-male: #79aef0;
   --g-female: #f08f7c;
   --g-other: #8d9f98;
+  --side-father: #1f3a24;
+  --side-father-line: #8cc488;
+  --side-mother: #3d3014;
+  --side-mother-line: #e3b45e;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.25);
   color-scheme: dark;
 }
@@ -2139,4 +2148,113 @@ pre.code {
 
 .view-group .button:focus-visible {
   outline-offset: -3px;
+}
+
+/* The Fan chart. Colour is never the only cue: the side is also the half of the circle and part of the accessible name. */
+.fan-wedge {
+  cursor: pointer;
+  outline: none;
+}
+
+.fan-wedge path,
+.fan-wedge circle {
+  stroke-width: 1.5;
+}
+
+.fan-wedge.father path {
+  fill: var(--side-father);
+  stroke: var(--side-father-line);
+}
+
+.fan-wedge.mother path {
+  fill: var(--side-mother);
+  stroke: var(--side-mother-line);
+}
+
+.fan-centre circle {
+  fill: var(--panel);
+  stroke: var(--accent);
+}
+
+.fan-wedge.selected path,
+.fan-wedge.selected circle,
+.fan-wedge:focus-visible path,
+.fan-wedge:focus-visible circle {
+  stroke: var(--accent);
+  stroke-width: 3.5;
+}
+
+.fan-wedge:focus-visible path,
+.fan-wedge:focus-visible circle {
+  stroke-dasharray: none;
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+
+.fan-wedge text {
+  pointer-events: none;
+  user-select: none;
+  fill: var(--ink);
+}
+
+.fan-wedge .name {
+  font: 600 12px var(--body);
+}
+
+.fan-wedge .years {
+  fill: var(--muted);
+  font: 10px var(--body);
+}
+
+.fan-missing {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+.fan-missing.father {
+  stroke: var(--side-father-line);
+}
+
+.fan-missing.mother {
+  stroke: var(--side-mother-line);
+}
+
+.legend .swatch.side-father {
+  border-color: var(--side-father-line);
+  background: var(--side-father);
+}
+
+.legend .swatch.side-mother {
+  border-color: var(--side-mother-line);
+  background: var(--side-mother);
+}
+
+.legend .swatch.missing {
+  border-style: dashed;
+  border-color: var(--g-other);
+}
+
+/* Pedigree and Descendants: the heading of a column, and the dashed slot where a parent is not on the tree. */
+.tree-canvas .column-title {
+  fill: var(--muted);
+  font: 600 13px var(--body);
+  user-select: none;
+}
+
+.tree-canvas .empty-slot rect {
+  fill: none;
+  stroke: var(--g-other);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+.tree-canvas .empty-slot text {
+  fill: var(--muted);
+  font: 12px var(--body);
+  user-select: none;
+}
+
+.tnode .note {
+  fill: var(--muted);
+  font: 11px var(--body);
 }

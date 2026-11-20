@@ -72,6 +72,10 @@ const TEXT_PAIRS: Array<[string, string, string]> = [
   ['ink', 'amber-soft', 'text in a warning notice'],
   ['ink', 'info-soft', 'text in an information notice'],
   ['muted', 'info-soft', 'secondary text in an information notice'],
+  ['ink', 'side-father', 'a name on the father’s side of the Fan chart'],
+  ['muted', 'side-father', 'the years on the father’s side of the Fan chart'],
+  ['ink', 'side-mother', 'a name on the mother’s side of the Fan chart'],
+  ['muted', 'side-mother', 'the years on the mother’s side of the Fan chart'],
 ];
 
 describe('the color schemes in styles.css', () => {
@@ -118,6 +122,10 @@ describe('the color schemes in styles.css', () => {
       'g-male',
       'g-female',
       'g-other',
+      'side-father',
+      'side-father-line',
+      'side-mother',
+      'side-mother-line',
     ];
     for (const mode of MODES) {
       const forest = tokensFor('forest', mode);
@@ -161,6 +169,20 @@ describe('the color schemes in styles.css', () => {
         for (const key of ['logo-ink', 'logo-word', 'logo-sail']) {
           expect(contrast(t[key]!, t['panel']!), `${scheme}/${mode} --${key} on --panel`).toBeGreaterThanOrEqual(3);
         }
+      }
+    }
+  });
+
+  it('draws the lines of the Fan chart’s two sides against the page at 3 : 1 or better, in all 8 combinations', () => {
+    for (const scheme of COLOR_SCHEMES) {
+      for (const mode of MODES) {
+        const t = tokensFor(scheme, mode);
+        for (const key of ['side-father-line', 'side-mother-line']) {
+          expect(contrast(t[key]!, t['bg']!), `${scheme}/${mode} --${key} on --bg`).toBeGreaterThanOrEqual(3);
+          expect(contrast(t[key]!, t['panel']!), `${scheme}/${mode} --${key} on --panel`).toBeGreaterThanOrEqual(3);
+        }
+        // The two fills are told apart from each other by more than colour (the half of the circle), and from the page.
+        expect(t['side-father'], `${scheme}/${mode} --side-father`).not.toBe(t['side-mother']);
       }
     }
   });

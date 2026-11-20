@@ -8,6 +8,8 @@ import type { Leaf } from './family.js';
 import { layoutTree, relationsOf } from './layout.js';
 import type { Layout } from './layout.js';
 import { layoutDescendants } from './descendantsLayout.js';
+import { layoutFan } from './fanLayout.js';
+import type { FanLayout } from './fanLayout.js';
 import { layoutPedigree } from './pedigreeLayout.js';
 import type { TreeViewName } from './treeView.js';
 
@@ -19,7 +21,10 @@ export interface ChartModel {
   focalId: string;
   shown: TreeResponse;
   people: Map<string, Person>;
+  /** The cards and lines of every view but the Fan. */
   layout: Layout;
+  /** The wedges of the Fan, which has no cards to lay out (`layout` is then empty). */
+  fan?: FanLayout;
   parents: Map<string, string[]>;
   children: Map<string, string[]>;
   leaves: Map<string, Leaf>;
@@ -102,6 +107,28 @@ export function descendantsModel(tree: TreeResponse, id: string, gen: number): C
     shown,
     people: peopleOf(shown),
     layout,
+    parents: new Map(),
+    children: new Map(),
+    leaves: new Map(),
+    otherLeaves: new Map(),
+    unionsById: new Map(),
+  };
+}
+
+const EMPTY_LAYOUT: Layout = { nodes: [], byId: new Map(), couples: [], links: [], width: 0, height: 0, rows: [] };
+
+/** The Fan: the blood ancestors of a person as rings, `gen` generations, from a response asked for with lineage=birth. */
+export function fanModel(tree: TreeResponse, id: string, gen: number): ChartModel {
+  const { layout, ids } = layoutFan(tree, id, gen);
+  const shown = justThese(tree, ids);
+  return {
+    key: `fan|${id}|${gen}`,
+    view: 'fan',
+    focalId: id,
+    shown,
+    people: peopleOf(shown),
+    layout: EMPTY_LAYOUT,
+    fan: layout,
     parents: new Map(),
     children: new Map(),
     leaves: new Map(),
