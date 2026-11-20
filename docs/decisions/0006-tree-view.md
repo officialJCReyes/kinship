@@ -1,6 +1,6 @@
 # 0006. The Family tree chart
 
-- Status: **Accepted** (brief approved by JC, 2026-11-16). The card's name is amended by [0024](0024-names.md): it shows the name in the viewer's form, so the maiden name is on it by default.
+- Status: **Accepted** (brief approved by JC, 2026-11-16). The card's name is amended by [0024](0024-names.md): it shows the name in the viewer's form, so the maiden name is on it by default. Crossing lines and the order of brothers and sisters are amended by [0025](0025-layout-crossings.md).
 - Date: 2026-11-16
 - Builds on: [0002 Web app](0002-web-app.md), [0005 People, relationships and who may change them](0005-people-and-relationships.md)
 - Sources: `design/kinship-mockup.html` (Family tree chart, spouse's-family leaf and flip), `design/kinship-tree-views-and-dna.md`, `design/kinship-v2-requirements.md` (tree line convention, children hang from the relationship)
