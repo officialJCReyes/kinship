@@ -365,7 +365,7 @@ export function treeFor(
       ...(otherRow ? { otherFamily: { kind: otherKind, count: ancestorsOf(otherParents).size } } : {}),
     };
   });
-  return { lineage, focalId, people, unions, parentage };
+  return { lineage, focalId, totalPeople: PEOPLE.filter((p) => !p.isPlaceholder).length, people, unions, parentage };
 }
 
 /** Routes for a signed-in account over the Hale family. Add more (or override) with `extra`. */

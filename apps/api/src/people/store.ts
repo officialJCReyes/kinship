@@ -112,6 +112,16 @@ export function realPeople(trx: Trx) {
   return trx.selectFrom('people').select(PERSON_COLUMNS).where('is_placeholder', '=', false);
 }
 
+/** How many real people (placeholders left out) the signed-in viewer can see: one count, under row-level security. */
+export async function countPeople(trx: Trx): Promise<number> {
+  const row = await trx
+    .selectFrom('people')
+    .select(sql<string>`count(*)`.as('n'))
+    .where('is_placeholder', '=', false)
+    .executeTakeFirstOrThrow();
+  return Number(row.n);
+}
+
 export function getPerson(trx: Trx, id: string): Promise<PersonRow | undefined> {
   // placeholders: included (one person by id)
   return trx.selectFrom('people').select(PERSON_COLUMNS).where('id', '=', id).executeTakeFirst();
@@ -622,7 +632,17 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
       ...(other === undefined ? {} : { otherFamily: other }),
     };
   });
-  return { lineage: view, focalId: q.focalId, people: treePeople, unions: unions.map(toUnion), parentage };
+  // Everyone this viewer may see, for the chart's "N of M people" counter: one count under row-level security, in this
+  // transaction. Placeholders ("Unknown father") are not people.
+  const total = await countPeople(trx);
+  return {
+    lineage: view,
+    focalId: q.focalId,
+    totalPeople: total,
+    people: treePeople,
+    unions: unions.map(toUnion),
+    parentage,
+  };
 }
 
 /**
