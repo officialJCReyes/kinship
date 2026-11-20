@@ -1889,7 +1889,25 @@ pre.code {
 }
 
 .option input {
-  margin-top: 4px;
+  margin-top: 2px;
+}
+
+/* A checkbox that is easy to hit and shows the same themed focus ring as the selects (the browser's own ring was a thin blue
+   line that ignored the color scheme). */
+.option input[type='checkbox'] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.option input[type='checkbox']:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.option + .option {
+  margin-top: 8px;
 }
 
 .option .block {
