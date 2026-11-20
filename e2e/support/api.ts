@@ -29,6 +29,10 @@ export async function createPerson(
     death?: string;
     secondSurname?: string;
     marriedSurname?: string;
+    namePrefix?: string;
+    nameSuffix?: string;
+    nickname?: string;
+    surnameParticle?: string;
   },
 ): Promise<Made> {
   const body = {
@@ -36,6 +40,10 @@ export async function createPerson(
     surname: input.surname,
     secondSurname: input.secondSurname ?? null,
     marriedSurname: input.marriedSurname ?? null,
+    namePrefix: input.namePrefix ?? null,
+    nameSuffix: input.nameSuffix ?? null,
+    nickname: input.nickname ?? null,
+    surnameParticle: input.surnameParticle ?? null,
     gender: input.gender ?? null,
     birth: input.birth ? { value: input.birth } : null,
     deceased: input.deceased ?? false,

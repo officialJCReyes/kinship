@@ -102,3 +102,40 @@ test('a dialog closes with Escape and gives focus back to the button that opened
   await expect(dialog).toBeHidden();
   await expect(opener).toBeFocused();
 });
+
+test('a prefix, nickname, particle and suffix: shown by default, found by nickname, nickname only on the profile', async ({
+  adminPage: page,
+}) => {
+  const family = surname('Cruz');
+  await page.goto('/people');
+  await page.getByRole('button', { name: 'Add person' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Add person' });
+  await dialog.getByLabel('Prefix (optional)').fill('Dra.');
+  await dialog.getByLabel('Given name').fill('Beatriz');
+  await dialog.getByLabel('Nickname (optional)').fill('Bea');
+  await dialog.getByLabel('Surname particle (optional)').fill('de la');
+  await dialog.getByLabel('Surname', { exact: true }).fill(family);
+  await dialog.getByLabel('Suffix (optional)').fill('Jr.');
+  await dialog.getByRole('button', { name: 'Add person' }).click();
+
+  const full = `Dra. Beatriz de la ${family} Jr.`;
+  await expect(page.getByRole('heading', { name: full, level: 1 })).toBeVisible();
+  const facts = page.locator('dl.facts').first();
+  await expect(facts.getByText('Nickname', { exact: true })).toBeVisible();
+  await expect(facts.getByText('Bea', { exact: true })).toBeVisible();
+  await expect(facts.getByText('Surname particle', { exact: true })).toBeVisible();
+
+  // Search finds the person by the nickname, the particle with the surname, and the prefix.
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'People' }).click();
+  for (const word of ['Bea', `de la ${family}`, 'Dra.']) {
+    await page.getByLabel('Search by name').fill(word);
+    await expect(page.getByRole('link', { name: full })).toBeVisible();
+  }
+
+  // The chart card is named with the shown name, and never with the nickname.
+  const id = (await page.getByRole('link', { name: full }).getAttribute('href'))!.split('/').pop()!;
+  await page.goto(`/tree/${id}`);
+  const card = page.getByRole('button', { name: new RegExp(`^${full.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) });
+  await expect(card).toBeVisible();
+  expect(await card.getAttribute('aria-label')).not.toContain('Bea,');
+});

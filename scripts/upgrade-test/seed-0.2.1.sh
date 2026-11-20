@@ -31,6 +31,8 @@ seed_previous_release() {
   eleanor="$(new_person '{"givenName":"Eleanor","surname":"Brandt","gender":"female","birth":{"value":"1957-06-02"}}')"
   walter="$(new_person '{"givenName":"Walter","surname":"Hale","gender":"male","birth":{"value":"1928-01-09"},"deceased":true,"death":{"value":"2001-11-23"}}')"
   margaret="$(new_person '{"givenName":"Margaret","surname":"Ames","gender":"female","birth":{"value":"1930-04-21"}}')"
+  # Margaret has a married surname, so the new name forms (migration 0017) have something to show.
+  api_patch "/api/people/$margaret" '{"marriedSurname":"Ames Hale"}' >/dev/null
   union_marcus="$(new_union "$marcus" "$eleanor" married 1982-09-18)"
   union_walter="$(new_union "$walter" "$margaret" married 1952-05-03)"
   api_post "/api/people/$marcus/parents" "$(printf '{"parentId":"%s","unionId":"%s"}' "$walter" "$union_walter")" >/dev/null
@@ -49,6 +51,10 @@ seed_previous_release() {
   sql "insert into users (email, display_name, password_hash, role, person_id) values
          ('$member_email', 'Eleanor Hale', '$member_hash', 'member', '$eleanor'),
          ('$user_email', 'Visiting User', '$user_hash', 'user', null)" >/dev/null
+
+  # Migration 0017 moves the surname choice to the new name form: an account on "birth" becomes "maiden" and every other account
+  # "maiden_married". The SuperAdmin and the Member are on the old default (married); the Visiting User chose birth names.
+  sql "update users set surname_choice = 'birth' where email = '$user_email'" >/dev/null
 
   # The Visiting User has no person: an admin links it to Vera through the new route.
   visitor="$(sql "select id from users where email = '$user_email'")"
@@ -81,6 +87,14 @@ assert_seed_after_upgrade() {
   fi
   expect "$vera" "$(sql "select person_id from users where email = '$user_email'")" "the Visiting User's person after the refused second link"
 
+  # Migration 0017 (names): the surname choice moved to the name form, prefixes and suffixes show for every account, the people
+  # got four empty name fields, and Margaret's married surname is still there and searchable.
+  expect "maiden_married maiden_married maiden" "$(sql "select string_agg(name_form, ' ' order by case role when 'superadmin' then 1 when 'member' then 2 else 3 end) from users")" "the name form of the SuperAdmin, the Member and the Visiting User"
+  expect "3" "$(sql 'select count(*) from users where show_prefix and show_suffix')" "accounts that show prefixes and suffixes"
+  expect "birth" "$(sql "select surname_choice from users where email = '$user_email'")" "the old surname choice, kept for the contract step"
+  expect "0" "$(sql 'select count(*) from people where name_prefix is not null or name_suffix is not null or nickname is not null or surname_particle is not null')" "people with a prefix, suffix, nickname or particle"
+  expect "Ames Hale" "$(sql "select married_surname from people where given_name = 'Margaret'")" "Margaret's married surname"
+
   # Through the API, as an admin signed in just for this check: the placeholders are not in the people list, and the 0016 route
   # refuses a second account for Vera and a placeholder. (A fresh cookie jar: the main one may predate a restore.)
   local jar2="$work/assert-cookies.txt" list ids refused
@@ -89,6 +103,9 @@ assert_seed_after_upgrade() {
   list="$(curl -s -b "$jar2" "${base}/api/people?limit=50")"
   expect "9" "$(echo "$list" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))')" "people in GET /api/people (the two placeholders are left out)"
   expect "0" "$(echo "$list" | python3 -c 'import json,sys; print(sum(1 for p in json.load(sys.stdin)["items"] if p.get("isPlaceholder") or not p.get("givenName")))')" "placeholders in GET /api/people"
+  expect "maiden_married" "$(curl -s -b "$jar2" "${base}/api/auth/me" | json "['user']['nameForm']")" "nameForm in GET /api/auth/me"
+  expect "true" "$(curl -s -b "$jar2" "${base}/api/auth/me" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["user"]["showPrefix"]).lower())')" "showPrefix in GET /api/auth/me"
+  expect "1" "$(curl -s -b "$jar2" "${base}/api/people?q=margaret%20hale" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))')" "search for Margaret by her given name and married surname"
   member_id="$(sql "select id from users where email = '$member_email'")"
   refused="$(curl -s -X PUT -b "$jar2" -H 'X-KinShip-Request: 1' -H 'Content-Type: application/json' -H "Origin: ${base}" \
     -d "$(printf '{"personId":"%s","currentPersonId":"%s"}' "$vera" "$eleanor")" "${base}/api/admin/accounts/${member_id}/person")"
