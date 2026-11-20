@@ -211,8 +211,26 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         <h2 className="sr-only">{t('profile.facts')}</h2>
         {person.isPlaceholder ? null : (
           <dl className="facts">
+            {person.namePrefix ? (
+              <>
+                <dt>{t('person.namePrefixFact')}</dt>
+                <dd>{person.namePrefix}</dd>
+              </>
+            ) : null}
             <dt>{t('person.givenName')}</dt>
             <dd>{person.givenName}</dd>
+            {person.nickname ? (
+              <>
+                <dt>{t('person.nicknameFact')}</dt>
+                <dd>{person.nickname}</dd>
+              </>
+            ) : null}
+            {person.surnameParticle ? (
+              <>
+                <dt>{t('person.surnameParticleFact')}</dt>
+                <dd>{person.surnameParticle}</dd>
+              </>
+            ) : null}
             <dt>{t('person.birthSurname')}</dt>
             <dd>{person.surname}</dd>
             {person.secondSurname ? (
@@ -225,6 +243,12 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
               <>
                 <dt>{t('person.marriedSurname')}</dt>
                 <dd>{person.marriedSurname}</dd>
+              </>
+            ) : null}
+            {person.nameSuffix ? (
+              <>
+                <dt>{t('person.nameSuffixFact')}</dt>
+                <dd>{person.nameSuffix}</dd>
               </>
             ) : null}
             <dt>{t('person.born')}</dt>

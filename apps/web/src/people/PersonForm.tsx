@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { GENDERS, NAME_MAX_LENGTH } from '@kinship/shared';
+import { AFFIX_MAX_LENGTH, GENDERS, NAME_MAX_LENGTH } from '@kinship/shared';
 import type { Gender, MessageKey, Person, PersonInput } from '@kinship/shared';
 import { DateInput } from '../components/DateInput.js';
 import { Field } from '../components/Field.js';
@@ -10,10 +10,14 @@ import type { DateDraft } from '../lib/dates.js';
 
 /** What the person form holds while it is being filled in. */
 export interface PersonDraft {
+  namePrefix: string;
   givenName: string;
+  nickname: string;
+  surnameParticle: string;
   surname: string;
   secondSurname: string;
   marriedSurname: string;
+  nameSuffix: string;
   gender: Gender | '';
   birth: DateDraft;
   deceased: boolean;
@@ -22,10 +26,14 @@ export interface PersonDraft {
 
 export function emptyPersonDraft(gender: Gender | '' = ''): PersonDraft {
   return {
+    namePrefix: '',
     givenName: '',
+    nickname: '',
+    surnameParticle: '',
     surname: '',
     secondSurname: '',
     marriedSurname: '',
+    nameSuffix: '',
     gender,
     birth: emptyDateDraft,
     deceased: false,
@@ -35,10 +43,14 @@ export function emptyPersonDraft(gender: Gender | '' = ''): PersonDraft {
 
 export function draftFromPerson(person: Person): PersonDraft {
   return {
+    namePrefix: person.namePrefix ?? '',
     givenName: person.givenName,
+    nickname: person.nickname ?? '',
+    surnameParticle: person.surnameParticle ?? '',
     surname: person.surname,
     secondSurname: person.secondSurname ?? '',
     marriedSurname: person.marriedSurname ?? '',
+    nameSuffix: person.nameSuffix ?? '',
     gender: person.gender ?? '',
     birth: draftFromDate(person.birth),
     deceased: person.deceased,
@@ -70,6 +82,10 @@ export function checkPersonDraft(draft: PersonDraft): { input: PersonInput | nul
       surname: draft.surname.trim(),
       secondSurname: draft.secondSurname.trim() || null,
       marriedSurname: draft.marriedSurname.trim() || null,
+      namePrefix: draft.namePrefix.trim() || null,
+      nameSuffix: draft.nameSuffix.trim() || null,
+      nickname: draft.nickname.trim() || null,
+      surnameParticle: draft.surnameParticle.trim() || null,
       gender: draft.gender === '' ? null : draft.gender,
       birth: birth ?? null,
       deceased: draft.deceased,
@@ -97,6 +113,15 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
     <>
       <div className="grid2">
         <Field
+          label={t('person.namePrefix')}
+          name="namePrefix"
+          autoComplete="off"
+          maxLength={AFFIX_MAX_LENGTH}
+          placeholder={t('person.namePrefixPlaceholder')}
+          value={draft.namePrefix}
+          onChange={(event) => onChange({ ...draft, namePrefix: event.target.value })}
+        />
+        <Field
           label={t('person.givenName')}
           name="givenName"
           autoComplete="off"
@@ -106,6 +131,28 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
           error={showErrors && problems.givenName ? t('error.invalid_given_name') : undefined}
           required
         />
+      </div>
+      <div className="grid2">
+        <Field
+          label={t('person.nickname')}
+          name="nickname"
+          autoComplete="off"
+          maxLength={NAME_MAX_LENGTH}
+          placeholder={t('person.nicknamePlaceholder')}
+          value={draft.nickname}
+          onChange={(event) => onChange({ ...draft, nickname: event.target.value })}
+        />
+        <Field
+          label={t('person.surnameParticle')}
+          name="surnameParticle"
+          autoComplete="off"
+          maxLength={AFFIX_MAX_LENGTH}
+          placeholder={t('person.surnameParticlePlaceholder')}
+          value={draft.surnameParticle}
+          onChange={(event) => onChange({ ...draft, surnameParticle: event.target.value })}
+        />
+      </div>
+      <div className="grid2">
         <Field
           label={t('person.surname')}
           name="surname"
@@ -116,7 +163,17 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
           error={showErrors && problems.surname ? t('error.invalid_surname') : undefined}
           required
         />
+        <Field
+          label={t('person.nameSuffix')}
+          name="nameSuffix"
+          autoComplete="off"
+          maxLength={AFFIX_MAX_LENGTH}
+          placeholder={t('person.nameSuffixPlaceholder')}
+          value={draft.nameSuffix}
+          onChange={(event) => onChange({ ...draft, nameSuffix: event.target.value })}
+        />
       </div>
+      <p className="muted field-help">{t('person.nameFieldsHelp')}</p>
       <div className="grid2">
         <Field
           label={t('person.secondSurname')}
