@@ -490,3 +490,44 @@ describe('generated families keep the invariant', () => {
     expect(adoptedSeen).toBeGreaterThan(20);
   });
 });
+
+describe("a brother's or sister's partner (the chart draws them; the family view trims client-side)", () => {
+  for (const lineage of ['birth', 'adoptive']) {
+    it(`returns the sibling's partner and their children, not the partner's parents (${lineage} view)`, async () => {
+      const mk = (n: string) => insertPersonRow(t.owner, n, 'Sibpartner');
+      const [dad, mum, me, sib, spouse, spouseDad, spouseMum, niece] = [
+        await mk('Dad'),
+        await mk('Mum'),
+        await mk('Me'),
+        await mk('Sib'),
+        await mk('Spouse'),
+        await mk('SpouseDad'),
+        await mk('SpouseMum'),
+        await mk('Niece'),
+      ];
+      const parents = await insertUnionRow(t.owner, dad, mum, 'married');
+      await linkChild(t.owner, me, { union: parents });
+      await linkChild(t.owner, sib, { union: parents });
+      const couple = await insertUnionRow(t.owner, sib, spouse, 'married');
+      await linkChild(t.owner, niece, { union: couple });
+      const inLaws = await insertUnionRow(t.owner, spouseDad, spouseMum, 'married');
+      await linkChild(t.owner, spouse, { union: inLaws });
+
+      const body = await tree(me, `up=3&down=2&collateral=true&lineage=${lineage}`);
+      expectInvariant(body);
+      const present = new Set<string>(body.people.map((p: Json) => p.id));
+      expect(present.has(sib)).toBe(true);
+      expect(present.has(spouse)).toBe(true);
+      expect(present.has(niece)).toBe(true);
+      expect(body.unions.map((u: Json) => u.id)).toContain(couple);
+      expect(body.parentage[niece]).toMatchObject({ unionId: couple });
+      // The partner's parents stay out; the partner gets a leaf with their count.
+      expect(present.has(spouseDad)).toBe(false);
+      expect(present.has(spouseMum)).toBe(false);
+      expect(body.parentage[spouse]).toBeUndefined();
+      const spouseRow = body.people.find((p: Json) => p.id === spouse);
+      expect(spouseRow.hasParents).toBe(true);
+      expect(spouseRow.ancestorCount).toBe(2);
+    });
+  }
+});

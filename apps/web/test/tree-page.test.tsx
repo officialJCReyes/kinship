@@ -204,7 +204,9 @@ describe('the chart', () => {
   it('shows a legend', async () => {
     mockApi(haleRoutes(ADMIN));
     renderApp('/tree/marcus');
-    expect(await screen.findByRole('group', { name: 'Legend' })).toBeTruthy();
+    const legend = await screen.findByRole('group', { name: 'Legend' });
+    expect(legend.textContent).toContain('Someone not on the chart? Search for them above');
+    expect(legend.textContent).not.toMatch(/not drawn/i);
   });
 });
 
