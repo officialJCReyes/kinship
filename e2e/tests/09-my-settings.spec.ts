@@ -199,11 +199,11 @@ test('the Names card: the four forms and the prefix and suffix switches change a
 
   // The switches: prefixes off, then suffixes off.
   await page.goto('/settings');
-  await page.getByLabel('Show prefixes (Dr., Sir)').uncheck();
+  await page.getByLabel('Show prefixes (Dr., Sir)').click();
   await expect(page.getByLabel('Show prefixes (Dr., Sir)')).not.toBeChecked();
   await heading(`Rosa ${married} Jr.`);
   await page.goto('/settings');
-  await page.getByLabel('Show suffixes (Jr., II)').uncheck();
+  await page.getByLabel('Show suffixes (Jr., II)').click();
   await expect(page.getByLabel('Show suffixes (Jr., II)')).not.toBeChecked();
   await heading(`Rosa ${married}`);
   // The profile's Facts still list them: they are the person's data, not a display choice.
