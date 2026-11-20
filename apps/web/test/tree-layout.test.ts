@@ -1,42 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { Parentage, UnionStatus } from '@kinship/shared';
 import { describe, expect, it } from 'vitest';
 import { layoutTree, NODE_H, NODE_W, PITCH } from '../src/tree/layout.js';
 import type { Layout, LayoutInput } from '../src/tree/layout.js';
-
-// A tiny way to write a family down: people by id (with a birth year), relationships, and who hangs from what.
-interface Spec {
-  people: Array<[id: string, birth?: string]>;
-  unions?: Array<[id: string, a: string, b: string, status?: UnionStatus, start?: string]>;
-  /** child -> 'u1' (a relationship) or 'p:someone' (one parent alone). */
-  kids?: Record<string, string>;
-  focal?: string;
-}
-
-function family(spec: Spec): LayoutInput {
-  const parentage: Record<string, Parentage> = {};
-  for (const [child, from] of Object.entries(spec.kids ?? {})) {
-    parentage[child] = from.startsWith('p:')
-      ? { unionId: null, parentId: from.slice(2), kind: 'birth', link: null }
-      : { unionId: from, parentId: null, kind: 'birth', link: null };
-  }
-  return {
-    focalId: spec.focal ?? spec.people[0]![0],
-    people: spec.people.map(([id, birth]) => ({
-      id,
-      givenName: id,
-      surname: 'Test',
-      birth: birth ? { value: birth, precision: 'exactly' as const } : null,
-    })),
-    unions: (spec.unions ?? []).map(([id, a, b, status, start]) => ({
-      id,
-      partnerIds: (a < b ? [a, b] : [b, a]) as [string, string],
-      status: status ?? 'married',
-      start: start ? { value: start, precision: 'exactly' as const } : null,
-    })),
-    parentage,
-  };
-}
+import { bigFamily, family, HALE } from './layout-fixtures.js';
 
 /** The checks every layout has to pass. */
 function expectSound(layout: Layout, input: LayoutInput) {
@@ -89,31 +55,6 @@ function expectAdjacent(layout: Layout, unionId: string) {
 }
 
 const x = (layout: Layout, id: string) => layout.byId.get(id)!.x;
-
-// The Hale family, as in the API tests.
-const HALE: Spec = {
-  focal: 'marcus',
-  people: [
-    ['walter', '1931'],
-    ['rosa', '1934'],
-    ['daniel', '1958'],
-    ['elena', '1960'],
-    ['beatriz', '1965'],
-    ['marcus', '1986'],
-    ['sofia', '1989'],
-    ['gabriel', '2007'],
-    ['tomas', '1994'],
-    ['priya', '1987'],
-    ['leo', '2017'],
-  ],
-  unions: [
-    ['wr', 'walter', 'rosa'],
-    ['de', 'daniel', 'elena', 'divorced', '1984'],
-    ['db', 'daniel', 'beatriz', 'married', '2006'],
-    ['mp', 'marcus', 'priya'],
-  ],
-  kids: { daniel: 'wr', marcus: 'de', sofia: 'de', gabriel: 'db', tomas: 'p:beatriz', leo: 'mp' },
-};
 
 describe('the Hale family', () => {
   const input = family(HALE);
@@ -438,39 +379,6 @@ describe('edge cases', () => {
 });
 
 describe('scale', () => {
-  /** Couples with three children each, three generations deep from `roots` couples. */
-  function bigFamily(target: number): LayoutInput {
-    const people: Array<[string, string]> = [];
-    const unions: NonNullable<Spec['unions']> = [];
-    const kids: Record<string, string> = {};
-    let n = 0;
-    const person = (year: number): string => {
-      n += 1;
-      const id = `p${String(n).padStart(5, '0')}`;
-      people.push([id, String(year)]);
-      return id;
-    };
-    let couples: Array<[string, string]> = [];
-    for (let i = 0; i < 8; i += 1) couples.push([person(1800), person(1801)]);
-    let year = 1825;
-    while (n < target) {
-      const next: Array<[string, string]> = [];
-      for (const [a, b] of couples) {
-        if (n >= target) break;
-        const u = `u${a}`;
-        unions.push([u, a, b]);
-        for (let k = 0; k < 3 && n < target; k += 1) {
-          const child = person(year + k);
-          kids[child] = u;
-          next.push([child, person(year + k + 1)]);
-        }
-      }
-      couples = next;
-      year += 25;
-    }
-    return family({ people, unions, kids });
-  }
-
   for (const size of [161, 2000]) {
     it(`lays out about ${size} people soundly`, () => {
       const input = bigFamily(size);
