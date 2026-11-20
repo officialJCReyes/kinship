@@ -10,7 +10,7 @@ export type TreeViewName = 'family' | 'pedigree' | 'fan' | 'descendants';
  * The views the switcher offers, in order. The list is data: a view that is not ready is simply not in it, and an
  * address that names it falls back to the Family tree.
  */
-export const AVAILABLE_VIEWS: readonly TreeViewName[] = ['family', 'pedigree', 'descendants'];
+export const AVAILABLE_VIEWS: readonly TreeViewName[] = ['family', 'pedigree', 'fan', 'descendants'];
 
 interface Generations {
   min: number;
