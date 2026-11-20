@@ -1,49 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { displayName } from '../lib/names.js';
 import type { Person, UnionStatus } from '@kinship/shared';
-import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { t } from '../i18n.js';
 import { lifespan } from '../lib/people.js';
 import { statusName } from '../lib/labels.js';
-import { fitName } from './cardText.js';
+import { fitName, measureText } from './cardText.js';
 import { initials, leafLabel, nodeLabel, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
 import { NODE_H, NODE_W } from './layout.js';
-import { prefersReducedMotion } from './motion.js';
 import type { Layout, PlacedCouple, PlacedLink, PlacedNode } from './layout.js';
-import { distance, fitView, initialView, reveal, transformOf, zoomAt } from './viewport.js';
-import type { View } from './viewport.js';
+import { Legend } from './Legend.js';
+import type { TreeViewName } from './treeView.js';
+import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
 
 /** Solid line for people who are together, dotted for a relationship that ended or is not a marriage. */
 export const SOLID_STATUSES: readonly UnionStatus[] = ['married', 'engaged', 'partner', 'widowed'];
 export const isSolid = (status: UnionStatus): boolean => SOLID_STATUSES.includes(status);
-
-const DRAG_THRESHOLD = 4;
-const ZOOM_STEP = 1.25;
-/** Below this zoom a box is drawn without its text and glyph: nothing inside it could be read. */
-const SIMPLE_BELOW = 0.3;
-
-interface Region {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  simple: boolean;
-}
-
-/** What to draw for a view: the window with a margin around it (kept while the window stays inside it). */
-function regionFor(v: View, b: { width: number; height: number }, prev: Region | null): Region {
-  const x0 = -v.x / v.k;
-  const y0 = -v.y / v.k;
-  const x1 = x0 + b.width / v.k;
-  const y1 = y0 + b.height / v.k;
-  const simple = v.k < SIMPLE_BELOW;
-  if (prev && prev.simple === simple && x0 >= prev.x0 && y0 >= prev.y0 && x1 <= prev.x1 && y1 <= prev.y1) return prev;
-  const px = (x1 - x0) * 0.75;
-  const py = (y1 - y0) * 0.75;
-  return { x0: x0 - px, y0: y0 - py, x1: x1 + px, y1: y1 + py, simple };
-}
 
 /** The rectangle a link covers (its children and the line down to them), for deciding whether to draw it. */
 function linkBounds(
@@ -51,6 +25,7 @@ function linkBounds(
   coupleById: ReadonlyMap<string, PlacedCouple>,
   link: PlacedLink,
 ): [number, number, number, number] {
+  if (link.bounds) return link.bounds;
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -78,8 +53,14 @@ const NAME_WIDTH = NODE_W - NAME_X - 10;
 const YEARS_LINE = 14;
 const YEARS_GAP = 3;
 
+/** Smaller than the name: the Descendants view lists partners under the dates, on up to two lines. */
+const NOTE_SIZE = 11;
+const NOTE_LINES = 2;
+
 interface NodeProps {
   node: PlacedNode;
+  /** The card's height: NODE_H, or more where there is a note. */
+  height: number;
   person: Person;
   selected: boolean;
   focusable: boolean;
@@ -95,6 +76,7 @@ interface NodeProps {
 
 const TreeNode = memo(function TreeNode({
   node,
+  height,
   person,
   selected,
   focusable,
@@ -117,6 +99,10 @@ const TreeNode = memo(function TreeNode({
       ? person.gender
       : 'other';
   const years = lifespan(person);
+  const noteFit = useMemo(
+    () => (node.note ? fitName(node.note, NAME_WIDTH, measureText, NOTE_LINES, NOTE_SIZE) : null),
+    [node.note],
+  );
   // The name and the dates line are centred together as one block; the dates line is always counted, so a card with no
   // dates is the same height and its name sits where it would.
   const top = (NODE_H - (fit.lines.length * fit.lineHeight + YEARS_GAP + YEARS_LINE)) / 2;
@@ -133,8 +119,8 @@ const TreeNode = memo(function TreeNode({
         onFocus={() => onFocus(person.id)}
       >
         <title>{full}</title>
-        <rect className="ring" x={-5} y={-5} width={NODE_W + 10} height={NODE_H + 10} rx={14} />
-        <rect className="box" width={NODE_W} height={NODE_H} rx={10} />
+        <rect className="ring" x={-5} y={-5} width={NODE_W + 10} height={height + 10} rx={14} />
+        <rect className="box" width={NODE_W} height={height} rx={10} />
         {simple ? null : (
           <>
             <circle className="avatar" cx={25} cy={NODE_H / 2} r={15} />
@@ -159,6 +145,15 @@ const TreeNode = memo(function TreeNode({
             >
               {years}
             </text>
+            {noteFit ? (
+              <text className="note" x={NAME_X} style={{ fontSize: noteFit.size }}>
+                {noteFit.lines.map((line, index) => (
+                  <tspan key={index} x={NAME_X} y={NODE_H - 2 + index * noteFit.lineHeight + noteFit.size * 0.8}>
+                    {line}
+                  </tspan>
+                ))}
+              </text>
+            ) : null}
           </>
         )}
       </g>
@@ -254,6 +249,8 @@ export interface TreeCanvasProps {
   onCouple: (unionId: string) => void;
   /** Scroll this person into view (no zoom change) when `n` changes: the chart's search chose someone already drawn. */
   revealRequest?: { id: string; n: number } | null;
+  /** Which view this is: it sets the first view of the chart and the legend. The default is the Family tree. */
+  view?: TreeViewName;
   topLeft?: ReactNode;
   topRight?: ReactNode;
 }
@@ -272,209 +269,33 @@ export function TreeCanvas(props: TreeCanvasProps) {
     onSelect,
     onLeaf,
     onCouple,
+    view = 'family',
   } = props;
   const helpId = useId();
-  const wrap = useRef<HTMLDivElement>(null);
-  const svg = useRef<SVGSVGElement>(null);
-  const viewport = useRef<SVGGElement>(null);
-  const view = useRef<View>({ k: 1, x: 0, y: 0 });
-  const frame = useRef<number>(0);
-  const [focusId, setFocusId] = useState(selectedId);
-  // What is drawn: the window plus a margin, and whether the boxes are drawn in full. Panning moves one <g> without
-  // touching this; it is looked at again when the pointer stops (so only what is near the window is in the page).
-  const [region, setRegion] = useState<Region>(() => {
-    // Before the first paint, guess the window from the page size so the first render is already trimmed.
-    const guess = { width: Math.max(window.innerWidth - 300, 400), height: Math.max(window.innerHeight - 60, 300) };
-    const focus = layout.byId.get(focalId);
-    const first = initialView(
-      { width: layout.width, height: layout.height },
-      guess,
-      focus && { x: focus.x, y: focus.y + NODE_H / 2 },
-    );
-    return regionFor(first, guess, null);
+  const nodeHeight = layout.nodeHeight ?? NODE_H;
+  const focus = layout.byId.get(focalId);
+  const { wrap, svg, viewport, simple, inView, fit, zoomBy, showRect, drawNow, pointerHandlers } = useChartViewport({
+    content: { width: layout.width, height: layout.height },
+    focus: focus && { x: focus.x, y: focus.y + NODE_H / 2 },
+    start: view === 'family' ? 'family' : 'fit',
   });
-  const cullTimer = useRef(0);
+  const [focusId, setFocusId] = useState(selectedId);
   const pendingFocus = useRef<{ id: string; selector: 'node' | 'leaf' | 'leaf-other' } | null>(null);
-
-  // clientWidth/Height, not getBoundingClientRect: the box is not distorted while the chart is turning.
-  const box = useCallback(() => {
-    const el = wrap.current;
-    return {
-      width: el && el.clientWidth > 0 ? el.clientWidth : 900,
-      height: el && el.clientHeight > 0 ? el.clientHeight : 600,
-    };
-  }, []);
-
-  const cullNow = useCallback(() => {
-    const b = box();
-    const v = view.current;
-    setRegion((prev) => regionFor(v, b, prev));
-  }, [box]);
-  const scheduleCull = useCallback(() => {
-    window.clearTimeout(cullTimer.current);
-    cullTimer.current = window.setTimeout(cullNow, 90);
-  }, [cullNow]);
-  useEffect(() => () => window.clearTimeout(cullTimer.current), []);
-
-  // Panning and zooming move one <g>; React is not involved, so nothing is re-rendered while the pointer moves.
-  const apply = useCallback(
-    (next: View) => {
-      view.current = next;
-      viewport.current?.setAttribute('transform', transformOf(next));
-      scheduleCull();
-    },
-    [scheduleCull],
-  );
-  const animateTo = useCallback(
-    (target: View) => {
-      cancelAnimationFrame(frame.current);
-      if (prefersReducedMotion()) {
-        apply(target);
-        return;
-      }
-      const from = view.current;
-      const started = performance.now();
-      const step = (now: number) => {
-        const p = Math.min(1, (now - started) / 160);
-        const e = 1 - (1 - p) ** 3;
-        apply({
-          k: from.k + (target.k - from.k) * e,
-          x: from.x + (target.x - from.x) * e,
-          y: from.y + (target.y - from.y) * e,
-        });
-        if (p < 1) frame.current = requestAnimationFrame(step);
-      };
-      frame.current = requestAnimationFrame(step);
-    },
-    [apply],
-  );
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
-
-  const fit = useCallback(
-    () => animateTo(fitView({ width: layout.width, height: layout.height }, box())),
-    [animateTo, layout.width, layout.height, box],
-  );
-  const zoomBy = useCallback(
-    (factor: number) => {
-      const b = box();
-      animateTo(zoomAt(view.current, factor, b.width / 2, b.height / 2));
-    },
-    [animateTo, box],
-  );
-
-  // The first view for this chart (the canvas is remounted for a different root, so this runs once per chart).
-  useLayoutEffect(() => {
-    const focus = layout.byId.get(focalId);
-    apply(
-      initialView(
-        { width: layout.width, height: layout.height },
-        box(),
-        focus && { x: focus.x, y: focus.y + NODE_H / 2 },
-      ),
-    );
-    cullNow();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Wheel and trackpad pinch zoom around the pointer. A native listener, because React's wheel is passive.
-  useEffect(() => {
-    const el = svg.current;
-    if (!el) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      cancelAnimationFrame(frame.current);
-      const rect = el.getBoundingClientRect();
-      const factor = Math.exp(-event.deltaY * (event.ctrlKey ? 0.01 : 0.0015));
-      apply(zoomAt(view.current, factor, event.clientX - rect.left, event.clientY - rect.top));
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
-  }, [apply]);
-
-  // Drag to pan, two fingers to pinch. Press on a leaf (or any control) does nothing here, and the pointer is only
-  // captured once the drag really starts, so that a click on a box or a leaf still arrives where it was aimed.
-  const pointers = useRef(new Map<number, { x: number; y: number }>());
-  const gesture = useRef<{ moved: boolean; startX: number; startY: number; origin: View; pinch: number } | null>(null);
-  const suppressClick = useRef(false);
-  const onPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if ((event.target as Element).closest('[data-nopan]')) return;
-    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    cancelAnimationFrame(frame.current);
-    const [first, second] = [...pointers.current.values()];
-    gesture.current = {
-      moved: false,
-      startX: event.clientX,
-      startY: event.clientY,
-      origin: view.current,
-      pinch: first && second ? distance(first, second) : 0,
-    };
-  };
-  const onPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
-    const g = gesture.current;
-    if (!g || !pointers.current.has(event.pointerId)) return;
-    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    const [first, second] = [...pointers.current.values()];
-    const rect = svg.current!.getBoundingClientRect();
-    if (first && second) {
-      const now = distance(first, second);
-      if (g.pinch > 0) {
-        const mid = { x: (first.x + second.x) / 2 - rect.left, y: (first.y + second.y) / 2 - rect.top };
-        apply(zoomAt(view.current, now / g.pinch, mid.x, mid.y));
-      }
-      g.pinch = now;
-      g.moved = true;
-      return;
-    }
-    const dx = event.clientX - g.startX;
-    const dy = event.clientY - g.startY;
-    if (!g.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
-    if (!g.moved) {
-      g.moved = true;
-      svg.current?.setPointerCapture?.(event.pointerId);
-      wrap.current?.classList.add('panning');
-    }
-    apply({ k: g.origin.k, x: g.origin.x + dx, y: g.origin.y + dy });
-  };
-  const endPointer = (event: ReactPointerEvent<SVGSVGElement>) => {
-    if (!pointers.current.delete(event.pointerId)) return;
-    if (gesture.current?.moved) {
-      suppressClick.current = true;
-      setTimeout(() => {
-        suppressClick.current = false;
-      }, 0);
-    }
-    wrap.current?.classList.remove('panning');
-    if (pointers.current.size === 0) gesture.current = null;
-    else if (gesture.current) {
-      const [rest] = [...pointers.current.values()];
-      gesture.current = { ...gesture.current, startX: rest!.x, startY: rest!.y, origin: view.current, pinch: 0 };
-    }
-  };
 
   // Keyboard: one tab stop (the focused box); arrows move along the row, to a parent and to a child.
   const focusNode = useCallback(
     (id: string, selector: 'node' | 'leaf' | 'leaf-other' = 'node') => {
       const placed = layout.byId.get(id);
-      if (placed) {
-        apply(
-          reveal(
-            view.current,
-            { x: placed.x - NODE_W / 2, y: placed.y - 24, width: NODE_W, height: NODE_H + 24 },
-            box(),
-          ),
-        );
-      }
+      if (placed) showRect({ x: placed.x - NODE_W / 2, y: placed.y - 24, width: NODE_W, height: nodeHeight + 24 });
       const el = wrap.current?.querySelector<SVGElement>(`[data-${selector}="${CSS.escape(id)}"]`);
       if (el) el.focus();
       else {
         // Not drawn yet (it was off screen): draw what is now in view, then focus it.
         pendingFocus.current = { id, selector };
-        window.clearTimeout(cullTimer.current);
-        cullNow();
+        drawNow();
       }
     },
-    [layout, apply, box, cullNow],
+    [layout, showRect, drawNow, wrap, nodeHeight],
   );
   // The search chose someone who is drawn: bring their card into view without changing the zoom (the same move as the
   // keyboard makes), and draw it if it was off screen.
@@ -484,10 +305,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
     if (revealN === undefined || revealId === undefined) return;
     const placed = layout.byId.get(revealId);
     if (!placed) return;
-    apply(
-      reveal(view.current, { x: placed.x - NODE_W / 2, y: placed.y - 24, width: NODE_W, height: NODE_H + 24 }, box()),
-    );
-    cullNow();
+    showRect({ x: placed.x - NODE_W / 2, y: placed.y - 24, width: NODE_W, height: nodeHeight + 24 });
+    drawNow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealN]);
   useEffect(() => {
@@ -540,6 +359,20 @@ export function TreeCanvas(props: TreeCanvasProps) {
       }
       return;
     }
+    if (layout.navigate) {
+      // A view with its own idea of "next to": columns of ancestors or descendants.
+      if (
+        event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight' ||
+        event.key === 'ArrowUp' ||
+        event.key === 'ArrowDown'
+      ) {
+        event.preventDefault();
+        const to = layout.navigate(id, event.key);
+        if (to) focusNode(to);
+      }
+      return;
+    }
     let next: string | undefined;
     let as: 'node' | 'leaf' | 'leaf-other' = 'node';
     const row = layout.rows[placed.row] ?? [];
@@ -567,13 +400,6 @@ export function TreeCanvas(props: TreeCanvasProps) {
     if (next) focusNode(next, as);
   };
 
-  const onClickCapture = (event: React.MouseEvent) => {
-    if (suppressClick.current) {
-      event.stopPropagation();
-      event.preventDefault();
-    }
-  };
-
   // Tell screen readers what was selected.
   const selectedPerson = people.get(selectedId);
   const announce = selectedPerson ? t('tree.selected', { name: displayName(selectedPerson) }) : '';
@@ -581,12 +407,6 @@ export function TreeCanvas(props: TreeCanvasProps) {
   const onFocusNode = useCallback((id: string) => setFocusId(id), []);
   const focusableId = layout.byId.has(focusId) ? focusId : layout.byId.has(selectedId) ? selectedId : focalId;
 
-  const inView = useCallback(
-    (x0: number, y0: number, x1: number, y1: number) =>
-      x1 >= region.x0 && x0 <= region.x1 && y1 >= region.y0 && y0 <= region.y1,
-    [region],
-  );
-  const simple = region.simple;
   const bounds = useMemo(() => {
     const coupleById = new Map(layout.couples.map((c) => [c.unionId, c]));
     return new Map(layout.links.map((link) => [link.key, linkBounds(layout, coupleById, link)]));
@@ -597,7 +417,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
         const near =
           node.id === focusableId ||
           node.id === selectedId ||
-          inView(node.x - NODE_W / 2, node.y, node.x + NODE_W / 2, node.y + NODE_H);
+          inView(node.x - NODE_W / 2, node.y, node.x + NODE_W / 2, node.y + nodeHeight);
         if (!near) return null;
         const person = people.get(node.id);
         if (!person) return null;
@@ -605,6 +425,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
           <TreeNode
             key={node.id}
             node={node}
+            height={nodeHeight}
             person={person}
             selected={node.id === selectedId}
             focusable={node.id === focusableId}
@@ -617,7 +438,20 @@ export function TreeCanvas(props: TreeCanvasProps) {
           />
         );
       }),
-    [layout, people, selectedId, focusableId, leaves, otherLeaves, simple, inView, onSelect, onFocusNode, onLeaf],
+    [
+      layout,
+      people,
+      selectedId,
+      focusableId,
+      leaves,
+      otherLeaves,
+      simple,
+      inView,
+      onSelect,
+      onFocusNode,
+      onLeaf,
+      nodeHeight,
+    ],
   );
   const couples = useMemo(
     () =>
@@ -653,11 +487,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
         role="group"
         aria-label={t('tree.chartLabel')}
         aria-describedby={helpId}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endPointer}
-        onPointerCancel={endPointer}
-        onClickCapture={onClickCapture}
+        {...pointerHandlers}
         onKeyDown={onKeyDown}
       >
         <g ref={viewport}>
@@ -669,12 +499,33 @@ export function TreeCanvas(props: TreeCanvasProps) {
             )}
           </g>
           <g className="couples">{couples}</g>
+          {layout.titles?.length || layout.slots?.length ? (
+            <g className="extras" aria-hidden="true">
+              {layout.titles?.map((title) => (
+                <text key={title.key} className="column-title" x={title.x} y={title.y}>
+                  {title.text}
+                </text>
+              ))}
+              {layout.slots?.map((slot) =>
+                inView(slot.x, slot.y, slot.x + NODE_W, slot.y + NODE_H) ? (
+                  <g key={slot.key} className="empty-slot" transform={`translate(${slot.x} ${slot.y})`}>
+                    <rect width={NODE_W} height={NODE_H} rx={10} />
+                    {simple ? null : (
+                      <text x={16} y={NODE_H / 2 + 4}>
+                        {slot.label}
+                      </text>
+                    )}
+                  </g>
+                ) : null,
+              )}
+            </g>
+          ) : null}
           <g className="nodes">{nodes}</g>
         </g>
       </svg>
       <div className="tree-overlay top-left">{props.topLeft}</div>
       <div className="tree-overlay top-right">{props.topRight}</div>
-      <Legend />
+      <Legend view={view} />
       <div className="zoom" role="group" aria-label={t('tree.zoomControls')} data-nopan>
         <button
           className="button"
@@ -713,56 +564,5 @@ export function TreeCanvas(props: TreeCanvasProps) {
         {announce}
       </div>
     </div>
-  );
-}
-
-function Legend() {
-  return (
-    <details className="legend" open>
-      <summary>{t('tree.legend.title')}</summary>
-      <div role="group" aria-label={t('tree.legend.title')} className="legend-rows">
-        <div className="legend-row">
-          <svg width="34" height="10" aria-hidden="true">
-            <path d="M0 5H34" className="swatch-solid" />
-          </svg>
-          <span>{t('tree.legend.together')}</span>
-        </div>
-        <div className="legend-row">
-          <svg width="34" height="10" aria-hidden="true">
-            <path d="M2 5H34" className="swatch-dotted" />
-          </svg>
-          <span>{t('tree.legend.ended')}</span>
-        </div>
-        <div className="legend-row">
-          <span className="swatch male" aria-hidden="true" />
-          <span>{t('person.gender.male')}</span>
-          <span className="swatch female" aria-hidden="true" />
-          <span>{t('person.gender.female')}</span>
-          <span className="swatch other" aria-hidden="true" />
-          <span>{t('tree.legend.genderOther')}</span>
-          <span aria-hidden="true">†</span>
-          <span>{t('tree.legend.deceased')}</span>
-        </div>
-        <div className="legend-row">
-          <span className="swatch placeholder" aria-hidden="true" />
-          <span>{t('tree.legend.placeholder')}</span>
-        </div>
-        <div className="legend-row">
-          <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
-            <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
-          </svg>
-          <span>{t('tree.legend.leaf')}</span>
-        </div>
-        <div className="legend-row">
-          <svg width="14" height="16" viewBox="-10 -22 20 24" aria-hidden="true" className="legend-leaf">
-            <path className="blade" d="M0 0C-8-2-9-13 0-19C9-13 8-2 0 0Z" />
-          </svg>
-          <span>{t('tree.legend.other')}</span>
-        </div>
-        <div className="legend-row">
-          <span>{t('tree.legend.search')}</span>
-        </div>
-      </div>
-    </details>
   );
 }
