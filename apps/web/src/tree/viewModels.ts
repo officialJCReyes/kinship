@@ -7,6 +7,7 @@ import { familyView, findLeaves, findOtherLeaves } from './family.js';
 import type { Leaf } from './family.js';
 import { layoutTree, relationsOf } from './layout.js';
 import type { Layout } from './layout.js';
+import { layoutPedigree } from './pedigreeLayout.js';
 import type { TreeViewName } from './treeView.js';
 
 export interface ChartModel {
@@ -57,5 +58,34 @@ export function familyModel(input: {
     ),
     otherLeaves: new Map(findOtherLeaves(shown, main, of !== null).map((leaf) => [leaf.personId, leaf])),
     unionsById: new Map(shown.unions.map((u) => [u.id, u])),
+  };
+}
+
+/** The people drawn, as a tree response of their own (no relationships between them: the counter and the panel only need the people). */
+const justThese = (tree: TreeResponse, ids: ReadonlySet<string>): TreeResponse => ({
+  lineage: tree.lineage,
+  focalId: tree.focalId,
+  totalPeople: tree.totalPeople,
+  people: tree.people.filter((p) => ids.has(p.id)),
+  unions: [],
+  parentage: {},
+});
+
+/** The Pedigree: the blood ancestors of a person, `gen` generations, from a response asked for with lineage=birth. */
+export function pedigreeModel(tree: TreeResponse, id: string, gen: number): ChartModel {
+  const { layout, ids } = layoutPedigree(tree, id, gen);
+  const shown = justThese(tree, ids);
+  return {
+    key: `pedigree|${id}|${gen}`,
+    view: 'pedigree',
+    focalId: id,
+    shown,
+    people: peopleOf(shown),
+    layout,
+    parents: new Map(),
+    children: new Map(),
+    leaves: new Map(),
+    otherLeaves: new Map(),
+    unionsById: new Map(),
   };
 }
