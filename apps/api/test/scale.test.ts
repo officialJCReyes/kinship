@@ -14,6 +14,8 @@ let cookie: string;
 let total = 0;
 let focal = '';
 let root = '';
+let cousinA = '';
+let cousinB = '';
 
 beforeAll(async () => {
   t = await createTestApp();
@@ -55,6 +57,9 @@ beforeAll(async () => {
   // a person in the middle of the family: a child in the third generation
   focal = generations[2]![10]![0];
   root = generations[0]![0]![0];
+  // second cousins: the blood children of two couples that are siblings' children
+  cousinA = generations[3]![0]![0];
+  cousinB = generations[3]![9]![0];
 }, 120_000);
 afterAll(() => t.close());
 
@@ -341,4 +346,37 @@ describe('ancestorCount at scale', () => {
       `all-kinds walk, same ${ids.length} people: ${/Execution Time: ([0-9.]+) ms/.exec(allKinds.rows.map((r) => r['QUERY PLAN']).join('\n'))?.[1]} ms`,
     );
   }, 120_000);
+
+  it('answers the relationship finder quickly and small, for any two people', async () => {
+    // someone in no family at all: the walk has to look at both sides before it can say so
+    const otherFamily = (
+      await sql<{
+        id: string;
+      }>`insert into people (given_name, surname) values ('Loner', 'Alone') returning id`.execute(t.owner)
+    ).rows[0]!.id;
+    for (const [name, a, b, expected] of [
+      ['second cousins', cousinA, cousinB, 'blood'],
+      ['an ancestor and a descendant', root, cousinA, 'blood'],
+      ['two people with no common family', cousinA, otherFamily, 'none'],
+    ] as const) {
+      const times: number[] = [];
+      let bytes = 0;
+      for (let i = 0; i < 9; i++) {
+        const started = performance.now();
+        const response = await get(`/api/relationship?a=${a}&b=${b}`);
+        times.push(performance.now() - started);
+        expect(response.statusCode).toBe(200);
+        expect((response.json() as { kind: string }).kind).toBe(expected);
+        bytes = response.body.length;
+      }
+      times.sort((x, y) => x - y);
+      const median = times[4]!;
+      console.log(
+        `GET /api/relationship, ${name}, ${total} people: ${bytes} bytes, median ${median.toFixed(1)} ms (best ${times[0]!.toFixed(1)} ms)`,
+      );
+      expect(median).toBeLessThan(100);
+      expect(bytes).toBeLessThan(5_000);
+    }
+    await sql`delete from people where id = ${otherFamily}`.execute(t.owner);
+  });
 });

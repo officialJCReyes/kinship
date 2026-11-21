@@ -34,7 +34,7 @@ afterAll(() => t.close());
 describe('routes', () => {
   it('registers exactly the people, relationship and tree routes the shared package lists', () => {
     const mine = registered
-      .filter((r) => /^\w+ \/api\/(people|unions|labels|tree)/.test(r) && !r.startsWith('HEAD '))
+      .filter((r) => /^\w+ \/api\/(people|unions|labels|tree|relationship)/.test(r) && !r.startsWith('HEAD '))
       .sort();
     const declared = PEOPLE_ROUTES.map((r) => `${r.method} ${r.path}`).sort();
     expect(mine).toEqual(declared);

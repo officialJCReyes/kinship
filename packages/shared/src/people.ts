@@ -445,4 +445,5 @@ export const PEOPLE_ROUTES = [
   { method: 'PATCH', path: '/api/labels/:id', access: 'admin' },
   { method: 'DELETE', path: '/api/labels/:id', access: 'admin' },
   { method: 'GET', path: '/api/tree/:personId', access: 'signed-in' },
+  { method: 'GET', path: '/api/relationship', access: 'signed-in' },
 ] as const satisfies readonly RouteSpec[];

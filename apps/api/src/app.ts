@@ -27,6 +27,7 @@ import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
 import { registerUpdateRoutes } from './routes/updates.js';
 import type { UpdatesService } from './routes/updates.js';
+import { registerRelationshipRoutes } from './routes/relationship.js';
 import { registerTreeRoutes } from './routes/tree.js';
 import { registerUnionRoutes } from './routes/unions.js';
 import type { VersionInfo } from './version.js';
@@ -267,6 +268,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     registerUnionRoutes(routes, limit);
     registerLabelRoutes(routes, limit);
     registerTreeRoutes(routes, limit);
+    registerRelationshipRoutes(routes, limit);
   });
 
   return app;
