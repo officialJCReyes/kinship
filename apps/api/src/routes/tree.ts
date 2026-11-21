@@ -25,7 +25,8 @@ export function registerTreeRoutes(app: FastifyInstance, limit: RouteLimit): voi
           properties: {
             up: generations,
             down: generations,
-            collateral: { type: 'string', enum: ['true', 'false'] },
+            // true: everyone below the topmost ancestors; siblings: only below the person's parents (no aunts, uncles or cousins).
+            collateral: { type: 'string', enum: ['true', 'false', 'siblings'] },
             // Overrides the viewer's own setting, for the flipped family view.
             lineage: { type: 'string', enum: [...LINEAGE_VIEWS] },
           },
@@ -44,7 +45,7 @@ export function registerTreeRoutes(app: FastifyInstance, limit: RouteLimit): voi
           focalId: personId,
           up: clamp(query.up, 3),
           down: clamp(query.down, 2),
-          collateral: query.collateral === 'true',
+          collateral: query.collateral === 'true' ? 'all' : query.collateral === 'siblings' ? 'siblings' : false,
           lineage: query.lineage ?? actor.lineageView,
         });
       });

@@ -23,6 +23,8 @@ const PINNED: Record<string, [number, number, number, number]> = {
   THREE_UNIONS: [1, 0, 0, 3578],
   GENERATIONS: [2, 0, 1, 2526],
   TWO_COUSIN_MARRIAGES: [1, 0, 0, 2208],
+  AUNTS_ALL: [0, 0, 0, 3394],
+  AUNTS_SIBLINGS: [0, 0, 0, 1208],
   'HALE chart of Marcus': [0, 0, 0, 1964],
   'HALE chart of Sofia': [0, 0, 0, 1964],
   'HALE family view of Marcus': [0, 0, 0, 604],
@@ -37,7 +39,7 @@ describe('the layout metric', () => {
 
   it('covers every named family and the Hale sample', () => {
     expect(Object.keys(inputs).sort()).toEqual(Object.keys(PINNED).sort());
-    expect(Object.keys(NAMED_FAMILIES).length).toBe(8);
+    expect(Object.keys(NAMED_FAMILIES).length).toBe(10);
   });
 
   for (const [name, [crossings, overlaps, throughCards, length]] of Object.entries(PINNED)) {

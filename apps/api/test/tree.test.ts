@@ -583,3 +583,100 @@ describe('what the Pedigree, Fan and Descendants views ask for (ADR 0026)', () =
     expectInvariant(four);
   });
 });
+
+describe('collateral=siblings (the chart without aunts, uncles and cousins)', () => {
+  // A great-grandparent couple with two children: the grandparent and a great-uncle (who has a child). The grandparent has
+  // Dad, an uncle (with a partner and a cousin) and an aunt. Dad has Focal and Sis (with a partner and a daughter) with Mum,
+  // and a half-brother with someone else.
+  const build = async () => {
+    const mk = (n: string) => insertPersonRow(t.owner, n, 'Collateral');
+    const ids = {
+      ggp1: await mk('Ggp1'),
+      ggp2: await mk('Ggp2'),
+      gp: await mk('Gp'),
+      gpPartner: await mk('GpPartner'),
+      greatUncle: await mk('GreatUncle'),
+      greatCousin: await mk('GreatCousin'),
+      dad: await mk('Dad'),
+      mum: await mk('Mum'),
+      uncle: await mk('Uncle'),
+      unclePartner: await mk('UnclePartner'),
+      cousin: await mk('Cousin'),
+      aunt: await mk('Aunt'),
+      focal: await mk('Focal'),
+      sis: await mk('Sis'),
+      sisPartner: await mk('SisPartner'),
+      niece: await mk('Niece'),
+      half: await mk('Half'),
+      dadsOther: await mk('DadsOther'),
+    };
+    const gg = await insertUnionRow(t.owner, ids.ggp1, ids.ggp2, 'married');
+    const gpUnion = await insertUnionRow(t.owner, ids.gp, ids.gpPartner, 'married');
+    const dadMum = await insertUnionRow(t.owner, ids.dad, ids.mum, 'married');
+    const dadOther = await insertUnionRow(t.owner, ids.dad, ids.dadsOther, 'divorced');
+    const uncleUnion = await insertUnionRow(t.owner, ids.uncle, ids.unclePartner, 'married');
+    const sisUnion = await insertUnionRow(t.owner, ids.sis, ids.sisPartner, 'married');
+    await linkChild(t.owner, ids.gp, { union: gg });
+    await linkChild(t.owner, ids.greatUncle, { union: gg });
+    await linkChild(t.owner, ids.greatCousin, { parent: ids.greatUncle });
+    for (const c of [ids.dad, ids.uncle, ids.aunt]) await linkChild(t.owner, c, { union: gpUnion });
+    for (const c of [ids.focal, ids.sis]) await linkChild(t.owner, c, { union: dadMum });
+    await linkChild(t.owner, ids.half, { union: dadOther });
+    await linkChild(t.owner, ids.cousin, { union: uncleUnion });
+    await linkChild(t.owner, ids.niece, { union: sisUnion });
+    return ids;
+  };
+  const names = (body: Json) => (body.people as Json[]).map((p) => p.givenName as string).sort();
+
+  it('keeps the person, ancestors, siblings, half-siblings, their partners and descendants, and drops the rest', async () => {
+    const ids = await build();
+    const siblings = await tree(ids.focal, 'up=3&down=2&collateral=siblings');
+    expectInvariant(siblings);
+    expect(names(siblings).filter((n) => !n.startsWith('Probe'))).toEqual(
+      [
+        'DadsOther',
+        'Dad',
+        'Focal',
+        'Ggp1',
+        'Ggp2',
+        'Gp',
+        'GpPartner',
+        'Half',
+        'Mum',
+        'Niece',
+        'Sis',
+        'SisPartner',
+      ].sort(),
+    );
+    // Everything it keeps hangs together as before: the half-brother and the niece are linked to their parents.
+    expect(siblings.parentage[ids.half]).toBeDefined();
+    expect(siblings.parentage[ids.niece]).toBeDefined();
+    expect(siblings.totalPeople).toBe((await tree(ids.focal)).totalPeople);
+  });
+
+  it('collateral=true still draws aunts, uncles, cousins and the great-uncle with his child, and false draws none of the siblings', async () => {
+    const ids = await build();
+    const all = names(await tree(ids.focal, 'up=3&down=2&collateral=true'));
+    for (const n of ['Aunt', 'Uncle', 'UnclePartner', 'Cousin', 'GreatUncle', 'GreatCousin', 'Sis', 'Niece']) {
+      expect(all, n).toContain(n);
+    }
+    const none = names(await tree(ids.focal, 'up=3&down=2&collateral=false'));
+    expect(none).not.toContain('Sis');
+    expect(none).not.toContain('Aunt');
+    // A request without the parameter is `false` too.
+    expect(names(await tree(ids.focal, 'up=3&down=2'))).toEqual(none);
+  });
+
+  it('is a subset of collateral=true, and the person with no parents has no siblings to draw', async () => {
+    const ids = await build();
+    const all = new Set(idsOf(await tree(ids.focal, 'up=3&down=2&collateral=true')));
+    for (const id of idsOf(await tree(ids.focal, 'up=3&down=2&collateral=siblings'))) expect(all.has(id)).toBe(true);
+    const top = await tree(ids.ggp1, 'up=3&down=0&collateral=siblings');
+    expect(names(top)).toEqual(['Ggp1', 'Ggp2']);
+  });
+
+  it('refuses a value that is not true, false or siblings', async () => {
+    const ids = await build();
+    expect((await as('user', 'GET', `/api/tree/${ids.focal}?collateral=some`)).status).toBe(400);
+  });
+});

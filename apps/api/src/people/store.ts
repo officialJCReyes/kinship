@@ -456,8 +456,12 @@ export interface TreeQuery {
   up: number;
   /** Generations of descendants below the focal person. */
   down: number;
-  /** Also include the other descendants of those ancestors (aunts, uncles, cousins...), as far down as the focal person plus `down`. */
-  collateral: boolean;
+  /**
+   * `'all'`: also include the other descendants of the topmost ancestors (aunts, uncles, cousins...), as far down as the focal
+   * person plus `down`. `'siblings'`: only the other descendants of the focal person's parents (brothers and sisters,
+   * half-siblings, their partners and descendants), no aunts, uncles or cousins. `false`: none.
+   */
+  collateral: 'all' | 'siblings' | false;
   /** Which family to follow for adopted people (see kinship_effective_kind in migration 0006). */
   lineage: LineageView;
 }
@@ -504,10 +508,12 @@ export async function loadTree(trx: Trx, q: TreeQuery): Promise<TreeResponse> {
       -- Only the topmost ancestors seed this walk: everyone below a lower ancestor is also below
       -- one of them, and seeding from all of them would walk the same people again and again.
       select a.id, a.depth + ${q.down}::int from ancestors a
-       where ${q.collateral}::boolean
-         and (a.depth = ${q.up}::int
-              or not exists (select 1 from person_parents pp
-                              where pp.child_id = a.id and pp.kind = public.kinship_effective_kind(a.id, ${view})))
+       where (${q.collateral === 'all'}::boolean
+              and (a.depth = ${q.up}::int
+                   or not exists (select 1 from person_parents pp
+                                   where pp.child_id = a.id and pp.kind = public.kinship_effective_kind(a.id, ${view}))))
+          -- 'siblings': the focal person's parents only (depth 1), so nobody above them is a seed
+          or (${q.collateral === 'siblings'}::boolean and a.depth = 1)
       union
       select c.child_id, k.remaining - 1
         from collateral k
