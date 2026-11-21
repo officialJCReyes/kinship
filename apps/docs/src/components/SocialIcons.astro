@@ -1,0 +1,93 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Starlight shows this in the header on wide screens and in the mobile menu, so the way back to the rest of the project
+// website lives here: one "KinShip site" menu, the same links as the site's own navigation.
+import { REPO } from '../../scripts/docs.mjs';
+
+const links = [
+  { label: 'Home', href: '/' },
+  { label: 'Features', href: '/features/' },
+  { label: 'Demo', href: '/demo/' },
+  { label: 'Get started', href: '/get-started/' },
+  { label: 'Docs', href: '/docs/', current: true },
+  { label: 'Roadmap', href: '/roadmap/' },
+  { label: 'About', href: '/about/' },
+  { label: 'GitHub', href: REPO },
+];
+---
+
+<details class="site-menu">
+  <summary>KinShip site</summary>
+  <ul>
+    {
+      links.map((link) => (
+        <li>
+          <a href={link.href} aria-current={link.current ? 'page' : undefined}>
+            {link.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</details>
+
+<style>
+  .site-menu {
+    position: relative;
+    font-size: var(--sl-text-sm);
+  }
+  summary {
+    cursor: pointer;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    color: var(--sl-color-text-accent);
+    list-style: none;
+    white-space: nowrap;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  summary::after {
+    content: ' ▾';
+  }
+  summary:hover {
+    color: var(--sl-color-white);
+  }
+  ul {
+    position: absolute;
+    inset-inline-end: 0;
+    top: calc(100% + 0.4rem);
+    z-index: 10;
+    min-width: 11rem;
+    margin: 0;
+    padding: 0.4rem;
+    list-style: none;
+    background: var(--sl-color-bg-nav);
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+    box-shadow: var(--sl-shadow-md);
+  }
+  li a {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.35rem;
+    color: var(--sl-color-gray-1);
+    text-decoration: none;
+  }
+  li a:hover {
+    background: var(--sl-color-accent-low);
+  }
+  li a[aria-current='page'] {
+    color: var(--sl-color-accent-high);
+    font-weight: 600;
+  }
+  /* In the mobile menu the list sits in the page flow, not over it. */
+  @media (max-width: 49.99rem) {
+    ul {
+      position: static;
+      margin-top: 0.4rem;
+      box-shadow: none;
+    }
+  }
+</style>

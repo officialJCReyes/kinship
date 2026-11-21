@@ -39,11 +39,9 @@ jobs:
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm typecheck
-      # scripts/build-docs.test.mjs builds the website's Docs pages from INSTALL.md and the other documents, so a broken
-      # link in them fails here and not at deploy time. It needs pandoc.
-      - name: Install pandoc (for the docs pages test)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc
       - run: pnpm test:scripts
+      # pnpm build also builds the website's Docs (apps/docs) from INSTALL.md and the other documents, so a broken link in
+      # them fails here and not at deploy time.
       - run: pnpm build
 
   test:
