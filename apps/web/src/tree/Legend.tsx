@@ -11,7 +11,16 @@ function Leaf() {
 }
 
 /** What the lines and colours mean: one row per thing, a few rows for each view (the last one is in every view). */
-export function Legend({ view = 'family', deceasedMark = true }: { view?: TreeViewName; deceasedMark?: boolean }) {
+export function Legend({
+  view = 'family',
+  deceasedMark = true,
+  relativesHidden = false,
+}: {
+  view?: TreeViewName;
+  deceasedMark?: boolean;
+  /** The Family tree is not drawing aunts, uncles and cousins (the setting is off, or this is a family view). */
+  relativesHidden?: boolean;
+}) {
   const cards = view !== 'fan';
   return (
     <details className="legend" open>
@@ -86,6 +95,11 @@ export function Legend({ view = 'family', deceasedMark = true }: { view?: TreeVi
             <span>{t(`tree.legend.${view}`)}</span>
           </div>
         )}
+        {view === 'family' && relativesHidden ? (
+          <div className="legend-row">
+            <span>{t('tree.legend.relativesHidden')}</span>
+          </div>
+        ) : null}
         <div className="legend-row">
           <span>{t('tree.legend.search')}</span>
         </div>

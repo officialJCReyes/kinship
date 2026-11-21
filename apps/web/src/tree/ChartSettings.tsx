@@ -196,6 +196,15 @@ export function ChartSettings({ user }: { user: AuthUser }) {
               />
             </>,
           )}
+          {group(
+            'relatives',
+            <Switch
+              label={t('tree.settings.showExtended')}
+              help={t('tree.settings.showExtendedHelp')}
+              checked={user.showExtendedRelatives}
+              onChange={(value) => change({ showExtendedRelatives: value })}
+            />,
+          )}
           <div className="settings-footer">
             <button
               type="button"

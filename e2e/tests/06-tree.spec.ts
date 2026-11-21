@@ -362,3 +362,63 @@ test('the switcher shows the Pedigree, the Descendants and the Fan, and goes bac
   await expect(page.locator('[data-union]').first()).toBeAttached();
   await expect(switcher).toHaveAccessibleName('Chart view: Family tree');
 });
+
+test('aunts, uncles and cousins are hidden by default, the legend says so, and the gear shows them', async ({
+  adminPage: page,
+}) => {
+  const request = page.request;
+  const api = { headers: { 'X-KinShip-Request': '1', Origin: BASE_URL } };
+  const clan = surname('Brandt');
+  // Walter and Rosa have Daniel and Greta. Daniel has Marcus, who is the home person; Greta has a daughter, Nina.
+  const walter = await createPerson(request, { givenName: 'Walter', surname: clan, gender: 'male', birth: '1930' });
+  const rosa = await createPerson(request, { givenName: 'Rosa', surname: clan, gender: 'female', birth: '1932' });
+  const grandparents = await createUnion(request, walter.id, rosa.id, 'married', '1955');
+  const dan = await createChild(request, walter.id, { givenName: 'Dan', surname: clan, gender: 'male' }, grandparents);
+  const greta = await createChild(
+    request,
+    walter.id,
+    { givenName: 'Greta', surname: clan, gender: 'female' },
+    grandparents,
+  );
+  const mara = await createPerson(request, { givenName: 'Mara', surname: clan, gender: 'female', birth: '1962' });
+  const parents = await createUnion(request, dan.id, mara.id, 'married', '1985');
+  const home = await createChild(request, dan.id, { givenName: 'Homer', surname: clan, gender: 'male' }, parents);
+  const sister = await createChild(request, dan.id, { givenName: 'Sissy', surname: clan, gender: 'female' }, parents);
+  await createChild(request, greta.id, { givenName: 'Nina', surname: clan, gender: 'female' });
+  try {
+    // Hidden by default; the siblings stay. The legend says where the others went (it is open, so this one does not fold it away).
+    await page.goto(`/tree/${home.id}`);
+    await expect(person(page, 'Sissy', clan)).toBeVisible();
+    await expect(person(page, 'Walter', clan)).toBeVisible();
+    await expect(person(page, 'Greta', clan)).toHaveCount(0);
+    await expect(person(page, 'Nina', clan)).toHaveCount(0);
+    await expect(
+      page.getByText(
+        'Aunts, uncles and cousins are hidden. Show them in the chart settings (gear), or search for them above.',
+      ),
+    ).toBeVisible();
+    const count = page.locator('.tree-count');
+    const hidden = (await count.textContent()) ?? '';
+    // Turn them on in the gear: the aunt and the cousin appear, the counter grows, the panel stays open.
+    await page.getByRole('button', { name: 'Chart settings' }).click();
+    const panel = page.getByRole('group', { name: 'Chart settings' });
+    await panel.getByRole('switch', { name: 'Show aunts, uncles and cousins' }).check();
+    await expect(person(page, 'Greta', clan)).toBeVisible();
+    await expect(person(page, 'Nina', clan)).toBeVisible();
+    await expect(count).not.toHaveText(hidden);
+    await expect(panel).toBeVisible();
+    await expect(page.getByText('Aunts, uncles and cousins are hidden.', { exact: false })).toHaveCount(0);
+    // It is the account's setting: a reload keeps it. Restore defaults hides them again.
+    await page.reload();
+    await expect(person(page, 'Greta', clan)).toBeVisible();
+    await page.getByRole('button', { name: 'Chart settings' }).click();
+    await page.getByRole('group', { name: 'Chart settings' }).getByRole('button', { name: 'Restore defaults' }).click();
+    await expect(person(page, 'Greta', clan)).toHaveCount(0);
+    await expect(person(page, 'Sissy', clan)).toBeVisible();
+  } finally {
+    // The shared admin account goes back to the default whatever happened.
+    const restored = await request.patch('/api/auth/me', { ...api, data: { showExtendedRelatives: false } });
+    expect(restored.status()).toBe(200);
+    void sister;
+  }
+});

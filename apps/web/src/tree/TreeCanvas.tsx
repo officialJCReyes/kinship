@@ -263,6 +263,8 @@ export interface TreeCanvasProps {
   view?: TreeViewName;
   topLeft?: ReactNode;
   topRight?: ReactNode;
+  /** The legend says that aunts, uncles and cousins are not drawn. */
+  relativesHidden?: boolean;
 }
 
 export function TreeCanvas(props: TreeCanvasProps) {
@@ -542,7 +544,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
       </svg>
       <div className="tree-overlay top-left">{props.topLeft}</div>
       <div className="tree-overlay top-right">{props.topRight}</div>
-      <Legend view={view} deceasedMark={display.showDeceasedMark} />
+      <Legend view={view} deceasedMark={display.showDeceasedMark} relativesHidden={props.relativesHidden ?? false} />
       <ZoomControls onZoomIn={() => zoomBy(ZOOM_STEP)} onZoomOut={() => zoomBy(1 / ZOOM_STEP)} onFit={fit} />
       <div className="sr-only" role="status" aria-live="polite">
         {announce}
