@@ -316,6 +316,66 @@ export const FIVE_IN_LAW_FAMILIES: Spec = (() => {
   return { focal: 'c1', people, unions, kids };
 })();
 
+/**
+ * A person with an aunt, an uncle (with a partner and a cousin), a great-uncle (with a child), a sister (with a partner and a
+ * daughter) and a half-brother: what the chart draws with "Show aunts, uncles and cousins" on (ADR 0027).
+ */
+export const AUNTS_ALL: Spec = {
+  focal: 'focal',
+  people: [
+    ['ggp1', '1900'],
+    ['ggp2', '1902'],
+    ['gp', '1928'],
+    ['gpp', '1930'],
+    ['greatuncle', '1932'],
+    ['greatcousin', '1960'],
+    ['dad', '1955'],
+    ['mum', '1957'],
+    ['uncle', '1958'],
+    ['unclep', '1959'],
+    ['cousin', '1985'],
+    ['aunt', '1962'],
+    ['focal', '1985'],
+    ['sis', '1988'],
+    ['sisp', '1987'],
+    ['niece', '2015'],
+    ['half', '1975'],
+    ['dadother', '1952'],
+  ],
+  unions: [
+    ['gg', 'ggp1', 'ggp2'],
+    ['gpu', 'gp', 'gpp'],
+    ['dm', 'dad', 'mum'],
+    ['do', 'dad', 'dadother', 'divorced'],
+    ['uu', 'uncle', 'unclep'],
+    ['su', 'sis', 'sisp'],
+  ],
+  kids: {
+    gp: 'gg',
+    greatuncle: 'gg',
+    greatcousin: 'p:greatuncle',
+    dad: 'gpu',
+    uncle: 'gpu',
+    aunt: 'gpu',
+    focal: 'dm',
+    sis: 'dm',
+    half: 'do',
+    cousin: 'uu',
+    niece: 'su',
+  },
+};
+
+/** The same family as `collateral=siblings` draws it: no aunt, uncle, cousin, great-uncle or anyone below them. */
+export const AUNTS_SIBLINGS: Spec = (() => {
+  const hidden = new Set(['greatuncle', 'greatcousin', 'uncle', 'unclep', 'cousin', 'aunt']);
+  return {
+    focal: AUNTS_ALL.focal!,
+    people: AUNTS_ALL.people.filter(([id]) => !hidden.has(id)),
+    unions: AUNTS_ALL.unions!.filter(([, a, b]) => !hidden.has(a) && !hidden.has(b)),
+    kids: Object.fromEntries(Object.entries(AUNTS_ALL.kids!).filter(([child]) => !hidden.has(child))),
+  };
+})();
+
 /** All the named families, for tests that go through every one. */
 export const NAMED_FAMILIES: Record<string, Spec> = {
   HALE,
@@ -326,6 +386,8 @@ export const NAMED_FAMILIES: Record<string, Spec> = {
   THREE_UNIONS,
   GENERATIONS,
   TWO_COUSIN_MARRIAGES,
+  AUNTS_ALL,
+  AUNTS_SIBLINGS,
 };
 
 /** Couples with three children each, three generations deep from eight root couples. */

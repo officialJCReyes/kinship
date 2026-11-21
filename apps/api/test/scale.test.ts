@@ -69,6 +69,7 @@ describe('about 2,000 people', () => {
     for (const query of [
       'up=3&down=3&collateral=false',
       'up=4&down=3&collateral=true',
+      'up=3&down=2&collateral=siblings',
       'up=10&down=10&collateral=true',
     ]) {
       const started = performance.now();
