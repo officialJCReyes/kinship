@@ -104,6 +104,17 @@ describe('the row actions menu', () => {
     await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
   });
 
+  it('stays open when the page scrolls just after it opens (a click scrolls its button into view), and follows the button', async () => {
+    mockApi(routes([marcus, eleanor]));
+    renderApp('/admin/users');
+    const { menu } = await openMenu('Eleanor Hale');
+    fireEvent.scroll(window);
+    fireEvent.scroll(document.body);
+    fireEvent(window, new Event('resize'));
+    expect(screen.getByRole('menu', { name: 'Actions for Eleanor Hale' })).toBe(menu);
+    expect(within(menu).getByRole('menuitem', { name: 'Change role…' })).toBeTruthy();
+  });
+
   it('keeps an unavailable item in the menu, says why in text, and does nothing when it is chosen', async () => {
     mockApi(routes([marcus, otherAdmin, eleanor]));
     renderApp('/admin/users');

@@ -1,0 +1,20 @@
+{
+  "name": "@kinship/docs",
+  "version": "0.2.1",
+  "private": true,
+  "description": "KinShip documentation site (Starlight), published at /docs/ on the project website",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.43.1",
+    "astro": "^7.4.13",
+    "starlight-links-validator": "^0.27.0"
+  }
+}
