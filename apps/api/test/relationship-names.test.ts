@@ -77,7 +77,7 @@ describe('more names, from either side', () => {
     ['priya', 'marcus', 'Husband'],
     ['marcus', 'beatriz', 'Stepmother'],
     ['marcus', 'lucia', 'Grandfather’s ex-wife'],
-    ['marcus', 'anthony', 'Aunt’s separated husband'],
+    ['marcus', 'anthony', 'Aunt’s ex-husband'],
     ['marcus', 'carla', 'Aunt'],
     ['marcus', 'meera', 'Mother-in-law'],
     ['marcus', 'frank', 'No relationship found'],
@@ -102,14 +102,14 @@ describe('more names, from either side', () => {
 describe('who counts as an in-law or a step relative', () => {
   it('uses only Married and Widowed relationships (Separated gives no in-law or step name)', () => {
     // Anthony is separated from Carla, Marcus’s aunt: not an uncle, and not an in-law
-    expect(say('marcus', 'anthony')).toBe('Aunt’s separated husband');
+    expect(say('marcus', 'anthony')).toBe('Aunt’s ex-husband');
     // Elena divorced Daniel and is now married to Raymond: Raymond is Marcus’s stepfather through the current marriage
     expect(say('marcus', 'raymond')).toBe('Stepfather');
   });
 
   it('describes a former partner of a blood relative plainly, by how the relationship ended', () => {
     expect(say('daniel', 'lucia')).toBe('Father’s ex-wife');
-    expect(say('marcus', 'anthony')).toContain('separated');
+    expect(say('marcus', 'anthony')).toBe('Aunt’s ex-husband');
   });
 
   it('never calls a parent through the same relationship a step-parent', () => {

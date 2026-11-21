@@ -722,9 +722,7 @@ function formerPartner(ctx: Context, a: string, b: string): Chained[] {
     if (!found) continue;
     seen.add(relative);
     const owner = bloodNameFor(ctx, found, relative);
-    const label: RelName = {
-      key: `${union.status === 'separated' ? 'rel.separated' : 'rel.ex'}.${sideOf(gender)}` as MessageKey,
-    };
+    const label: RelName = { key: `rel.ex.${sideOf(gender)}` as MessageKey };
     out.push({
       name: possessive(owner, label),
       kind: 'inlaw',
