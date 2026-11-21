@@ -304,6 +304,7 @@ export function TreePage() {
             onSelect={select}
             topLeft={topLeft}
             topRight={topRight}
+            wheel={me.treeWheel}
           />
         ) : (
           <TreeCanvas
@@ -323,6 +324,7 @@ export function TreePage() {
             revealRequest={found}
             view={chart.view}
             relativesHidden={chartFamily && (!me.showExtendedRelatives || of !== null)}
+            wheel={me.treeWheel}
             topLeft={topLeft}
             topRight={topRight}
           />

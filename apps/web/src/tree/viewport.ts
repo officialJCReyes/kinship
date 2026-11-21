@@ -58,6 +58,48 @@ export function initialView(
   return centerOn(focus, OPEN_FIT_MIN_SCALE, box);
 }
 
+/** What the mouse wheel does over a chart (the account's choice in the chart settings, ADR 0027). */
+export type WheelMode = 'zoom' | 'scroll';
+
+/** The parts of a wheel event the chart looks at. */
+export interface WheelInput {
+  deltaX: number;
+  deltaY: number;
+  /** 0: pixels, 1: lines, 2: pages. */
+  deltaMode: number;
+  ctrlKey: boolean;
+  shiftKey: boolean;
+}
+
+const LINE_PX = 16;
+
+/**
+ * What a wheel event does to a view. Ctrl, and a trackpad pinch (which browsers send as a wheel event with Ctrl held), always
+ * zoom around the pointer, much faster than a plain wheel. A plain wheel zooms in 'zoom' mode, and in 'scroll' mode it moves
+ * the chart: `deltaX` and `deltaY` in pixels (lines count 16 px, pages the size of the window), and Shift with a vertical wheel
+ * moves sideways. The pan is not limited, as with dragging.
+ */
+export function wheelView(
+  view: View,
+  input: WheelInput,
+  mode: WheelMode,
+  at: { x: number; y: number },
+  box: { width: number; height: number },
+): View {
+  if (input.ctrlKey || mode === 'zoom') {
+    return zoomAt(view, Math.exp(-input.deltaY * (input.ctrlKey ? 0.01 : 0.0015)), at.x, at.y);
+  }
+  const unit = (axis: 'x' | 'y') =>
+    input.deltaMode === 1 ? LINE_PX : input.deltaMode === 2 ? box[axis === 'x' ? 'width' : 'height'] : 1;
+  let dx = input.deltaX * unit('x');
+  let dy = input.deltaY * unit('y');
+  if (input.shiftKey && dx === 0) {
+    dx = dy;
+    dy = 0;
+  }
+  return { k: view.k, x: view.x - dx, y: view.y - dy };
+}
+
 /** The smallest pan that brings a chart rectangle fully into the box (with a margin); the view if it already is. */
 export function reveal(
   view: View,

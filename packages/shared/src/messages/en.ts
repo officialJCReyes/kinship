@@ -910,6 +910,10 @@ export const en = {
   'tree.settings.showExtendedHelp': 'Off by default. Siblings, their partners, nieces and nephews are always shown.',
   'tree.legend.relativesHidden':
     'Aunts, uncles and cousins are hidden. Show them in the chart settings (gear), or search for them above.',
+  'tree.settings.wheel': 'Mouse wheel',
+  'tree.settings.wheel.zoom': 'Zoom',
+  'tree.settings.wheel.scroll': 'Scroll',
+  'tree.settings.wheelHint': 'Scroll moves the chart. Hold Ctrl or pinch to zoom.',
   'tree.settings.restore': 'Restore defaults',
   'tree.settings.restored': 'Defaults restored.',
   'tree.settings.namesNote': 'Names are shared with My settings and are not reset here.',

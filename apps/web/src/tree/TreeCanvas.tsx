@@ -15,6 +15,7 @@ import type { Layout, PlacedCouple, PlacedLink, PlacedNode } from './layout.js';
 import { Legend } from './Legend.js';
 import { ZoomControls } from './ZoomControls.js';
 import type { TreeViewName } from './treeView.js';
+import type { WheelMode } from './viewport.js';
 import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
 
 /** Solid line for people who are together, dotted for a relationship that ended or is not a marriage. */
@@ -263,6 +264,8 @@ export interface TreeCanvasProps {
   view?: TreeViewName;
   topLeft?: ReactNode;
   topRight?: ReactNode;
+  /** What a plain mouse wheel does (the account's setting). */
+  wheel?: WheelMode;
   /** The legend says that aunts, uncles and cousins are not drawn. */
   relativesHidden?: boolean;
 }
@@ -292,6 +295,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
     content: { width: layout.width, height: layout.height },
     focus: focus && { x: focus.x, y: focus.y + NODE_H / 2 },
     start: view === 'family' ? 'family' : 'fit',
+    wheel: props.wheel ?? 'zoom',
   });
   const [focusId, setFocusId] = useState(selectedId);
   const pendingFocus = useRef<{ id: string; selector: 'node' | 'leaf' | 'leaf-other' } | null>(null);

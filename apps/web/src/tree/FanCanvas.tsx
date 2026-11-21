@@ -13,6 +13,7 @@ import { ringName } from './fanLayout.js';
 import type { FanLayout, FanText, FanWedge } from './fanLayout.js';
 import { Legend } from './Legend.js';
 import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
+import type { WheelMode } from './viewport.js';
 import { ZoomControls } from './ZoomControls.js';
 
 const YEARS_SIZE = 10;
@@ -63,14 +64,17 @@ export interface FanCanvasProps {
   onSelect: (id: string) => void;
   topLeft?: ReactNode;
   topRight?: ReactNode;
+  /** What a plain mouse wheel does (the account's setting). */
+  wheel?: WheelMode;
 }
 
-export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRight }: FanCanvasProps) {
+export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRight, wheel }: FanCanvasProps) {
   const display = useDisplay();
   const helpId = useId();
   const { wrap, svg, viewport, fit, zoomBy, showRect, pointerHandlers } = useChartViewport({
     content: { width: layout.width, height: layout.height },
     start: 'fit',
+    wheel: wheel ?? 'zoom',
   });
   const [focusId, setFocusId] = useState(selectedId);
   const focusableId =
