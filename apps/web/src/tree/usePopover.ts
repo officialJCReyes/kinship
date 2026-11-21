@@ -19,7 +19,9 @@ export function usePopover({ focusOnOpen }: PopoverOptions) {
   const trigger = useRef<HTMLButtonElement>(null);
   const panelId = useId();
   const pick = useRef(focusOnOpen);
-  pick.current = focusOnOpen;
+  useEffect(() => {
+    pick.current = focusOnOpen;
+  });
 
   useEffect(() => {
     if (!open) return;
