@@ -1,0 +1,123 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Starlight's own footer (edit link, previous and next page), then the same footer the rest of the project website has.
+// The version is written as @@VERSION@@ and filled in by the Website workflow, like on every other page (ADR 0022).
+import Default from '@astrojs/starlight/components/Footer.astro';
+import logo from '../assets/kinship-logo-horizontal-reversed.svg';
+import { REPO } from '../../scripts/docs.mjs';
+
+const columns = [
+  {
+    title: 'Project',
+    links: [
+      { label: 'Features', href: '/features/' },
+      { label: 'Roadmap', href: '/roadmap/' },
+      { label: 'Releases', href: `${REPO}/releases` },
+    ],
+  },
+  {
+    title: 'Help',
+    links: [
+      { label: 'Get started', href: '/get-started/' },
+      { label: 'Docs', href: '/docs/' },
+      { label: 'Security', href: '/about/#security' },
+    ],
+  },
+  {
+    title: 'Source',
+    links: [
+      { label: 'GitHub', href: REPO },
+      { label: 'Issues', href: `${REPO}/issues` },
+      { label: 'License', href: `${REPO}/blob/main/LICENSE` },
+    ],
+  },
+];
+---
+
+<Default><slot /></Default>
+
+<div class="site-footer">
+  <div class="top">
+    <div class="about">
+      <img src={logo.src} alt="KinShip" width="118" height="44" />
+      <p>A self-hosted family tree. Free software under the AGPL-3.0-or-later license.</p>
+    </div>
+    {
+      columns.map((column) => (
+        <div class="col">
+          <h2>{column.title}</h2>
+          {column.links.map((link) => (
+            <a href={link.href}>{link.label}</a>
+          ))}
+        </div>
+      ))
+    }
+  </div>
+  <div class="bottom">
+    <span>© KinShip contributors · Version @@VERSION@@</span>
+    <span>The KinShip name and logo are not covered by the AGPL.</span>
+  </div>
+</div>
+
+<style>
+  .site-footer {
+    margin-top: 3rem;
+    background: #1e4d4a;
+    color: #f6f4ec;
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    padding: 2rem 1.5rem 1.25rem;
+  }
+  .about {
+    flex: 1.4 1 16rem;
+  }
+  .about img {
+    height: 2.75rem;
+    width: auto;
+    display: block;
+  }
+  .about p {
+    margin: 0.75rem 0 0;
+    font-size: var(--sl-text-sm);
+    line-height: 1.6;
+    color: #cfe0da;
+    max-width: 22rem;
+  }
+  .col {
+    flex: 1 1 7rem;
+  }
+  .col h2 {
+    margin: 0 0 0.5rem;
+    font-family: var(--sl-font);
+    font-size: var(--sl-text-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #cfe0da;
+    border: 0;
+  }
+  .col a {
+    display: block;
+    padding: 0.25rem 0;
+    font-size: var(--sl-text-sm);
+    color: #f6f4ec;
+    text-decoration: none;
+  }
+  .col a:hover {
+    text-decoration: underline;
+  }
+  .bottom {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem 1.25rem;
+    border-top: 1px solid rgba(246, 244, 236, 0.2);
+    font-size: var(--sl-text-xs);
+    color: #cfe0da;
+  }
+</style>
