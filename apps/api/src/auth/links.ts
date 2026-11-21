@@ -214,3 +214,23 @@ export async function enableAccount(trx: Db, userId: string): Promise<boolean> {
   if (!row) throw new Error('enable_account returned nothing');
   return row.changed;
 }
+
+/** Deletes a disabled account after the typed email matches (migration 0019). The linked person is never touched. */
+export async function deleteAccount(trx: Db, userId: string, confirmEmail: string): Promise<void> {
+  await sql`select kinship_auth.delete_account(${userId}::uuid, ${confirmEmail})`.execute(trx);
+}
+
+export interface DeletePreviewRow {
+  account_role: Role;
+  is_disabled: boolean;
+  people_added: string;
+}
+
+/** Advice before a delete: the same checks as far as the hierarchy, then how many people the account added. */
+export async function deletePreview(trx: Db, userId: string): Promise<DeletePreviewRow> {
+  const result = await sql<DeletePreviewRow>`
+    select account_role, is_disabled, people_added from kinship_auth.delete_preview(${userId}::uuid)`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('delete_preview returned nothing');
+  return row;
+}

@@ -32,6 +32,7 @@ function account(partial: Partial<AccountSummary> & Pick<AccountSummary, 'id' | 
     allowedRoles: [],
     disabledAt: null,
     canDisable: false,
+    canDelete: false,
     lastSuperAdmin: false,
     ...partial,
   };

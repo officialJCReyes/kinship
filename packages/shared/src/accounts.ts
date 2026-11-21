@@ -147,6 +147,8 @@ export interface AccountSummary {
   disabledAt: string | null;
   /** The asking admin may disable this account, or enable it (canDisableAccount), and it is not the last active SuperAdmin. */
   canDisable: boolean;
+  /** The asking admin may delete this account: the same hierarchy, and the account is already disabled. */
+  canDelete: boolean;
   /** This account is the only active SuperAdmin: it can never be demoted, disabled or deleted. */
   lastSuperAdmin: boolean;
 }
@@ -239,6 +241,28 @@ export interface AccountStateLogLine {
   account: string;
 }
 
+/** Body of POST /api/admin/accounts/:id/delete. In a body, not the URL, so the email never reaches a request log. */
+export interface DeleteAccountInput {
+  /** The account's email address, typed by the admin (trimmed, ignoring case). Checked again on the server. */
+  confirmEmail: string;
+}
+
+/** Advice for GET /api/admin/accounts/:id/delete-preview, never a decision (the POST checks everything again). */
+export interface DeleteAccountPreview {
+  accountId: string;
+  role: Role;
+  disabled: boolean;
+  /** People this account added. They stay on the tree, but only an admin can edit them afterwards. */
+  peopleAdded: number;
+}
+
+/** The structured log line for a delete (ADR 0029): ids only, no email or name. */
+export interface AccountDeletedLogLine {
+  event: 'account_deleted';
+  actor: string;
+  account: string;
+}
+
 /** Body of POST /api/links/lookup and /api/links/accept: the token is in the body, never in a URL. */
 export interface LinkLookupRequest {
   token: string;
@@ -314,6 +338,8 @@ export const ACCOUNT_ROUTES = [
   { method: 'PATCH', path: '/api/admin/accounts/:id/role', access: 'admin' },
   { method: 'POST', path: '/api/admin/accounts/:id/disable', access: 'admin' },
   { method: 'POST', path: '/api/admin/accounts/:id/enable', access: 'admin' },
+  { method: 'GET', path: '/api/admin/accounts/:id/delete-preview', access: 'admin' },
+  { method: 'POST', path: '/api/admin/accounts/:id/delete', access: 'admin' },
   { method: 'POST', path: '/api/links/lookup', access: 'public' },
   { method: 'POST', path: '/api/links/accept', access: 'public' },
   { method: 'POST', path: '/api/auth/password', access: 'signed-in' },
