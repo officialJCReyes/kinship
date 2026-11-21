@@ -44,9 +44,12 @@ layout were all hand-written CSS, and there was no search. The Docs are meant to
 - The Docs now add Astro, Starlight and a few hundred packages to the pnpm workspace, the lockfile, the license check and
   Dependabot (the `/apps/*` entry already covers `apps/docs`). They are build tools: nothing from them is in the api or web
   image (both install with `--filter`).
-- The Docs no longer share the site's exact header and footer. They carry the KinShip logo, colours and a link to GitHub; a
-  header link back to the rest of the site and the version in the footer need the Starlight component overrides (not done in
-  this change).
+- The Docs keep Starlight's own header and navigation, with three overrides in `apps/docs/src/components/` so they read as
+  part of the site: the logo links to the site's home page, a "KinShip site" menu (desktop header and mobile menu) lists the
+  site's pages, and the footer ends with the site's footer, including `@@VERSION@@` (filled in by the Website workflow like
+  every other page). Those links start with `/` because the Docs are published at the root of the domain; they are not
+  checked by the links validator (the rest of the site is not part of that build) and do not work under `pnpm --filter
+  @kinship/docs dev`, which serves only the Docs.
 - Opening `site/docs/` from disk was already impossible; preview with `pnpm --filter @kinship/docs dev`.
 - The Website workflow needs Node and pnpm and takes a little longer than the pandoc build did.
 
