@@ -85,7 +85,7 @@ export function TreePage() {
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
-  const main = useQuery({ ...chartQuery(id), enabled: isFamily });
+  const main = useQuery({ ...chartQuery(id, me?.showExtendedRelatives ?? false), enabled: isFamily });
   const family = useQuery({ ...familyQuery(of ?? '', lineage), enabled: of !== null });
   const ancestors = useQuery({ ...ancestorsQuery(id, gen), enabled: view === 'pedigree' || view === 'fan' });
   const descendants = useQuery({ ...descendantsQuery(id, gen), enabled: view === 'descendants' });
@@ -322,6 +322,7 @@ export function TreePage() {
             onCouple={openUnion}
             revealRequest={found}
             view={chart.view}
+            relativesHidden={chartFamily && (!me.showExtendedRelatives || of !== null)}
             topLeft={topLeft}
             topRight={topRight}
           />

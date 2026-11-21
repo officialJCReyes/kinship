@@ -294,7 +294,7 @@ export function treeFor(
     down = 2,
     collateral = false,
     lineage = 'adoptive',
-  }: { up?: number; down?: number; collateral?: boolean; lineage?: LineageView } = {},
+  }: { up?: number; down?: number; collateral?: boolean | 'siblings'; lineage?: LineageView } = {},
 ): TreeResponse {
   const view = lineage;
   const ids = new Set<string>([focalId]);
@@ -317,7 +317,9 @@ export function treeFor(
   walkDown([focalId], down);
   if (collateral) {
     for (const [id, d] of depth) {
-      if (d === up || parentsOfPerson(id, view).length === 0) walkDown([id], d + down);
+      // 'siblings': only below the person's parents (the API's collateral=siblings), so no aunts, uncles or cousins.
+      if (collateral === 'siblings' ? d === 1 : d === up || parentsOfPerson(id, view).length === 0)
+        walkDown([id], d + down);
     }
   }
   const core = [...ids];
@@ -399,7 +401,9 @@ export function haleRoutes(me: AuthUser, extra: Record<string, MockRoute> = {}):
       body: treeFor(id, {
         up: Number(url.searchParams.get('up') ?? 3),
         down: Number(url.searchParams.get('down') ?? 2),
-        collateral: url.searchParams.get('collateral') === 'true',
+        collateral: ((c) => (c === 'true' ? true : c === 'siblings' ? ('siblings' as const) : false))(
+          url.searchParams.get('collateral'),
+        ),
         lineage: (url.searchParams.get('lineage') as LineageView | null) ?? me.lineageView,
       }),
     };

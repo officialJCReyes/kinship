@@ -39,7 +39,7 @@ describe('the chart', () => {
     const fetchMock = mockApi(haleRoutes(ADMIN));
     renderApp('/tree/marcus');
     expect(await screen.findByRole('button', { name: 'Marcus Hale, born 1988, male' })).toBeTruthy();
-    expect(calls(fetchMock)).toContain('GET /api/tree/marcus?up=3&down=2&collateral=true');
+    expect(calls(fetchMock)).toContain('GET /api/tree/marcus?up=3&down=2&collateral=siblings');
     expect(node('Walter Hale, born 1930, died 2005, male')).toBeTruthy();
     expect(node('Lena Okafor, born 1989, other')).toBeTruthy();
 
@@ -261,7 +261,7 @@ describe('where the chart starts', () => {
     const fetchMock = mockApi(haleRoutes(MEMBER));
     renderApp('/tree/daniel');
     fireEvent.click(await screen.findByRole('button', { name: 'Center on me' }));
-    await waitFor(() => expect(calls(fetchMock)).toContain('GET /api/tree/marcus?up=3&down=2&collateral=true'));
+    await waitFor(() => expect(calls(fetchMock)).toContain('GET /api/tree/marcus?up=3&down=2&collateral=siblings'));
   });
 
   it('asks an unlinked account who to start from, with the person picker', async () => {
