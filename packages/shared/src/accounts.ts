@@ -209,6 +209,12 @@ export const ACCOUNT_ERROR_CODES = [
   'role_not_allowed',
   'account_not_found',
   'invalid_current_password',
+  'self_not_allowed',
+  'last_superadmin',
+  'account_role_changed',
+  'account_disabled',
+  'account_not_disabled',
+  'confirmation_mismatch',
 ] as const;
 export type AccountErrorCode = (typeof ACCOUNT_ERROR_CODES)[number];
 
