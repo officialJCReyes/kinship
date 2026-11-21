@@ -1,0 +1,29 @@
+---
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// The logo links to the project website's home page (the docs are one section of that site), not to /docs/.
+import light from '../assets/kinship-logo-horizontal.svg';
+import dark from '../assets/kinship-logo-horizontal-reversed.svg';
+---
+
+<a href="/" class="site-title" aria-label="KinShip home">
+  <img class="light-logo" src={light.src} alt="KinShip" width="118" height="44" />
+  <img class="dark-logo" src={dark.src} alt="" width="118" height="44" />
+</a>
+
+<style>
+  .site-title {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    min-width: 0;
+  }
+  img {
+    height: calc(var(--sl-nav-height) - 2 * var(--sl-nav-pad-y));
+    width: auto;
+    max-width: 100%;
+  }
+  :global(:root[data-theme='dark']) .light-logo,
+  :global(:root:not([data-theme='dark'])) .dark-logo {
+    display: none;
+  }
+</style>

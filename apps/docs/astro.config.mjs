@@ -2,7 +2,7 @@
 import { defineConfig, passthroughImageService } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import starlightLinksValidator from 'starlight-links-validator';
-import { BASE, REPO, starlightSidebar } from './scripts/docs.mjs';
+import { BASE, starlightSidebar } from './scripts/docs.mjs';
 
 // Published under /docs/ on https://kinshiptree.app/ (the Website workflow merges the build into the site).
 export default defineConfig({
@@ -22,10 +22,20 @@ export default defineConfig({
         replacesTitle: true,
       },
       favicon: '/icon.svg',
-      social: [{ icon: 'github', label: 'GitHub', href: REPO }],
       customCss: ['./src/styles/kinship.css'],
+      // The docs wear the project website's header link, logo link and footer (see src/components).
+      components: {
+        SiteTitle: './src/components/SiteTitle.astro',
+        SocialIcons: './src/components/SocialIcons.astro',
+        Footer: './src/components/Footer.astro',
+      },
       sidebar: starlightSidebar(),
-      plugins: [starlightLinksValidator()],
+      // The rest of the project website is not part of this build, so links to it cannot be checked here.
+      plugins: [
+        starlightLinksValidator({
+          exclude: ['/', '/features/**', '/demo/**', '/get-started/**', '/roadmap/**', '/about/**'],
+        }),
+      ],
     }),
   ],
 });
