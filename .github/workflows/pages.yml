@@ -3,9 +3,9 @@
 # Publishes the project website (the static files in site/) to GitHub Pages at https://kinshiptree.app/. Pages must be switched on
 # once by hand: Settings > Pages > Build and deployment > Source: GitHub Actions.
 #
-# The Docs section is not hand-written: scripts/build-docs.mjs turns INSTALL.md, UPGRADE.md and docs/backup-format.md into pages
-# in the site's template on every deploy, so the site always matches the repository (ADR 0023). That is why this workflow also
-# runs when those files change. It needs pandoc.
+# The Docs section is not hand-written: it is a Starlight site (apps/docs) built from INSTALL.md, UPGRADE.md and
+# docs/backup-format.md on every deploy and published under /docs/, so it always matches the repository (ADR 0023, ADR 0030).
+# That is why this workflow also runs when those files change. It needs Node and pnpm, like CI.
 #
 # The current version on the pages is written as @@VERSION@@ in site/ and is filled in here from the latest published GitHub Release,
 # so it never goes ahead of what can be pulled. The site is rebuilt when site/ changes on main, and again whenever the Release workflow
@@ -22,8 +22,9 @@ on:
       - 'INSTALL.md'
       - 'UPGRADE.md'
       - 'docs/backup-format.md'
-      - 'scripts/build-docs.mjs'
-      - 'scripts/site-docs/**'
+      - 'apps/docs/**'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -58,8 +59,16 @@ jobs:
         with:
           ref: main
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
-      - name: Install pandoc (the Docs pages are built from the repository's Markdown)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Node 26 does not bundle corepack. Same pinned version as CI and the Dockerfiles.
+      - name: Enable pnpm (pinned in package.json)
+        run: npm install --global corepack@0.34.6 && corepack enable
+      - name: Build the Docs (Starlight), from the repository's Markdown
+        run: |
+          pnpm install --frozen-lockfile --filter @kinship/docs...
+          pnpm --filter @kinship/docs build
       - name: Fill in the current version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,7 +84,8 @@ jobs:
           rm -rf _site
           cp -R site _site
           rm -f _site/README.md # notes for contributors, not part of the website
-          node scripts/build-docs.mjs _site # the Docs pages, from the repository's Markdown (the version placeholder is filled in below)
+          cp -R apps/docs/dist _site/docs # the Docs, built above; the site keeps its own 404 page at the root
+          rm -f _site/docs/404.html
           find _site -name '*.html' -exec sed -i "s/@@VERSION@@/${version}/g" {} +
           if grep -rq --include='*.html' '@@VERSION@@' _site; then
             echo "::error::A version placeholder was left in the site"

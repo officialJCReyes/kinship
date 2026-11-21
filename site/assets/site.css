@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
-/* KinShip project site. Hand-written, no web fonts and no third-party requests. The Docs pages are built from the repository's Markdown (scripts/build-docs.mjs). */
+/* KinShip project site. Hand-written, no web fonts and no third-party requests. The Docs are a separate Starlight site (apps/docs), published under /docs/. */
 body{margin:0;background:#F6F4EC;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#17231F}
 *{box-sizing:border-box}
 img{max-width:100%}
@@ -50,31 +50,6 @@ code{font-family:ui-monospace,Menlo,Consolas,monospace}
 .body{flex:1;min-width:0;padding-bottom:32px}
 .body h3{font-family:Fraunces,Georgia,serif;font-size:24px;margin:0 0 6px;font-weight:600}
 .body p{margin:0;color:#3F4B47;line-height:1.65;font-size:16px;max-width:720px}
-/* docs */
-.sg{margin:22px 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5B6A65;font-weight:600}
-.sl{display:block;padding:9px 12px;border-radius:8px;color:#17231F;text-decoration:none;font-size:15px}
-.sl:hover{background:#E0EDE1}
-.sa{background:#E0EDE1;color:#1E4D4A;font-weight:600}
-.art h2{font-family:Fraunces,Georgia,serif;font-size:28px;font-weight:600;margin:40px 0 12px;letter-spacing:-0.01em}
-.art h3{font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:600;margin:28px 0 10px}
-.art p{margin:0 0 16px;line-height:1.7;font-size:17px;color:#2B3733}
-.art li{line-height:1.7;font-size:17px;color:#2B3733;margin-bottom:8px}
-.art .code{margin:0 0 20px}
-.art h1{font-weight:600;font-size:44px;line-height:1.1;letter-spacing:-0.02em;margin:10px 0 20px}
-.art ul,.art ol{padding-left:24px;margin:0 0 16px}
-.art li>p{margin:0 0 8px}
-.art li .code{margin:8px 0 14px}
-.art :not(pre)>code{background:#E9ECE9;border-radius:4px;padding:1px 5px;font-size:.9em;overflow-wrap:anywhere}
-.art blockquote{margin:0 0 20px;padding:14px 20px;background:#E0EDE1;border-left:4px solid #1E4D4A;border-radius:0 10px 10px 0}
-.art blockquote p{margin:0}
-.art .tbl{overflow-x:auto;margin:0 0 20px}
-.art table{border-collapse:collapse;width:100%;font-size:15px}
-.art th,.art td{border:1px solid #D9E0DB;padding:10px 12px;text-align:left;vertical-align:top;line-height:1.55}
-.art th{background:#E9ECE9}
-.art .src{margin:40px 0 0;padding-top:20px;border-top:1px solid #D9E0DB;font-size:14px;color:#5B6A65;line-height:1.6}
-@media (max-width:640px){.art h1{font-size:34px}}
-.ol{display:block;padding:6px 0 6px 12px;color:#3F4B47;text-decoration:none;font-size:14px;border-left:2px solid #D9E0DB}
-.ol:hover{color:#1E4D4A;border-left-color:#1E4D4A}
 /* about */
 .sec{display:flex;flex-wrap:wrap;gap:16px 56px;padding:48px 0;border-top:1px solid #D9E0DB}
 .sec h2{flex:0 0 280px;font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;line-height:1.2;margin:0;letter-spacing:-0.01em}

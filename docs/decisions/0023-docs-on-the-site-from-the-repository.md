@@ -1,6 +1,6 @@
 # 0023. The website's Docs are built from the repository's Markdown
 
-- Status: **Accepted** (decision by JC, 2026-11-19)
+- Status: **Superseded by [0030](0030-docs-in-starlight.md)** (was accepted 2026-11-19)
 - Date: 2026-11-19
 - Builds on: [0022 The website shows the latest released version on its own](0022-website-version.md)
 - Code: `scripts/build-docs.mjs`, `scripts/site-docs/`, `.github/workflows/pages.yml`, `scripts/build-docs.test.mjs`. Design note: `design/kinship-website.md`.
