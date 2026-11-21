@@ -153,6 +153,8 @@ describe('the relationship finder page', () => {
     expect(await screen.findByText('No relationship found')).toBeTruthy();
     expect(screen.getByText('Related through adoption. Switch to the adoptive view to see it.')).toBeTruthy();
     expect(screen.queryByText('The path in words')).toBeNull();
+    // The hint replaces the "not connected" line: the two are connected, in the other view
+    expect(screen.queryByText('These two people are not connected on the tree yet.')).toBeNull();
   });
 
   it('gives no adoption hint when the two are unrelated in both views', async () => {

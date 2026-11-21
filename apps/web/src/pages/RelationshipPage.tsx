@@ -38,8 +38,11 @@ function Result({ result }: { result: RelationshipResponse }) {
         {result.kind === 'self' ? <p className="muted">{t('finder.self')}</p> : null}
         {result.kind === 'none' ? (
           <>
-            <p className="muted">{result.tooDistant ? t('finder.tooDistant') : t('finder.noneHelp')}</p>
-            {result.other === 'adoption' ? <p>{t(`finder.adoption.${result.lineage}`)}</p> : null}
+            {result.other === 'adoption' ? (
+              <p>{t(`finder.adoption.${result.lineage}`)}</p>
+            ) : (
+              <p className="muted">{result.tooDistant ? t('finder.tooDistant') : t('finder.noneHelp')}</p>
+            )}
           </>
         ) : null}
         {note ? <p className="muted">{note}</p> : null}
