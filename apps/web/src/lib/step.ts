@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import type { Gender, Person, PersonDetail, TreeResponse, UnionStatus } from '@kinship/shared';
+import { givesStepTitles } from '@kinship/shared';
+import type { Gender, Person, PersonDetail, TreeResponse } from '@kinship/shared';
 import { parentIdsOf, peopleById } from './people.js';
 
-/** Only a Married or Widowed relationship gives step titles; a divorced, separated or unmarried one gives none. */
-export function givesStepTitles(status: UnionStatus): boolean {
-  return status === 'married' || status === 'widowed';
-}
+// Only a Married or Widowed relationship gives step titles; a divorced, separated or unmarried one gives none. The
+// rule lives in the shared package, so the relationship finder follows exactly the same one.
+export { givesStepTitles };
 
 export type StepKind = 'stepparent' | 'stepchild';
 
