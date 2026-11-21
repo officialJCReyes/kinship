@@ -2,7 +2,8 @@
 // Journey 8: names, Widowed and step relatives. A partner is added with a second and a married surname (Facts and
 // the chart show them), marking someone deceased turns their marriage into Widowed and back, a step-parent and a
 // stepchild appear through a Married relationship, and an admin's custom label replaces the derived step title on
-// both profiles of the pair. Fictional Hale-style data only.
+// both profiles of the pair. The relationship finder names the same pair a stepmother and a half-sister, and the
+// custom label then replaces the step headline. Fictional Hale-style data only.
 import type { Page } from '@playwright/test';
 import { createChild, createPerson, createUnion } from '../support/api.js';
 import type { Made } from '../support/api.js';
@@ -137,6 +138,32 @@ test('a step-parent and a stepchild come through the Married relationship, and n
   );
 });
 
+/** Chooses a person in one of the finder's two pickers by typing a name. */
+async function pick(page: Page, picker: 'Person 1' | 'Person 2', given: string, family: string) {
+  await page.getByRole('combobox', { name: picker }).fill(given);
+  await page.getByRole('option', { name: new RegExp(`${given} ${family}`) }).click();
+}
+
+test('the relationship finder calls Elena Carla’s stepmother and Daniel’s other daughter her half-sister', async () => {
+  const page = admin;
+  const sofia = await createChild(page.request, daniel.id, { givenName: 'Sofia', surname: hale, gender: 'female' });
+  await page.goto('/relationship');
+  await pick(page, 'Person 1', 'Carla', nair);
+  await pick(page, 'Person 2', 'Elena', ruiz);
+  const answer = page.getByRole('status').filter({ hasText: 'relationship to' });
+  await expect(answer).toContainText(new RegExp(`Elena ${ruiz}.*relationship to Carla ${nair}`));
+  await expect(answer).toContainText('Stepmother');
+  // The same path, in words, with links to the profiles
+  await expect(page.locator('ol.finder-path').getByRole('link', { name: new RegExp(`Elena ${ruiz}`) })).toBeVisible();
+
+  // Swap to the second person's other daughter: a half-sister through Daniel
+  await page.getByRole('button', { name: 'Change' }).nth(1).click();
+  await pick(page, 'Person 2', 'Sofia', hale);
+  await expect(page.getByRole('status').filter({ hasText: 'Half-sister' })).toBeVisible();
+  expect(page.url()).toContain(`a=${carla.id}`);
+  expect(page.url()).toContain(`b=${sofia.id}`);
+});
+
 test('a custom label between the step pair replaces the derived title on both profiles', async () => {
   const page = admin;
   await page.goto(`/people/${carla.id}`);
@@ -163,4 +190,16 @@ test('a custom label between the step pair replaces the derived title on both pr
   const row = card.getByText(new RegExp(`Carla ${nair}`)).locator('..');
   await expect(row).toContainText(`with Priya ${nair}`);
   await expect(row).not.toContainText('stepdaughter');
+});
+
+test('the finder shows the custom label as the headline instead of Stepmother, and the tree is unchanged', async () => {
+  const page = admin;
+  await page.goto(`/relationship?a=${carla.id}&b=${elena.id}`);
+  const answer = page.getByRole('status').filter({ hasText: 'relationship to' });
+  await expect(answer).toContainText('Godmother');
+  await expect(answer).toContainText('(custom)');
+  await expect(answer).not.toContainText('Stepmother');
+  // A blood relative keeps the derived name: Carla's father is still her Father
+  await page.goto(`/relationship?a=${carla.id}&b=${daniel.id}`);
+  await expect(page.getByRole('status').filter({ hasText: 'Father' })).toBeVisible();
 });
