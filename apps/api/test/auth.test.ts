@@ -59,6 +59,10 @@ describe('POST /api/auth/login', () => {
         nameForm: 'maiden_married',
         showPrefix: true,
         showSuffix: true,
+        treeWheel: 'zoom',
+        treeDefaultView: 'family',
+        showExtendedRelatives: false,
+        showDeceasedMark: true,
         passwordChangedAt: null, // set directly in the database by the test, so how it changed is unknown
         passwordChangedVia: null,
       },

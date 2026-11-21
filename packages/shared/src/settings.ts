@@ -29,6 +29,15 @@ export type DateFormat = (typeof DATE_FORMATS)[number];
 export const NAME_FORMS = ['maiden_married', 'married_born', 'married', 'maiden'] as const;
 export type NameForm = (typeof NAME_FORMS)[number];
 
+/**
+ * The chart's own settings (ADR 0027). `treeWheel`: what the mouse wheel does over a chart. `treeDefaultView`: the chart that
+ * opens first from the menu or after signing in (a link that names a view always wins).
+ */
+export const TREE_WHEELS = ['zoom', 'scroll'] as const;
+export type TreeWheel = (typeof TREE_WHEELS)[number];
+export const TREE_DEFAULT_VIEWS = ['family', 'pedigree', 'fan', 'descendants'] as const;
+export type TreeDefaultView = (typeof TREE_DEFAULT_VIEWS)[number];
+
 /** Everything an account chooses for itself. */
 export interface UserSettings {
   /** Which family this account's charts follow for an adopted person. */
@@ -40,6 +49,12 @@ export interface UserSettings {
   /** Show a person's prefix (Dr., Sir) and suffix (Jr., II). */
   showPrefix: boolean;
   showSuffix: boolean;
+  treeWheel: TreeWheel;
+  treeDefaultView: TreeDefaultView;
+  /** Draw aunts, uncles and cousins in the Family tree (off by default). */
+  showExtendedRelatives: boolean;
+  /** Show † after the name of a person who has died. */
+  showDeceasedMark: boolean;
 }
 
 export const DEFAULT_COLOR_SCHEME: ColorScheme = 'forest';
@@ -48,8 +63,20 @@ export const DEFAULT_DATE_FORMAT: DateFormat = 'mdy';
 export const DEFAULT_NAME_FORM: NameForm = 'maiden_married';
 export const DEFAULT_SHOW_PREFIX = true;
 export const DEFAULT_SHOW_SUFFIX = true;
+export const DEFAULT_TREE_WHEEL: TreeWheel = 'zoom';
+export const DEFAULT_TREE_DEFAULT_VIEW: TreeDefaultView = 'family';
+export const DEFAULT_SHOW_EXTENDED_RELATIVES = false;
+export const DEFAULT_SHOW_DECEASED_MARK = true;
 
-/** What a new account starts with (the same values as the column defaults in migrations 0006, 0010 and 0017). */
+/** The settings that only the chart's gear panel owns, and what "Restore defaults" sets them to (never Names, colors, dates or lineage). */
+export const CHART_SETTING_DEFAULTS = {
+  showDeceasedMark: true,
+  showExtendedRelatives: false,
+  treeWheel: 'zoom',
+  treeDefaultView: 'family',
+} as const satisfies Partial<UserSettings>;
+
+/** What a new account starts with (the same values as the column defaults in migrations 0006, 0010, 0017 and 0018). */
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   lineageView: DEFAULT_LINEAGE_VIEW,
   colorScheme: DEFAULT_COLOR_SCHEME,
@@ -58,6 +85,10 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   nameForm: DEFAULT_NAME_FORM,
   showPrefix: DEFAULT_SHOW_PREFIX,
   showSuffix: DEFAULT_SHOW_SUFFIX,
+  treeWheel: DEFAULT_TREE_WHEEL,
+  treeDefaultView: DEFAULT_TREE_DEFAULT_VIEW,
+  showExtendedRelatives: DEFAULT_SHOW_EXTENDED_RELATIVES,
+  showDeceasedMark: DEFAULT_SHOW_DECEASED_MARK,
 };
 
 /** The error code for each setting that was given a value that is not on its list. */
@@ -69,6 +100,10 @@ export const SETTING_ERROR_CODES = {
   nameForm: 'invalid_name_form',
   showPrefix: 'invalid_show_prefix',
   showSuffix: 'invalid_show_suffix',
+  treeWheel: 'invalid_tree_wheel',
+  treeDefaultView: 'invalid_tree_default_view',
+  showExtendedRelatives: 'invalid_show_extended_relatives',
+  showDeceasedMark: 'invalid_show_deceased_mark',
 } as const;
 export type SettingErrorCode = (typeof SETTING_ERROR_CODES)[keyof typeof SETTING_ERROR_CODES];
 
@@ -81,6 +116,10 @@ const LISTS: { [K in keyof UserSettings]: readonly string[] | 'boolean' } = {
   nameForm: NAME_FORMS,
   showPrefix: 'boolean',
   showSuffix: 'boolean',
+  treeWheel: TREE_WHEELS,
+  treeDefaultView: TREE_DEFAULT_VIEWS,
+  showExtendedRelatives: 'boolean',
+  showDeceasedMark: 'boolean',
 };
 
 export type ParsedSettings =

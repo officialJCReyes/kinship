@@ -81,6 +81,11 @@ export interface Database {
     name_form: Generated<'maiden_married' | 'married_born' | 'married' | 'maiden'>;
     show_prefix: Generated<boolean>;
     show_suffix: Generated<boolean>;
+    /** The chart's own settings (0018). */
+    tree_wheel: Generated<'zoom' | 'scroll'>;
+    tree_default_view: Generated<'family' | 'pedigree' | 'fan' | 'descendants'>;
+    show_extended_relatives: Generated<boolean>;
+    show_deceased_mark: Generated<boolean>;
     /** When the account last signed in, and how its password last changed (0011). null: unknown (older than 0011). */
     last_sign_in_at: Date | null;
     password_changed_at: Date | null;

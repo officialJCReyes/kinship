@@ -111,6 +111,10 @@ describe('POST /api/setup', () => {
         nameForm: 'maiden_married',
         showPrefix: true,
         showSuffix: true,
+        treeWheel: 'zoom',
+        treeDefaultView: 'family',
+        showExtendedRelatives: false,
+        showDeceasedMark: true,
         passwordChangedAt: expect.any(String), // the first account records that its password was set at setup
         passwordChangedVia: 'setup',
       },
@@ -310,7 +314,17 @@ describe('POST /api/setup with the new account’s own display settings', () => 
       t.app,
       '/api/setup',
       body(t.token, {
-        settings: { colorScheme: 'slate', theme: 'dark', dateFormat: 'iso', nameForm: 'maiden', showSuffix: false },
+        settings: {
+          colorScheme: 'slate',
+          theme: 'dark',
+          dateFormat: 'iso',
+          nameForm: 'maiden',
+          showSuffix: false,
+          treeWheel: 'scroll',
+          treeDefaultView: 'pedigree',
+          showExtendedRelatives: true,
+          showDeceasedMark: false,
+        },
       }),
     );
     expect(response.statusCode).toBe(201);
@@ -321,6 +335,10 @@ describe('POST /api/setup with the new account’s own display settings', () => 
       nameForm: 'maiden',
       showPrefix: true,
       showSuffix: false,
+      treeWheel: 'scroll',
+      treeDefaultView: 'pedigree',
+      showExtendedRelatives: true,
+      showDeceasedMark: false,
       lineageView: 'adoptive',
     });
     const stored =

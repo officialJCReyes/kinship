@@ -32,6 +32,10 @@ const settingsOf = async (who: Parameters<typeof as>[0]) => {
     nameForm: user.nameForm,
     showPrefix: user.showPrefix,
     showSuffix: user.showSuffix,
+    treeWheel: user.treeWheel,
+    treeDefaultView: user.treeDefaultView,
+    showExtendedRelatives: user.showExtendedRelatives,
+    showDeceasedMark: user.showDeceasedMark,
   };
 };
 const asUser = <T>(userId: string, fn: Parameters<typeof withUserTransaction<T>>[2]) =>
@@ -48,6 +52,10 @@ describe('defaults', () => {
       nameForm: 'maiden_married',
       showPrefix: true,
       showSuffix: true,
+      treeWheel: 'zoom',
+      treeDefaultView: 'family',
+      showExtendedRelatives: false,
+      showDeceasedMark: true,
     });
     for (const who of WHO) expect(await settingsOf(who), who).toEqual(DEFAULT_USER_SETTINGS);
   });
@@ -71,6 +79,10 @@ describe('PATCH /api/auth/me', () => {
       nameForm: 'maiden',
       showPrefix: false,
       showSuffix: false,
+      treeWheel: 'scroll',
+      treeDefaultView: 'descendants',
+      showExtendedRelatives: true,
+      showDeceasedMark: false,
     };
     const changed = await as('superadmin', 'PATCH', '/api/auth/me', all);
     expect(changed.status).toBe(200);
@@ -82,6 +94,10 @@ describe('PATCH /api/auth/me', () => {
       ['nameForm', ['maiden_married', 'married_born', 'married', 'maiden']],
       ['showPrefix', [true, false]],
       ['showSuffix', [true, false]],
+      ['treeWheel', ['zoom', 'scroll']],
+      ['treeDefaultView', ['family', 'pedigree', 'fan', 'descendants']],
+      ['showExtendedRelatives', [true, false]],
+      ['showDeceasedMark', [true, false]],
       ['lineageView', ['adoptive', 'birth']],
     ] as const) {
       for (const value of values) {
@@ -119,6 +135,11 @@ describe('PATCH /api/auth/me', () => {
       [{ nameForm: 'married_name' }, 'invalid_name_form'],
       [{ showPrefix: 'yes' }, 'invalid_show_prefix'],
       [{ showSuffix: 1 }, 'invalid_show_suffix'],
+      [{ treeWheel: 'spin' }, 'invalid_tree_wheel'],
+      [{ treeDefaultView: 'hourglass' }, 'invalid_tree_default_view'],
+      [{ treeDefaultView: null }, 'invalid_tree_default_view'],
+      [{ showExtendedRelatives: 'yes' }, 'invalid_show_extended_relatives'],
+      [{ showDeceasedMark: 0 }, 'invalid_show_deceased_mark'],
       [{ surnameChoice: 'birth' }, 'invalid_request'],
       [{ lineageView: 'biological' }, 'invalid_lineage'],
       [{ theme: 7 }, 'invalid_theme'],
@@ -153,6 +174,10 @@ describe('PATCH /api/auth/me', () => {
       'invalid_name_form',
       'invalid_show_prefix',
       'invalid_show_suffix',
+      'invalid_tree_wheel',
+      'invalid_tree_default_view',
+      'invalid_show_extended_relatives',
+      'invalid_show_deceased_mark',
     ]) {
       expect(API_ERROR_CODES as readonly string[]).toContain(code);
       expect(en, code).toHaveProperty(`error.${code}`);

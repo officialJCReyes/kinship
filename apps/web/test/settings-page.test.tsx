@@ -163,7 +163,7 @@ describe('My settings', () => {
     expect((screen.getByLabelText('Show prefixes (Dr., Sir)') as HTMLInputElement).checked).toBe(true);
     expect((screen.getByLabelText('Show suffixes (Jr., II)') as HTMLInputElement).checked).toBe(true);
     expect(
-      screen.getByText(/Only you see these choices\. The chart’s gear panel shows the same settings\./),
+      screen.getByText(/Only you see these choices\. The chart’s settings \(gear\) show the same name settings\./),
     ).toBeTruthy();
 
     fireEvent.change(select, { target: { value: 'married_born' } });
