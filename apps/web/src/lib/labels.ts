@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { UNION_STATUSES } from '@kinship/shared';
+import { UNION_STATUSES, unionLabelKey } from '@kinship/shared';
 import type { ChildLink, Gender, LinkKind, MessageKey, PersonLabel, UnionStatus } from '@kinship/shared';
 import { t } from '../i18n.js';
 
@@ -12,11 +12,8 @@ export function unionLabel(status: UnionStatus, partnerGender: Gender | null, pa
   return t(unionLabelKey(status, partnerGender, partnerDeceased));
 }
 
-export function unionLabelKey(status: UnionStatus, partnerGender: Gender | null, partnerDeceased: boolean): MessageKey {
-  const side = partnerGender === 'male' || partnerGender === 'female' ? partnerGender : 'neutral';
-  if (status === 'widowed') return `union.label.widowed.${partnerDeceased ? 'late' : 'survivor'}.${side}` as MessageKey;
-  return `union.label.${status}.${side}` as MessageKey;
-}
+// The wording rule is shared with the relationship finder, so a partner is named the same way everywhere.
+export { unionLabelKey };
 
 /** The raw status, as a word for the pill next to the label. */
 export function statusName(status: UnionStatus): string {
