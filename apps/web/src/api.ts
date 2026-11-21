@@ -4,6 +4,8 @@ import { reportVersionMismatch } from './lib/version-mismatch.js';
 import type {
   AcceptLinkRequest,
   AccountsResponse,
+  ChangeRoleInput,
+  ChangeRoleResponse,
   AddChildRequest,
   AddParentRequest,
   AddSiblingRequest,
@@ -430,6 +432,13 @@ export async function linkAccountPerson(accountId: string, input: LinkPersonInpu
   const reply = await send('PUT', path, input);
   if (reply.status !== 200) fail(path, reply);
   return reply.body as LinkPersonResponse;
+}
+
+export async function changeAccountRole(accountId: string, input: ChangeRoleInput): Promise<ChangeRoleResponse> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/role`;
+  const reply = await send('PATCH', path, input);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as ChangeRoleResponse;
 }
 
 export async function unlinkAccountPerson(accountId: string, currentPersonId: string): Promise<void> {

@@ -2531,3 +2531,33 @@ pre.code {
     font-size: 24px;
   }
 }
+
+/* The actions menu of a table row (RowMenu): drawn on the page body, so a scrolling table cannot clip it. */
+.row-menu-panel {
+  position: fixed;
+  min-width: 240px;
+  max-width: min(320px, calc(100vw - 16px));
+}
+
+.menu-item.unavailable {
+  color: var(--muted);
+  cursor: default;
+}
+
+.menu-item.unavailable:hover,
+.menu-item.unavailable:focus-visible {
+  background: none;
+  color: var(--muted);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.menu-item.danger-text {
+  color: var(--crit);
+}
+
+.menu-reason {
+  display: block;
+  margin-top: 2px;
+  white-space: normal;
+}

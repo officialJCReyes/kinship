@@ -7,10 +7,12 @@ import { useSession } from '../auth.js';
 import { InviteDialog } from '../admin/InviteDialog.js';
 import { LinkDialog } from '../admin/LinkDialog.js';
 import { LinkPersonDialog } from '../admin/LinkPersonDialog.js';
+import { RoleDialog } from '../admin/RoleDialog.js';
 import type { ShownLink } from '../admin/LinkDialog.js';
 import { useAccounts, useRefreshAccounts } from '../admin/queries.js';
 import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
+import { RowMenu, rowMenuButtonId } from '../components/RowMenu.js';
 import { EmptyState, ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { errorMessage } from '../lib/errors.js';
@@ -50,6 +52,7 @@ export function AdminUsersPage() {
   const [shown, setShown] = useState<ShownLink | null>(null);
   const [pending, setPending] = useState<Pending>(null);
   const [linking, setLinking] = useState<AccountSummary | null>(null);
+  const [changingRole, setChangingRole] = useState<AccountSummary | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
 
   if (!me) return <Loading />;
@@ -91,6 +94,9 @@ export function AdminUsersPage() {
       notify('success', t('users.unlink.done', { name }));
       focusPersonButton(accountId);
     });
+
+  const focusMenuButton = (accountId: string) =>
+    window.setTimeout(() => document.getElementById(rowMenuButtonId(accountId))?.focus(), 0);
 
   const busy = pending?.kind === 'busy';
   const nameOf = (account: AccountSummary) => account.displayName ?? account.email;
@@ -198,6 +204,35 @@ export function AdminUsersPage() {
     );
   };
 
+  // The row menu: what else an admin may do to an account. An unavailable item stays and says why.
+  const rowMenu = (account: AccountSummary) => {
+    if (account.kind !== 'account') return null;
+    const name = nameOf(account);
+    const roleReason =
+      account.allowedRoles.length > 0
+        ? undefined
+        : account.id === me.id
+          ? t('users.cannot.self')
+          : account.role === 'superadmin'
+            ? t('users.cannot.superAdminRole')
+            : t('users.cannotManage');
+    return (
+      <RowMenu
+        id={account.id}
+        label={t('users.menu.for', { name })}
+        disabled={busy}
+        items={[
+          {
+            key: 'role',
+            label: t('users.menu.changeRole'),
+            disabledReason: roleReason,
+            onSelect: () => setChangingRole(account),
+          },
+        ]}
+      />
+    );
+  };
+
   return (
     <section className="card">
       <div className="profile-head">
@@ -286,7 +321,10 @@ export function AdminUsersPage() {
                       ''
                     )}
                   </td>
-                  <td>{actions(account)}</td>
+                  <td>
+                    {actions(account)}
+                    {rowMenu(account)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -320,6 +358,24 @@ export function AdminUsersPage() {
             void refresh();
             notify('success', t('users.link.done', { name: nameOf(linking), person: personName }));
             focusPersonButton(id);
+          }}
+        />
+      ) : null}
+      {changingRole ? (
+        <RoleDialog
+          account={changingRole}
+          onClose={() => {
+            const id = changingRole.id;
+            setChangingRole(null);
+            focusMenuButton(id);
+          }}
+          onDone={(role) => {
+            const id = changingRole.id;
+            const name = nameOf(changingRole);
+            setChangingRole(null);
+            void refresh();
+            notify('success', t('users.role.done', { name, role: t(`role.${role}` as MessageKey) }));
+            focusMenuButton(id);
           }}
         />
       ) : null}
