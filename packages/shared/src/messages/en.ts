@@ -914,6 +914,9 @@ export const en = {
   'tree.settings.wheel.zoom': 'Zoom',
   'tree.settings.wheel.scroll': 'Scroll',
   'tree.settings.wheelHint': 'Scroll moves the chart. Hold Ctrl or pinch to zoom.',
+  'tree.settings.defaultView': 'Chart that opens first',
+  'tree.settings.defaultViewHelp':
+    'Used when you open the tree from the menu or after signing in. A link that names a view always wins.',
   'tree.settings.restore': 'Restore defaults',
   'tree.settings.restored': 'Defaults restored.',
   'tree.settings.namesNote': 'Names are shared with My settings and are not reset here.',

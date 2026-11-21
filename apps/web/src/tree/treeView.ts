@@ -66,3 +66,13 @@ export function treeViewQuery(state: TreeViewState): string {
 export function viewState(view: TreeViewName): TreeViewState {
   return view === 'family' ? FAMILY_VIEW : { view, gen: GENERATIONS[view].initial };
 }
+
+/**
+ * Where a chart opens fresh (the Tree tab, and after the first-run setup): the person, in the view the account chose to open
+ * first (ADR 0027). Only these entry points use it. A bare /tree/:id is always the Family tree, an address that names a view
+ * keeps it, and nothing that is already on a chart (Center on me, search, a leaf) goes through here.
+ */
+export function entryAddress(personId: string, view: TreeViewName | undefined): string {
+  const query = treeViewQuery(viewState(view ?? 'family'));
+  return `/tree/${personId}${query ? `?${query}` : ''}`;
+}
