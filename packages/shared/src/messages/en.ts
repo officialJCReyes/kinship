@@ -1271,9 +1271,6 @@ export const en = {
   'rel.ex.male': 'ex-husband',
   'rel.ex.female': 'ex-wife',
   'rel.ex.neutral': 'ex-partner',
-  'rel.separated.male': 'separated husband',
-  'rel.separated.female': 'separated wife',
-  'rel.separated.neutral': 'separated partner',
 
   'notFound.title': 'Page not found',
   'notFound.body': 'There is nothing at this address.',
