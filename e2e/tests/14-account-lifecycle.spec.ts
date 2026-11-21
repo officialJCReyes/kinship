@@ -113,7 +113,7 @@ test('delete needs the typed email, keeps the person, and writes ids-only log li
     .click();
   await expect(row.getByText('Disabled', { exact: true })).toBeVisible();
 
-  ({ row, menu } = await openMenuFor(page, name));
+  ({ menu } = await openMenuFor(page, name));
   await menu.getByRole('menuitem', { name: 'Delete account…' }).click();
   const dialog = page.getByRole('dialog', { name: `Delete the account of ${name}?` });
   await expect(dialog).toContainText('The person it was linked to, and everything on the tree, stays');
