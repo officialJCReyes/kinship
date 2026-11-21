@@ -20,6 +20,17 @@ let unions: { elena: string; carla: string; lena: string };
 const person = (page: import('@playwright/test').Page, given: string, surnameText = family) =>
   page.getByRole('button', { name: new RegExp(`^${given} ${surnameText}`) });
 
+/**
+ * Opens a chart and folds the legend away. A chart that is wider than 0.7 of the window opens centred on the home person (ADR 0027), and
+ * the open legend, bottom left, can then sit on top of a card; how wide a chart is depends on the fonts of the machine, so no test relies on it.
+ */
+async function openChart(page: import('@playwright/test').Page, path: string) {
+  await page.goto(path);
+  const legend = page.locator('details.legend[open] > summary');
+  await expect(page.locator('.tree-canvas')).toBeVisible();
+  if ((await legend.count()) > 0) await legend.click();
+}
+
 test('build a family: two partners, children, an in-law with parents', async ({ adminPage: page }) => {
   const request = page.request;
   daniel = await createPerson(request, { givenName: 'Daniel', surname: family, gender: 'male', birth: '1960' });
@@ -47,7 +58,7 @@ test('build a family: two partners, children, an in-law with parents', async ({ 
 });
 
 test('open the chart, select a person and read the panel', async ({ adminPage: page }) => {
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   const marcus = person(page, 'Marcus');
   await expect(marcus).toHaveAccessibleName(new RegExp(`^Marcus ${family}, male$`));
   await marcus.click();
@@ -96,7 +107,7 @@ test('open the chart, select a person and read the panel', async ({ adminPage: p
 test('a partner’s own child from before is drawn under her, and her ex-partner’s family is not pulled in', async ({
   adminPage: page,
 }) => {
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   await expect(person(page, 'Nico')).toBeVisible();
   await expect(person(page, 'Carla')).toBeVisible();
   const nico = await person(page, 'Nico').boundingBox();
@@ -109,7 +120,7 @@ test('a partner’s own child from before is drawn under her, and her ex-partner
 test('lines: solid for a marriage, dotted for a divorce, and a couple line opens its relationship', async ({
   adminPage: page,
 }) => {
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   await expect(person(page, 'Marcus')).toBeVisible();
   await expect(page.locator(`[data-union="${unions.elena}"] .line`)).toHaveAttribute('data-line', 'solid');
   await expect(page.locator(`[data-union="${unions.carla}"] .line`)).toHaveAttribute('data-line', 'dotted');
@@ -132,7 +143,7 @@ test('lines: solid for a marriage, dotted for a divorce, and a couple line opens
 });
 
 test('the leaf flips to an in-law’s family and back', async ({ adminPage: page }) => {
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   const leaf = page.getByRole('button', { name: 'Show Lena’s family (2 people)' });
   await expect(leaf).toBeVisible();
   // Lena's parents are not on the chart until the leaf is used; a leaf is not on Sofia (her parents are drawn).
@@ -174,7 +185,7 @@ test('a brother’s or sister’s partner is in a family view, with a leaf for t
 });
 
 test('keyboard: one tab stop, arrows move between people, Enter selects', async ({ adminPage: page }) => {
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   const stops = page.locator('[data-node][tabindex="0"]');
   await expect(stops).toHaveCount(1);
   await tabTo(page, stops.first());
@@ -210,7 +221,7 @@ test('cards are one size, show the whole name, and show sex by border colour alo
     { givenName: given, surname: `${family}-Fernandez` },
     unions.elena,
   );
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   const card = page.locator(`[data-node="${long.id}"]`);
   await expect(card).toBeVisible();
   await expect(card).toHaveAccessibleName(`${given} ${family}-Fernandez, unknown`);
@@ -273,7 +284,7 @@ test('search in the chart: by nickname, jump to someone drawn, re-root on someon
     nickname: 'Wally',
   });
 
-  await page.goto(`/tree/${daniel.id}`);
+  await openChart(page, `/tree/${daniel.id}`);
   const counter = page.locator('.tree-count');
   await expect(counter).toHaveText(/^\d+ of \d+ people$/);
   const [, drawn, everyone] = /^(\d+) of (\d+) people$/.exec((await counter.textContent())!)!.map(Number);
@@ -306,7 +317,7 @@ test('search in the chart: by nickname, jump to someone drawn, re-root on someon
 test('the switcher shows the Pedigree, the Descendants and the Fan, and goes back to the Family tree', async ({
   adminPage: page,
 }) => {
-  await page.goto(`/tree/${marcus.id}`);
+  await openChart(page, `/tree/${marcus.id}`);
   const switcher = page.getByRole('button', { name: /^Chart view:/ });
   await expect(switcher).toHaveAccessibleName('Chart view: Family tree');
   const choose = async (name: string) => {
@@ -341,7 +352,7 @@ test('the switcher shows the Pedigree, the Descendants and the Fan, and goes bac
   await expect(page.getByRole('group', { name: 'View' })).toHaveCount(0);
 
   // Fan: Marcus in the middle, his father on the father's side.
-  await page.goto(`/tree/${marcus.id}?view=fan`);
+  await openChart(page, `/tree/${marcus.id}?view=fan`);
   await expect(page.getByRole('button', { name: new RegExp(`^Daniel ${family}.*father’s side$`) })).toBeVisible();
   await expect(page.getByRole('button', { name: new RegExp(`^Elena ${family}.*mother’s side$`) })).toBeVisible();
 
