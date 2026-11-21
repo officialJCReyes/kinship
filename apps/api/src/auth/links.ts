@@ -195,3 +195,22 @@ export async function changeAccountRole(trx: Db, userId: string, role: Role, exp
   if (!row) throw new Error('change_account_role returned nothing');
   return row.previous_role;
 }
+
+/** Disables the account: sessions deleted, open set-password link revoked (migration 0019). `changed` is false when it already was. */
+export async function disableAccount(trx: Db, userId: string): Promise<{ changed: boolean; disabledAt: Date }> {
+  const result = await sql<{ changed: boolean; disabled_at: Date }>`
+    select changed, disabled_at from kinship_auth.disable_account(${userId}::uuid)`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('disable_account returned nothing');
+  return { changed: row.changed, disabledAt: row.disabled_at };
+}
+
+/** Enables the account; `changed` is false when it was already active. */
+export async function enableAccount(trx: Db, userId: string): Promise<boolean> {
+  const result = await sql<{
+    changed: boolean;
+  }>`select changed from kinship_auth.enable_account(${userId}::uuid)`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('enable_account returned nothing');
+  return row.changed;
+}

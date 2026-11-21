@@ -18,7 +18,7 @@ import { passwordTrace } from '../lib/password-trace.js';
 import { formatMoment } from '../lib/timestamps.js';
 import { useNotices } from '../notices.js';
 
-const STATUS_CLASS = { active: 'pill ok', invited: 'pill', expired: 'pill gray' } as const;
+const STATUS_CLASS = { active: 'pill ok', invited: 'pill', expired: 'pill gray', disabled: 'pill gray' } as const;
 
 /** What a row's button is about to do to a link, kept while its confirmation or request is open. */
 type Pending =

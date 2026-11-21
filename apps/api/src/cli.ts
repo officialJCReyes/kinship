@@ -89,15 +89,20 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   }
 
   const db = deps.openDb();
+  let disabled: boolean | undefined;
   try {
     if (!(await setUserPassword(db, email, await hashPassword(password)))) {
       deps.err(`There is no account with the email ${email}.`);
       return 1;
     }
+    const state = await sql<{ disabled_at: Date | null }>`
+      select disabled_at from users where email = lower(${email.trim()})`.execute(db);
+    disabled = state.rows[0]?.disabled_at != null;
   } finally {
     await db.destroy();
   }
   deps.out(`Password changed for ${email.trim().toLowerCase()}. That account was signed out everywhere.`);
+  if (disabled) deps.out('That account is disabled. It cannot sign in until an admin enables it in Admin → Users.');
   return 0;
 }
 

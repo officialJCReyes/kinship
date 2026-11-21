@@ -451,6 +451,7 @@ export const en = {
   'users.status.active': 'Active',
   'users.status.invited': 'Invited',
   'users.status.expired': 'Expired',
+  'users.status.disabled': 'Disabled',
   'users.invitation': 'Invitation',
   'users.alone': 'Nobody else has an account yet. Invite a relative to get started.',
   'users.notLinked': 'Not linked to a person',
