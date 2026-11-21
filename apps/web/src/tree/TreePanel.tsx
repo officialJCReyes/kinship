@@ -7,7 +7,7 @@ import { Link } from 'react-router';
 import { ActionButton } from '../components/ActionButton.js';
 import { t } from '../i18n.js';
 import { lifespan, peopleById } from '../lib/people.js';
-import { statusName, unionLabel } from '../lib/labels.js';
+import { customLabelPrefix, statusName, unionLabel } from '../lib/labels.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
@@ -187,6 +187,13 @@ export function TreePanel({
               })}
             </ul>
           )}
+          {d && d.labels.length > 0 ? (
+            <p className="muted panel-labels">
+              {t('tree.panel.alsoKnownAs', {
+                items: d.labels.map((entry) => `${customLabelPrefix(entry)} ${displayName(entry.other)}`).join('; '),
+              })}
+            </p>
+          ) : null}
           {open?.kind === 'edit' ? <EditPersonDialog person={person} onClose={close} /> : null}
           {open?.kind === 'add' && d && around.data ? (
             <AddRelativeDialog detail={d} tree={around.data} me={me} onClose={close} />

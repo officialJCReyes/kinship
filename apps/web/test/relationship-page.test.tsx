@@ -4,7 +4,7 @@
 // words as well as drawn, removed cousins get the explainer, and the adoption hint matches the viewer's view.
 import { findWithAdoptionHint } from '@kinship/shared';
 import type { LineageView, Person, RelationshipResponse } from '@kinship/shared';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ADMIN, haleRoutes } from './family.js';
 import { HALE_PEOPLE, haleGraph } from './fixtures/hale.js';
@@ -195,5 +195,54 @@ describe('the relationship finder page', () => {
     renderApp('/relationship?a=marcus&b=naomi');
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
+  describe('custom labels (#39)', () => {
+    const withLabels = (labels: RelationshipResponse['labels'], from = 'marcus', to = 'beatriz') =>
+      mockApi(
+        haleRoutes(ADMIN, {
+          'GET /api/relationship*': {
+            status: 200,
+            body: { ...answer(`/api/relationship?a=${from}&b=${to}`).body, labels },
+          },
+        }),
+      );
+
+    it('keeps the derived headline and adds "Also called" with the custom pill for a blood or in-law result', async () => {
+      withLabels([{ direction: 'from', label: 'Godmother', reverseLabel: 'Godchild' }], 'marcus', 'naomi');
+      renderApp('/relationship?a=marcus&b=naomi');
+      expect(await screen.findByText('First cousin')).toBeTruthy();
+      const line = screen.getByText(/Also called Godmother/);
+      expect(line.textContent).toContain('(custom)');
+    });
+
+    it('replaces a step title with the label, as the profile does (ADR 0010)', async () => {
+      withLabels([{ direction: 'from', label: 'Godmother', reverseLabel: 'Godchild' }]);
+      renderApp('/relationship?a=marcus&b=beatriz');
+      await waitFor(() =>
+        expect(screen.getAllByRole('status').some((el) => el.textContent?.includes('Godmother'))).toBe(true),
+      );
+      const status = screen.getAllByRole('status').find((el) => el.textContent?.includes('Godmother'))!;
+      expect(status.textContent).not.toContain('Stepmother');
+      expect(status.textContent).toContain('(custom)');
+    });
+
+    it('uses the reverse label from the other side, and a sentence when there is none', async () => {
+      withLabels([{ direction: 'to', label: 'Godmother', reverseLabel: 'Godchild' }], 'naomi', 'marcus');
+      renderApp('/relationship?a=naomi&b=marcus');
+      expect(await screen.findByText(/Also called Godchild/)).toBeTruthy();
+      cleanup();
+      withLabels([{ direction: 'to', label: 'Godmother', reverseLabel: null }], 'naomi', 'marcus');
+      renderApp('/relationship?a=naomi&b=marcus');
+      expect(await screen.findByText(/Naomi Brooks is Marcus Hale’s Godmother/)).toBeTruthy();
+    });
+
+    it('shows nothing extra when the pair has no label', async () => {
+      withLabels([]);
+      renderApp('/relationship?a=marcus&b=beatriz');
+      await screen.findByText('Stepmother');
+      expect(screen.queryByText(/Also called/)).toBeNull();
+      expect(screen.queryByText('(custom)')).toBeNull();
+    });
   });
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ADMIN, haleRoutes, MEMBER, READER, treeFor } from './family.js';
+import { ADMIN, detailFor, haleRoutes, MEMBER, PEOPLE, READER, treeFor } from './family.js';
 import { calls, mockApi, renderApp } from './helpers.js';
 
 afterEach(() => {
@@ -306,5 +306,40 @@ describe('where the chart starts', () => {
     mockApi(haleRoutes(ADMIN));
     renderApp('/about');
     expect(await screen.findByRole('link', { name: 'Family tree' })).toBeTruthy();
+  });
+});
+
+describe('the person panel and custom labels (#39)', () => {
+  it('lists the selected person’s custom labels in one line under Partners, and nothing when there are none', async () => {
+    const labels = [
+      {
+        id: 'l1',
+        otherId: 'carla',
+        other: PEOPLE.find((p) => p.id === 'carla')!,
+        direction: 'from',
+        label: 'Godmother',
+        reverseLabel: 'Godchild',
+      },
+      {
+        id: 'l2',
+        otherId: 'ben',
+        other: PEOPLE.find((p) => p.id === 'ben')!,
+        direction: 'to',
+        label: 'Guardian',
+        reverseLabel: null,
+      },
+    ];
+    mockApi(
+      haleRoutes(ADMIN, {
+        'GET /api/people/marcus': { status: 200, body: { ...detailFor(ADMIN, 'marcus'), labels } },
+      }),
+    );
+    renderApp('/tree/marcus');
+    expect(await screen.findByText('Also known as: Godmother: Carla Nair; Guardian of Ben Hale')).toBeTruthy();
+    cleanup();
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Tomas Nair/ });
+    expect(screen.queryByText(/Also known as/)).toBeNull();
   });
 });
