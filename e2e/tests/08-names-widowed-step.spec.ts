@@ -19,6 +19,7 @@ const nair = surname('Nair');
 let daniel: Made;
 let carla: Made;
 let elena: Made;
+let priya: Made;
 // One signed-in admin session for the whole journey (the sign-in route is rate limited, and this is one story).
 let admin: Page;
 test.beforeAll(async ({ browser, adminCookies }) => {
@@ -36,7 +37,7 @@ const person = (page: Page, given: string, family: string) =>
 test('Daniel was married to Priya, who is divorced from him, and they have Carla', async () => {
   const page = admin;
   daniel = await createPerson(page.request, { givenName: 'Daniel', surname: hale, gender: 'male', birth: '1958' });
-  const priya = await createPerson(page.request, {
+  priya = await createPerson(page.request, {
     givenName: 'Priya',
     surname: nair,
     gender: 'female',
@@ -144,9 +145,9 @@ async function pick(page: Page, picker: 'Person 1' | 'Person 2', given: string, 
   await page.getByRole('option', { name: new RegExp(`${given} ${family}`) }).click();
 }
 
-test('the relationship finder calls Elena Carla’s stepmother and Daniel’s other daughter her half-sister', async () => {
+test('the relationship finder calls Elena Carla’s stepmother and Priya’s other daughter her half-sister', async () => {
   const page = admin;
-  const sofia = await createChild(page.request, daniel.id, { givenName: 'Sofia', surname: hale, gender: 'female' });
+  const sofia = await createChild(page.request, priya.id, { givenName: 'Sofia', surname: nair, gender: 'female' });
   await page.goto('/relationship');
   await pick(page, 'Person 1', 'Carla', nair);
   await pick(page, 'Person 2', 'Elena', ruiz);
@@ -156,9 +157,9 @@ test('the relationship finder calls Elena Carla’s stepmother and Daniel’s ot
   // The same path, in words, with links to the profiles
   await expect(page.locator('ol.finder-path').getByRole('link', { name: new RegExp(`Elena ${ruiz}`) })).toBeVisible();
 
-  // Swap to the second person's other daughter: a half-sister through Daniel
+  // Swap to the second person's other daughter: a half-sister through their mother Priya
   await page.getByRole('button', { name: 'Change' }).nth(1).click();
-  await pick(page, 'Person 2', 'Sofia', hale);
+  await pick(page, 'Person 2', 'Sofia', nair);
   await expect(page.getByRole('status').filter({ hasText: 'Half-sister' })).toBeVisible();
   expect(page.url()).toContain(`a=${carla.id}`);
   expect(page.url()).toContain(`b=${sofia.id}`);
