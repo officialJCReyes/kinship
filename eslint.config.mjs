@@ -7,7 +7,16 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['e2e/artifacts/', 'e2e/.stack/', '**/node_modules/', '**/dist/', 'design/', 'pnpm-lock.yaml', 'reports/'],
+    ignores: [
+      'e2e/artifacts/',
+      'e2e/.stack/',
+      '**/node_modules/',
+      '**/dist/',
+      '**/.astro/',
+      'design/',
+      'pnpm-lock.yaml',
+      'reports/',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

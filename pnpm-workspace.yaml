@@ -15,3 +15,9 @@ allowBuilds:
 # Remove when typescript-estree allows minimatch 11; drop first if type-aware lint rules misbehave.
 overrides:
   'minimatch@<11.0.1': '>=11.0.1'
+
+# Astro (the docs site build) depends on sharp, whose prebuilt libvips binaries are LGPL-3.0-or-later, not on the allow list.
+# The docs have no images that need optimizing (astro.config.mjs uses the passthrough image service), so the binaries are
+# never installed and nothing LGPL enters the lockfile or the license check.
+ignoredOptionalDependencies:
+  - '@img/sharp-*'
