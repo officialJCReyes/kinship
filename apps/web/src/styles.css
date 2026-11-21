@@ -2060,7 +2060,8 @@ pre.code {
     flex-direction: column;
   }
   .tree-search {
-    width: min(260px, calc(100vw - 80px));
+    /* leaves room at 360 px for the view switcher and the gear (two 38 px buttons) in the right cluster */
+    width: min(260px, calc(100vw - 112px));
   }
   .tree-count {
     align-self: flex-start;
