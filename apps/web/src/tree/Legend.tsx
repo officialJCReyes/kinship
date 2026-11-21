@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { Link } from 'react-router';
 import { t } from '../i18n.js';
 import type { TreeViewName } from './treeView.js';
 
@@ -101,7 +102,20 @@ export function Legend({
           </div>
         ) : null}
         <div className="legend-row">
-          <span>{t('tree.legend.search')}</span>
+          <span>
+            {t('tree.legend.search')
+              .split('{finder}')
+              .flatMap((part, index) =>
+                index === 0
+                  ? [part]
+                  : [
+                      <Link key="finder" to="/relationship">
+                        {t('tree.legend.finderLink')}
+                      </Link>,
+                      part,
+                    ],
+              )}
+          </span>
         </div>
       </div>
     </details>

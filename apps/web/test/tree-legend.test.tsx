@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { cleanup, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Legend } from '../src/tree/Legend.js';
 import type { TreeViewName } from '../src/tree/treeView.js';
@@ -7,7 +8,11 @@ import type { TreeViewName } from '../src/tree/treeView.js';
 afterEach(cleanup);
 
 const text = (view?: TreeViewName) => {
-  render(<Legend {...(view ? { view } : {})} />);
+  render(
+    <MemoryRouter>
+      <Legend {...(view ? { view } : {})} />
+    </MemoryRouter>,
+  );
   return screen.getByRole('group', { name: 'Legend' }).textContent ?? '';
 };
 
@@ -23,7 +28,11 @@ describe('the legend', () => {
 
   it('has the line about finding someone who is not drawn in every view', () => {
     for (const view of ['family', 'pedigree', 'fan', 'descendants'] as const) {
-      expect(text(view), view).toContain('Someone not on the chart? Search for them above');
+      expect(text(view), view).toContain(
+        'Someone not on the chart? Search for them above, or look them up in the Relationship finder.',
+      );
+      // The finder is a link, not just words
+      expect(screen.getByRole('link', { name: 'Relationship finder' }).getAttribute('href')).toBe('/relationship');
       cleanup();
     }
   });
