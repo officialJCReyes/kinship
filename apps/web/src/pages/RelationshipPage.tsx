@@ -10,6 +10,7 @@ import { usePersonDetail } from '../people/queries.js';
 import { PathDiagram, PathText } from '../relationship/PathDiagram.js';
 import { relationText } from '../relationship/path.js';
 import { useExamplePairs, useRelationship } from '../relationship/queries.js';
+import { customLines } from '../relationship/labels.js';
 import { generationNote, isRemovedCousin, RemovedPanel } from '../relationship/RemovedPanel.js';
 
 const nameList = (names: string[]): string =>
@@ -19,7 +20,8 @@ function Result({ result }: { result: RelationshipResponse }) {
   const first = result.people[result.a];
   const second = result.people[result.b];
   if (!first || !second) return null;
-  const headline = result.name ? renderRelName(result.name, t) : t('finder.none');
+  const custom = customLines(result);
+  const headline = custom.headline ?? (result.name ? renderRelName(result.name, t) : t('finder.none'));
   const note = generationNote(result);
   const ancestors = (result.blood?.ancestors ?? []).flatMap((id) => {
     const person = result.people[id];
@@ -33,8 +35,16 @@ function Result({ result }: { result: RelationshipResponse }) {
           <div className="muted">
             {t('finder.headline', { first: displayName(first), second: displayName(second) })}
           </div>
-          <div className="rbig">{headline}</div>
+          <div className="rbig">
+            {headline}
+            {custom.headline ? <span className="pill gray">{t('label.custom')}</span> : null}
+          </div>
         </div>
+        {custom.lines.map((line) => (
+          <p key={line} className="muted">
+            {line} <span className="pill gray">{t('label.custom')}</span>
+          </p>
+        ))}
         {result.kind === 'self' ? <p className="muted">{t('finder.self')}</p> : null}
         {result.kind === 'none' ? (
           <>

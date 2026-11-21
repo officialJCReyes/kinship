@@ -962,6 +962,7 @@ export const en = {
   'tree.legend.descendants':
     'Children sit under each person; partners are listed on the card (m. married or widowed, div. divorced, sep. separated, eng. engaged). Stepchildren are not shown. Click anyone to center the chart on them.',
   'tree.legend.search': 'Someone not on the chart? Search for them above, or look them up in the {finder}.',
+  'tree.panel.alsoKnownAs': 'Also known as: {items}',
   'tree.legend.finderLink': 'Relationship finder',
   'tree.legend.leaf': 'Leaf: opens that person’s own family',
   'tree.notice.chartLoadFailed': 'The chart could not be loaded.',
@@ -1159,6 +1160,7 @@ export const en = {
   'finder.adoption.birth': 'Related through adoption. Switch to the adoptive view to see it.',
   'finder.alsoRelated': 'Also related as: {names}.',
   'finder.alsoCalled': 'Also called {label}',
+  'finder.labelOf': '{first} is {second}’s {label}',
   'finder.custom': 'custom',
   'finder.ancestors.one': 'Closest common ancestor: {names}',
   'finder.ancestors.many': 'Closest common ancestors: {names}',
