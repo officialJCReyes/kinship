@@ -17,6 +17,7 @@ import { AdminUpdatesPage } from './pages/AdminUpdatesPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { HomePage } from './pages/HomePage.js';
 import { LinkPage } from './pages/LinkPage.js';
+import { RelationshipPage } from './pages/RelationshipPage.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { NoticeList, NoticeProvider } from './notices.js';
 import { NotFoundPage } from './pages/NotFoundPage.js';
@@ -110,6 +111,9 @@ export function App() {
   // The tree chart is the one page that fills the window; every other page stays centred at 880 px.
   const pathname = useLocation().pathname;
   const fullWidth = /^\/tree\/[^/]+/.test(pathname);
+  const onFinder = pathname === '/relationship';
+  // Under the Family tree tab: the chart and the relationship finder.
+  const showTreeSections = signedIn && (onFinder || pathname === '/tree' || pathname.startsWith('/tree/'));
   // My settings is not remounted by the changes made on it (the focus would be lost); every other page is.
   const onSettings = pathname === '/settings';
   // The tree is not remounted by the name and † choices either: the chart's settings panel changes them while it is open, and
@@ -132,7 +136,9 @@ export function App() {
               <NavLink to="/" end>
                 {t('nav.home')}
               </NavLink>
-              <NavLink to="/tree">{t('nav.tree')}</NavLink>
+              <Link to="/tree" aria-current={showTreeSections ? 'page' : undefined}>
+                {t('nav.tree')}
+              </Link>
               <NavLink to="/people" end>
                 {t('nav.people')}
               </NavLink>
@@ -141,6 +147,16 @@ export function App() {
           {session.data ? <AccountMenu user={session.data.user} /> : null}
         </div>
       </header>
+      {showTreeSections ? (
+        <nav className="subnav" aria-label={t('nav.treeSections')}>
+          <div className="page-width subnav-inner">
+            <Link to="/tree" aria-current={onFinder ? undefined : 'page'}>
+              {t('nav.chart')}
+            </Link>
+            <NavLink to="/relationship">{t('nav.relationship')}</NavLink>
+          </div>
+        </nav>
+      ) : null}
       <main id="main" className={fullWidth ? 'tree-main' : 'page-width'}>
         <NoticeList />
         <Routes
@@ -161,6 +177,7 @@ export function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/tree" element={<TreeIndexPage />} />
             <Route path="/tree/:id" element={<TreePage />} />
+            <Route path="/relationship" element={<RelationshipPage />} />
             <Route path="/people" element={<PeoplePage />} />
             <Route path="/people/:id" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />

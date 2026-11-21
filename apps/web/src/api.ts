@@ -41,6 +41,7 @@ import type {
   PersonResponse,
   SetupRequest,
   SetupStatus,
+  RelationshipResponse,
   TreeResponse,
   UnionInput,
   UnionPatch,
@@ -247,6 +248,21 @@ export async function fetchPerson(id: string, signal?: AbortSignal): Promise<Per
 }
 
 /** The people, relationships and parent links around one person (see TreeResponse). */
+/** How `b` is related to `a`. Without `lineage` the API follows the signed-in account's own setting. */
+export async function fetchRelationship(
+  a: string,
+  b: string,
+  lineage?: LineageView,
+  signal?: AbortSignal,
+): Promise<RelationshipResponse> {
+  const query = new URLSearchParams({ a, b });
+  if (lineage) query.set('lineage', lineage);
+  const path = `/api/relationship?${query}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as RelationshipResponse;
+}
+
 export async function fetchTree(
   id: string,
   options: { up: number; down: number; collateral?: boolean | 'siblings'; lineage?: LineageView },

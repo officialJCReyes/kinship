@@ -38,7 +38,10 @@ export function renderRelName(name: RelName, t: Translate): string {
 type Side = 'male' | 'female' | 'neutral';
 const sideOf = (gender: Gender | null): Side => (gender === 'male' || gender === 'female' ? gender : 'neutral');
 
-type WordFamily = 'parent' | 'child' | 'sibling' | 'auntUncle' | 'nibling' | 'grandparent' | 'grandchild' | 'partner';
+export type WordFamily =
+  'parent' | 'child' | 'sibling' | 'auntUncle' | 'nibling' | 'grandparent' | 'grandchild' | 'partner';
+/** The word for a relative of one kind, by gender: `relWord('parent', 'male')` is "father". Lower case; see renderRelName. */
+export const relWord = (family: WordFamily, gender: Gender | null): RelName => word(family, gender);
 const word = (family: WordFamily, gender: Gender | null): RelName => ({
   key: `rel.word.${family}.${sideOf(gender)}` as MessageKey,
 });
@@ -69,7 +72,8 @@ const ORDINALS: MessageKey[] = [
   'rel.ordinal.10',
 ];
 
-function ordinal(n: number): RelName {
+/** "first", "second", "21st": the cousin number. */
+export function ordinalName(n: number): RelName {
   const known = ORDINALS[n - 1];
   if (known) return { key: known };
   const last = n % 10;
@@ -96,7 +100,15 @@ const NUMBER_WORDS: Record<number, MessageKey> = {
   10: 'rel.number.10',
 };
 
-/** "once", "twice", "three times": how far removed. */
+/** "once", "twice", "three times": how far removed, as a word on its own. */
+export function removedWordName(removed: number): RelName {
+  if (removed === 1) return { key: 'rel.removedWord.once' };
+  if (removed === 2) return { key: 'rel.removedWord.twice' };
+  const numberWord = NUMBER_WORDS[removed];
+  return { key: 'rel.removedWord.times', params: { n: numberWord ? { key: numberWord } : removed } };
+}
+
+/** "first cousin once removed": a word with how far removed it is. */
 export function removedName(removed: number, inner: RelName): RelName {
   if (removed === 1) return wrap('rel.removed.once', inner);
   if (removed === 2) return wrap('rel.removed.twice', inner);
@@ -106,7 +118,7 @@ export function removedName(removed: number, inner: RelName): RelName {
 
 /** The cousin number as a name: "first cousin". */
 export function cousinName(degree: number): RelName {
-  return { key: 'rel.cousin', params: { ordinal: ordinal(degree) } };
+  return { key: 'rel.cousin', params: { ordinal: ordinalName(degree) } };
 }
 
 // ---------------------------------------------------------------------------

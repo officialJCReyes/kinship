@@ -5,7 +5,7 @@ import { t } from '../i18n.js';
 import { formatYear } from './dates.js';
 
 /** "1955 – 2020", "b. 1955", or "" when no years are known. */
-export function lifespan(person: Person): string {
+export function lifespan(person: Pick<Person, 'birth' | 'death' | 'deceased'>): string {
   const born = formatYear(person.birth);
   const died = formatYear(person.death);
   if (person.deceased) return born || died ? `${born || '?'} – ${died || '?'}` : t('person.deceased');
