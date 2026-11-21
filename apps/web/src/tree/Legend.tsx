@@ -11,7 +11,7 @@ function Leaf() {
 }
 
 /** What the lines and colours mean: one row per thing, a few rows for each view (the last one is in every view). */
-export function Legend({ view = 'family' }: { view?: TreeViewName }) {
+export function Legend({ view = 'family', deceasedMark = true }: { view?: TreeViewName; deceasedMark?: boolean }) {
   const cards = view !== 'fan';
   return (
     <details className="legend" open>
@@ -52,8 +52,12 @@ export function Legend({ view = 'family' }: { view?: TreeViewName }) {
               <span>{t('tree.legend.genderOther')}</span>
             </>
           ) : null}
-          <span aria-hidden="true">†</span>
-          <span>{t('tree.legend.deceased')}</span>
+          {deceasedMark ? (
+            <>
+              <span aria-hidden="true">†</span>
+              <span>{t('tree.legend.deceased')}</span>
+            </>
+          ) : null}
         </div>
         {view === 'fan' ? (
           <div className="legend-row">

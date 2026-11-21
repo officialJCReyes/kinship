@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { useDisplay } from '../lib/display.js';
 import { displayName } from '../lib/names.js';
 import type { LineageView, Person, UnionWithChildren } from '@kinship/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -23,6 +24,7 @@ import { AVAILABLE_VIEWS, parseTreeView, treeViewQuery, viewState } from './tree
 import type { TreeViewName } from './treeView.js';
 import { descendantsModel, familyModel, fanModel, pedigreeModel } from './viewModels.js';
 import type { ChartModel } from './viewModels.js';
+import { ChartSettings } from './ChartSettings.js';
 import { ViewSwitcher } from './ViewSwitcher.js';
 
 /** /tree: the chart rooted on you, or (for an account linked to nobody) a page to choose who to start from. */
@@ -66,6 +68,9 @@ export function TreePage() {
   const client = useQueryClient();
   const me = useSession(false).data?.user;
   const { view, gen } = parseTreeView(params);
+  // What the account's name and † choices draw into a model (a layout holds the names it measured): a new model when they change.
+  const display = useDisplay();
+  const displayKey = `${display.nameForm}|${display.showPrefix}|${display.showSuffix}|${display.showDeceasedMark}`;
   const isFamily = view === 'family';
   // The family view and the selection belong to the Family tree; the other views are about one person, who is the root.
   const of = isFamily ? params.get('of') : null;
@@ -95,7 +100,8 @@ export function TreePage() {
     if (view === 'fan') return ancestors.data ? fanModel(ancestors.data, id, gen) : null;
     if (view === 'descendants') return descendants.data ? descendantsModel(descendants.data, id, gen) : null;
     return null;
-  }, [isFamily, view, id, gen, of, lineage, main.data, family.data, ancestors.data, descendants.data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- displayKey: the models read the display store
+  }, [isFamily, view, id, gen, of, lineage, main.data, family.data, ancestors.data, descendants.data, displayKey]);
   // The chart on screen stays until the next one has arrived, so choosing a view or a person does not blink to empty.
   // (Staying in the Family tree keeps its own loading state, as it always had.)
   const [kept, setKept] = useState<ChartModel | null>(null);
@@ -269,9 +275,12 @@ export function TreePage() {
           {t('tree.centerOnMe')}
         </button>
       ) : null}
-      {AVAILABLE_VIEWS.length > 1 ? (
-        <ViewSwitcher view={view} gen={gen} views={AVAILABLE_VIEWS} onView={switchView} onGen={switchGen} />
-      ) : null}
+      <div className="tree-tools">
+        {AVAILABLE_VIEWS.length > 1 ? (
+          <ViewSwitcher view={view} gen={gen} views={AVAILABLE_VIEWS} onView={switchView} onGen={switchGen} />
+        ) : null}
+        <ChartSettings user={me} />
+      </div>
     </>
   );
   return (

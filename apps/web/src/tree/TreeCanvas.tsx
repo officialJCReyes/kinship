@@ -4,6 +4,7 @@ import type { Person, UnionStatus } from '@kinship/shared';
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { t } from '../i18n.js';
+import { useDisplay } from '../lib/display.js';
 import { lifespan } from '../lib/people.js';
 import { statusName } from '../lib/labels.js';
 import { fitName, measureText } from './cardText.js';
@@ -70,6 +71,10 @@ interface NodeProps {
   otherLeaf: Leaf | undefined;
   /** Zoomed far out: just the box, since nothing inside it can be read. */
   simple: boolean;
+  /** Draw † after the name of someone who has died (the account's choice in the chart settings). */
+  mark: boolean;
+  /** Changes with the account's name choices, so a card is drawn again when one of them does (the cards are memoized). */
+  names: string;
   onSelect: (id: string) => void;
   onFocus: (id: string) => void;
   onLeaf: (leaf: Leaf) => void;
@@ -84,6 +89,7 @@ const TreeNode = memo(function TreeNode({
   leaf,
   otherLeaf,
   simple,
+  mark,
   onSelect,
   onFocus,
   onLeaf,
@@ -92,7 +98,10 @@ const TreeNode = memo(function TreeNode({
   const label = nodeLabel(person);
   // The whole name, wrapped on up to three lines (smaller type if it needs it), never cut. A no-break space keeps the
   // deceased mark with the last word.
-  const fit = useMemo(() => fitName(full + (person.deceased ? '\u00a0†' : ''), NAME_WIDTH), [full, person.deceased]);
+  const fit = useMemo(
+    () => fitName(full + (person.deceased && mark ? '\u00a0†' : ''), NAME_WIDTH),
+    [full, person.deceased, mark],
+  );
   // A placeholder has no sex to show: it is drawn neutral and dashed, whatever gender the database keeps for its label.
   const gender = person.isPlaceholder
     ? 'placeholder'
@@ -273,6 +282,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
     view = 'family',
   } = props;
   const helpId = useId();
+  const display = useDisplay();
+  const namesKey = `${display.nameForm}|${display.showPrefix}|${display.showSuffix}`;
   const nodeHeight = layout.nodeHeight ?? NODE_H;
   const focus = layout.byId.get(focalId);
   const { wrap, svg, viewport, simple, inView, fit, zoomBy, showRect, drawNow, pointerHandlers } = useChartViewport({
@@ -433,6 +444,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
             leaf={leaves.get(node.id)}
             otherLeaf={otherLeaves.get(node.id)}
             simple={simple}
+            mark={display.showDeceasedMark}
+            names={namesKey}
             onSelect={onSelect}
             onFocus={onFocusNode}
             onLeaf={onLeaf}
@@ -447,6 +460,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
       leaves,
       otherLeaves,
       simple,
+      display.showDeceasedMark,
+      namesKey,
       inView,
       onSelect,
       onFocusNode,
@@ -475,7 +490,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
           />
         );
       }),
-    [layout, people, canEditUnion, onCouple, inView],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- namesKey: the couples' titles name people in the account's name form
+    [layout, people, canEditUnion, onCouple, inView, namesKey],
   );
 
   return (
@@ -526,7 +542,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
       </svg>
       <div className="tree-overlay top-left">{props.topLeft}</div>
       <div className="tree-overlay top-right">{props.topRight}</div>
-      <Legend view={view} />
+      <Legend view={view} deceasedMark={display.showDeceasedMark} />
       <ZoomControls onZoomIn={() => zoomBy(ZOOM_STEP)} onZoomOut={() => zoomBy(1 / ZOOM_STEP)} onFit={fit} />
       <div className="sr-only" role="status" aria-live="polite">
         {announce}

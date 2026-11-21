@@ -2,6 +2,7 @@
 //
 // The Fan chart: wedges instead of cards. It shares the viewport (pan, zoom, fit) with the Family tree canvas; every wedge
 // is a button with the person's whole name in its tooltip and accessible name, however much of it the wedge has room for.
+import { useDisplay } from '../lib/display.js';
 import { displayName } from '../lib/names.js';
 import type { Person } from '@kinship/shared';
 import { useCallback, useId, useState } from 'react';
@@ -65,6 +66,7 @@ export interface FanCanvasProps {
 }
 
 export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRight }: FanCanvasProps) {
+  const display = useDisplay();
   const helpId = useId();
   const { wrap, svg, viewport, fit, zoomBy, showRect, pointerHandlers } = useChartViewport({
     content: { width: layout.width, height: layout.height },
@@ -193,7 +195,7 @@ export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRi
       </svg>
       <div className="tree-overlay top-left">{topLeft}</div>
       <div className="tree-overlay top-right">{topRight}</div>
-      <Legend view="fan" />
+      <Legend view="fan" deceasedMark={display.showDeceasedMark} />
       <ZoomControls onZoomIn={() => zoomBy(ZOOM_STEP)} onZoomOut={() => zoomBy(1 / ZOOM_STEP)} onFit={fit} />
       <div className="sr-only" role="status" aria-live="polite">
         {selectedPerson ? t('tree.selected', { name: displayName(selectedPerson) }) : ''}

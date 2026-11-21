@@ -6,6 +6,7 @@
 // same data always gives the same chart (ADR 0026).
 import type { Person, TreeResponse } from '@kinship/shared';
 import { t } from '../i18n.js';
+import { getDisplay } from '../lib/display.js';
 import { displayName, displaySurname } from '../lib/names.js';
 import { lifespan } from '../lib/people.js';
 import { fitName, measureText } from './cardText.js';
@@ -73,14 +74,15 @@ export interface FanResult {
   ids: Set<string>;
 }
 
-const nameOf = (person: Person) => displayName(person) + (person.deceased ? ' †' : '');
+const mark = (person: Person) => (person.deceased && getDisplay().showDeceasedMark ? ' †' : '');
+const nameOf = (person: Person) => displayName(person) + mark(person);
 
 /** "Nova Estelle Hallworth-Fernandez de la Mora" becomes "Nova H.": the first given name and the first letter of the surname. */
 export function shortName(person: Person): string {
   const given = person.givenName.trim().split(/\s+/)[0] ?? '';
   const surname = displaySurname(person).trim();
   const initial = Array.from(surname.replace(/^(de la|del|de|van|von|der|la|le)\s+/i, ''))[0];
-  return `${given}${initial ? ` ${initial.toUpperCase()}.` : ''}${person.deceased ? ' †' : ''}`;
+  return `${given}${initial ? ` ${initial.toUpperCase()}.` : ''}${mark(person)}`;
 }
 
 /**
