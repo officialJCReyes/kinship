@@ -133,6 +133,7 @@ const userColumns = [
   'color_scheme',
   'theme',
   'date_format',
+  'disabled_at',
   'surname_choice',
   'name_form',
   'show_prefix',

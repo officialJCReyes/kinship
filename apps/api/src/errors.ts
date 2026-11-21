@@ -61,6 +61,18 @@ export function fromDatabaseError(error: unknown): ApiError | undefined {
       return conflict('person_has_open_invitation');
     case 'KS043':
       return conflict('account_not_linked');
+    case 'KS044':
+      return conflict('last_superadmin');
+    case 'KS045':
+      return new ApiError(403, 'self_not_allowed');
+    case 'KS046':
+      return conflict('account_role_changed');
+    case 'KS047':
+      return conflict('account_disabled');
+    case 'KS048':
+      return conflict('account_not_disabled');
+    case 'KS049':
+      return badRequest('confirmation_mismatch');
     case 'KS030': // the one answer for every bad link (see accept_invitation)
       return notFound('invalid_link');
     case 'KS011':

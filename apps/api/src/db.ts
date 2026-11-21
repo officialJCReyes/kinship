@@ -90,6 +90,8 @@ export interface Database {
     last_sign_in_at: Date | null;
     password_changed_at: Date | null;
     password_changed_via: 'setup' | 'self' | 'admin_link' | 'cli' | 'invitation' | null;
+    /** Null while the account is active (migration 0019). Set by kinship_auth.disable_account only. */
+    disabled_at: Date | null;
     /** What this account last saw of What's new, and the SuperAdmin's banner and backup ticks per version (0014). */
     last_seen_version: string | null;
     last_seen_at: Date | null;

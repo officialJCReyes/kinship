@@ -360,6 +360,13 @@ export const en = {
   'error.role_not_allowed': 'Your role cannot do that for this role.',
   'error.account_not_found': 'That account was not found.',
   'error.invalid_current_password': 'The current password is not right.',
+  'error.self_not_allowed': 'You cannot do that to your own account.',
+  'error.last_superadmin': 'This is the only active SuperAdmin. At least one must stay, so it cannot be changed.',
+  'error.account_role_changed':
+    'This account’s role was changed in the meantime. The list has been refreshed; check it and try again.',
+  'error.account_disabled': 'That account is disabled. Enable it first.',
+  'error.account_not_disabled': 'Only a disabled account can be deleted. Disable it first.',
+  'error.confirmation_mismatch': 'The email address you typed does not match this account.',
   'error.person_not_found': 'That person was not found.',
   'error.union_not_found': 'That relationship was not found.',
   'error.invalid_given_name': 'Enter a given name (up to 100 characters).',
