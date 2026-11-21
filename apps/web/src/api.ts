@@ -4,7 +4,10 @@ import { reportVersionMismatch } from './lib/version-mismatch.js';
 import type {
   AcceptLinkRequest,
   AccountsResponse,
+  AccountStateResponse,
   ChangeRoleInput,
+  DeleteAccountInput,
+  DeleteAccountPreview,
   ChangeRoleResponse,
   AddChildRequest,
   AddParentRequest,
@@ -439,6 +442,34 @@ export async function changeAccountRole(accountId: string, input: ChangeRoleInpu
   const reply = await send('PATCH', path, input);
   if (reply.status !== 200) fail(path, reply);
   return reply.body as ChangeRoleResponse;
+}
+
+export async function disableAccount(accountId: string): Promise<AccountStateResponse> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/disable`;
+  const reply = await send('POST', path, {});
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as AccountStateResponse;
+}
+
+export async function enableAccount(accountId: string): Promise<AccountStateResponse> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/enable`;
+  const reply = await send('POST', path, {});
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as AccountStateResponse;
+}
+
+export async function fetchDeletePreview(accountId: string, signal?: AbortSignal): Promise<DeleteAccountPreview> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/delete-preview`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as DeleteAccountPreview;
+}
+
+/** The typed email goes in the body, never the URL, so it reaches no request log. */
+export async function deleteAccount(accountId: string, input: DeleteAccountInput): Promise<void> {
+  const path = `/api/admin/accounts/${encodeURIComponent(accountId)}/delete`;
+  const reply = await send('POST', path, input);
+  if (reply.status !== 204) fail(path, reply);
 }
 
 export async function unlinkAccountPerson(accountId: string, currentPersonId: string): Promise<void> {
