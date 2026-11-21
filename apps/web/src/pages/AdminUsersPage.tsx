@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { AccountSummary, LinkCreated, MessageKey } from '@kinship/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import * as api from '../api.js';
 import { useSession } from '../auth.js';
 import { InviteDialog } from '../admin/InviteDialog.js';
 import { LinkDialog } from '../admin/LinkDialog.js';
+import { DeleteAccountDialog } from '../admin/DeleteAccountDialog.js';
 import { LinkPersonDialog } from '../admin/LinkPersonDialog.js';
 import { RoleDialog } from '../admin/RoleDialog.js';
 import type { ShownLink } from '../admin/LinkDialog.js';
@@ -25,6 +26,7 @@ const STATUS_CLASS = { active: 'pill ok', invited: 'pill', expired: 'pill gray',
 /** What a row's button is about to do to a link, kept while its confirmation or request is open. */
 type Pending =
   | { kind: 'revoke'; linkId: string; name: string }
+  | { kind: 'disable'; account: AccountSummary }
   | { kind: 'unlink'; accountId: string; name: string; person: { id: string; name: string } }
   | { kind: 'busy' }
   | null;
@@ -53,6 +55,8 @@ export function AdminUsersPage() {
   const [pending, setPending] = useState<Pending>(null);
   const [linking, setLinking] = useState<AccountSummary | null>(null);
   const [changingRole, setChangingRole] = useState<AccountSummary | null>(null);
+  const [deleting, setDeleting] = useState<AccountSummary | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const [failure, setFailure] = useState<unknown>(null);
 
   if (!me) return <Loading />;
@@ -95,8 +99,28 @@ export function AdminUsersPage() {
       focusPersonButton(accountId);
     });
 
+  const disable = (account: AccountSummary) =>
+    run(async () => {
+      await api.disableAccount(account.id);
+      await refresh();
+      notify('success', t('users.disable.done', { name: nameOf(account) }));
+      focusMenuButton(account.id);
+    });
+  const enable = (account: AccountSummary) =>
+    run(async () => {
+      await api.enableAccount(account.id);
+      await refresh();
+      notify('success', t('users.enable.done', { name: nameOf(account) }));
+      focusMenuButton(account.id);
+    });
+
   const focusMenuButton = (accountId: string) =>
     window.setTimeout(() => document.getElementById(rowMenuButtonId(accountId))?.focus(), 0);
+
+  const closeDisable = () => {
+    if (pending?.kind === 'disable') focusMenuButton(pending.account.id);
+    setPending(null);
+  };
 
   const busy = pending?.kind === 'busy';
   const nameOf = (account: AccountSummary) => account.displayName ?? account.email;
@@ -208,6 +232,13 @@ export function AdminUsersPage() {
   const rowMenu = (account: AccountSummary) => {
     if (account.kind !== 'account') return null;
     const name = nameOf(account);
+    // Why disable, enable or delete is unavailable for this row.
+    const unavailable = (row: AccountSummary) =>
+      row.id === me.id
+        ? t('users.cannot.self')
+        : row.lastSuperAdmin
+          ? t('users.cannot.lastSuperAdmin')
+          : t('users.cannotManage');
     const roleReason =
       account.allowedRoles.length > 0
         ? undefined
@@ -228,6 +259,30 @@ export function AdminUsersPage() {
             disabledReason: roleReason,
             onSelect: () => setChangingRole(account),
           },
+          account.status === 'disabled'
+            ? {
+                key: 'enable',
+                label: t('users.menu.enable'),
+                disabledReason: account.canDisable ? undefined : unavailable(account),
+                onSelect: () => void enable(account),
+              }
+            : {
+                key: 'disable',
+                label: t('users.menu.disable'),
+                disabledReason: account.canDisable ? undefined : unavailable(account),
+                onSelect: () => setPending({ kind: 'disable', account }),
+              },
+          {
+            key: 'delete',
+            label: t('users.menu.delete'),
+            danger: true,
+            disabledReason: account.canDelete
+              ? undefined
+              : account.status !== 'disabled' && account.canDisable
+                ? t('users.cannot.deleteActive')
+                : unavailable(account),
+            onSelect: () => setDeleting(account),
+          },
         ]}
       />
     );
@@ -236,7 +291,9 @@ export function AdminUsersPage() {
   return (
     <section className="card">
       <div className="profile-head">
-        <h1>{t('users.title')}</h1>
+        <h1 ref={heading} tabIndex={-1}>
+          {t('users.title')}
+        </h1>
         <ActionButton primary onClick={() => setInviting(true)}>
           {t('users.invite')}
         </ActionButton>
@@ -295,6 +352,11 @@ export function AdminUsersPage() {
                   <td>{t(`role.${account.role}` as MessageKey)}</td>
                   <td>
                     <RowStatus account={account} />
+                    {account.disabledAt ? (
+                      <div className="muted small-text">
+                        {t('users.disabledOn', { date: formatMoment(account.disabledAt) })}
+                      </div>
+                    ) : null}
                     {account.invitation ? (
                       <div className="muted small-text">
                         {account.invitation.expired
@@ -396,6 +458,37 @@ export function AdminUsersPage() {
             </button>
           </div>
         </Dialog>
+      ) : null}
+      {pending?.kind === 'disable' ? (
+        <Dialog title={t('users.disable.title', { name: nameOf(pending.account) })} onClose={closeDisable}>
+          <p>{t('users.disable.body', { name: nameOf(pending.account) })}</p>
+          <div className="actions">
+            <button className="button" type="button" onClick={closeDisable}>
+              {t('common.cancel')}
+            </button>
+            <button className="button danger" type="button" onClick={() => void disable(pending.account)}>
+              {t('users.disable.confirm')}
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
+      {deleting ? (
+        <DeleteAccountDialog
+          account={deleting}
+          onClose={() => {
+            const id = deleting.id;
+            setDeleting(null);
+            focusMenuButton(id);
+          }}
+          onDone={() => {
+            const name = nameOf(deleting);
+            setDeleting(null);
+            void refresh();
+            notify('success', t('users.delete.done', { name }));
+            // the row is gone: focus goes to the page heading
+            window.setTimeout(() => heading.current?.focus(), 0);
+          }}
+        />
       ) : null}
       {pending?.kind === 'revoke' ? (
         <Dialog title={t('users.revoke.title')} onClose={() => setPending(null)}>

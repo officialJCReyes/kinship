@@ -478,6 +478,27 @@ export const en = {
   'users.menu.label': 'Actions',
   'users.menu.for': 'Actions for {name}',
   'users.menu.changeRole': 'Change role…',
+  'users.menu.disable': 'Disable account…',
+  'users.menu.enable': 'Enable account',
+  'users.menu.delete': 'Delete account…',
+  'users.cannot.lastSuperAdmin': 'This is the only active SuperAdmin. At least one must stay.',
+  'users.cannot.deleteActive': 'Disable the account first. Only a disabled account can be deleted.',
+  'users.disabledOn': 'Disabled {date}',
+  'users.disable.title': 'Disable {name}?',
+  'users.disable.body':
+    '{name} will be signed out now and cannot sign in until you enable the account again. Their person, history and shares stay as they are.',
+  'users.disable.confirm': 'Disable account',
+  'users.disable.done': '{name} is disabled and signed out.',
+  'users.enable.done':
+    '{name} is enabled. Their old password works again. Make a set-password link if you want them to choose a new one.',
+  'users.delete.title': 'Delete the account of {name}?',
+  'users.delete.body':
+    'This deletes the account {email}. The person it was linked to, and everything on the tree, stays; only the account goes. This cannot be undone.',
+  'users.delete.created':
+    'People this account added: {count}. They stay on the tree; afterwards only an admin can edit them.',
+  'users.delete.typeLabel': 'Type {email} to confirm',
+  'users.delete.confirm': 'Delete account',
+  'users.delete.done': 'The account of {name} was deleted.',
   'users.cannot.self': 'You cannot do this to your own account.',
   'users.cannot.superAdminRole': 'A SuperAdmin’s role cannot be changed here.',
   'users.role.title': 'Change the role of {name}',
