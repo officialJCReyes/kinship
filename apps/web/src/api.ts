@@ -249,11 +249,12 @@ export async function fetchPerson(id: string, signal?: AbortSignal): Promise<Per
 /** The people, relationships and parent links around one person (see TreeResponse). */
 export async function fetchTree(
   id: string,
-  options: { up: number; down: number; collateral?: boolean; lineage?: LineageView },
+  options: { up: number; down: number; collateral?: boolean | 'siblings'; lineage?: LineageView },
   signal?: AbortSignal,
 ): Promise<TreeResponse> {
   const query = new URLSearchParams({ up: String(options.up), down: String(options.down) });
-  if (options.collateral) query.set('collateral', 'true');
+  // true: every other descendant of the top ancestors; 'siblings': only brothers and sisters and their families (no aunts, uncles, cousins).
+  if (options.collateral) query.set('collateral', options.collateral === 'siblings' ? 'siblings' : 'true');
   // Without `lineage` the API follows the signed-in account's own setting.
   if (options.lineage) query.set('lineage', options.lineage);
   const path = `/api/tree/${encodeURIComponent(id)}?${query}`;

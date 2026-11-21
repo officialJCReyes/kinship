@@ -15,6 +15,7 @@ import type { Layout, PlacedCouple, PlacedLink, PlacedNode } from './layout.js';
 import { Legend } from './Legend.js';
 import { ZoomControls } from './ZoomControls.js';
 import type { TreeViewName } from './treeView.js';
+import type { WheelMode } from './viewport.js';
 import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
 
 /** Solid line for people who are together, dotted for a relationship that ended or is not a marriage. */
@@ -263,6 +264,10 @@ export interface TreeCanvasProps {
   view?: TreeViewName;
   topLeft?: ReactNode;
   topRight?: ReactNode;
+  /** What a plain mouse wheel does (the account's setting). */
+  wheel?: WheelMode;
+  /** The legend says that aunts, uncles and cousins are not drawn. */
+  relativesHidden?: boolean;
 }
 
 export function TreeCanvas(props: TreeCanvasProps) {
@@ -290,6 +295,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
     content: { width: layout.width, height: layout.height },
     focus: focus && { x: focus.x, y: focus.y + NODE_H / 2 },
     start: view === 'family' ? 'family' : 'fit',
+    wheel: props.wheel ?? 'zoom',
   });
   const [focusId, setFocusId] = useState(selectedId);
   const pendingFocus = useRef<{ id: string; selector: 'node' | 'leaf' | 'leaf-other' } | null>(null);
@@ -542,7 +548,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
       </svg>
       <div className="tree-overlay top-left">{props.topLeft}</div>
       <div className="tree-overlay top-right">{props.topRight}</div>
-      <Legend view={view} deceasedMark={display.showDeceasedMark} />
+      <Legend view={view} deceasedMark={display.showDeceasedMark} relativesHidden={props.relativesHidden ?? false} />
       <ZoomControls onZoomIn={() => zoomBy(ZOOM_STEP)} onZoomOut={() => zoomBy(1 / ZOOM_STEP)} onFit={fit} />
       <div className="sr-only" role="status" aria-live="polite">
         {announce}

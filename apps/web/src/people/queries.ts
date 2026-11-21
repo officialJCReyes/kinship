@@ -64,13 +64,18 @@ export function useRefreshPeople() {
 
 /** What the Family tree chart asks for: three generations up, two down, and the other descendants of the top ancestors. */
 export const CHART_SHAPE = { up: 3, down: 2, collateral: true } as const;
+/** What the chart asks for while "Show aunts, uncles and cousins" is off (the default): no aunts, uncles or cousins (ADR 0027). */
+export const CHART_SHAPE_SIBLINGS = { up: 3, down: 2, collateral: 'siblings' } as const;
 /** What a spouse's family view asks for (half-siblings and everybody else are then dropped). */
 export const FAMILY_SHAPE = { up: 3, down: 1, collateral: true } as const;
 
-export function chartQuery(id: string) {
+export function chartQuery(id: string, extended = false) {
   return queryOptions({
-    queryKey: [...peopleKey, 'chart', id],
-    queryFn: ({ signal }) => api.fetchTree(id, CHART_SHAPE, signal),
+    queryKey: [...peopleKey, 'chart', id, extended ? 'extended' : 'siblings'],
+    queryFn: ({ signal }) => api.fetchTree(id, extended ? CHART_SHAPE : CHART_SHAPE_SIBLINGS, signal),
+    // Turning the setting on or off for the same person keeps the chart (and the settings panel over it) on screen until
+    // the other chart has arrived; a different person shows "Loading" as it always did.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey.at(-2) === id ? previous : undefined),
   });
 }
 

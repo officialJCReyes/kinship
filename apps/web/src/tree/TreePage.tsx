@@ -20,7 +20,7 @@ import { recallRoot, rememberRoot } from './remember.js';
 import { FanCanvas } from './FanCanvas.js';
 import { TreeCanvas } from './TreeCanvas.js';
 import { TreePanel } from './TreePanel.js';
-import { AVAILABLE_VIEWS, parseTreeView, treeViewQuery, viewState } from './treeView.js';
+import { AVAILABLE_VIEWS, entryAddress, parseTreeView, treeViewQuery, viewState } from './treeView.js';
 import type { TreeViewName } from './treeView.js';
 import { descendantsModel, familyModel, fanModel, pedigreeModel } from './viewModels.js';
 import type { ChartModel } from './viewModels.js';
@@ -33,9 +33,9 @@ export function TreeIndexPage() {
   const navigate = useNavigate();
   const [picked, setPicked] = useState<Person | null>(null);
   if (!me) return null;
-  if (me.personId) return <Navigate to={`/tree/${me.personId}`} replace />;
+  if (me.personId) return <Navigate to={entryAddress(me.personId, me.treeDefaultView)} replace />;
   const last = recallRoot();
-  if (last) return <Navigate to={`/tree/${last}`} replace />;
+  if (last) return <Navigate to={entryAddress(last, me.treeDefaultView)} replace />;
   return (
     <div className="page-width choose-root">
       <section className="card stack">
@@ -47,7 +47,7 @@ export function TreeIndexPage() {
             className="button primary"
             type="button"
             disabled={!picked}
-            onClick={() => picked && void navigate(`/tree/${picked.id}`)}
+            onClick={() => picked && void navigate(entryAddress(picked.id, me.treeDefaultView))}
           >
             {t('tree.choose.go')}
           </button>
@@ -85,7 +85,7 @@ export function TreePage() {
   const timers = useRef<number[]>([]);
   useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
-  const main = useQuery({ ...chartQuery(id), enabled: isFamily });
+  const main = useQuery({ ...chartQuery(id, me?.showExtendedRelatives ?? false), enabled: isFamily });
   const family = useQuery({ ...familyQuery(of ?? '', lineage), enabled: of !== null });
   const ancestors = useQuery({ ...ancestorsQuery(id, gen), enabled: view === 'pedigree' || view === 'fan' });
   const descendants = useQuery({ ...descendantsQuery(id, gen), enabled: view === 'descendants' });
@@ -304,6 +304,7 @@ export function TreePage() {
             onSelect={select}
             topLeft={topLeft}
             topRight={topRight}
+            wheel={me.treeWheel}
           />
         ) : (
           <TreeCanvas
@@ -322,6 +323,8 @@ export function TreePage() {
             onCouple={openUnion}
             revealRequest={found}
             view={chart.view}
+            relativesHidden={chartFamily && (!me.showExtendedRelatives || of !== null)}
+            wheel={me.treeWheel}
             topLeft={topLeft}
             topRight={topRight}
           />

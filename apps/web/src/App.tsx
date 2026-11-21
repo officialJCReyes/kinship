@@ -25,6 +25,7 @@ import { ProfilePage } from './pages/ProfilePage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
 import { SetupPage } from './pages/SetupPage.js';
 import { TreeIndexPage, TreePage } from './tree/TreePage.js';
+import { entryAddress } from './tree/treeView.js';
 
 function Loading() {
   return (
@@ -75,7 +76,12 @@ function SetupRoute() {
   if (session.isPending) return <Loading />;
   // Setup just finished: the wizard created the signed-in person's own place on the tree, so go there.
   const personId = session.data?.user.personId;
-  return <Navigate to={session.data ? (personId ? `/tree/${personId}` : '/') : '/login'} replace />;
+  return (
+    <Navigate
+      to={session.data ? (personId ? entryAddress(personId, session.data.user.treeDefaultView) : '/') : '/login'}
+      replace
+    />
+  );
 }
 
 export function App() {

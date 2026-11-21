@@ -6,8 +6,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { prefersReducedMotion } from './motion.js';
-import { distance, fitView, initialView, reveal, transformOf, zoomAt } from './viewport.js';
-import type { View } from './viewport.js';
+import { distance, fitView, initialView, reveal, transformOf, wheelView, zoomAt } from './viewport.js';
+import type { View, WheelMode } from './viewport.js';
 
 const DRAG_THRESHOLD = 4;
 export const ZOOM_STEP = 1.25;
@@ -45,9 +45,11 @@ export interface ChartViewportOptions {
    * 'fit': always the whole chart (the Pedigree, Fan and Descendants views fit themselves, ADR 0026).
    */
   start: 'family' | 'fit';
+  /** What a plain mouse wheel does: zoom (the default) or move the chart. Ctrl and a pinch always zoom. */
+  wheel?: WheelMode;
 }
 
-export function useChartViewport({ content, focus, start }: ChartViewportOptions) {
+export function useChartViewport({ content, focus, start, wheel = 'zoom' }: ChartViewportOptions) {
   const wrap = useRef<HTMLDivElement>(null);
   const svg = useRef<SVGSVGElement>(null);
   const viewport = useRef<SVGGElement>(null);
@@ -147,7 +149,12 @@ export function useChartViewport({ content, focus, start }: ChartViewportOptions
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Wheel and trackpad pinch zoom around the pointer. A native listener, because React's wheel is passive.
+  // The wheel: zoom around the pointer, or (in scroll mode) move the chart; Ctrl and a trackpad pinch always zoom. A native
+  // listener, because React's wheel is passive. The mode is read from a ref, so a change of setting does not add it again.
+  const wheelMode = useRef<WheelMode>(wheel);
+  useEffect(() => {
+    wheelMode.current = wheel;
+  }, [wheel]);
   useEffect(() => {
     const el = svg.current;
     if (!el) return;
@@ -155,12 +162,19 @@ export function useChartViewport({ content, focus, start }: ChartViewportOptions
       event.preventDefault();
       cancelAnimationFrame(frame.current);
       const rect = el.getBoundingClientRect();
-      const factor = Math.exp(-event.deltaY * (event.ctrlKey ? 0.01 : 0.0015));
-      apply(zoomAt(view.current, factor, event.clientX - rect.left, event.clientY - rect.top));
+      apply(
+        wheelView(
+          view.current,
+          event,
+          wheelMode.current,
+          { x: event.clientX - rect.left, y: event.clientY - rect.top },
+          box(),
+        ),
+      );
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [apply]);
+  }, [apply, box]);
 
   // Drag to pan, two fingers to pinch. Press on a leaf (or any control) does nothing here, and the pointer is only
   // captured once the drag really starts, so that a click on a box or a leaf still arrives where it was aimed.

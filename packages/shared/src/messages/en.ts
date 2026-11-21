@@ -906,6 +906,17 @@ export const en = {
   'tree.settings.group.relatives': 'Relatives',
   'tree.settings.group.navigation': 'Navigation',
   'tree.settings.showDeceasedMark': 'Show † on people who have died',
+  'tree.settings.showExtended': 'Show aunts, uncles and cousins',
+  'tree.settings.showExtendedHelp': 'Off by default. Siblings, their partners, nieces and nephews are always shown.',
+  'tree.legend.relativesHidden':
+    'Aunts, uncles and cousins are hidden. Show them in the chart settings (gear), or search for them above.',
+  'tree.settings.wheel': 'Mouse wheel',
+  'tree.settings.wheel.zoom': 'Zoom',
+  'tree.settings.wheel.scroll': 'Scroll',
+  'tree.settings.wheelHint': 'Scroll moves the chart. Hold Ctrl or pinch to zoom.',
+  'tree.settings.defaultView': 'Chart that opens first',
+  'tree.settings.defaultViewHelp':
+    'Used when you open the tree from the menu or after signing in. A link that names a view always wins.',
   'tree.settings.restore': 'Restore defaults',
   'tree.settings.restored': 'Defaults restored.',
   'tree.settings.namesNote': 'Names are shared with My settings and are not reset here.',

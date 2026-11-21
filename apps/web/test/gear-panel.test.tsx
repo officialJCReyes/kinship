@@ -122,7 +122,7 @@ describe('the chart settings (gear)', () => {
     const { panel } = await openGear();
     fireEvent.click(within(panel).getByRole('button', { name: /Names/ }));
     expect(
-      within(panel)
+      within(within(panel).getByRole('group', { name: 'How to show married women’s names' }))
         .getAllByRole('radio')
         .map((r) => (r as HTMLInputElement).labels?.[0]?.textContent),
     ).toEqual(['Maiden name (Married name)', 'Married name (born Maiden name)', 'Married name', 'Maiden name']);
@@ -179,5 +179,25 @@ describe('the chart settings (gear)', () => {
     // And the other way round.
     fireEvent.click(gear);
     expect(screen.queryByRole('group', { name: 'View' })).toBeNull();
+  });
+
+  it('has the mouse wheel in Navigation, zoom or scroll, with a hint only while Scroll is chosen', async () => {
+    const { routes, patches } = account();
+    mockApi(routes);
+    renderApp('/tree/marcus');
+    const { panel } = await openGear();
+    const nav = within(panel).getByRole('button', { name: /Navigation/ });
+    expect(nav.getAttribute('aria-expanded')).toBe('true');
+    expect(
+      within(panel)
+        .getByRole('button', { name: /Relatives/ })
+        .getAttribute('aria-expanded'),
+    ).toBe('true');
+    expect(within(panel).getByRole('button', { name: /Cards/ }).getAttribute('aria-expanded')).toBe('false');
+    expect((within(panel).getByRole('radio', { name: 'Zoom' }) as HTMLInputElement).checked).toBe(true);
+    expect(within(panel).queryByText('Scroll moves the chart. Hold Ctrl or pinch to zoom.')).toBeNull();
+    fireEvent.click(within(panel).getByRole('radio', { name: 'Scroll' }));
+    await waitFor(() => expect(patches).toEqual([{ treeWheel: 'scroll' }]));
+    expect(await within(panel).findByText('Scroll moves the chart. Hold Ctrl or pinch to zoom.')).toBeTruthy();
   });
 });

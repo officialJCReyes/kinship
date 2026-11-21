@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { PEOPLE, treeFor } from './family.js';
 import { ancestorsIn, familyView, findLeaves, initials, leafLabel, nodeLabel } from '../src/tree/family.js';
-import { centerOn, clampScale, fitView, initialView, reveal, zoomAt } from '../src/tree/viewport.js';
+import { centerOn, clampScale, fitView, initialView, reveal, wheelView, zoomAt } from '../src/tree/viewport.js';
 
 describe('family view', () => {
   const full = treeFor('sofia', { up: 3, down: 1, collateral: true });
@@ -180,5 +180,54 @@ describe('family view: brothers’ and sisters’ partners and children', () => 
       'walter',
     ]);
     expect(hale.people.find((p) => p.id === 'lena')?.ancestorCount).toBe(3);
+  });
+});
+
+describe('the mouse wheel', () => {
+  const view = { k: 1, x: 100, y: 50 };
+  const box = { width: 800, height: 600 };
+  const at = { x: 400, y: 300 };
+  const wheel = (over: Partial<Parameters<typeof wheelView>[1]>) => ({
+    deltaX: 0,
+    deltaY: 0,
+    deltaMode: 0,
+    ctrlKey: false,
+    shiftKey: false,
+    ...over,
+  });
+
+  it('zooms around the pointer in zoom mode, as it always did (a pinch, with Ctrl, is much faster)', () => {
+    const plain = wheelView(view, wheel({ deltaY: -100 }), 'zoom', at, box);
+    expect(plain).toEqual(zoomAt(view, Math.exp(100 * 0.0015), 400, 300));
+    const pinch = wheelView(view, wheel({ deltaY: -100, ctrlKey: true }), 'zoom', at, box);
+    expect(pinch).toEqual(zoomAt(view, Math.exp(100 * 0.01), 400, 300));
+    expect(pinch.k).toBeGreaterThan(plain.k);
+  });
+
+  it('moves the chart in scroll mode, by deltaX and deltaY, without changing the zoom', () => {
+    expect(wheelView(view, wheel({ deltaX: 30, deltaY: 40 }), 'scroll', at, box)).toEqual({ k: 1, x: 70, y: 10 });
+    expect(wheelView(view, wheel({ deltaY: -25 }), 'scroll', at, box)).toEqual({ k: 1, x: 100, y: 75 });
+    // The pan is not limited.
+    expect(wheelView(view, wheel({ deltaX: 100_000 }), 'scroll', at, box).x).toBe(100 - 100_000);
+  });
+
+  it('still zooms with Ctrl or a pinch in scroll mode', () => {
+    const pinch = wheelView(view, wheel({ deltaY: -50, ctrlKey: true }), 'scroll', at, box);
+    expect(pinch).toEqual(zoomAt(view, Math.exp(50 * 0.01), 400, 300));
+  });
+
+  it('counts a line as 16 px and a page as the size of the window', () => {
+    expect(wheelView(view, wheel({ deltaY: 3, deltaMode: 1 }), 'scroll', at, box)).toEqual({ k: 1, x: 100, y: 2 });
+    expect(wheelView(view, wheel({ deltaY: 1, deltaMode: 2 }), 'scroll', at, box)).toEqual({ k: 1, x: 100, y: -550 });
+    expect(wheelView(view, wheel({ deltaX: 1, deltaMode: 2 }), 'scroll', at, box)).toEqual({ k: 1, x: -700, y: 50 });
+  });
+
+  it('moves sideways with Shift and a vertical wheel, but leaves a sideways wheel alone', () => {
+    expect(wheelView(view, wheel({ deltaY: 40, shiftKey: true }), 'scroll', at, box)).toEqual({ k: 1, x: 60, y: 50 });
+    expect(wheelView(view, wheel({ deltaX: 40, deltaY: 10, shiftKey: true }), 'scroll', at, box)).toEqual({
+      k: 1,
+      x: 60,
+      y: 40,
+    });
   });
 });

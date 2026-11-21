@@ -210,3 +210,44 @@ test('the Names card: the four forms and the prefix and suffix switches change a
   await expect(page.locator('dl.facts').first().getByText('Prefix', { exact: true })).toBeVisible();
   await expect(page.locator('dl.facts').first().getByText('Suffix', { exact: true })).toBeVisible();
 });
+
+test('the chart’s gear shows the same Names settings as My settings, and a change in one is seen in the other', async () => {
+  const page = admin;
+  const api = { headers: { 'X-KinShip-Request': '1', Origin: BASE_URL } };
+  try {
+    // The test before left the account on "Married name" with prefixes and suffixes off.
+    await page.goto(`/tree/${rosa.id}`);
+    await page.getByRole('button', { name: 'Chart settings' }).click();
+    const panel = page.getByRole('group', { name: 'Chart settings' });
+    await panel.getByRole('button', { name: /Names/ }).click();
+    await expect(panel.getByRole('radio', { name: 'Married name', exact: true })).toBeChecked();
+    await expect(panel.getByRole('switch', { name: 'Show prefixes (Dr., Sir)' })).not.toBeChecked();
+    await expect(panel.getByRole('switch', { name: 'Show suffixes (Jr., II)' })).not.toBeChecked();
+    // A change in the gear: the panel stays open, and My settings has the same value.
+    await panel.getByRole('radio', { name: 'Maiden name', exact: true }).click();
+    await panel.getByRole('switch', { name: 'Show suffixes (Jr., II)' }).click();
+    await expect(page.getByRole('group', { name: 'Chart settings' })).toBeVisible();
+    await expect(page.getByRole('button', { name: new RegExp(`^Rosa ${mendez} Jr\\.`) })).toBeVisible();
+    await page.goto('/settings');
+    await expect(page.getByLabel('How to show married women’s names')).toHaveValue('maiden');
+    await expect(page.getByLabel('Show suffixes (Jr., II)')).toBeChecked();
+    // And the other way: My settings changes what the gear shows.
+    await page.getByLabel('How to show married women’s names').selectOption('married_born');
+    await expect(page.getByText('Saved.')).toBeAttached();
+    await page.goto(`/tree/${rosa.id}`);
+    await page.getByRole('button', { name: 'Chart settings' }).click();
+    await page.getByRole('group', { name: 'Chart settings' }).getByRole('button', { name: /Names/ }).click();
+    await expect(
+      page
+        .getByRole('group', { name: 'Chart settings' })
+        .getByRole('radio', { name: 'Married name (born Maiden name)' }),
+    ).toBeChecked();
+  } finally {
+    // The defaults again, so the journeys after this one start from them.
+    const restored = await page.request.patch('/api/auth/me', {
+      ...api,
+      data: { nameForm: 'maiden_married', showPrefix: true, showSuffix: true },
+    });
+    expect(restored.status()).toBe(200);
+  }
+});
