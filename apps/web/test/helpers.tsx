@@ -21,6 +21,10 @@ export const ALICE = {
   nameForm: 'maiden_married',
   showPrefix: true,
   showSuffix: true,
+  treeWheel: 'zoom',
+  treeDefaultView: 'family',
+  showExtendedRelatives: false,
+  showDeceasedMark: true,
   passwordChangedAt: null,
   passwordChangedVia: null,
 } as const;

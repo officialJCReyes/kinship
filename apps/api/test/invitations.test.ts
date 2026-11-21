@@ -342,6 +342,10 @@ describe('accepting an invitation', () => {
       nameForm: 'maiden_married',
       showPrefix: true,
       showSuffix: true,
+      treeWheel: 'zoom',
+      treeDefaultView: 'family',
+      showExtendedRelatives: false,
+      showDeceasedMark: true,
       lineageView: 'adoptive',
     });
     // The cookie works, and the password works.

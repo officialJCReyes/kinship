@@ -143,6 +143,10 @@ export const ADMIN: AuthUser = {
   nameForm: 'maiden_married',
   showPrefix: true,
   showSuffix: true,
+  treeWheel: 'zoom',
+  treeDefaultView: 'family',
+  showExtendedRelatives: false,
+  showDeceasedMark: true,
   passwordChangedAt: null,
   passwordChangedVia: null,
 };
@@ -159,6 +163,10 @@ export const MEMBER: AuthUser = {
   nameForm: 'maiden_married',
   showPrefix: true,
   showSuffix: true,
+  treeWheel: 'zoom',
+  treeDefaultView: 'family',
+  showExtendedRelatives: false,
+  showDeceasedMark: true,
   passwordChangedAt: null,
   passwordChangedVia: null,
 };
@@ -175,6 +183,10 @@ export const READER: AuthUser = {
   nameForm: 'maiden_married',
   showPrefix: true,
   showSuffix: true,
+  treeWheel: 'zoom',
+  treeDefaultView: 'family',
+  showExtendedRelatives: false,
+  showDeceasedMark: true,
   passwordChangedAt: null,
   passwordChangedVia: null,
 };

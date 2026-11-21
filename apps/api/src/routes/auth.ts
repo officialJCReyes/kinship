@@ -219,6 +219,12 @@ export function settingsColumns(settings: Partial<UserSettings>) {
     ...(settings.nameForm !== undefined ? { name_form: settings.nameForm } : {}),
     ...(settings.showPrefix !== undefined ? { show_prefix: settings.showPrefix } : {}),
     ...(settings.showSuffix !== undefined ? { show_suffix: settings.showSuffix } : {}),
+    ...(settings.treeWheel !== undefined ? { tree_wheel: settings.treeWheel } : {}),
+    ...(settings.treeDefaultView !== undefined ? { tree_default_view: settings.treeDefaultView } : {}),
+    ...(settings.showExtendedRelatives !== undefined
+      ? { show_extended_relatives: settings.showExtendedRelatives }
+      : {}),
+    ...(settings.showDeceasedMark !== undefined ? { show_deceased_mark: settings.showDeceasedMark } : {}),
   };
 }
 
@@ -243,6 +249,10 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
         'name_form',
         'show_prefix',
         'show_suffix',
+        'tree_wheel',
+        'tree_default_view',
+        'show_extended_relatives',
+        'show_deceased_mark',
         'password_changed_at',
         'password_changed_via',
       ])
@@ -266,6 +276,10 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       nameForm: result.user.name_form,
       showPrefix: result.user.show_prefix,
       showSuffix: result.user.show_suffix,
+      treeWheel: result.user.tree_wheel,
+      treeDefaultView: result.user.tree_default_view,
+      showExtendedRelatives: result.user.show_extended_relatives,
+      showDeceasedMark: result.user.show_deceased_mark,
       passwordChangedAt: result.user.password_changed_at?.toISOString() ?? null,
       passwordChangedVia: result.user.password_changed_via,
     },

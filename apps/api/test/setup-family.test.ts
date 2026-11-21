@@ -212,6 +212,7 @@ describe('POST /api/setup with a family', () => {
           dateFormat: 'iso',
           nameForm: 'married_born',
           showPrefix: false,
+          treeDefaultView: 'fan',
         },
       }),
     );
@@ -223,6 +224,8 @@ describe('POST /api/setup with a family', () => {
       nameForm: 'married_born',
       showPrefix: false,
       showSuffix: true,
+      treeDefaultView: 'fan',
+      treeWheel: 'zoom',
     });
   });
 

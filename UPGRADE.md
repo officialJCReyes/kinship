@@ -4,13 +4,15 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 ## Unreleased (will become 0.3.0)
 
-**0.3.0 changes the database and one setting.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0017.tar.enc` so far; later 0.3.0 steps may add migrations and raise the second number) and then applies the migration.
+**0.3.0 changes the database and some settings.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0018.tar.enc` so far; later 0.3.0 steps may add migrations and raise the second number) and then applies the migration.
 
 ### What changes for people
 
 - **Married women's names now show as "Maiden name (Married name)"**, for every account, for example "Rosa Mendez (Hale)". Change it in **My settings → Names**, where there are four forms: Maiden name (Married name), Married name (born Maiden name), Married name, and Maiden name. A person with no married surname always shows the birth name. If a married surname starts with the birth name ("Mendez Hale" for "Mendez"), the birth name is not repeated in the brackets.
 - **Existing accounts move automatically (migration 0017).** An account that showed married surnames (the old default) now uses "Maiden name (Married name)". An account that had chosen birth names now uses "Maiden name". KinShip cannot tell a deliberate "married" choice from the default, so check **My settings → Names** if you had picked it on purpose.
 - **Four new optional name fields** on each person: prefix (Dr., Sir), suffix (Jr., II), nickname and surname particle (de, de la, van). They are in Add relative and Edit details, on the profile under Facts, and searchable. Prefix and suffix show on the tree and profile for every account, new and existing; turn them off in My settings → Names. A nickname is never part of the shown name. Nothing is filled in for existing people, and the setup wizard asks for none of them.
+- **Charts hide aunts, uncles and cousins by default (migration 0018).** The Family tree used to draw them; now it draws the person, the ancestors, brothers and sisters (and half-siblings), their partners and children, and nobody else's branches. This applies to every account, existing ones included. To see them again, open the chart's **gear** (Chart settings) and turn on **Show aunts, uncles and cousins**. No action is needed.
+- **A chart settings panel (gear)** in the top bar of the tree: show † after the name of someone who has died, the married-name forms and prefix and suffix switches (the same settings as My settings → Names), the mouse wheel (zoom or scroll), and which chart opens first from the menu or after signing in (a link that names a view always wins). The defaults are today's behaviour, except for the relatives above.
 - Admins see a "What's new" popup once after the update.
 
 ### Things to know
@@ -18,6 +20,8 @@ Notes for upgrading from one release to the next, newest first. Read the section
 - The migration changes the search text in place (`people.search_names`, now including the four new fields). This rewrites one column and is quick for a family tree. The previous release still searches correctly if you restore the safety copy. The old `people.search_name` column and `users.surname_choice` stay until a later release.
 
 ### API changes
+
+Migration 0018 adds four columns to `users`; the safety copy's name ends in `-to-0018`. `GET /api/auth/me`, the sign-in response, `PATCH /api/auth/me` and the `settings` object of `POST /api/setup` gain `treeWheel` (`zoom` or `scroll`), `treeDefaultView` (`family`, `pedigree`, `fan` or `descendants`), `showExtendedRelatives` and `showDeceasedMark` (booleans). New error codes: `invalid_tree_wheel`, `invalid_tree_default_view`, `invalid_show_extended_relatives`, `invalid_show_deceased_mark`. `GET /api/tree/:id` accepts `collateral=siblings` (the person's siblings and half-siblings with their partners and descendants, without aunts, uncles and cousins); `collateral=true` keeps its meaning.
 
 `surnameChoice` is gone from `PATCH /api/auth/me`, the sign-in and `GET /api/auth/me` responses, and the `settings` object of `POST /api/setup`. It is replaced by `nameForm` (`maiden_married`, `married_born`, `married` or `maiden`), `showPrefix` and `showSuffix` (booleans). A request that still sends `surnameChoice` is refused with `invalid_request`. `GET /api/people/:id`, the tree and the list gain `namePrefix`, `nameSuffix`, `nickname` and `surnameParticle` (null when not set); they can be sent when creating or changing a person. New error codes: `invalid_name_form`, `invalid_show_prefix`, `invalid_show_suffix`, `invalid_name_prefix`, `invalid_name_suffix`, `invalid_nickname`, `invalid_surname_particle`; `invalid_surname_choice` is gone.
 

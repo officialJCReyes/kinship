@@ -23,6 +23,10 @@ export type SessionUser = Omit<
   | 'nameForm'
   | 'showPrefix'
   | 'showSuffix'
+  | 'treeWheel'
+  | 'treeDefaultView'
+  | 'showExtendedRelatives'
+  | 'showDeceasedMark'
   | 'passwordChangedAt'
   | 'passwordChangedVia'
 >;

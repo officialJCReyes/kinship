@@ -95,6 +95,13 @@ assert_seed_after_upgrade() {
   expect "0" "$(sql 'select count(*) from people where name_prefix is not null or name_suffix is not null or nickname is not null or surname_particle is not null')" "people with a prefix, suffix, nickname or particle"
   expect "Ames Hale" "$(sql "select married_surname from people where given_name = 'Margaret'")" "Margaret's married surname"
 
+  # Migration 0018 (the chart's own settings): every account, the existing ones too, takes the defaults. Aunts, uncles and cousins
+  # are hidden for everyone, the wheel zooms, the Family tree opens first and the dagger shows.
+  expect "zoom zoom zoom" "$(sql "select string_agg(tree_wheel, ' ') from users")" "the mouse wheel setting of every account"
+  expect "family family family" "$(sql "select string_agg(tree_default_view, ' ') from users")" "the default chart of every account"
+  expect "0" "$(sql 'select count(*) from users where show_extended_relatives')" "accounts that show aunts, uncles and cousins"
+  expect "3" "$(sql 'select count(*) from users where show_deceased_mark')" "accounts that show the dagger"
+
   # Through the API, as an admin signed in just for this check: the placeholders are not in the people list, and the 0016 route
   # refuses a second account for Vera and a placeholder. (A fresh cookie jar: the main one may predate a restore.)
   local jar2="$work/assert-cookies.txt" list ids refused
@@ -105,6 +112,7 @@ assert_seed_after_upgrade() {
   expect "0" "$(echo "$list" | python3 -c 'import json,sys; print(sum(1 for p in json.load(sys.stdin)["items"] if p.get("isPlaceholder") or not p.get("givenName")))')" "placeholders in GET /api/people"
   expect "maiden_married" "$(curl -s -b "$jar2" "${base}/api/auth/me" | json "['user']['nameForm']")" "nameForm in GET /api/auth/me"
   expect "true" "$(curl -s -b "$jar2" "${base}/api/auth/me" | python3 -c 'import json,sys; print(str(json.load(sys.stdin)["user"]["showPrefix"]).lower())')" "showPrefix in GET /api/auth/me"
+  expect "zoom family false true" "$(curl -s -b "$jar2" "${base}/api/auth/me" | python3 -c 'import json,sys; u=json.load(sys.stdin)["user"]; print(u["treeWheel"], u["treeDefaultView"], str(u["showExtendedRelatives"]).lower(), str(u["showDeceasedMark"]).lower())')" "the chart settings in GET /api/auth/me"
   expect "1" "$(curl -s -b "$jar2" "${base}/api/people?q=margaret%20hale" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))')" "search for Margaret by her given name and married surname"
   member_id="$(sql "select id from users where email = '$member_email'")"
   refused="$(curl -s -X PUT -b "$jar2" -H 'X-KinShip-Request: 1' -H 'Content-Type: application/json' -H "Origin: ${base}" \
