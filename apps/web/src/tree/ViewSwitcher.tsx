@@ -2,9 +2,9 @@
 //
 // The chart's view switcher: one icon button that shows the current view. It opens a panel of icons only (the names are
 // in tooltips and accessible labels): the views, then the number of generations for the views that have the choice.
-import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { t } from '../i18n.js';
+import { usePopover } from './usePopover.js';
 import { generationOptions } from './treeView.js';
 import type { TreeViewName } from './treeView.js';
 
@@ -70,32 +70,11 @@ export interface ViewSwitcherProps {
 }
 
 export function ViewSwitcher({ view, gen, views, onView, onGen }: ViewSwitcherProps) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const panelId = useId();
+  const { open, root, trigger, panelId, close, toggle, onKeyDown } = usePopover({
+    focusOnOpen: (el) => el.querySelector<HTMLElement>('[data-view][aria-pressed="true"]'),
+  });
   const name = t(`tree.view.${view}`);
   const options = generationOptions(view);
-
-  // Opening puts focus on the current view; a press or focus outside closes the panel.
-  useEffect(() => {
-    if (!open) return;
-    root.current?.querySelector<HTMLElement>('[data-view][aria-pressed="true"]')?.focus();
-    const away = (event: Event) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('focusin', away);
-    return () => {
-      document.removeEventListener('pointerdown', away);
-      document.removeEventListener('focusin', away);
-    };
-  }, [open]);
-
-  const close = (focusTrigger: boolean) => {
-    setOpen(false);
-    if (focusTrigger) trigger.current?.focus();
-  };
 
   // One tab stop in each group (the pressed button); the arrow keys move inside the group.
   const onGroupKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -123,16 +102,7 @@ export function ViewSwitcher({ view, gen, views, onView, onGen }: ViewSwitcherPr
   };
 
   return (
-    <div
-      className="view-switcher"
-      ref={root}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && open) {
-          event.preventDefault();
-          close(true);
-        }
-      }}
-    >
+    <div className="view-switcher" ref={root} onKeyDown={onKeyDown}>
       <button
         ref={trigger}
         className="button view-trigger"
@@ -142,7 +112,7 @@ export function ViewSwitcher({ view, gen, views, onView, onGen }: ViewSwitcherPr
         aria-controls={open ? panelId : undefined}
         aria-label={t('tree.view.current', { name })}
         title={t('tree.view.current', { name })}
-        onClick={() => setOpen((was) => !was)}
+        onClick={toggle}
       >
         {ICONS[view]}
       </button>
