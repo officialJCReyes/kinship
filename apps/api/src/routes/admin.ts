@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { canLinkPerson, canMakeSetPasswordLink, ROLES_INVITABLE_BY } from '@kinship/shared';
+import { canLinkPerson, canMakeSetPasswordLink, rolesSettableBy, ROLES_INVITABLE_BY } from '@kinship/shared';
 import type {
   AccountPersonLogLine,
+  AccountRoleLogLine,
   AccountsResponse,
   AccountSummary,
+  ChangeRoleInput,
+  ChangeRoleResponse,
   InvitationInput,
   LinkCreated,
   LinkPersonInput,
@@ -14,6 +17,7 @@ import type {
 } from '@kinship/shared';
 import type { FastifyInstance } from 'fastify';
 import {
+  changeAccountRole,
   createInvitation,
   createResetLink,
   linkAccountPerson,
@@ -149,6 +153,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           setPasswordLink: reset ? summary(reset) : null,
           canSetPasswordLink: canMakeSetPasswordLink(actor, { id: user.id, role: user.role }),
           canLinkPerson: canLinkPerson(actor, { id: user.id, role: user.role }),
+          allowedRoles: rolesSettableBy(actor, { id: user.id, role: user.role }),
         };
       });
       const invitations: AccountSummary[] = links
@@ -169,6 +174,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           setPasswordLink: null,
           canSetPasswordLink: false,
           canLinkPerson: false,
+          allowedRoles: [],
         }));
       return { accounts: [...accounts, ...invitations] };
     });
@@ -286,6 +292,44 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       };
       request.log.info(line, line.event);
       return reply.code(204).send();
+    },
+  );
+
+  // --- change an account's role (#57, migration 0019, ADR 0029) -----------------------------------------------------
+  const roleEnum = { type: 'string', enum: ['superadmin', 'familyadmin', 'member', 'user'] };
+  app.patch(
+    '/api/admin/accounts/:id/role',
+    {
+      config: limit,
+      schema: {
+        params: idParams,
+        body: {
+          type: 'object',
+          required: ['role', 'currentRole'],
+          additionalProperties: false,
+          properties: { role: roleEnum, currentRole: roleEnum },
+        },
+      },
+    },
+    async (request): Promise<ChangeRoleResponse> => {
+      const { id } = request.params as { id: string };
+      const body = request.body as ChangeRoleInput;
+      const actor = request.user;
+      if (!actor) throw forbidden();
+      if (!isUuid(id)) throw notFound('account_not_found');
+      // The role is read from the database on every request, so a change applies at once: no sign-out is needed.
+      const previous = await request.withTransaction((trx) => changeAccountRole(trx, id, body.role, body.currentRole));
+      if (previous !== body.role) {
+        const line: AccountRoleLogLine = {
+          event: 'account_role_changed',
+          actor: actor.id,
+          account: id,
+          from: previous,
+          to: body.role,
+        };
+        request.log.info(line, line.event);
+      }
+      return { accountId: id, role: body.role, previous };
     },
   );
 

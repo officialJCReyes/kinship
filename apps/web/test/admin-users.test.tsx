@@ -31,6 +31,7 @@ function account(partial: Partial<AccountSummary> & Pick<AccountSummary, 'id' | 
     setPasswordLink: null,
     canSetPasswordLink: false,
     canLinkPerson: true,
+    allowedRoles: [],
     ...partial,
   };
 }

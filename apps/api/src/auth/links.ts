@@ -186,3 +186,12 @@ export async function unlinkAccountPerson(trx: Db, userId: string, expected: str
   if (!row) throw new Error('unlink_account_person returned nothing');
   return row.previous_person_id;
 }
+
+/** Changes the account's role (migration 0019); returns the role it had. `expected` is what the caller believed it was. */
+export async function changeAccountRole(trx: Db, userId: string, role: Role, expected: Role): Promise<Role> {
+  const result = await sql<{ previous_role: Role }>`
+    select previous_role from kinship_auth.change_account_role(${userId}::uuid, ${role}, ${expected})`.execute(trx);
+  const row = result.rows[0];
+  if (!row) throw new Error('change_account_role returned nothing');
+  return row.previous_role;
+}
