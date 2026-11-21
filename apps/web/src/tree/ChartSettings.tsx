@@ -4,7 +4,7 @@
 // Four disclosure groups (Cards, Names, Relatives, Navigation) and a Restore defaults link. Every change is one request, shown
 // at once and undone with a message if it fails. The Names group is the same setting as My settings, Names. The chart is not
 // remounted by a change, so the panel, the focus and the view stay where they are.
-import { CHART_SETTING_DEFAULTS, NAME_FORMS } from '@kinship/shared';
+import { CHART_SETTING_DEFAULTS, NAME_FORMS, TREE_WHEELS } from '@kinship/shared';
 import type { AuthUser, MessageKey, UserSettings } from '@kinship/shared';
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -203,6 +203,24 @@ export function ChartSettings({ user }: { user: AuthUser }) {
               help={t('tree.settings.showExtendedHelp')}
               checked={user.showExtendedRelatives}
               onChange={(value) => change({ showExtendedRelatives: value })}
+            />,
+          )}
+          {group(
+            'navigation',
+            <Radios
+              legend={t('tree.settings.wheel')}
+              name={`${panelId}-wheel`}
+              value={user.treeWheel}
+              values={TREE_WHEELS}
+              labelOf={(wheel) => t(`tree.settings.wheel.${wheel}` as MessageKey)}
+              onChange={(treeWheel) => change({ treeWheel })}
+              hint={
+                user.treeWheel === 'scroll' ? (
+                  <p className="muted field-help" id={`${panelId}-wheel-hint`}>
+                    {t('tree.settings.wheelHint')}
+                  </p>
+                ) : null
+              }
             />,
           )}
           <div className="settings-footer">
