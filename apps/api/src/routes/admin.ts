@@ -8,12 +8,15 @@ import {
 } from '@kinship/shared';
 import type {
   AccountPersonLogLine,
+  AccountDeletedLogLine,
   AccountRoleLogLine,
   AccountStateLogLine,
   AccountStateResponse,
   AccountsResponse,
   AccountSummary,
   ChangeRoleInput,
+  DeleteAccountInput,
+  DeleteAccountPreview,
   ChangeRoleResponse,
   InvitationInput,
   LinkCreated,
@@ -28,6 +31,8 @@ import {
   changeAccountRole,
   createInvitation,
   createResetLink,
+  deleteAccount,
+  deletePreview,
   disableAccount,
   enableAccount,
   linkAccountPerson,
@@ -171,6 +176,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           allowedRoles: rolesSettableBy(actor, { id: user.id, role: user.role }),
           disabledAt: user.disabled_at?.toISOString() ?? null,
           canDisable: !lastSuperAdmin && canDisableAccount(actor, { id: user.id, role: user.role }),
+          canDelete: disabled && canDisableAccount(actor, { id: user.id, role: user.role }),
           lastSuperAdmin,
         };
       });
@@ -195,6 +201,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           allowedRoles: [],
           disabledAt: null,
           canDisable: false,
+          canDelete: false,
           lastSuperAdmin: false,
         }));
       return { accounts: [...accounts, ...invitations] };
@@ -382,6 +389,51 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       },
     );
   }
+
+  // --- delete (#56, ADR 0029): only a disabled account, with its email typed ---------------------------------------------
+  app.get(
+    '/api/admin/accounts/:id/delete-preview',
+    { config: limit, schema: { params: idParams } },
+    async (request): Promise<DeleteAccountPreview> => {
+      const { id } = request.params as { id: string };
+      if (!isUuid(id)) throw notFound('account_not_found');
+      const row = await request.withTransaction((trx) => deletePreview(trx, id));
+      return {
+        accountId: id,
+        role: row.account_role,
+        disabled: row.is_disabled,
+        peopleAdded: Number(row.people_added),
+      };
+    },
+  );
+
+  // POST with a body (not DELETE with a query) so the typed email is in no URL and so in no request log.
+  app.post(
+    '/api/admin/accounts/:id/delete',
+    {
+      config: limit,
+      schema: {
+        params: idParams,
+        body: {
+          type: 'object',
+          required: ['confirmEmail'],
+          additionalProperties: false,
+          properties: { confirmEmail: { type: 'string', maxLength: 320 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as DeleteAccountInput;
+      const actor = request.user;
+      if (!actor) throw forbidden();
+      if (!isUuid(id)) throw notFound('account_not_found');
+      await request.withTransaction((trx) => deleteAccount(trx, id, body.confirmEmail));
+      const line: AccountDeletedLogLine = { event: 'account_deleted', actor: actor.id, account: id };
+      request.log.info(line, line.event);
+      return reply.code(204).send();
+    },
+  );
 
   app.post(
     '/api/admin/links/:id/regenerate',
