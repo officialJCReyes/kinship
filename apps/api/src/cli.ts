@@ -89,7 +89,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   }
 
   const db = deps.openDb();
-  let disabled = false;
+  let disabled: boolean | undefined;
   try {
     if (!(await setUserPassword(db, email, await hashPassword(password)))) {
       deps.err(`There is no account with the email ${email}.`);
