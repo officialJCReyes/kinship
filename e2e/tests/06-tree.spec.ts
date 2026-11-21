@@ -402,7 +402,7 @@ test('aunts, uncles and cousins are hidden by default, the legend says so, and t
     // Turn them on in the gear: the aunt and the cousin appear, the counter grows, the panel stays open.
     await page.getByRole('button', { name: 'Chart settings' }).click();
     const panel = page.getByRole('group', { name: 'Chart settings' });
-    await panel.getByRole('switch', { name: 'Show aunts, uncles and cousins' }).check();
+    await panel.getByRole('switch', { name: 'Show aunts, uncles and cousins' }).click();
     await expect(person(page, 'Greta', clan)).toBeVisible();
     await expect(person(page, 'Nina', clan)).toBeVisible();
     await expect(count).not.toHaveText(hidden);

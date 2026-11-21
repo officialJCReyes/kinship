@@ -224,8 +224,8 @@ test('the chart’s gear shows the same Names settings as My settings, and a cha
     await expect(panel.getByRole('switch', { name: 'Show prefixes (Dr., Sir)' })).not.toBeChecked();
     await expect(panel.getByRole('switch', { name: 'Show suffixes (Jr., II)' })).not.toBeChecked();
     // A change in the gear: the panel stays open, and My settings has the same value.
-    await panel.getByRole('radio', { name: 'Maiden name', exact: true }).check();
-    await panel.getByRole('switch', { name: 'Show suffixes (Jr., II)' }).check();
+    await panel.getByRole('radio', { name: 'Maiden name', exact: true }).click();
+    await panel.getByRole('switch', { name: 'Show suffixes (Jr., II)' }).click();
     await expect(page.getByRole('group', { name: 'Chart settings' })).toBeVisible();
     await expect(page.getByRole('button', { name: new RegExp(`^Rosa ${mendez} Jr\\.`) })).toBeVisible();
     await page.goto('/settings');
