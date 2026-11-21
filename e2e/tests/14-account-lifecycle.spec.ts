@@ -105,16 +105,16 @@ test('disable signs the account out at once, enable says the old password works 
 test('delete needs the typed email, keeps the person, and writes ids-only log lines', async ({ adminPage: page }) => {
   const name = `Rowan ${family}`;
   await page.goto('/admin/users');
-  let { row, menu } = await openMenuFor(page, name);
-  await menu.getByRole('menuitem', { name: 'Disable account…' }).click();
+  const { row, menu: first } = await openMenuFor(page, name);
+  await first.getByRole('menuitem', { name: 'Disable account…' }).click();
   await page
     .getByRole('dialog', { name: `Disable ${name}?` })
     .getByRole('button', { name: 'Disable account' })
     .click();
   await expect(row.getByText('Disabled', { exact: true })).toBeVisible();
 
-  ({ menu } = await openMenuFor(page, name));
-  await menu.getByRole('menuitem', { name: 'Delete account…' }).click();
+  const second = (await openMenuFor(page, name)).menu;
+  await second.getByRole('menuitem', { name: 'Delete account…' }).click();
   const dialog = page.getByRole('dialog', { name: `Delete the account of ${name}?` });
   await expect(dialog).toContainText('The person it was linked to, and everything on the tree, stays');
   const confirm = dialog.getByRole('button', { name: 'Delete account' });
