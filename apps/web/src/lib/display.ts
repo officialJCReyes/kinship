@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { DEFAULT_DATE_FORMAT, DEFAULT_NAME_DISPLAY } from '@kinship/shared';
+import { DEFAULT_DATE_FORMAT, DEFAULT_NAME_DISPLAY, DEFAULT_SHOW_DECEASED_MARK } from '@kinship/shared';
 import type { AuthUser, DateFormat, NameDisplay } from '@kinship/shared';
 import { useSyncExternalStore } from 'react';
 
@@ -11,9 +11,15 @@ import { useSyncExternalStore } from 'react';
  */
 export interface Display extends NameDisplay {
   dateFormat: DateFormat;
+  /** Show † after the name of someone who has died, on the chart's cards and wedges. */
+  showDeceasedMark: boolean;
 }
 
-export const DEFAULT_DISPLAY: Display = { dateFormat: DEFAULT_DATE_FORMAT, ...DEFAULT_NAME_DISPLAY };
+export const DEFAULT_DISPLAY: Display = {
+  dateFormat: DEFAULT_DATE_FORMAT,
+  ...DEFAULT_NAME_DISPLAY,
+  showDeceasedMark: DEFAULT_SHOW_DECEASED_MARK,
+};
 
 let current: Display = DEFAULT_DISPLAY;
 const listeners = new Set<() => void>();
@@ -28,7 +34,8 @@ export function setDisplay(next: Display): void {
     next.dateFormat === current.dateFormat &&
     next.nameForm === current.nameForm &&
     next.showPrefix === current.showPrefix &&
-    next.showSuffix === current.showSuffix
+    next.showSuffix === current.showSuffix &&
+    next.showDeceasedMark === current.showDeceasedMark
   ) {
     return;
   }
@@ -37,10 +44,16 @@ export function setDisplay(next: Display): void {
 }
 
 export function displayOf(
-  user: Pick<AuthUser, 'dateFormat' | 'nameForm' | 'showPrefix' | 'showSuffix'> | null | undefined,
+  user: Pick<AuthUser, 'dateFormat' | 'nameForm' | 'showPrefix' | 'showSuffix' | 'showDeceasedMark'> | null | undefined,
 ): Display {
   return user
-    ? { dateFormat: user.dateFormat, nameForm: user.nameForm, showPrefix: user.showPrefix, showSuffix: user.showSuffix }
+    ? {
+        dateFormat: user.dateFormat,
+        nameForm: user.nameForm,
+        showPrefix: user.showPrefix,
+        showSuffix: user.showSuffix,
+        showDeceasedMark: user.showDeceasedMark,
+      }
     : DEFAULT_DISPLAY;
 }
 

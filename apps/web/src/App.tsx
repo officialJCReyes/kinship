@@ -88,9 +88,10 @@ export function App() {
   const nameForm = session.data?.user.nameForm ?? DEFAULT_DISPLAY.nameForm;
   const showPrefix = session.data?.user.showPrefix ?? DEFAULT_DISPLAY.showPrefix;
   const showSuffix = session.data?.user.showSuffix ?? DEFAULT_DISPLAY.showSuffix;
+  const showDeceasedMark = session.data?.user.showDeceasedMark ?? DEFAULT_DISPLAY.showDeceasedMark;
   useLayoutEffect(
-    () => setDisplay({ dateFormat, nameForm, showPrefix, showSuffix }),
-    [dateFormat, nameForm, showPrefix, showSuffix],
+    () => setDisplay({ dateFormat, nameForm, showPrefix, showSuffix, showDeceasedMark }),
+    [dateFormat, nameForm, showPrefix, showSuffix, showDeceasedMark],
   );
   const display = useDisplay();
   // The account's color scheme and theme: applied to the page and written to the browser's mirror (signed out, the
@@ -105,6 +106,9 @@ export function App() {
   const fullWidth = /^\/tree\/[^/]+/.test(pathname);
   // My settings is not remounted by the changes made on it (the focus would be lost); every other page is.
   const onSettings = pathname === '/settings';
+  // The tree is not remounted by the name and † choices either: the chart's settings panel changes them while it is open, and
+  // the chart redraws what it must by itself (TreePage), keeping the panel, the focus and the view.
+  const onTree = fullWidth;
   // The web and the api are on different versions: nothing else works, so say so on a page of its own.
   if (mismatch) return <VersionMismatchPage mismatch={mismatch} />;
   return (
@@ -137,7 +141,9 @@ export function App() {
           key={
             onSettings
               ? 'settings'
-              : `${display.dateFormat}|${display.nameForm}|${display.showPrefix}|${display.showSuffix}`
+              : onTree
+                ? display.dateFormat
+                : `${display.dateFormat}|${display.nameForm}|${display.showPrefix}|${display.showSuffix}|${display.showDeceasedMark}`
           }
         >
           <Route path="/setup" element={<SetupRoute />} />
