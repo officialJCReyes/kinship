@@ -118,5 +118,33 @@ assert_seed_after_upgrade() {
   refused="$(curl -s -X PUT -b "$jar2" -H 'X-KinShip-Request: 1' -H 'Content-Type: application/json' -H "Origin: ${base}" \
     -d "$(printf '{"personId":"%s","currentPersonId":"%s"}' "$vera" "$eleanor")" "${base}/api/admin/accounts/${member_id}/person")"
   expect "person_already_linked" "$(echo "$refused" | json "['error']")" "linking Vera to a second account"
+
+  # Migration 0019 (disable, delete and role change; ADR 0029). Nothing here changes what the digest or the counts above see: every
+  # account came through active, and each action below is refused, a no-op, or reversed before the function ends.
+  expect "3" "$(sql 'select count(*) from users where disabled_at is null')" "accounts that are active after the upgrade"
+  expect "2" "$(sql "select count(*) from pg_trigger where tgrelid = 'users'::regclass and tgname like 'users_keep_a_superadmin_%'")" "the two last-SuperAdmin triggers"
+  # The last SuperAdmin is protected from everyone, the database owner included.
+  if sql "update users set role = 'member' where role = 'superadmin'" >/dev/null 2>&1; then fail "the owner demoted the last SuperAdmin"; fi
+  if sql "update users set disabled_at = now() where role = 'superadmin'" >/dev/null 2>&1; then fail "the owner disabled the last SuperAdmin"; fi
+  if sql "delete from users where role = 'superadmin'" >/dev/null 2>&1; then fail "the owner deleted the last SuperAdmin"; fi
+  expect "superadmin" "$(sql "select role from users where email = '$admin_email'")" "the SuperAdmin after the refused changes"
+  local admin_id visitor_id post_as_admin
+  admin_id="$(sql "select id from users where email = '$admin_email'")"
+  visitor_id="$(sql "select id from users where email = '$user_email'")"
+  post_as_admin() { # <path> <json> prints the status and the body
+    curl -s -b "$jar2" -H 'X-KinShip-Request: 1' -H 'Content-Type: application/json' -H "Origin: ${base}" -w ' %{http_code}' -d "$2" "${base}$1"
+  }
+  expect "self_not_allowed 403" "$(post_as_admin "/api/admin/accounts/$admin_id/disable" '{}' | python3 -c 'import sys; t=sys.stdin.read(); b,c=t.rsplit(" ",1); import json; print(json.loads(b)["error"], c)')" "the SuperAdmin disabling themselves"
+  expect "account_not_disabled 409" "$(post_as_admin "/api/admin/accounts/$visitor_id/delete" "$(printf '{"confirmEmail":"%s"}' "$user_email")" | python3 -c 'import sys; t=sys.stdin.read(); b,c=t.rsplit(" ",1); import json; print(json.loads(b)["error"], c)')" "deleting an account that is not disabled"
+  expect "200" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -b "$jar2" -H 'X-KinShip-Request: 1' -H 'Content-Type: application/json' -H "Origin: ${base}" -d '{"role":"user","currentRole":"user"}' "${base}/api/admin/accounts/$visitor_id/role")" "setting a role the account already has (a no-op)"
+  expect "false true" "$(curl -s -b "$jar2" "${base}/api/admin/accounts" | python3 -c 'import json,sys; a=[x for x in json.load(sys.stdin)["accounts"] if x["kind"]=="account"]; v=[x for x in a if x["role"]=="user"][0]; print(str(v["lastSuperAdmin"]).lower(), str([x for x in a if x["role"]=="superadmin"][0]["lastSuperAdmin"]).lower())')" "lastSuperAdmin in the accounts list (the User, the SuperAdmin)"
+  # Disable the Visiting User, check it cannot sign in and that a wrong email cannot delete it, then enable it again.
+  expect "200" "$(post_as_admin "/api/admin/accounts/$visitor_id/disable" '{}' | awk '{print $NF}')" "disabling the Visiting User"
+  expect "401" "$(login_status "$user_email" "$user_password")" "a disabled account signing in with the right password"
+  expect "confirmation_mismatch 400" "$(post_as_admin "/api/admin/accounts/$visitor_id/delete" '{"confirmEmail":"nobody@example.com"}' | python3 -c 'import sys; t=sys.stdin.read(); b,c=t.rsplit(" ",1); import json; print(json.loads(b)["error"], c)')" "deleting with the wrong email"
+  expect "1" "$(sql "select count(*) from users where id = '$visitor_id' and disabled_at is not null")" "the Visiting User while disabled"
+  expect "200" "$(post_as_admin "/api/admin/accounts/$visitor_id/enable" '{}' | awk '{print $NF}')" "enabling the Visiting User"
+  expect "200" "$(login_status "$user_email" "$user_password")" "the Visiting User signing in after it was enabled again"
+  expect "$vera" "$(sql "select person_id from users where email = '$user_email'")" "the Visiting User's person after disable and enable"
   rm -f "$jar2"
 }
