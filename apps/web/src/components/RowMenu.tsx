@@ -21,7 +21,8 @@ export const rowMenuButtonId = (key: string) => `row-menu-${key}`;
  * goes to the first item; arrows, Home and End move; Enter or Space chooses; Escape closes and gives focus back to the
  * button; Tab and a click outside close it. An unavailable item stays focusable, says it is disabled (`aria-disabled`) and
  * shows its reason as text, so nobody has to guess why. The panel is drawn on the page body so a scrolling table cannot
- * clip it, and it closes when the page scrolls or is resized.
+ * clip it, and it follows its button when the page scrolls or is resized (scrolling that a click itself causes, to bring the
+ * button into view, can arrive just after the menu opens, so scrolling must not close it).
  */
 export function RowMenu({
   id,
@@ -59,14 +60,17 @@ export function RowMenu({
       const target = event.target as Node;
       if (!panel.current?.contains(target) && !button.current?.contains(target)) setPosition(null);
     };
-    const leave = () => setPosition(null);
+    const follow = () => {
+      const box = button.current?.getBoundingClientRect();
+      if (box) setPosition({ top: box.bottom + 4, right: Math.max(8, window.innerWidth - box.right) });
+    };
     document.addEventListener('mousedown', away);
-    window.addEventListener('scroll', leave, true);
-    window.addEventListener('resize', leave);
+    window.addEventListener('scroll', follow, true);
+    window.addEventListener('resize', follow);
     return () => {
       document.removeEventListener('mousedown', away);
-      window.removeEventListener('scroll', leave, true);
-      window.removeEventListener('resize', leave);
+      window.removeEventListener('scroll', follow, true);
+      window.removeEventListener('resize', follow);
     };
   }, [open]);
 
