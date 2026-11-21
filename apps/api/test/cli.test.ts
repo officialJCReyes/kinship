@@ -152,3 +152,22 @@ describe('kinship set-password', () => {
     expect(await setUserPassword(t.owner, 'MARCUS@example.com', 'x')).toBe(true);
   });
 });
+
+describe('kinship set-password on a disabled account', () => {
+  it('still sets the password, and says that the account is disabled', async () => {
+    const t = await createTestApp();
+    apps.push(t);
+    await insertUser(t.owner, { email: 'root@example.com', role: 'superadmin' });
+    await insertUser(t.owner, { email: 'off@example.com', role: 'member' });
+    await sql`update users set disabled_at = now() where email = 'off@example.com'`.execute(t.owner);
+    const { deps, out, err } = setup(t, 'a brand new password');
+    expect(await runCli(['set-password', 'off@example.com'], deps)).toBe(0);
+    expect(err).toEqual([]);
+    expect(out.join('\n')).toContain('Password changed for off@example.com');
+    expect(out.join('\n')).toContain('That account is disabled');
+    // and a normal account does not get the note
+    const second = setup(t, 'another new password');
+    expect(await runCli(['set-password', 'root@example.com'], second.deps)).toBe(0);
+    expect(second.out.join('\n')).not.toContain('disabled');
+  });
+});

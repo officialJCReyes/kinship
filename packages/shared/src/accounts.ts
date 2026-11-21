@@ -71,6 +71,17 @@ export function rolesSettableBy(actor: { id: string; role: Role }, target: { id:
   return SETTABLE_ROLES.filter((role) => canChangeRole(actor, target, role));
 }
 
+/**
+ * May this account disable, enable or delete that account (ADR 0029)? Never your own; a SuperAdmin any other account; a Family
+ * Admin a Member or a User. The last active SuperAdmin is protected separately (the database refuses it). The database function
+ * kinship_auth.can_disable_for (0019) is the same rule, and a test compares them.
+ */
+export function canDisableAccount(actor: { id: string; role: Role }, target: { id: string; role: Role }): boolean {
+  if (actor.id === target.id) return false;
+  if (actor.role === 'superadmin') return true;
+  return actor.role === 'familyadmin' && (target.role === 'member' || target.role === 'user');
+}
+
 /** An invitation lasts 7 days, a set-password link 24 hours. */
 export const INVITATION_HOURS = 7 * 24;
 export const SET_PASSWORD_LINK_HOURS = 24;
@@ -95,7 +106,7 @@ export interface LinkCreated {
   expiresAt: string;
 }
 
-export type AccountStatus = 'active' | 'invited' | 'expired';
+export type AccountStatus = 'active' | 'invited' | 'expired' | 'disabled';
 
 /** An open link as the Users page sees it (never the token). */
 export interface OpenLinkSummary {
@@ -132,6 +143,12 @@ export interface AccountSummary {
   canLinkPerson: boolean;
   /** The roles the asking admin may set on this account, the current one included (rolesSettableBy). Empty: none. */
   allowedRoles: Role[];
+  /** When the account was disabled, or null while it is active. */
+  disabledAt: string | null;
+  /** The asking admin may disable this account, or enable it (canDisableAccount), and it is not the last active SuperAdmin. */
+  canDisable: boolean;
+  /** This account is the only active SuperAdmin: it can never be demoted, disabled or deleted. */
+  lastSuperAdmin: boolean;
 }
 
 export interface AccountsResponse {
@@ -208,6 +225,20 @@ export interface AccountRoleLogLine {
   to: Role;
 }
 
+/** Answer of POST /api/admin/accounts/:id/disable and .../enable. */
+export interface AccountStateResponse {
+  accountId: string;
+  status: 'active' | 'disabled';
+  disabledAt: string | null;
+}
+
+/** The structured log lines for disable and enable (ADR 0029): ids only. Written only when something changed. */
+export interface AccountStateLogLine {
+  event: 'account_disabled' | 'account_enabled';
+  actor: string;
+  account: string;
+}
+
 /** Body of POST /api/links/lookup and /api/links/accept: the token is in the body, never in a URL. */
 export interface LinkLookupRequest {
   token: string;
@@ -281,6 +312,8 @@ export const ACCOUNT_ROUTES = [
   { method: 'PUT', path: '/api/admin/accounts/:id/person', access: 'admin' },
   { method: 'DELETE', path: '/api/admin/accounts/:id/person', access: 'admin' },
   { method: 'PATCH', path: '/api/admin/accounts/:id/role', access: 'admin' },
+  { method: 'POST', path: '/api/admin/accounts/:id/disable', access: 'admin' },
+  { method: 'POST', path: '/api/admin/accounts/:id/enable', access: 'admin' },
   { method: 'POST', path: '/api/links/lookup', access: 'public' },
   { method: 'POST', path: '/api/links/accept', access: 'public' },
   { method: 'POST', path: '/api/auth/password', access: 'signed-in' },

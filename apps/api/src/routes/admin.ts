@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { canLinkPerson, canMakeSetPasswordLink, rolesSettableBy, ROLES_INVITABLE_BY } from '@kinship/shared';
+import {
+  canDisableAccount,
+  canLinkPerson,
+  canMakeSetPasswordLink,
+  rolesSettableBy,
+  ROLES_INVITABLE_BY,
+} from '@kinship/shared';
 import type {
   AccountPersonLogLine,
   AccountRoleLogLine,
+  AccountStateLogLine,
+  AccountStateResponse,
   AccountsResponse,
   AccountSummary,
   ChangeRoleInput,
@@ -20,6 +28,8 @@ import {
   changeAccountRole,
   createInvitation,
   createResetLink,
+  disableAccount,
+  enableAccount,
   linkAccountPerson,
   linkPreview,
   listInviters,
@@ -108,6 +118,7 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           'last_sign_in_at',
           'password_changed_at',
           'password_changed_via',
+          'disabled_at',
           'created_at',
         ])
         .orderBy('created_at')
@@ -135,8 +146,12 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       });
       const resetFor = new Map(links.filter((l) => l.kind === 'reset' && l.user_id).map((l) => [l.user_id, l]));
 
+      // The guard is a count: how many active SuperAdmins there are, never "there is only one".
+      const activeSuperAdmins = users.filter((u) => u.role === 'superadmin' && u.disabled_at === null).length;
       const accounts: AccountSummary[] = users.map((user) => {
         const reset = resetFor.get(user.id);
+        const disabled = user.disabled_at !== null;
+        const lastSuperAdmin = user.role === 'superadmin' && !disabled && activeSuperAdmins <= 1;
         return {
           id: user.id,
           kind: 'account',
@@ -144,16 +159,19 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           email: user.email,
           role: user.role,
           person: personOf(user.person_id),
-          status: 'active',
+          status: disabled ? 'disabled' : 'active',
           lastSignInAt: user.last_sign_in_at?.toISOString() ?? null,
           invitedBy: inviters.get(user.id) ?? null,
           passwordChangedAt: user.password_changed_at?.toISOString() ?? null,
           passwordChangedVia: user.password_changed_via,
           invitation: null,
           setPasswordLink: reset ? summary(reset) : null,
-          canSetPasswordLink: canMakeSetPasswordLink(actor, { id: user.id, role: user.role }),
+          canSetPasswordLink: !disabled && canMakeSetPasswordLink(actor, { id: user.id, role: user.role }),
           canLinkPerson: canLinkPerson(actor, { id: user.id, role: user.role }),
           allowedRoles: rolesSettableBy(actor, { id: user.id, role: user.role }),
+          disabledAt: user.disabled_at?.toISOString() ?? null,
+          canDisable: !lastSuperAdmin && canDisableAccount(actor, { id: user.id, role: user.role }),
+          lastSuperAdmin,
         };
       });
       const invitations: AccountSummary[] = links
@@ -175,6 +193,9 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
           canSetPasswordLink: false,
           canLinkPerson: false,
           allowedRoles: [],
+          disabledAt: null,
+          canDisable: false,
+          lastSuperAdmin: false,
         }));
       return { accounts: [...accounts, ...invitations] };
     });
@@ -332,6 +353,35 @@ export function registerAdminRoutes(app: FastifyInstance, limit: RouteLimit): vo
       return { accountId: id, role: body.role, previous };
     },
   );
+
+  // --- disable and enable (#56, migration 0019, ADR 0029) -----------------------------------------------------------
+  // Disabling signs the account out at once, revokes its open set-password link and refuses its sign-in with the same answer
+  // a wrong password gets. Its person link, history and shares stay. Both are quiet no-ops when the account is already so.
+  for (const action of ['disable', 'enable'] as const) {
+    app.post(
+      `/api/admin/accounts/:id/${action}`,
+      { config: limit, schema: { params: idParams } },
+      async (request): Promise<AccountStateResponse> => {
+        const { id } = request.params as { id: string };
+        const actor = request.user;
+        if (!actor) throw forbidden();
+        if (!isUuid(id)) throw notFound('account_not_found');
+        const result = await request.withTransaction(async (trx) => {
+          if (action === 'enable') return { changed: await enableAccount(trx, id), disabledAt: null };
+          return disableAccount(trx, id);
+        });
+        if (result.changed) {
+          const line: AccountStateLogLine = { event: `account_${action}d`, actor: actor.id, account: id };
+          request.log.info(line, line.event);
+        }
+        return {
+          accountId: id,
+          status: action === 'enable' ? 'active' : 'disabled',
+          disabledAt: result.disabledAt?.toISOString() ?? null,
+        };
+      },
+    );
+  }
 
   app.post(
     '/api/admin/links/:id/regenerate',
