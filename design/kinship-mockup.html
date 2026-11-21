@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+<!--
+KNOWN DIFFERENCES FROM THE BUILT APP (as of 0.3.0 step 35, Nov 21 2026)
+This file is the approved specification, but the built app has moved on. Where they differ, the built behaviour below wins; ask JC if unsure. A full catch-up pass is planned after step 37, before 0.3.0-rc.1. Older differences are listed in kinship-build-status-and-handoff.md, section "Corrections to older docs".
+1. Chart: this mockup has no gear panel (Cards, Names, Relatives, Navigation), no scroll mode for the mouse wheel and no hidden-relatives legend row. In the app, aunts, uncles and cousins are hidden by default and shown from the gear.
+2. Relationship finder: the app gives in-law and step names only for Married and Widowed partners (here Separated counts too). Divorced, Annulment and Separated partners of a blood relative read "ex-" (here any status counts as a former partner). A spouse's grandchild reads "Step-grandson" (here "Wife's grandson"). A single shared ancestor is "half" only when a side has a second, different known parent (here always half). The app has no "With birth places" switch and no Print or PDF in 0.3.0 (they come in 0.5 and 0.7).
+3. Admin, Users: the app has a row actions menu with Change role, Disable or Enable, and Delete. A disabled account is signed out and cannot sign in; Delete needs the account disabled first and a typed email. Nobody acts on their own account, and the last SuperAdmin can never be demoted, disabled or deleted. This mockup shows none of it.
+4. My settings: the line saying the chart's gear panel shows the same settings is true for Names only.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
