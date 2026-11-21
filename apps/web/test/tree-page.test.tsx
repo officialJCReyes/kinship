@@ -158,11 +158,14 @@ describe('the chart', () => {
     renderApp('/tree/marcus');
     await screen.findByRole('button', { name: /^Marcus Hale/ });
     const group = document.querySelector('.nodes')!.parentElement!;
-    const before = group.getAttribute('transform');
+    // The chart opens centred on the person at a readable zoom when it would not fit at 0.7 (ADR 0027); Fit shows all of it.
+    const fit = () => fireEvent.click(screen.getByRole('button', { name: 'Fit the whole chart' }));
+    fit();
+    const fitted = group.getAttribute('transform');
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
-    expect(group.getAttribute('transform')).not.toBe(before);
-    fireEvent.click(screen.getByRole('button', { name: 'Fit the whole chart' }));
-    expect(group.getAttribute('transform')).toBe(before);
+    expect(group.getAttribute('transform')).not.toBe(fitted);
+    fit();
+    expect(group.getAttribute('transform')).toBe(fitted);
   });
 
   it('pans by moving one transform only, and a click after a drag is not a selection', async () => {

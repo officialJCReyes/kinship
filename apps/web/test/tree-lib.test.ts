@@ -81,11 +81,23 @@ describe('pan and zoom arithmetic', () => {
     expect(v.x).toBeCloseTo(16, 0);
     expect(centerOn({ x: 100, y: 100 }, 1, { width: 400, height: 200 })).toEqual({ k: 1, x: 100, y: 0 });
   });
-  it('starts on the person when the whole chart would be too small to read', () => {
+  it('starts on the person when the whole chart would be drawn smaller than 0.7', () => {
     const big = initialView({ width: 50_000, height: 800 }, { width: 1000, height: 600 }, { x: 25_000, y: 400 });
-    expect(big.k).toBe(0.7);
+    expect(big).toEqual({ k: 0.7, x: 500 - 25_000 * 0.7, y: 300 - 400 * 0.7 });
+    // 2000 x 500 in 1000 x 600 fits at 0.484: it used to open whole (limit 0.45), now it opens on the person.
+    const wide = initialView({ width: 2000, height: 500 }, { width: 1000, height: 600 }, { x: 1500, y: 250 });
+    expect(wide.k).toBe(0.7);
+    expect(wide.x).toBeCloseTo(500 - 1500 * 0.7, 6);
     const small = initialView({ width: 800, height: 400 }, { width: 1000, height: 600 }, { x: 0, y: 0 });
     expect(small.k).toBe(1);
+  });
+  it('opens whole at exactly the limit, and whole when there is nobody to centre on', () => {
+    // 1368 wide in 1000: (1000 - 32) / 1368 = 0.7076, just above the limit
+    expect(initialView({ width: 1368, height: 300 }, { width: 1000, height: 600 }, { x: 0, y: 0 }).k).toBeCloseTo(
+      0.7076,
+      3,
+    );
+    expect(initialView({ width: 50_000, height: 800 }, { width: 1000, height: 600 }, undefined).k).toBe(0.1);
   });
   it('reveals a rectangle with the smallest pan', () => {
     const v = { k: 1, x: 0, y: 0 };

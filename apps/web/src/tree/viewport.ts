@@ -40,9 +40,13 @@ export function centerOn(point: { x: number; y: number }, k: number, box: { widt
   return { k: scale, x: box.width / 2 - point.x * scale, y: box.height / 2 - point.y * scale };
 }
 
+/** The Family tree opens on the whole chart only when it is drawn at least this large (below it the card text is small). */
+export const OPEN_FIT_MIN_SCALE = 0.7;
+
 /**
- * Where to start: the whole chart when it is readable, otherwise a readable zoom on the person it is about.
- * (Fitting 2,000 people into one window would draw names too small to read.)
+ * Where the Family tree starts: the whole chart when it fits at a zoom of 0.7 or more, otherwise a readable zoom (0.7) centred
+ * on the person it is about, so a wide chart opens on the home person and the viewer pans from there (ADR 0027, which raised the
+ * limit from 0.45). The Pedigree, Fan and Descendants views fit themselves instead (ADR 0026).
  */
 export function initialView(
   content: { width: number; height: number },
@@ -50,8 +54,8 @@ export function initialView(
   focus: { x: number; y: number } | undefined,
 ): View {
   const fit = fitView(content, box);
-  if (fit.k >= 0.45 || !focus) return fit;
-  return centerOn(focus, 0.7, box);
+  if (fit.k >= OPEN_FIT_MIN_SCALE || !focus) return fit;
+  return centerOn(focus, OPEN_FIT_MIN_SCALE, box);
 }
 
 /** The smallest pan that brings a chart rectangle fully into the box (with a margin); the view if it already is. */
