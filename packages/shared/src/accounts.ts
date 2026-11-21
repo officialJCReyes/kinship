@@ -46,6 +46,31 @@ export function canLinkPerson(actor: { id: string; role: Role }, target: { id: s
   );
 }
 
+/** The roles a role change may set. Nobody is made SuperAdmin by a role change (only a provider group can, in 0.4). */
+export const SETTABLE_ROLES = ['familyadmin', 'member', 'user'] as const;
+
+/**
+ * May this account change that account's role to `next` (ADR 0029)? Never your own; a SuperAdmin never changes
+ * (in 0.3 a SuperAdmin account is never the target) and is never set; a SuperAdmin sets Family Admin, Member or User on
+ * any other account; a Family Admin only switches a Member or a User between Member and User. The database function
+ * kinship_auth.can_change_role_for (0019) is the same rule, and a test compares them.
+ */
+export function canChangeRole(
+  actor: { id: string; role: Role },
+  target: { id: string; role: Role },
+  next: Role,
+): boolean {
+  if (actor.id === target.id) return false;
+  if (target.role === 'superadmin' || next === 'superadmin') return false;
+  if (actor.role === 'superadmin') return true;
+  return actor.role === 'familyadmin' && target.role !== 'familyadmin' && next !== 'familyadmin';
+}
+
+/** The roles this account may set on that one (the Users page offers exactly these). Empty: no role control. */
+export function rolesSettableBy(actor: { id: string; role: Role }, target: { id: string; role: Role }): Role[] {
+  return SETTABLE_ROLES.filter((role) => canChangeRole(actor, target, role));
+}
+
 /** An invitation lasts 7 days, a set-password link 24 hours. */
 export const INVITATION_HOURS = 7 * 24;
 export const SET_PASSWORD_LINK_HOURS = 24;
@@ -105,6 +130,8 @@ export interface AccountSummary {
   canSetPasswordLink: boolean;
   /** The asking admin may link this account to a person, change the link or remove it (canLinkPerson). */
   canLinkPerson: boolean;
+  /** The roles the asking admin may set on this account, the current one included (rolesSettableBy). Empty: none. */
+  allowedRoles: Role[];
 }
 
 export interface AccountsResponse {
@@ -154,6 +181,31 @@ export interface AccountPersonLogLine {
   account: string;
   from: string | null;
   to: string | null;
+}
+
+/**
+ * Body of PATCH /api/admin/accounts/:id/role. `currentRole` is the role the page believes the account has: if another admin
+ * changed it since, the answer is 409 account_role_changed. Setting the role it already has changes nothing (200).
+ */
+export interface ChangeRoleInput {
+  role: Role;
+  currentRole: Role;
+}
+
+/** Answer of PATCH /api/admin/accounts/:id/role. */
+export interface ChangeRoleResponse {
+  accountId: string;
+  role: Role;
+  previous: Role;
+}
+
+/** The structured log line for a role change (ADR 0029): ids and role codes only, no names or emails. */
+export interface AccountRoleLogLine {
+  event: 'account_role_changed';
+  actor: string;
+  account: string;
+  from: Role;
+  to: Role;
 }
 
 /** Body of POST /api/links/lookup and /api/links/accept: the token is in the body, never in a URL. */
@@ -228,6 +280,7 @@ export const ACCOUNT_ROUTES = [
   { method: 'GET', path: '/api/admin/accounts/:id/link-preview', access: 'admin' },
   { method: 'PUT', path: '/api/admin/accounts/:id/person', access: 'admin' },
   { method: 'DELETE', path: '/api/admin/accounts/:id/person', access: 'admin' },
+  { method: 'PATCH', path: '/api/admin/accounts/:id/role', access: 'admin' },
   { method: 'POST', path: '/api/links/lookup', access: 'public' },
   { method: 'POST', path: '/api/links/accept', access: 'public' },
   { method: 'POST', path: '/api/auth/password', access: 'signed-in' },
