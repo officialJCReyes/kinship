@@ -39,6 +39,32 @@ export const EXCEPTIONS = [
   },
 ];
 
+// sharp's prebuilt libvips (decided by JC, step 37c). One package per platform, only the matching one is ever installed.
+// LGPL-3.0-or-later is compatible with AGPL-3.0-or-later. libvips is a separate shared library file next to sharp's native
+// addon, loaded at run time, never copied into KinShip's code, so anyone can replace it (ADR 0034). Production scope only
+// for the image pipeline; development scope covers the docs build (Astro), which installs the same file.
+const LIBVIPS_PLATFORMS = [
+  'darwin-arm64',
+  'darwin-x64',
+  'linux-arm',
+  'linux-arm64',
+  'linux-ppc64',
+  'linux-riscv64',
+  'linux-s390x',
+  'linux-x64',
+  'linuxmusl-arm64',
+  'linuxmusl-x64',
+];
+for (const platform of LIBVIPS_PLATFORMS)
+  for (const scope of ['production', 'development'])
+    EXCEPTIONS.push({
+      name: `@img/sharp-libvips-${platform}`,
+      license: 'LGPL-3.0-or-later',
+      scope,
+      reason:
+        'libvips for sharp (the photo pipeline). A separate shared library loaded at run time, not part of KinShip\u2019s code, and replaceable. LGPL-3.0 is compatible with AGPL-3.0 (ADR 0034).',
+    });
+
 export function exceptionFor(row) {
   return EXCEPTIONS.find((e) => e.name === row.name && e.license === row.license && e.scope === row.scope);
 }

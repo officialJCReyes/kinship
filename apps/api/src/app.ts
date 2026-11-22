@@ -25,6 +25,7 @@ import type { RouteLimit } from './routes/shared.js';
 import type { Maintenance } from './maintenance.js';
 import { registerBackupRoutes } from './routes/backups.js';
 import { registerFilesAdminRoutes } from './routes/files-admin.js';
+import { registerMediaRoutes } from './routes/media.js';
 import type { FilesService } from './files/state.js';
 import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
@@ -72,6 +73,10 @@ export interface AppOptions {
   loginRequestsPerMinute?: number;
   /** Most requests per minute and signed-in account to the people, relationship and tree routes. */
   apiRequestsPerMinute?: number;
+  /** Photo uploads per signed-in account in ten minutes (default 20). */
+  photoUploadsPer10Minutes?: number;
+  /** Photo and avatar requests per signed-in account and minute, one bucket for all of them (default 2400). */
+  mediaRequestsPerMinute?: number;
 }
 
 export interface Limiters {
@@ -103,6 +108,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
     failureDelayMs = 300,
     loginRequestsPerMinute = 30,
     apiRequestsPerMinute = 600,
+    photoUploadsPer10Minutes = 20,
+    mediaRequestsPerMinute = 2400,
   } = options;
   const app = Fastify({
     logger: { level: logLevel, ...(logStream ? { stream: logStream } : {}) },
@@ -303,7 +310,15 @@ export function buildApp(options: AppOptions): FastifyInstance {
         registerUpdateRoutes(updates, limit, { version, webVersion: () => web.version, service }),
       );
     }
-    registerPeopleRoutes(routes, limit);
+    // Own scope: it adds a parser for raw pictures that no other route should accept.
+    void routes.register(async (media) =>
+      registerMediaRoutes(media, {
+        files: options.files,
+        uploadsPer10Minutes: photoUploadsPer10Minutes,
+        mediaRequestsPerMinute,
+      }),
+    );
+    registerPeopleRoutes(routes, limit, options.files);
     registerUnionRoutes(routes, limit);
     registerLabelRoutes(routes, limit);
     registerTreeRoutes(routes, limit);

@@ -3,7 +3,7 @@
 - Status: **Accepted** (decisions by JC, step 37 phase 1)
 - Date: 2026-11-22
 - Builds on: [0014 Built-in backups, and the api's use of the owner role](0014-backup-and-owner-access.md), [0021 Optional AI features](0021-optional-ai-features.md)
-- Part of step 37 (profile photos and encrypted media, release 0.3.0). This record covers the key, the format and the storage; the table and the sweeper join it in the next part, and photos themselves are [0034](0034-photos-and-media.md) (later).
+- Part of step 37 (profile photos and encrypted media, release 0.3.0). This record covers the key, the format and the storage; the table and the sweeper join it in the next part, and photos themselves are [0034](0034-photos-and-media.md).
 - Migration **0021** (media tables) arrived with the second part; its section is at the end.
 
 ## Context

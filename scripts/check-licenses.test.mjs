@@ -53,3 +53,18 @@ test('an exception covers only the exact package, license and scope', () => {
 test('the exception license is not itself on the allow list', () => {
   for (const exception of EXCEPTIONS) assert.equal(isAllowed(exception.license), false, exception.license);
 });
+
+test('the libvips exception covers only the named libvips packages, with exactly their license', () => {
+  const row = { name: '@img/sharp-libvips-linuxmusl-x64', license: 'LGPL-3.0-or-later', scope: 'production' };
+  assert.ok(exceptionFor(row));
+  assert.ok(exceptionFor({ ...row, name: '@img/sharp-libvips-darwin-arm64' }));
+  assert.equal(exceptionFor({ ...row, license: 'LGPL-3.0-only' }), undefined, 'not for another license');
+  assert.equal(exceptionFor({ ...row, license: 'GPL-3.0-or-later' }), undefined, 'not for the GPL');
+  assert.equal(exceptionFor({ ...row, name: 'some-other-lgpl-package' }), undefined, 'not for another package');
+  assert.equal(
+    exceptionFor({ ...row, name: '@img/sharp-libvips-linux-mips' }),
+    undefined,
+    'not for an unlisted platform',
+  );
+  assert.equal(isAllowed('LGPL-3.0-or-later'), false, 'LGPL is still not on the allow list');
+});

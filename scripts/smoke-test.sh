@@ -39,6 +39,10 @@ fail() { printf '\nFAILED: %s\n' "$*" >&2; compose logs --no-color --tail 60 >&2
 cleanup() {
   if [ "${KEEP:-0}" = "1" ]; then echo "KEEP=1: leaving the stack running (project $project, files in $work)"; return; fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  # The photo files belong to the api's user (uid 1000) in folders only it can open: empty them from a container, as root.
+  if [ -d "$work/data/files" ]; then
+    docker run --rm -v "$work/data/files:/files" --entrypoint sh node:26-alpine -c 'find /files -mindepth 1 -delete' >/dev/null 2>&1 || true
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
@@ -149,6 +153,39 @@ printf '%s' "$new_password" | compose exec -T api kinship set-password "$email" 
 expect 401 "$(login_status "$email" "${password}")" "the old password still works"
 expect 200 "$(login_status "$email" "${new_password}")" "the new password does not work"
 
+step "Photos: an upload through the web container is stored encrypted and served back; too big a body is refused by nginx"
+# set-password signed everyone out: sign in again with the new password.
+rm -f "$jar"
+expect 200 "$(login_status "$email" "${new_password}" -c "$jar")" "sign-in before the photo step"
+python3 - "$work/photo.png" <<'PY'
+import struct, sys, zlib
+w = h = 64
+raw = b"".join(b"\x00" + bytes(v for x in range(w) for v in ((x * 4) % 256, (y * 4) % 256, 128)) for y in range(h))
+def chunk(kind, data):
+    body = kind + data
+    return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+open(sys.argv[1], "wb").write(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+PY
+# The smoke account is linked to nobody (setup was sent without a family): add a person to put the photo on.
+my_person="$(post /api/people '{"givenName":"Photo","surname":"Smoke"}' -b "$jar" | json "['person']['id']")"
+[ -n "$my_person" ] || fail "could not add a person for the photo"
+upload_out="$(curl -s -w '\n%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "Origin: ${base}" -H 'Content-Type: image/png' -b "$jar" --data-binary "@$work/photo.png" "${base}/api/people/${my_person}/photos")"
+expect 201 "${upload_out##*$'\n'}" "the photo upload (${upload_out%$'\n'*})"
+photo_id="$(echo "${upload_out%$'\n'*}" | json "['photo']['id']")"
+expect 2 "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after one upload (full size and avatar)"
+curl -s -b "$jar" -D "$work/photo-headers.txt" -o "$work/photo-avatar.png" "${base}/api/media/${photo_id}/avatar"
+grep -qi '^content-type: image/png' "$work/photo-headers.txt" || fail "the avatar was not served as image/png"
+grep -qi '^cache-control: private, max-age=31536000, immutable' "$work/photo-headers.txt" || fail "the picture is not cached for a year"
+grep -qi '^x-content-type-options: nosniff' "$work/photo-headers.txt" || fail "the picture has no nosniff header"
+avatar_sum="$(openssl dgst -sha256 "$work/photo-avatar.png" | awk '{print $NF}')"
+# nginx refuses a body over 12 MB for the upload route before it reaches the api (and the api refuses over 10 MB by itself).
+head -c 13000000 /dev/zero > "$work/too-big.bin"
+expect 413 "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "Origin: ${base}" -H 'Content-Type: image/png' -b "$jar" --data-binary "@$work/too-big.bin" "${base}/api/people/${my_person}/photos")" "a 13 MB upload"
+# A body between 1 MB and 10 MB must get through nginx (its default limit is 1 MB): the api refuses it as a picture, not nginx as too large.
+head -c 3000000 /dev/zero > "$work/not-a-photo.bin"
+expect 415 "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "Origin: ${base}" -H 'Content-Type: image/png' -b "$jar" --data-binary "@$work/not-a-photo.bin" "${base}/api/people/${my_person}/photos")" "a 3 MB file that is not a picture"
+rm -f "$work/too-big.bin" "$work/not-a-photo.bin"
+
 step "Backup: make one, list it, verify it in full (restored into a temporary database)"
 backup_out="$(compose exec -T api kinship backup 2>&1)" || fail "kinship backup failed: $backup_out"
 echo "$backup_out"
@@ -168,6 +205,11 @@ compose up -d --wait --wait-timeout 240 || fail "the stack did not come back aft
 expect 401 "$(login_status "$email" "${third_password}")" "the password changed after the backup survived the restore"
 expect 200 "$(login_status "$email" "${new_password}")" "the password from the backup does not work after the restore"
 [ "$(curl -s "${base}/api/setup/status" | json "['needsSetup']")" = "False" ] || fail "setup is needed again after a restore"
+rm -f "$jar"
+expect 200 "$(login_status "$email" "${new_password}" -c "$jar")" "sign-in after the restore (everyone is signed out by it)"
+expect 1 "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['photos']")" "photos after the restore"
+curl -s -b "$jar" -o "$work/photo-restored.png" "${base}/api/media/${photo_id}/avatar"
+expect "$avatar_sum" "$(openssl dgst -sha256 "$work/photo-restored.png" | awk '{print $NF}')" "the avatar's bytes after the restore"
 
 step "No password appears in any log (the setup token is shown once, on purpose)"
 leaked="$({ compose logs --no-color; echo "$backup_out"; echo "$restore_out"; } | grep -F -e "$password" -e "$new_password" -e "$third_password" -e "$owner_password" -e "$app_password" -e "$backup_passphrase" || true)"

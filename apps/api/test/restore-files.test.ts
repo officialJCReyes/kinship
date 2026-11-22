@@ -15,7 +15,25 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sql } from 'kysely';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// A rename that fails on demand, to see what a restore does when the swap breaks part of the way through.
+const fault = vi.hoisted(() => ({ fail: null as null | 'aside' | 'in' }));
+vi.mock('node:fs', async (importOriginal) => {
+  const real = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...real,
+    renameSync: (from: string, to: string) => {
+      const aside = /\/objects$/.test(from) && /objects\.old-[0-9a-f]{32}$/.test(to);
+      const into = /\/tree$/.test(from) && /\/objects$/.test(to);
+      if ((fault.fail === 'aside' && aside) || (fault.fail === 'in' && into)) {
+        fault.fail = null;
+        throw Object.assign(new Error('EIO: simulated rename failure'), { code: 'EIO' });
+      }
+      return real.renameSync(from, to);
+    },
+  };
+});
 import { createBackup, listBackups, openArchive, readFilesIndex } from '../src/backup/archive.js';
 import type { BackupContext } from '../src/backup/archive.js';
 import { BackupError } from '../src/backup/errors.js';
@@ -415,6 +433,26 @@ describe('a restore cut short between the commit and the file swap', () => {
     expect(await reconcileFiles(r.filesDir, () => Promise.resolve(null))).toEqual({ action: 'none' });
     expect(readdirSync(join(r.filesDir, 'staging'))).toEqual([]);
   });
+
+  for (const step of ['aside', 'in'] as const) {
+    it(`a rename that FAILS (${step === 'aside' ? 'moving the old photos aside' : 'moving the new photos in'}): the restore says so, the intent stays, and the next start finishes it`, async () => {
+      const { r, a, b, made, before } = await scenario();
+      fault.fail = step;
+      await expect(restoreBackup(r.ctx, join(r.dir, made.name), hooks())).rejects.toThrow(/Start KinShip again/);
+      expect(fault.fail).toBeNull(); // the failure really happened
+      // The database is the backup's; the intent is still there, and no photo exists in two places half-merged.
+      expect(await rowNames(r.test)).toEqual(namesOf(a, b));
+      const intent = readIntent(r.filesDir);
+      expect(intent).not.toBeNull();
+      expect(
+        existsSync(join(r.filesDir, 'objects')) || readdirSync(r.filesDir).some((n) => n.startsWith('objects.old-')),
+      ).toBe(true);
+      const result = await reconcileFiles(r.filesDir, () => readRestoreMarker(r.test.owner));
+      expect(result).toEqual({ action: 'completed', id: intent?.id });
+      expect(objects(r.filesDir)).toEqual(before);
+      expect(leftovers(r.filesDir)).toEqual({ staging: [], old: [], intent: false });
+    }, 240_000);
+  }
 
   it('finishSwap run twice is harmless', async () => {
     const { r, made, before } = await scenario();
