@@ -39,6 +39,9 @@ services:
       DB_OWNER_PASSWORD: dev-owner-password
       DB_APP_USER: kinship_app
       DB_APP_PASSWORD: dev-app-password
+      # A throwaway key for this local setup only.
+      FILE_ENCRYPTION_KEY: ZGV2LWtleS1mb3ItbG9jYWwtdGVzdGluZy1vbmx5ISE=
+      FILES_DIR: /tmp/kinship-files
       GIT_COMMIT: dev
       # Where the first-run setup message tells you to go (the Vite dev server).
       PUBLIC_URL: http://localhost:5173

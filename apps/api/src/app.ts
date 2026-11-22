@@ -24,6 +24,8 @@ import { registerPeopleRoutes } from './routes/people.js';
 import type { RouteLimit } from './routes/shared.js';
 import type { Maintenance } from './maintenance.js';
 import { registerBackupRoutes } from './routes/backups.js';
+import { registerFilesAdminRoutes } from './routes/files-admin.js';
+import type { FilesService } from './files/state.js';
 import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
 import { registerUpdateRoutes } from './routes/updates.js';
@@ -49,6 +51,8 @@ export interface AppOptions {
   maintenance?: Maintenance;
   /** The backup scheduler and folder, for Admin > Backups. Without it those routes answer 503. */
   backups?: BackupService;
+  /** Stored files (photos): the key and the files folder. Without it Admin says the key is missing. */
+  files?: FilesService;
   /** The update check and the bundled changelog, for Admin > Updates and What's new. Without it those routes do not exist. */
   updates?: UpdatesService;
   /** Connected as the app role. */
@@ -290,6 +294,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
     void routes.register(async (backups) =>
       registerBackupRoutes(backups, limit, { db, limiters, failureDelayMs }, options.backups),
     );
+    // Own scope: SuperAdmin only, never cached.
+    void routes.register(async (files) => registerFilesAdminRoutes(files, limit, options.files));
     // Own scope: the update routes check their own roles (SuperAdmin, and for What's new any admin) and are never cached.
     if (options.updates) {
       const service = options.updates;

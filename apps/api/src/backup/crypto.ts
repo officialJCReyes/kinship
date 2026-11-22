@@ -2,17 +2,11 @@
 //
 // Backup encryption with Node's own crypto: scrypt for the key, HKDF to split it into an encryption key and a key-check
 // value, and AES-256-GCM over 64 KiB chunks (counter nonce; the preamble and a "final" flag as AAD). See format.ts.
-import {
-  createCipheriv,
-  createDecipheriv,
-  hkdfSync,
-  randomBytes,
-  scrypt as scryptCallback,
-  timingSafeEqual,
-} from 'node:crypto';
+import { hkdfSync, randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { Transform } from 'node:stream';
 import type { TransformCallback } from 'node:stream';
+import { openChunk, sealChunk } from '../crypto/chunks.js';
 import {
   BackupFormatError,
   CHUNK_SIZE,
@@ -72,15 +66,6 @@ export async function deriveKeys(passphrase: string, kdf: KdfParams): Promise<Ke
   return { encryption: expand('kinship-backup v1 key'), check: expand('kinship-backup v1 check') };
 }
 
-/** 12 bytes: four zero bytes, then the chunk counter as a 64-bit big-endian number. */
-function nonce(counter: number): Buffer {
-  const out = Buffer.alloc(12);
-  out.writeBigUInt64BE(BigInt(counter), 4);
-  return out;
-}
-
-const aad = (preamble: Buffer, final: boolean): Buffer => Buffer.concat([preamble, Buffer.from([final ? 1 : 0])]);
-
 export interface EncryptOptions {
   passphrase: string;
   appVersion: string;
@@ -104,12 +89,7 @@ class EncryptStream extends Transform {
   }
 
   private seal(plain: Buffer, final: boolean): Buffer {
-    const cipher = createCipheriv('aes-256-gcm', this.key, nonce(this.counter++), { authTagLength: TAG_LENGTH });
-    cipher.setAAD(aad(this.preamble, final));
-    const body = Buffer.concat([cipher.update(plain), cipher.final()]);
-    const length = Buffer.alloc(4);
-    length.writeUInt32BE(body.length);
-    return Buffer.concat([length, body, cipher.getAuthTag()]);
+    return sealChunk(this.key, this.counter++, this.preamble, plain, final);
   }
 
   override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
@@ -173,17 +153,10 @@ class DecryptStream extends Transform {
   }
 
   private open(body: Buffer, tag: Buffer, final: boolean): Buffer {
-    const preamble = this.preamble as Preamble;
-    const decipher = createDecipheriv('aes-256-gcm', this.key as Buffer, nonce(this.counter), {
-      authTagLength: TAG_LENGTH,
-    });
-    decipher.setAAD(aad(preamble.bytes, final));
-    decipher.setAuthTag(tag);
-    try {
-      return Buffer.concat([decipher.update(body), decipher.final()]);
-    } catch {
+    const plain = openChunk(this.key as Buffer, this.counter, (this.preamble as Preamble).bytes, body, tag, final);
+    if (plain === null)
       throw new BackupFormatError('corrupt', 'The backup is damaged: a block failed its integrity check.');
-    }
+    return plain;
   }
 
   private async step(): Promise<boolean> {

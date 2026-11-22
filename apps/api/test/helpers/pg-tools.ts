@@ -65,5 +65,6 @@ export function testConfig(test: TestDatabase, dir: string, passphrase: string |
     buildDate: 'unknown',
     db: test.config,
     backup: { enabled: true, dir, passphrase, skipSafetyCopy: false },
+    files: { dir: join(dir, '..', 'files'), key: undefined },
   };
 }

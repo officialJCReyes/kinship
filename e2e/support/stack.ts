@@ -57,6 +57,9 @@ export function startStack(): void {
   // tests, and so the next run can remove what the container wrote.
   mkdirSync(join(WORK_DIR, 'data', 'backups'), { recursive: true });
   chmodSync(join(WORK_DIR, 'data', 'backups'), 0o777);
+  // The photos folder INSTALL.md tells people to create, with the same permissions for the same reason.
+  mkdirSync(join(WORK_DIR, 'data', 'files'), { recursive: true });
+  chmodSync(join(WORK_DIR, 'data', 'files'), 0o777);
   // The backup passphrase of this throwaway stack, passed to the tests through the environment (to check it never leaks).
   process.env['E2E_BACKUP_PASSPHRASE'] ??= randomBytes(18).toString('hex');
   const settings: Record<string, string> = {
@@ -67,6 +70,7 @@ export function startStack(): void {
     DB_OWNER_PASSWORD: randomBytes(16).toString('hex'),
     DB_APP_PASSWORD: randomBytes(16).toString('hex'),
     BACKUP_PASSPHRASE: process.env['E2E_BACKUP_PASSPHRASE'] ?? '',
+    FILE_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
   };
   let env = readFileSync(join(REPO_ROOT, '.env.example'), 'utf8');
   for (const [key, value] of Object.entries(settings))

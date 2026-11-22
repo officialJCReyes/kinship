@@ -547,3 +547,33 @@ describe('who sees it', () => {
     expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeTruthy();
   });
 });
+
+describe('Admin > Backups > Photos and files', () => {
+  const files = (state: string, keyId: string | null = '0123456789abcdef') => ({
+    '/api/admin/files': { status: 200, body: { state, keyId } },
+  });
+
+  it('says photos are on and shows the key id, with the warning about losing the key', async () => {
+    open(files('ready'));
+    const card = await screen.findByRole('region', { name: 'Photos and files' });
+    expect(within(card).getByText(/Photos are on/)).toBeTruthy();
+    expect(within(card).getByText('0123456789abcdef')).toBeTruthy();
+    expect(within(card).getByText(/can never be opened again/)).toBeTruthy();
+  });
+
+  it.each([
+    ['key_missing', null, /no file encryption key is set\. Add FILE_ENCRYPTION_KEY/],
+    ['files_unavailable', '0123456789abcdef', /files folder cannot be used/],
+    ['key_mismatch', '0123456789abcdef', /does not match your files/],
+  ])('says why photos are not available: %s', async (state, keyId, text) => {
+    open(files(state, keyId));
+    const card = await screen.findByRole('region', { name: 'Photos and files' });
+    expect(within(card).getByRole('alert').textContent).toMatch(text);
+  });
+
+  it('is left out when the status cannot be read, and the rest of the page works', async () => {
+    open();
+    await screen.findByRole('heading', { name: 'Backups', level: 1 });
+    expect(screen.queryByRole('region', { name: 'Photos and files' })).toBeNull();
+  });
+});

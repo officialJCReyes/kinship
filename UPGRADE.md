@@ -6,6 +6,17 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 **0.3.0 changes the database and some settings.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0020.tar.enc`) and then applies the migrations.
 
+### Photos need a key and a folder: set them up before you rely on photos
+
+**0.3.0 is not an image-only update for an existing install.** Photos (profile pictures and a photo gallery per person) are stored encrypted on disk, and they stay **off** until both of these are in place. KinShip starts and works without them; Admin → Backups says what is missing.
+
+1. **Make a key and put it in `.env`:** `openssl rand -base64 32`, then add `FILE_ENCRYPTION_KEY=<that value>` (or `FILE_ENCRYPTION_KEY_FILE=/run/secrets/...` for a Docker secret). 64 hex characters also work; anything else is refused and the api does not start.
+2. **Store the key in a password manager, apart from this server. A lost or changed key means the stored photos can never be opened again**, and nobody can recover them. Backups do not contain the key (a backup holds the photos encrypted with it).
+3. **Create the folder:** `mkdir -p data/files && sudo chown 1000:1000 data/files` (Docker Desktop on macOS and Windows does not need the `chown`).
+4. **Add the bind mount to your `compose.yml`**, under `api:` → `volumes:` next to the backups one: `- ./data/files:/var/lib/kinship/files`. The repository's `compose.yml` has it; an existing copy of yours does not.
+
+There is no setting to turn file encryption off. If the key in `.env` is not the one your stored photos were encrypted with, KinShip still starts, refuses new uploads and says "does not match your files" in Admin.
+
 ### What changes for people
 
 - **Married women's names now show as "Maiden name (Married name)"**, for every account, for example "Rosa Mendez (Hale)". Change it in **My settings → Names**, where there are four forms: Maiden name (Married name), Married name (born Maiden name), Married name, and Maiden name. A person with no married surname always shows the birth name. If a married surname starts with the birth name ("Mendez Hale" for "Mendez"), the birth name is not repeated in the brackets.
