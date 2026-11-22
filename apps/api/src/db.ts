@@ -86,6 +86,8 @@ export interface Database {
     tree_default_view: Generated<'family' | 'pedigree' | 'fan' | 'descendants'>;
     show_extended_relatives: Generated<boolean>;
     show_deceased_mark: Generated<boolean>;
+    /** The first day of the week in the date picker (0020). */
+    week_start: Generated<'sunday' | 'monday' | 'saturday'>;
     /** When the account last signed in, and how its password last changed (0011). null: unknown (older than 0011). */
     last_sign_in_at: Date | null;
     password_changed_at: Date | null;

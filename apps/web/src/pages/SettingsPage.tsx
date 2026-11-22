@@ -5,6 +5,8 @@ import {
   LINEAGE_VIEWS,
   NAME_FORMS,
   THEMES,
+  WEEK_STARTS,
+  weekdayOrder,
   displayName as sharedDisplayName,
   formatPartialDate,
 } from '@kinship/shared';
@@ -250,6 +252,22 @@ export function SettingsPage() {
           {DATE_FORMATS.map((format) => (
             <option key={format} value={format}>
               {t(`settings.dateFormat.${format}` as MessageKey)}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label={t('settings.weekStart')}
+          value={user.weekStart}
+          onChange={(event) => change({ weekStart: event.target.value as UserSettings['weekStart'] })}
+          help={t('settings.weekStartExample', {
+            days: weekdayOrder(user.weekStart)
+              .map((day) => t(`date.weekdayShort.${day}` as MessageKey))
+              .join(' '),
+          })}
+        >
+          {WEEK_STARTS.map((start) => (
+            <option key={start} value={start}>
+              {t(`settings.weekStart.${start}` as MessageKey)}
             </option>
           ))}
         </SelectField>

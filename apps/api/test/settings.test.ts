@@ -36,6 +36,7 @@ const settingsOf = async (who: Parameters<typeof as>[0]) => {
     treeDefaultView: user.treeDefaultView,
     showExtendedRelatives: user.showExtendedRelatives,
     showDeceasedMark: user.showDeceasedMark,
+    weekStart: user.weekStart,
   };
 };
 const asUser = <T>(userId: string, fn: Parameters<typeof withUserTransaction<T>>[2]) =>
@@ -56,6 +57,7 @@ describe('defaults', () => {
       treeDefaultView: 'family',
       showExtendedRelatives: false,
       showDeceasedMark: true,
+      weekStart: 'sunday',
     });
     for (const who of WHO) expect(await settingsOf(who), who).toEqual(DEFAULT_USER_SETTINGS);
   });
@@ -83,6 +85,7 @@ describe('PATCH /api/auth/me', () => {
       treeDefaultView: 'descendants',
       showExtendedRelatives: true,
       showDeceasedMark: false,
+      weekStart: 'saturday',
     };
     const changed = await as('superadmin', 'PATCH', '/api/auth/me', all);
     expect(changed.status).toBe(200);
@@ -98,6 +101,7 @@ describe('PATCH /api/auth/me', () => {
       ['treeDefaultView', ['family', 'pedigree', 'fan', 'descendants']],
       ['showExtendedRelatives', [true, false]],
       ['showDeceasedMark', [true, false]],
+      ['weekStart', ['sunday', 'monday', 'saturday']],
       ['lineageView', ['adoptive', 'birth']],
     ] as const) {
       for (const value of values) {
@@ -140,6 +144,8 @@ describe('PATCH /api/auth/me', () => {
       [{ treeDefaultView: null }, 'invalid_tree_default_view'],
       [{ showExtendedRelatives: 'yes' }, 'invalid_show_extended_relatives'],
       [{ showDeceasedMark: 0 }, 'invalid_show_deceased_mark'],
+      [{ weekStart: 'friday' }, 'invalid_week_start'],
+      [{ weekStart: null }, 'invalid_week_start'],
       [{ surnameChoice: 'birth' }, 'invalid_request'],
       [{ lineageView: 'biological' }, 'invalid_lineage'],
       [{ theme: 7 }, 'invalid_theme'],

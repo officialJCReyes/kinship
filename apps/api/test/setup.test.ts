@@ -115,6 +115,7 @@ describe('POST /api/setup', () => {
         treeDefaultView: 'family',
         showExtendedRelatives: false,
         showDeceasedMark: true,
+        weekStart: 'sunday',
         passwordChangedAt: expect.any(String), // the first account records that its password was set at setup
         passwordChangedVia: 'setup',
       },
@@ -324,6 +325,7 @@ describe('POST /api/setup with the new account’s own display settings', () => 
           treeDefaultView: 'pedigree',
           showExtendedRelatives: true,
           showDeceasedMark: false,
+          weekStart: 'monday',
         },
       }),
     );
@@ -339,6 +341,7 @@ describe('POST /api/setup with the new account’s own display settings', () => 
       treeDefaultView: 'pedigree',
       showExtendedRelatives: true,
       showDeceasedMark: false,
+      weekStart: 'monday',
       lineageView: 'adoptive',
     });
     const stored =

@@ -27,6 +27,7 @@ export type SessionUser = Omit<
   | 'treeDefaultView'
   | 'showExtendedRelatives'
   | 'showDeceasedMark'
+  | 'weekStart'
   | 'passwordChangedAt'
   | 'passwordChangedVia'
 >;
