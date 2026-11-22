@@ -200,7 +200,7 @@ describe('the chart', () => {
     await screen.findByRole('button', { name: /^Marcus Hale/ });
     fireEvent.click(screen.getByRole('button', { name: 'Collapse the person panel' }));
     expect(screen.queryByRole('link', { name: 'Open profile' })).toBeNull();
-    expect(document.querySelector('.rail-initials')!.textContent).toBe('MH');
+    expect(document.querySelector('.rail-avatar')!.textContent).toBe('MH');
     expect(window.localStorage.getItem('kinship.tree.panelCollapsed')).toBe('1');
   });
 

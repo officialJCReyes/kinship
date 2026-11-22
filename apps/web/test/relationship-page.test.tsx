@@ -65,6 +65,7 @@ function answer(path: string, viewer: LineageView = ADMIN.lineageView): { status
       deceased: full.deceased,
       death: full.death,
       isPlaceholder: false,
+      photoMediaId: null,
     };
   }
   return { status: 200, body: { ...facts, lineage, a, b, other, people, labels: [] } };

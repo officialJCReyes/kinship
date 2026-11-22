@@ -16,6 +16,7 @@ import { Link, useParams } from 'react-router';
 import * as api from '../api.js';
 import { useSession } from '../auth.js';
 import { ActionButton } from '../components/ActionButton.js';
+import { Avatar } from '../components/Avatar.js';
 import { Dialog } from '../components/Dialog.js';
 import { ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
@@ -42,6 +43,8 @@ import { EditPersonDialog } from '../people/PersonDialogs.js';
 import { useFamilyAround, usePersonDetail, useRefreshPeople } from '../people/queries.js';
 import { DeletePersonDialog, DeleteUnionDialog, EditUnionDialog } from '../people/RelationshipDialogs.js';
 import { useMutation } from '@tanstack/react-query';
+import { initials } from '../tree/family.js';
+import { AvatarUpload, PhotosCard } from '../people/photos.js';
 
 type Open =
   | { kind: 'edit' }
@@ -176,21 +179,33 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
     <div className="stack">
       <section className="card">
         <div className="profile-head">
-          <div>
-            <h1>{displayName(person)}</h1>
-            {person.isPlaceholder ? (
-              <p className="muted">{t('person.placeholderNote')}</p>
-            ) : (
-              <>
-                <div className="muted">{lifespan(person)}</div>
-                <div className="pills">
-                  <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
-                    {person.deceased ? t('person.deceased') : t('person.living')}
-                  </span>
-                  {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
-                </div>
-              </>
-            )}
+          <div className="profile-id">
+            <div className="profile-avatar">
+              <Avatar
+                photoMediaId={person.photoMediaId}
+                initials={person.isPlaceholder ? '?' : initials(person)}
+                size="lg"
+              />
+              {permissions.edit && !person.isPlaceholder ? (
+                <AvatarUpload person={person} hasPhoto={person.photoMediaId !== null} />
+              ) : null}
+            </div>
+            <div>
+              <h1>{displayName(person)}</h1>
+              {person.isPlaceholder ? (
+                <p className="muted">{t('person.placeholderNote')}</p>
+              ) : (
+                <>
+                  <div className="muted">{lifespan(person)}</div>
+                  <div className="pills">
+                    <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
+                      {person.deceased ? t('person.deceased') : t('person.living')}
+                    </span>
+                    {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           <div className="actions wrap">
             <ActionButton disabledReason={editReason} onClick={() => setOpen({ kind: 'edit' })}>
@@ -262,6 +277,8 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
           </dl>
         )}
       </section>
+
+      {person.isPlaceholder ? null : <PhotosCard person={person} canEdit={permissions.edit} />}
 
       {adoptedPerson ? (
         <section className="notice info adoption-banner" aria-label={t('profile.family.adoptive')}>

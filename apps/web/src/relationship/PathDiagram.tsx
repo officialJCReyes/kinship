@@ -2,7 +2,9 @@
 import { relWord } from '@kinship/shared';
 import type { RelationshipResponse } from '@kinship/shared';
 import { Link } from 'react-router';
+import { Avatar } from '../components/Avatar.js';
 import { t } from '../i18n.js';
+import { initials } from '../tree/family.js';
 import { displayName } from '../lib/names.js';
 import { lifespan } from '../lib/people.js';
 import { relationText } from './path.js';
@@ -14,6 +16,9 @@ function PersonCard({ result, id }: { result: RelationshipResponse; id: string }
   const highlighted = id === result.a || id === result.b;
   const body = (
     <>
+      {person.isPlaceholder ? null : (
+        <Avatar photoMediaId={person.photoMediaId} initials={initials(person)} size="md" />
+      )}
       <b>{displayName(person)}</b>
       <small>{lifespan(person)}</small>
     </>

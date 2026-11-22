@@ -6,6 +6,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { t } from '../i18n.js';
 import { useDisplay } from '../lib/display.js';
 import { lifespan } from '../lib/people.js';
+import { photoUrl } from '../lib/photos.js';
 import { statusName } from '../lib/labels.js';
 import { fitName, measureText } from './cardText.js';
 import { initials, leafLabel, nodeLabel, otherLeafLabel } from './family.js';
@@ -21,6 +22,31 @@ import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
 /** Solid line for people who are together, dotted for a relationship that ended or is not a marriage. */
 export const SOLID_STATUSES: readonly UnionStatus[] = ['married', 'engaged', 'partner', 'widowed'];
 export const isSolid = (status: UnionStatus): boolean => SOLID_STATUSES.includes(status);
+
+/** A person's profile photo inside the round avatar of a card (the initials are underneath until it loads, or when it cannot). */
+function NodePhoto({ id, photoMediaId, cy }: { id: string; photoMediaId: string | null; cy: number }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  const clip = `${useId()}-photo`;
+  if (!photoMediaId || failed === photoMediaId) return null;
+  return (
+    <>
+      <clipPath id={clip}>
+        <circle cx={25} cy={cy} r={15} />
+      </clipPath>
+      <image
+        key={`${id}-${photoMediaId}`}
+        href={photoUrl(photoMediaId, 'avatar')}
+        x={10}
+        y={cy - 15}
+        width={30}
+        height={30}
+        preserveAspectRatio="xMidYMid slice"
+        clipPath={`url(#${clip})`}
+        onError={() => setFailed(photoMediaId)}
+      />
+    </>
+  );
+}
 
 /** The rectangle a link covers (its children and the line down to them), for deciding whether to draw it. */
 function linkBounds(
@@ -141,6 +167,9 @@ const TreeNode = memo(function TreeNode({
               <text className="ini" x={25} y={NODE_H / 2 + 4} textAnchor="middle">
                 {initials(person)}
               </text>
+            )}
+            {person.isPlaceholder ? null : (
+              <NodePhoto id={person.id} photoMediaId={person.photoMediaId} cy={NODE_H / 2} />
             )}
             <text className="name" x={NAME_X} style={{ fontSize: fit.size }} data-lines={fit.lines.length}>
               {fit.lines.map((line, index) => (

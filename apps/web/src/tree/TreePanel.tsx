@@ -13,6 +13,7 @@ import { canEditUnion, isAdmin } from '../people/permissions.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
 import { useFamilyAround, usePersonDetail } from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
+import { Avatar } from '../components/Avatar.js';
 import { initials, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
 import { recallPanelCollapsed, rememberPanelCollapsed } from './remember.js';
@@ -72,9 +73,7 @@ export function TreePanel({
           »
         </button>
         {person ? (
-          <span className="rail-initials" aria-hidden="true" title={displayName(person)}>
-            {initials(person)}
-          </span>
+          <Avatar photoMediaId={person.photoMediaId} initials={initials(person)} size="md" className="rail-avatar" />
         ) : null}
       </aside>
     );
@@ -106,7 +105,12 @@ export function TreePanel({
       </div>
       {person ? (
         <>
-          <h2 className="panel-name">{displayName(person)}</h2>
+          <div className="panel-id">
+            {person.isPlaceholder ? null : (
+              <Avatar photoMediaId={person.photoMediaId} initials={initials(person)} size="lg" />
+            )}
+            <h2 className="panel-name">{displayName(person)}</h2>
+          </div>
           {birthSurnameShown(person) ? (
             <div className="muted panel-birth-surname">
               {t('tree.panel.birthSurname', { surname: displaySurname(person, 'maiden') })}

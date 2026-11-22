@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { useSession } from '../auth.js';
 import { ActionButton } from '../components/ActionButton.js';
+import { Avatar } from '../components/Avatar.js';
 import { EmptyState, ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { lifespan } from '../lib/people.js';
@@ -11,6 +12,7 @@ import { useDebounced } from '../lib/useDebounced.js';
 import { isAdmin } from '../people/permissions.js';
 import { AddPersonDialog } from '../people/PersonDialogs.js';
 import { usePeopleSearch } from '../people/queries.js';
+import { initials } from '../tree/family.js';
 
 export function PeoplePage() {
   const me = useSession(false).data?.user;
@@ -45,7 +47,10 @@ export function PeoplePage() {
         <ul className="people-list" aria-label={t('people.title')}>
           {items.map((person) => (
             <li key={person.id}>
-              <Link to={`/people/${person.id}`}>{displayName(person)}</Link>
+              <span className="person-cell">
+                <Avatar photoMediaId={person.photoMediaId} initials={initials(person)} size="sm" />
+                <Link to={`/people/${person.id}`}>{displayName(person)}</Link>
+              </span>
               <span className="muted">{lifespan(person)}</span>
             </li>
           ))}

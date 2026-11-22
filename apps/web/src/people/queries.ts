@@ -39,11 +39,13 @@ export function usePeopleSearch(q: string) {
   });
 }
 
-export function usePersonDetail(id: string | undefined) {
+export function usePersonDetail(id: string | undefined, options: { quiet?: boolean } = {}) {
   return useQuery({
     queryKey: [...peopleKey, 'detail', id],
     queryFn: ({ signal }) => api.fetchPerson(id ?? '', signal),
     enabled: id !== undefined,
+    // `quiet`: something decorative (the picture on the account button) that must never get in the way if it fails.
+    ...(options.quiet ? { retry: false } : {}),
   });
 }
 
