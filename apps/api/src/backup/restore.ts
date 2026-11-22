@@ -11,6 +11,7 @@ import { sql } from 'kysely';
 import { createDb } from '../db.js';
 import type { AnySchema, UntypedDb } from '../db.js';
 import { ensureAppRole } from '../migrations/roles.js';
+import { markerSql } from '../files/restore-marker.js';
 import { readMigrationFiles } from '../migrations/files.js';
 import { runMigrations } from '../migrations/runner.js';
 import { compareVersionText } from '@kinship/shared';
@@ -36,6 +37,8 @@ const dollar = (text: string, tag = 'kinship_restore'): string => `$${tag}$${tex
 export interface ApplyOptions {
   /** Delete all sessions and revoke open account links, inside the same transaction (a real restore does; a test does not need to). */
   resetState: boolean;
+  /** Set the restore marker (a comment on the public schema) to this id inside the transaction (ADR 0035). */
+  restoreId?: string;
 }
 
 /** The SQL that goes before the dump: one transaction, the schemas dropped and recreated. */
@@ -90,6 +93,7 @@ END`)};`,
 END`)};`,
     );
   }
+  if (options.restoreId !== undefined) out.push(markerSql(options.restoreId));
   out.push(
     `DO ${dollar(`BEGIN EXECUTE pg_catalog.format('GRANT CONNECT ON DATABASE %I TO %I', pg_catalog.current_database(), ${`'${appRole.replace(/'/g, "''")}'`}); END`)};`,
     'COMMIT;',
