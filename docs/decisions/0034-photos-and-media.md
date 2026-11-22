@@ -40,6 +40,14 @@ Photos arrive from family members' phones and cameras: any size, any orientation
 - **Uploads:** 20 per account per 10 minutes. **Pictures:** one bucket per account, **2400 a minute**, shared by every photo and avatar and **apart from the general 600 a minute** (one tree can draw several hundred avatars at once; the browser then keeps them for a year). One route serves both variants because the rate limiter counts per route.
 - **nginx** has a location for `POST /api/people/:id/photos` with `client_max_body_size 12m`, `proxy_request_buffering off` (the body streams to the api; the container's disk is read-only) and 120 second timeouts. A reverse proxy in front may refuse 10 MB by default: INSTALL.md says to allow 12 MB (413 otherwise).
 
+### In the web interface (37d)
+- **One Avatar component** draws a person everywhere (tree cards, the panel and its collapsed rail, the profile head, the finder's cards, the People list, the account button): the 192 px variant over the person's initials. The image is decoration, so it has `alt=""` and the initials are hidden from screen readers (the name is always beside it). If the picture cannot be loaded the initials stay; a different photo gets its own try.
+- **The file input** says `accept="image/jpeg,image/png,image/webp"`. A file of another type, or over 10 MB, is refused in the browser before it is sent. Each failure has its own `photo.*` sentence: too big (the api's 413, or nginx's 413 page, which has no JSON), more than 50 megapixels, unsupported, damaged, too many uploads (with the wait), and three 503 `files_unavailable` cases told apart by the `reason` the api sends: no key, no folder, key does not match.
+- **Date taken** is asked right after an upload, with the EXIF suggestion filled in and its source said; leaving it empty saves nothing. It is a plain typed date (no "about" or "before"), shown in the viewer's date format.
+- **Profile photo:** the round button on the profile picture uploads and sets it at once; a photo already in the Photos card gets "Set as profile photo". Remove from this person and Delete each ask first, and Delete says it is for everyone.
+- **Deleting a person** says how many photos go with them (the photos that show only them), before anything is asked (from the person's photo list), and again from the server's `confirm_required` preview (`photos`).
+- The Media page and the Media tab are the next part.
+
 ## Consequences
 - The api image grows by about 19 MB, and a very large upload costs about 200 MB of memory for a few seconds.
 - Metadata is gone for good: there is no "show the original" and no place for the date's time of day. That is the point.
