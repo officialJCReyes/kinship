@@ -78,6 +78,7 @@ const context = (): BackupContext => ({
     buildDate: '',
     db: config,
     backup: { enabled: true, dir, passphrase: PASS, skipSafetyCopy: false },
+    files: { dir: join(dir, 'files'), key: undefined },
   },
   tools: testTools(),
   log: () => undefined,

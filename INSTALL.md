@@ -17,10 +17,10 @@ chmod 600 .env
 
 ## 2. Fill in `.env`
 
-Open `.env`; every setting is explained in it. Three secrets must be set: `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD` (two different database passwords) and `BACKUP_PASSPHRASE` (encrypts every backup). Let `openssl` make them. Run this in the folder that holds `.env`:
+Open `.env`; every setting is explained in it. Four secrets must be set: `DB_OWNER_PASSWORD` and `DB_APP_PASSWORD` (two different database passwords), `BACKUP_PASSPHRASE` (encrypts every backup) and `FILE_ENCRYPTION_KEY` (encrypts every photo before it is stored). Let `openssl` make them. Run this in the folder that holds `.env`:
 
 ```sh
-# Fill in the three secrets. Only a value that still says "change-me" is replaced,
+# Fill in the four secrets. Only a value that still says "change-me" is replaced,
 # so running this again never changes a secret you have already set.
 fill() {
   grep -q "^$1=change-me" .env || return 0
@@ -30,14 +30,15 @@ fill() {
 fill DB_OWNER_PASSWORD
 fill DB_APP_PASSWORD
 fill BACKUP_PASSPHRASE
+fill FILE_ENCRYPTION_KEY
 
-# Show them, so you can copy BACKUP_PASSPHRASE into your password manager now.
-grep -E '^(DB_OWNER_PASSWORD|DB_APP_PASSWORD|BACKUP_PASSPHRASE)=' .env
+# Show them, so you can copy BACKUP_PASSPHRASE and FILE_ENCRYPTION_KEY into your password manager now.
+grep -E '^(DB_OWNER_PASSWORD|DB_APP_PASSWORD|BACKUP_PASSPHRASE|FILE_ENCRYPTION_KEY)=' .env
 ```
 
 It only fills in values that still say `change-me`, so it is safe to run again. `openssl` is on macOS and most Linux; on Windows use WSL or Git Bash. To choose your own instead, keep the two database passwords different and the passphrase at least 16 characters.
 
-**Copy `BACKUP_PASSPHRASE` to a password manager now.** Backups do not contain it, and without it they cannot be opened. Do not change `DB_OWNER_PASSWORD` after the first start (see the note beside it in `.env`).
+**Copy `BACKUP_PASSPHRASE` and `FILE_ENCRYPTION_KEY` to a password manager now.** Backups do not contain either one. Without the passphrase a backup cannot be opened. **Without the file key the stored photos can never be opened again**: a lost or changed key is permanent loss, and nobody, including the KinShip project, can recover them. (To make a key yourself: `openssl rand -base64 32`, or 64 hex characters. Anything else is refused and KinShip does not start.) Do not change `DB_OWNER_PASSWORD` after the first start (see the note beside it in `.env`).
 
 Worth a look before you start:
 
@@ -47,15 +48,15 @@ Worth a look before you start:
 
 `.env` holds your passwords. Do not commit it or share it.
 
-## 3. Create the backups folder
+## 3. Create the backups and files folders
 
-KinShip writes its backups to `./data/backups` next to `compose.yml`. Create it before the first start so the api (user 1000, not root) can write to it:
+KinShip writes its backups to `./data/backups` and its encrypted photos to `./data/files`, both next to `compose.yml`. Create them before the first start so the api (user 1000, not root) can write to them:
 
 ```sh
-mkdir -p data/backups && sudo chown 1000:1000 data/backups
+mkdir -p data/backups data/files && sudo chown 1000:1000 data/backups data/files
 ```
 
-Docker Desktop on macOS and Windows does not need the `chown`. Without a usable `BACKUP_PASSPHRASE` (step 2) KinShip still runs but makes no backups, and says so in Admin.
+Docker Desktop on macOS and Windows does not need the `chown`. Without a usable `BACKUP_PASSPHRASE` (step 2) KinShip still runs but makes no backups, and says so in Admin. Without `FILE_ENCRYPTION_KEY`, or without the `./data/files` mount, KinShip still runs but photos are off, and Admin → Backups says why.
 
 ## 4. Start it
 

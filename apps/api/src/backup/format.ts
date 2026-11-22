@@ -9,11 +9,11 @@
 // authenticated: the whole preamble is the AAD of every chunk. Nothing in it is trusted until a chunk has authenticated
 // with the passphrase.
 import { Buffer } from 'node:buffer';
+import { CHUNK_SIZE, TAG_LENGTH } from '../crypto/chunks.js';
 
 export const MAGIC = Buffer.from('KSBK', 'ascii');
 export const FORMAT_VERSION = 1;
-export const CHUNK_SIZE = 64 * 1024;
-export const TAG_LENGTH = 16;
+export { CHUNK_SIZE, TAG_LENGTH };
 export const MAX_HEADER_BYTES = 16 * 1024;
 const MIN_CHUNK_SIZE = 4 * 1024;
 const MAX_CHUNK_SIZE = 1024 * 1024;

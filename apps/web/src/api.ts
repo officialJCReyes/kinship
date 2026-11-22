@@ -21,6 +21,7 @@ import type {
   UpdatesResponse,
   WhatsNewResponse,
   BackupsResponse,
+  FilesStatus,
   DownloadTicket,
   MaintenanceStatus,
   RestoreCheck,
@@ -192,6 +193,12 @@ export async function fetchBackups(signal?: AbortSignal): Promise<BackupsRespons
   const reply = await send('GET', '/api/admin/backups', undefined, signal);
   if (reply.status !== 200) fail('/api/admin/backups', reply);
   return reply.body as BackupsResponse;
+}
+
+export async function fetchFilesStatus(signal?: AbortSignal): Promise<FilesStatus> {
+  const reply = await send('GET', '/api/admin/files', undefined, signal);
+  if (reply.status !== 200) fail('/api/admin/files', reply);
+  return reply.body as FilesStatus;
 }
 
 /** Starts a backup in the background (202). The page then polls fetchBackups. */

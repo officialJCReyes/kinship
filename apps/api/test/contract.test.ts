@@ -10,6 +10,7 @@ import {
   API_ERROR_CODES,
   BACKUP_ERROR_CODES,
   BACKUP_ROUTES,
+  FILES_ROUTES,
   en,
   PEOPLE_ERROR_CODES,
   PEOPLE_ROUTES,
@@ -43,6 +44,11 @@ describe('routes', () => {
   it('registers exactly the backup routes the shared package lists', () => {
     const mine = registered.filter((r) => /^\w+ \/api\/admin\/backups/.test(r) && !r.startsWith('HEAD ')).sort();
     expect(mine).toEqual(BACKUP_ROUTES.map((r) => `${r.method} ${r.path}`).sort());
+  });
+
+  it('registers exactly the files admin routes the shared package lists', () => {
+    const mine = registered.filter((r) => /^\w+ \/api\/admin\/files/.test(r) && !r.startsWith('HEAD ')).sort();
+    expect(mine).toEqual(FILES_ROUTES.map((r) => `${r.method} ${r.path}`).sort());
   });
 
   it('lists every route once', () => {

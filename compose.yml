@@ -50,6 +50,9 @@ services:
     volumes:
       # Where backups are written. Create the folder first (see INSTALL.md): mkdir -p data/backups && sudo chown 1000:1000 data/backups
       - ./data/backups:/var/lib/kinship/backups
+      # Where photos are stored (encrypted). Create the folder first: mkdir -p data/files && sudo chown 1000:1000 data/files
+      # Photos stay off until this mount and FILE_ENCRYPTION_KEY (in .env) are both in place.
+      - ./data/files:/var/lib/kinship/files
     depends_on:
       db:
         condition: service_healthy

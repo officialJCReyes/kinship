@@ -60,6 +60,10 @@ cp "$repo/.env.example" "$work/.env"
 # create it as root (which this script could not remove afterwards).
 mkdir -p "$work/data/backups"
 chmod 777 "$work/data/backups"
+# The same for the encrypted photos folder.
+mkdir -p "$work/data/files"
+chmod 777 "$work/data/files"
+file_key=$(openssl rand -base64 32)
 sed -i.bak \
   -e "s|^KINSHIP_VERSION=.*|KINSHIP_VERSION=${version}|" \
   -e "s|^KINSHIP_PORT=.*|KINSHIP_PORT=${port}|" \
@@ -68,6 +72,7 @@ sed -i.bak \
   -e "s|^DB_OWNER_PASSWORD=.*|DB_OWNER_PASSWORD=${owner_password}|" \
   -e "s|^DB_APP_PASSWORD=.*|DB_APP_PASSWORD=${app_password}|" \
   -e "s|^BACKUP_PASSPHRASE=.*|BACKUP_PASSPHRASE=${backup_passphrase}|" \
+  -e "s|^FILE_ENCRYPTION_KEY=.*|FILE_ENCRYPTION_KEY=${file_key}|" \
   "$work/.env"
 rm -f "$work/.env.bak"
 

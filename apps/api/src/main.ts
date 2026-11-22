@@ -14,6 +14,7 @@ import { createUpdateChecker } from './updates/checker.js';
 import { loadBundledDocs } from './updates/docs.js';
 import { useProxyFromEnv } from './updates/proxy.js';
 import { toolsFromEnv } from './backup/tools.js';
+import { createFilesService, FILES_FIX_LONG } from './files/state.js';
 
 function log(message: string): void {
   console.log(JSON.stringify({ level: 'info', time: Date.now(), msg: message }));
@@ -32,6 +33,21 @@ async function main(): Promise<void> {
         level: 'warn',
         time: Date.now(),
         msg: `backups are not available: ${backupProblem}. Set BACKUP_PASSPHRASE in .env (see INSTALL.md).`,
+      }),
+    );
+  }
+
+  // Stored files (ADR 0033). The key is optional: without it, or without the folder, KinShip runs and photos are off.
+  const files = createFilesService(config.files);
+  const filesStatus = await files.refresh();
+  if (filesStatus.state === 'key_missing') {
+    log('photos are off: no FILE_ENCRYPTION_KEY is set (see UPGRADE.md or INSTALL.md)');
+  } else if (filesStatus.state === 'files_unavailable') {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        time: Date.now(),
+        msg: `photos are off: the files folder ${config.files.dir} cannot be used.\n${FILES_FIX_LONG}`,
       }),
     );
   }
@@ -111,6 +127,7 @@ async function main(): Promise<void> {
     trustProxy: config.trustProxy,
     maintenance,
     backups: { scheduler, dir: config.backup.dir, restore },
+    files,
     updates: { checker, docs: loadBundledDocs() },
     sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
   });

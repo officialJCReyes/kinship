@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { readFileSync } from 'node:fs';
+import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
+import { parseFileKey } from './files/key.js';
 
 export interface DbConfig {
   host: string;
@@ -30,6 +32,14 @@ export interface BackupConfig {
   skipSafetyCopy: boolean;
 }
 
+/** Stored files (photos). The key is optional: without it KinShip runs and uploads answer 503 (ADR 0033). */
+export interface FilesConfig {
+  /** FILES_DIR: the folder the encrypted files live in (the compose volume). */
+  dir: string;
+  /** The 32 configured key bytes (base64 or hex in the environment), or undefined. Never logged, never in the database. */
+  key: Buffer | undefined;
+}
+
 export interface Config {
   /** Public address of the site, used in the first-run setup message. */
   publicUrl: string;
@@ -46,6 +56,7 @@ export interface Config {
   buildDate: string;
   db: DbConfig;
   backup: BackupConfig;
+  files: FilesConfig;
 }
 
 export class ConfigError extends Error {
@@ -147,6 +158,24 @@ function backupConfig(env: Env, readFile: ReadFile): BackupConfig {
   };
 }
 
+function filesConfig(env: Env, readFile: ReadFile): FilesConfig {
+  const raw = optionalSecret(env, 'FILE_ENCRYPTION_KEY', readFile);
+  let key: Buffer | undefined;
+  if (raw !== undefined && raw.trim() !== '') {
+    if (raw.startsWith(PLACEHOLDER_PREFIX)) {
+      throw new ConfigError('FILE_ENCRYPTION_KEY is still the placeholder from .env.example; set a real value');
+    }
+    const parsed = parseFileKey(raw);
+    if (parsed === null) {
+      throw new ConfigError(
+        'FILE_ENCRYPTION_KEY must be 32 random bytes written as base64 (openssl rand -base64 32) or as 64 hex characters',
+      );
+    }
+    key = parsed;
+  }
+  return { dir: str(env, 'FILES_DIR', '/var/lib/kinship/files'), key };
+}
+
 function trustProxy(env: Env): TrustProxy {
   const raw = (env.TRUST_PROXY ?? '').trim();
   if (raw === '' || raw === 'false') return false;
@@ -222,6 +251,7 @@ export function loadConfig(env: Env = process.env, readFile: ReadFile = (p) => r
       appPassword,
     },
     backup: backupConfig(env, readFile),
+    files: filesConfig(env, readFile),
   };
 }
 
@@ -232,7 +262,7 @@ export function loadConfig(env: Env = process.env, readFile: ReadFile = (p) => r
  * environment: code execution in the api exposes the owner password either way (see ADR 0014).
  */
 export function scrubSecretsFromEnv(env: Record<string, string | undefined> = process.env): void {
-  for (const name of ['DB_OWNER_PASSWORD', 'DB_APP_PASSWORD', 'BACKUP_PASSPHRASE']) {
+  for (const name of ['DB_OWNER_PASSWORD', 'DB_APP_PASSWORD', 'BACKUP_PASSPHRASE', 'FILE_ENCRYPTION_KEY']) {
     delete env[name];
     delete env[`${name}_FILE`];
   }

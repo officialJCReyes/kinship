@@ -145,6 +145,62 @@ describe('the safety copy break-glass', () => {
   });
 });
 
+describe('the file encryption key', () => {
+  const bytes = Buffer.alloc(32, 7);
+  const b64 = bytes.toString('base64');
+
+  it('is optional: no key, and the default folder', () => {
+    expect(loadConfig(good, noFiles).files).toEqual({ dir: '/var/lib/kinship/files', key: undefined });
+  });
+
+  it('reads base64, hex, and FILES_DIR', () => {
+    expect(loadConfig({ ...good, FILE_ENCRYPTION_KEY: b64, FILES_DIR: '/x' }, noFiles).files).toEqual({
+      dir: '/x',
+      key: bytes,
+    });
+    expect(loadConfig({ ...good, FILE_ENCRYPTION_KEY: bytes.toString('hex') }, noFiles).files.key).toEqual(bytes);
+  });
+
+  it('reads FILE_ENCRYPTION_KEY_FILE and trims the newline', () => {
+    const config = loadConfig({ ...good, FILE_ENCRYPTION_KEY_FILE: '/run/secrets/k' }, () => `${b64}\n`);
+    expect(config.files.key).toEqual(bytes);
+  });
+
+  it('refuses both ways at once, an unreadable file, the placeholder and a wrong length or format', () => {
+    expect(() => loadConfig({ ...good, FILE_ENCRYPTION_KEY: b64, FILE_ENCRYPTION_KEY_FILE: '/k' }, noFiles)).toThrow(
+      /either FILE_ENCRYPTION_KEY or FILE_ENCRYPTION_KEY_FILE/,
+    );
+    expect(() => loadConfig({ ...good, FILE_ENCRYPTION_KEY_FILE: '/missing' }, noFiles)).toThrow(/could not be read/);
+    expect(() => loadConfig({ ...good, FILE_ENCRYPTION_KEY: 'change-me-files' }, noFiles)).toThrow(/placeholder/);
+    for (const bad of [
+      'short',
+      Buffer.alloc(16).toString('base64'),
+      Buffer.alloc(33).toString('hex'),
+      'x'.repeat(64),
+    ]) {
+      expect(() => loadConfig({ ...good, FILE_ENCRYPTION_KEY: bad }, noFiles), bad).toThrow(ConfigError);
+    }
+  });
+
+  it('never puts the key in an error message', () => {
+    try {
+      loadConfig({ ...good, FILE_ENCRYPTION_KEY: 'sekrit-not-a-key' }, noFiles);
+    } catch (error) {
+      expect((error as Error).message).not.toContain('sekrit');
+    }
+  });
+
+  it('is scrubbed from the environment with its _FILE variant', () => {
+    const env: Record<string, string | undefined> = {
+      FILE_ENCRYPTION_KEY: b64,
+      FILE_ENCRYPTION_KEY_FILE: '/k',
+      FILES_DIR: '/x',
+    };
+    scrubSecretsFromEnv(env);
+    expect(env).toEqual({ FILES_DIR: '/x' });
+  });
+});
+
 describe('scrubSecretsFromEnv', () => {
   it('removes the passwords and the passphrase (and their _FILE variants) and leaves the rest', () => {
     const env: Record<string, string | undefined> = {

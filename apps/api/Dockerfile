@@ -86,6 +86,9 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 RUN apk add --no-cache postgresql18-client
 # The backups folder (compose.yml mounts ./data/backups here) and the stand-alone decrypt script for disaster recovery.
 RUN mkdir -p /var/lib/kinship/backups && chown node:node /var/lib/kinship/backups && chmod 700 /var/lib/kinship/backups
+# The files folder (compose.yml mounts ./data/files here): encrypted photos. Without the mount it is not writable (the container is
+# read-only) and photos stay off.
+RUN mkdir -p /var/lib/kinship/files && chown node:node /var/lib/kinship/files && chmod 700 /var/lib/kinship/files
 COPY docs/backup/kinship-decrypt.mjs /usr/local/share/kinship/kinship-decrypt.mjs
 USER node
 EXPOSE 3000

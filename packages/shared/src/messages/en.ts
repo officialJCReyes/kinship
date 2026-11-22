@@ -270,6 +270,17 @@ export const en = {
   'backups.restore.title': 'Restoring a backup',
   'backups.restore.intro':
     'Press Restore next to a backup above. A restore replaces everything: it makes a safety copy of what is here first, pauses KinShip, replaces the database in one step that only commits if every check passes, and starts KinShip again. Everyone is signed out, you too.',
+  'files.title': 'Photos and files',
+  'files.state.ready': 'Photos are on. Every file is encrypted with your key before it is stored.',
+  'files.state.key_missing':
+    'Photos are off: no file encryption key is set. Add FILE_ENCRYPTION_KEY to .env (make one with: openssl rand -base64 32), then restart KinShip.',
+  'files.state.files_unavailable':
+    'Photos are off: the files folder cannot be used. Mount ./data/files into the api service (mkdir -p data/files && sudo chown 1000:1000 data/files), then restart KinShip. If photos were uploaded before, this folder must be the one that holds them.',
+  'files.state.key_mismatch':
+    'The key in .env does not match your files: photos were stored with a different key. New uploads are refused. Put back the key you used before.',
+  'files.keyId': 'Key id',
+  'files.keyWarning':
+    'Keep your file encryption key somewhere safe, apart from this server. If it is lost or changed, the stored photos can never be opened again, and backups do not contain it.',
   'backups.restore.needsPassphrase': 'Restoring needs a usable backup passphrase on this server (see above).',
   'backups.restore.busy': 'A backup or test is running. Restore is available when it is done.',
   'backups.restore.undo': 'To undo a restore, restore the "Before a restore" copy it made: it is in the list above.',

@@ -8,6 +8,7 @@ import * as api from '../api.js';
 import { ApiError } from '../api.js';
 import { useSession } from '../auth.js';
 import { backupsKey, useBackups } from '../admin/backups.js';
+import { FilesCard, useFilesStatus } from '../admin/FilesCard.js';
 import { RestoreDialog } from '../admin/RestoreDialog.js';
 import { Dialog } from '../components/Dialog.js';
 import { Field } from '../components/Field.js';
@@ -440,6 +441,7 @@ export function AdminBackupsPage() {
   const client = useQueryClient();
   const isSuper = session.data?.user.role === 'superadmin';
   const backups = useBackups(isSuper);
+  const files = useFilesStatus(isSuper);
   const [message, setMessage] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<BackupListItem | null>(null);
   const [restoring, setRestoring] = useState<BackupListItem | null>(null);
@@ -493,6 +495,7 @@ export function AdminBackupsPage() {
         saved={saved}
         setSaved={setSaved}
       />
+      {files.data ? <FilesCard status={files.data} /> : null}
       <section className="card stack" aria-labelledby="backups-keep">
         <h2 id="backups-keep">{t('backups.keep.title')}</h2>
         <p>{t('backups.keep.body')}</p>

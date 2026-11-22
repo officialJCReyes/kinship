@@ -4,6 +4,7 @@ export * from './api.js';
 export * from './backup.js';
 export * from './changelog.js';
 export * from './dates.js';
+export * from './files.js';
 export * from './i18n.js';
 export * from './names.js';
 export { en } from './messages/en.js';
