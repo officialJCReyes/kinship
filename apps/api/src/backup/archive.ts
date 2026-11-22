@@ -234,16 +234,19 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
           conn,
         );
         const databaseBytes = Number(size.rows[0]?.bytes ?? 0);
-        const filesBytes = options.includeFiles ? await storedFilesBytes(conn) : 0;
+        // A database from before the photo tables (an upgrade's safety copy of an old schema) has no photos to include.
+        const hasPhotoTable =
+          (await sql<{ n: string | null }>`select to_regclass('public.media_files')::text as n`.execute(conn)).rows[0]
+            ?.n != null;
+        const wantFiles = options.includeFiles === true && hasPhotoTable;
+        const filesBytes = wantFiles ? await storedFilesBytes(conn) : 0;
         const need = spaceNeeded(databaseBytes, filesBytes);
         const free = (ctx.freeBytes ?? freeBytes)(dir);
         if (free < need) {
           throw new BackupError(
             'disk_space',
             `Not enough free space in ${dir}: the database is ${databaseBytes} bytes${
-              options.includeFiles
-                ? `, the photos are ${filesBytes} bytes, and a tenth more is needed for the archive`
-                : ''
+              wantFiles ? `, the photos are ${filesBytes} bytes, and a tenth more is needed for the archive` : ''
             }; ${need} are needed and the folder has ${free} free.`,
           );
         }
@@ -301,7 +304,7 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
           );
           if (result.code !== 0) throw new ToolError('pg_dump', result.code, result.stderr);
           // The photos named by the rows of THIS snapshot (not by whatever is on the disk now).
-          if (options.includeFiles) collected = await collectFiles(conn, config.files.dir);
+          if (wantFiles) collected = await collectFiles(conn, config.files.dir);
         } finally {
           await sql`rollback`.execute(conn);
         }

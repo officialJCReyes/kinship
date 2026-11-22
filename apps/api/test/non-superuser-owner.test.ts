@@ -7,6 +7,9 @@
 // `family_tree`: the SECURITY DEFINER sign-in and setup functions run as the owner, and forcing
 // the policies on the owner would lock them out.
 import { randomBytes } from 'node:crypto';
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
@@ -16,6 +19,10 @@ import { createAppDb, createDb } from '../src/db.js';
 import type { AnySchema, UntypedDb } from '../src/db.js';
 import { ensureAppRole } from '../src/migrations/roles.js';
 import { runMigrations } from '../src/migrations/runner.js';
+import { deriveFileKeys } from '../src/files/key.js';
+import { createObjectStore } from '../src/files/objects.js';
+import { createFilesService, MARKER } from '../src/files/state.js';
+import { sweepOrphans } from '../src/media/sweeper.js';
 import { readVersion } from '../src/version.js';
 import { PASSWORD, cookieHeader, login, post, CSRF } from './helpers/app.js';
 import { server } from './helpers/db.js';
@@ -244,6 +251,64 @@ describe('the photo tables, with an owner that is not a superuser', () => {
     expect(keys.rows.map((r) => r.id)).toEqual(['0123456789abcdef']);
     const names = await sql<{ id: string }>`select public.kinship_media_storage_ids() as id`.execute(db);
     expect(names.rows.map((r) => r.id).sort()).toEqual(['a'.repeat(32), 'b'.repeat(32)]);
+  });
+});
+
+describe('the files sweep, with an owner that is not a superuser', () => {
+  const age = (path: string) => {
+    const when = new Date(Date.now() - 3 * 3_600_000);
+    utimesSync(path, when, when);
+  };
+  const setup = () => {
+    const dir = mkdtempSync(join(tmpdir(), 'kinship-nsu-files-'));
+    for (const sub of ['objects', 'tmp', 'staging']) mkdirSync(join(dir, sub));
+    writeFileSync(join(dir, MARKER), '{}');
+    const keyBytes = Buffer.alloc(32, 5);
+    const service = createFilesService({ dir, key: keyBytes });
+    const objects = createObjectStore(dir, () => deriveFileKeys(keyBytes));
+    return { dir, service, objects };
+  };
+
+  it('sees the photos the app role added, so it keeps their files and removes only an orphan', async () => {
+    const s = setup();
+    await s.service.refresh();
+    // The row added by the previous test names two files; create exactly those and one more.
+    const rows = (await sql<{ id: string }>`select public.kinship_media_storage_ids() as id`.execute(db)).rows.map(
+      (r) => r.id,
+    );
+    expect(rows.length).toBe(2);
+    for (const id of rows) s.objects.put(Buffer.from(`photo ${id}`), id);
+    const orphan = s.objects.put(Buffer.from('orphan'));
+    for (const o of s.objects.list()) age(s.objects.pathOf(o.storageId));
+    const result = await sweepOrphans({ db, files: s.service, objects: s.objects, log: () => undefined });
+    expect(result.skipped).toBeNull();
+    expect(result.removed).toEqual([orphan.storageId]);
+    for (const id of rows) expect(s.objects.exists(id)).toBe(true);
+  });
+
+  it('if the rows could not be seen (the old bug: RLS forced on the owner), it deletes nothing and says so', async () => {
+    const s = setup();
+    await s.service.refresh();
+    const ids = ['c'.repeat(32), 'd'.repeat(32)];
+    for (const id of ids) {
+      s.objects.put(Buffer.from('x'), id);
+      age(s.objects.pathOf(id));
+    }
+    await sql`alter table media_files force row level security`.execute(owner);
+    try {
+      const logs: string[] = [];
+      const result = await sweepOrphans({
+        db,
+        files: s.service,
+        objects: s.objects,
+        log: (level, message) => logs.push(`${level}: ${message}`),
+      });
+      expect(result).toMatchObject({ skipped: 'no_rows_but_files', removed: [] });
+      for (const id of ids) expect(s.objects.exists(id)).toBe(true);
+      expect(logs.join('\n')).toMatch(/did nothing/);
+    } finally {
+      await sql`alter table media_files no force row level security`.execute(owner);
+    }
   });
 });
 

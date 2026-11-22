@@ -23,7 +23,7 @@ export const HOLD_FILE = '.sweep-hold';
 
 export interface SweepResult {
   /** Why nothing was done, or null when the sweep ran. */
-  skipped: 'not_ready' | 'backup_running' | null;
+  skipped: 'not_ready' | 'backup_running' | 'no_rows_but_files' | null;
   removed: string[];
   held: boolean;
   tmpRemoved: number;
@@ -59,7 +59,21 @@ export async function sweepOrphans(deps: SweeperDeps, now = Date.now()): Promise
     result.tmpRemoved = objects.clearTmp(HOUR_MS, now);
     if (holdUntil(files.dir) > now) return { ...result, held: true };
     const used = await usedStorageIds(db);
-    for (const object of objects.list()) {
+    const onDisk = objects.list();
+    // Safety guard: "no photo uses any file" while the folder holds files is far more likely a database that cannot be read the way
+    // it should (or a restore that went wrong) than a family that deleted every photo and left every file behind (deleting a photo
+    // removes its files straight away). Removing everything would be permanent, so refuse and say why.
+    if (used.size === 0 && onDisk.length > 0) {
+      deps.log(
+        'warn',
+        'the files sweep did nothing: the database says no photo uses any file, but the files folder holds files',
+        {
+          files: onDisk.length,
+        },
+      );
+      return { ...result, skipped: 'no_rows_but_files' };
+    }
+    for (const object of onDisk) {
       if (used.has(object.storageId) || now - object.modifiedMs < HOUR_MS) continue;
       if (objects.remove(object.storageId)) result.removed.push(object.storageId);
     }

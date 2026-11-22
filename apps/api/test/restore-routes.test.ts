@@ -22,7 +22,6 @@ import { buildFamily, signInAll } from './helpers/family.js';
 import type { Family } from './helpers/family.js';
 import { realMigrationsDir, tempMigrationsDir } from './helpers/migrations-dir.js';
 import { testConfig, testTools } from './helpers/pg-tools.js';
-import { addTestPhoto, setUpFilesFolder, testKeys } from './helpers/photos.js';
 
 const PASS = 'a long backup passphrase for tests';
 const CHEAP = { N: 2 ** 4, r: 8, p: 1 };
@@ -290,6 +289,7 @@ describe('who may check and restore, and what the check says', () => {
       newerApp: false,
       accounts: 5,
       ownAccountMissing: false,
+      files: { included: false, count: 0, bytes: 0 },
       ticket: expect.any(String),
     });
     expect(Date.parse(answer.body?.['expiresAt'] as string) - Date.now()).toBeLessThanOrEqual(
@@ -331,15 +331,6 @@ describe('who may check and restore, and what the check says', () => {
   it('says why a backup cannot be restored (a wrong passphrase, a refusal), with codes and no paths', async () => {
     const r = await rig();
     const made = await createBackup(r.ctx, { kind: 'manual' });
-    // A backup that carries files is refused (step 37 removes the guard).
-    setUpFilesFolder(r.ctx.config.files.dir);
-    await addTestPhoto(r.t.owner, r.ctx.config.files.dir, testKeys());
-    const withFiles = await createBackup(r.ctx, { kind: 'manual', includeFiles: true });
-    const refused = await check(r, withFiles.name);
-    expect(refused.status).toBe(400);
-    expect(refused.body).toMatchObject({ error: 'restore_failed', errorKind: 'refused' });
-    expect(String(refused.body?.['detail'])).toMatch(/uploaded files/);
-    expect(JSON.stringify(refused.body)).not.toContain(r.dir);
     // A damaged archive: a code, no text from the tools.
     const bytes = readFileSync(join(r.dir, made.name));
     bytes[bytes.length - 50] = (bytes[bytes.length - 50] ?? 0) ^ 1;

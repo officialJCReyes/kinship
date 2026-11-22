@@ -309,7 +309,11 @@ export const en = {
   'backups.restore.will1': 'A safety copy of what is here now is made first, so you can undo this.',
   'backups.restore.will2': 'KinShip goes into maintenance mode and everyone is signed out, you too.',
   'backups.restore.will3':
-    'The database is replaced in one step: nothing changes unless every check passes. Newer database changes are applied if the backup is older.',
+    'The database is replaced in one step: nothing changes unless every check passes. If the backup carries photos, they are checked first and swapped in right after. Newer database changes are applied if the backup is older.',
+  'backups.restore.photosIncluded':
+    'Photos: this backup carries {count} photo files ({size}). They replace the photos here; the photos that are here now are kept in the safety copy.',
+  'backups.restore.photosNone':
+    'Photos: this backup does not include photos, so the photos here stay as they are. Photos added since this backup lose their place in the family and are removed after 7 days. A photo whose file is missing shows a placeholder.',
   'backups.restore.will4': 'KinShip checks the result and starts again.',
   'backups.restore.accountsBack':
     'Accounts are the ones in the backup. An account deleted or disabled since then comes back active, with the password it had then. Review Admin → Users afterwards.',

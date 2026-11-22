@@ -306,6 +306,8 @@ export interface RestoreCheck {
   accounts: number;
   /** The signed-in account was created after this backup was made, so it is not in it. */
   ownAccountMissing: boolean;
+  /** The photo files the backup carries. `included: false`: a database-only backup, the photos here stay as they are. */
+  files: { included: boolean; count: number; bytes: number };
 }
 
 /** POST /api/admin/backups/restore: the ticket from the check, the word, and the password again. Answers 202. */

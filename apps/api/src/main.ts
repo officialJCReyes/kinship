@@ -16,6 +16,8 @@ import { useProxyFromEnv } from './updates/proxy.js';
 import { toolsFromEnv } from './backup/tools.js';
 import { createFilesService, FILES_FIX_LONG } from './files/state.js';
 import { createObjectStore } from './files/objects.js';
+import { readRestoreMarker } from './files/restore-marker.js';
+import { reconcileFiles } from './backup/restore-files.js';
 import { mediaRowsExist, storedKeyIds } from './media/store.js';
 import { createSweeperJob } from './media/sweeper.js';
 
@@ -69,6 +71,26 @@ async function main(): Promise<void> {
   // 2. As the app role: serve requests.
   const db = createAppDb(config.db);
   dbHolder.db = db;
+  // A restore that put photo files back and was cut short between the database commit and the file swap is finished (or its
+  // staged files thrown away) here, before anything else looks at the files folder (ADR 0035).
+  try {
+    const reconciled = await reconcileFiles(config.files.dir, () => readRestoreMarker(db));
+    if (reconciled.action === 'completed')
+      log('a restore was cut short after the database committed; its photo files are now in place');
+    if (reconciled.action === 'discarded')
+      log(
+        'a restore was cut short before the database committed; its unpacked photo files were removed and nothing changed',
+      );
+  } catch (error) {
+    console.log(
+      JSON.stringify({
+        level: 'error',
+        time: Date.now(),
+        msg: 'could not finish a cut-short restore of the photo files',
+        reason: error instanceof Error ? error.message : 'unknown',
+      }),
+    );
+  }
   const filesStatus = await files.refresh();
   if (filesStatus.state === 'key_missing') {
     log('photos are off: no FILE_ENCRYPTION_KEY is set (see UPGRADE.md or INSTALL.md)');

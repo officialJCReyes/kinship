@@ -161,8 +161,10 @@ A restore **replaces everything**: people, accounts, settings. There are two way
 
 - **a restart policy**: the `compose.yml` in this repository has `restart: unless-stopped`. If you run KinShip with your own compose file or `docker run`, give the api container a restart policy, or it stays stopped after a restore;
 - **a usable `BACKUP_PASSPHRASE`** in `.env` (it is never typed in the browser);
-- **free space** in the backups folder of at least **twice the size of the database**, and **at least the size of the database free on the PostgreSQL volume** (the old data stays until the new data is committed);
-- a backup without uploaded files: a backup that carries files is refused until a later release can put the files back.
+- **free space** in the backups folder of at least **twice the size of the database plus the photos** (the safety copy holds the photos that are here now, and the unpacked backup holds its own), and **at least the size of the database free on the PostgreSQL volume** (the old data stays until the new data is committed). If the backup carries photos, the **files folder** needs room for them too (the new photos are unpacked beside the current ones, then swapped in). The refusal gives each amount;
+- **for a backup that carries photos, the same `FILE_ENCRYPTION_KEY` that sealed them.** The photos in a backup are encrypted with your key, which the backup does not hold. A different key is refused before anything changes (a restore would leave photos nobody can open), so keep the key with your other secrets.
+
+**What happens to the photos.** If the backup carries photos, they replace the photos here: they are unpacked and checked first, the database is restored, and the files are swapped in right after (if KinShip is stopped in between, the next start finishes or abandons it by itself, and either way nothing is half-done). The safety copy holds the photos that were here, so restoring it undoes this. If the backup does **not** carry photos (a safety copy made before an upgrade, or one made with "Include uploaded files" off), the files folder is **left as it is**: photos uploaded since the backup lose their place in the family and are removed after **7 days**; a photo whose file is missing shows a placeholder.
 
 It does not work for a brand-new server (nobody can sign in yet): use the command line below.
 
@@ -174,7 +176,7 @@ docker compose run --rm api kinship restore kinship-2026-11-14-0300.tar.enc   # 
 docker compose up -d
 ```
 
-It checks the whole backup first, makes a safety copy of what is there (`pre-restore-<time>.tar.enc`), then replaces the database in **one transaction**; if anything fails, the database is exactly as it was. It refuses a backup made by a newer KinShip or PostgreSQL, one with other database role names, one that carries uploaded files, one when the backups folder has less than twice the database size free, and any restore while KinShip is running. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date at the next start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
+It checks the whole backup first, makes a safety copy of what is there (`pre-restore-<time>.tar.enc`), then replaces the database in **one transaction**; if anything fails, the database is exactly as it was. It refuses a backup made by a newer KinShip or PostgreSQL, one with other database role names, one whose photos were sealed with a different `FILE_ENCRYPTION_KEY` than the server's, one when the backups folder (or the files folder) does not have the room it needs, and any restore while KinShip is running. It puts the photos back and says how many. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date at the next start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
 
 ### A new machine, after a disaster
 
