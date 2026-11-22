@@ -48,7 +48,7 @@ export function SetupPage() {
   const [banner, setBanner] = useState<Banner | null>(null);
   const [checkedToken, setCheckedToken] = useState('');
   const [checking, setChecking] = useState(false);
-  const setup = useSetup();
+  const { mutation: setup, finish } = useSetup();
   const card = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
 
@@ -204,8 +204,31 @@ export function SetupPage() {
   const onCreate = (event: FormEvent) => {
     event.preventDefault();
     setBanner(null);
-    setup.mutate(buildSetupRequest(state), { onError: showServerError });
+    setup.mutate({ request: buildSetupRequest(state), checkUpdates: state.checkUpdates }, { onError: showServerError });
   };
+
+  // The tree exists, but the update-check setting could not be saved: stay here and say so (the check is still on).
+  const finished = setup.data;
+  if (finished?.updateError !== undefined) {
+    return (
+      <section className="card setup-card" aria-label={t('setup.title')}>
+        <div className="setup-form">
+          <h1 tabIndex={-1} ref={(node) => node?.focus()}>
+            {t('setup.finish.title')}
+          </h1>
+          <div className="alert" role="alert">
+            {t('setup.finish.updateFailed', { reason: errorMessage(finished.updateError) })}
+          </div>
+          <div className="setup-nav">
+            <span />
+            <button type="button" className="button primary" onClick={() => finish(finished.me)}>
+              {t('setup.finish.continue')}
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const isReview = step === 'review';
   const skippable = SETUP_STEPS.find((candidate) => candidate.id === step)?.skippable ?? false;
@@ -222,7 +245,9 @@ export function SetupPage() {
         {step === 'children' ? (
           <ChildrenStep state={state} errors={errors} set={set} onAdd={addChild} onRemove={removeChild} />
         ) : null}
-        {isReview ? <ReviewStep state={state} onChange={goTo} /> : null}
+        {isReview ? (
+          <ReviewStep state={state} onChange={goTo} setCheckUpdates={(value) => set('checkUpdates', value)} />
+        ) : null}
         {banner ? (
           <div className="alert" role="alert">
             {'alreadyDone' in banner ? (

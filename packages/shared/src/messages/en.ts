@@ -419,9 +419,10 @@ export const en = {
   'setup.review.recordedAsAuto': '{names}: recorded as {status}, set automatically because someone is deceased.',
   'setup.review.warnings': 'Things to check',
   'setup.review.next': 'Next: invite relatives under Admin → Users, so they can add their own branches.',
-  'setup.review.updateTitle': 'Update notices.',
-  'setup.review.updateNote':
-    'Once a day KinShip reads the public release list on GitHub and tells the SuperAdmin when a new version is out. It sends nothing about your install. Turn it off any time in Admin → Updates.',
+  'setup.finish.title': 'Your tree is ready',
+  'setup.finish.updateFailed':
+    'Your tree was created, but the update check setting could not be saved ({reason}). The check is still on. You can change it any time in Admin → Updates.',
+  'setup.finish.continue': 'Continue to my tree',
   'setup.relation.partner.married.male': 'your husband',
   'setup.relation.partner.married.female': 'your wife',
   'setup.relation.partner.married.neutral': 'your spouse',

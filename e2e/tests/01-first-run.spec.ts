@@ -98,12 +98,9 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
   await expect(page.getByText('Elena Ruiz, your mother')).toBeVisible();
   await expect(page.getByText('Leo Hale, your son')).toBeVisible();
   await expect(page.getByText('5 people on the tree')).toBeVisible();
-  // The update-check note (it names Admin → Updates, which arrives in step 17).
-  await expect(
-    page.getByText(
-      'Once a day KinShip reads the public release list on GitHub and tells the SuperAdmin when a new version is out. It sends nothing about your install. Turn it off any time in Admin → Updates.',
-    ),
-  ).toBeVisible();
+  // The update-check switch replaces the old paragraph; it starts on and is left on.
+  await expect(page.getByRole('checkbox', { name: 'Check for new versions' })).toBeChecked();
+  await expect(page.getByText('Update notices.')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create my tree' }).click();
 
   // Setup signs the new SuperAdmin in and opens their own place on the tree.

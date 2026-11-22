@@ -494,13 +494,11 @@ describe('Review shows the whole family in words', () => {
     expect(inGroup('Father').getByLabelText('Given name')).toBeTruthy();
   });
 
-  it('carries the update-check note, and the invite line instead of Authentik', async () => {
+  it('has no update-check paragraph, and the invite line instead of Authentik', async () => {
     await fullFamily();
-    expect(
-      screen.getByText(
-        /Once a day KinShip reads the public release list on GitHub and tells the SuperAdmin when a new version is out\. It sends nothing about your install\. Turn it off any time in Admin → Updates\./,
-      ),
-    ).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Update notices/);
+    const paragraphs = Array.from(document.querySelectorAll('p'));
+    expect(paragraphs.some((p) => /public release list/.test(p.textContent ?? ''))).toBe(false);
     expect(
       screen.getByText('Next: invite relatives under Admin → Users, so they can add their own branches.'),
     ).toBeTruthy();
