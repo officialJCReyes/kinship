@@ -15,6 +15,9 @@ import { loadBundledDocs } from './updates/docs.js';
 import { useProxyFromEnv } from './updates/proxy.js';
 import { toolsFromEnv } from './backup/tools.js';
 import { createFilesService, FILES_FIX_LONG } from './files/state.js';
+import { createObjectStore } from './files/objects.js';
+import { mediaRowsExist, storedKeyIds } from './media/store.js';
+import { createSweeperJob } from './media/sweeper.js';
 
 function log(message: string): void {
   console.log(JSON.stringify({ level: 'info', time: Date.now(), msg: message }));
@@ -37,20 +40,13 @@ async function main(): Promise<void> {
     );
   }
 
-  // Stored files (ADR 0033). The key is optional: without it, or without the folder, KinShip runs and photos are off.
-  const files = createFilesService(config.files);
-  const filesStatus = await files.refresh();
-  if (filesStatus.state === 'key_missing') {
-    log('photos are off: no FILE_ENCRYPTION_KEY is set (see UPGRADE.md or INSTALL.md)');
-  } else if (filesStatus.state === 'files_unavailable') {
-    console.log(
-      JSON.stringify({
-        level: 'warn',
-        time: Date.now(),
-        msg: `photos are off: the files folder ${config.files.dir} cannot be used.\n${FILES_FIX_LONG}`,
-      }),
-    );
-  }
+  // Stored files (ADR 0033). The key is optional: without it, or without the folder, KinShip runs and photos are off. The two
+  // checks that need the media table are answered once the database is up (below).
+  const dbHolder: { db?: ReturnType<typeof createAppDb> } = {};
+  const files = createFilesService(config.files, {
+    mediaRowsExist: () => (dbHolder.db ? mediaRowsExist(dbHolder.db) : Promise.resolve(false)),
+    sampleKeyIds: () => (dbHolder.db ? storedKeyIds(dbHolder.db) : Promise.resolve([])),
+  });
 
   // 1. As the owner role: create/refresh the app role, make the safety copy if a database change is pending, then migrate.
   try {
@@ -72,6 +68,27 @@ async function main(): Promise<void> {
 
   // 2. As the app role: serve requests.
   const db = createAppDb(config.db);
+  dbHolder.db = db;
+  const filesStatus = await files.refresh();
+  if (filesStatus.state === 'key_missing') {
+    log('photos are off: no FILE_ENCRYPTION_KEY is set (see UPGRADE.md or INSTALL.md)');
+  } else if (filesStatus.state === 'files_unavailable') {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        time: Date.now(),
+        msg: `photos are off: the files folder ${config.files.dir} cannot be used.\n${FILES_FIX_LONG}`,
+      }),
+    );
+  } else if (filesStatus.state === 'key_mismatch') {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        time: Date.now(),
+        msg: 'the file encryption key does not match your stored photos: new uploads are refused. Put back the key you used before.',
+      }),
+    );
+  }
   await prepareSetupToken(db, config.publicUrl, (text) => console.log(text));
   let stopCleanup = scheduleSessionCleanup(db, log);
   // Built-in backups: the schedule runs in this process. It needs a usable passphrase; without one it stays off (see above).
@@ -93,6 +110,14 @@ async function main(): Promise<void> {
   const jobs = createJobRunner(backupCtx.log);
   jobs.register({ name: 'backups', run: (now) => scheduler.tick(now) });
   jobs.register(checker.job);
+  jobs.register(
+    createSweeperJob({
+      db,
+      files,
+      objects: createObjectStore(config.files.dir, () => files.keys()),
+      log: backupCtx.log,
+    }),
+  );
   jobs.start();
 
   // In-app restore (ADR 0031): the maintenance gate, and the service that pauses everything, replaces the database and exits so

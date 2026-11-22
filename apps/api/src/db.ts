@@ -127,9 +127,32 @@ export interface Database {
     search_name: ColumnType<string, never, never>;
     /** Search text over the given name and all three surnames (0007). Replaces search_name, which is dropped in a later release. */
     search_names: ColumnType<string, never, never>;
+    /** The profile photo (0021): a media_files row linked to this person, or null. */
+    photo_media_id: string | null;
     created_by: string | null;
     created_at: ColumnType<Date, never, never>;
     updated_at: ColumnType<Date, never, never>;
+  };
+  /** An uploaded photo (0021). The bytes are encrypted files on the files volume, named by storage_id and avatar_storage_id. */
+  media_files: {
+    id: Generated<string>;
+    storage_id: string;
+    avatar_storage_id: string;
+    mime: 'image/jpeg' | 'image/png' | 'image/webp';
+    size: number | string;
+    avatar_size: number | string;
+    width: number;
+    height: number;
+    /** The date taken, as typed: YYYY, YYYY-MM or YYYY-MM-DD, or null. */
+    taken_on: string | null;
+    key_id: string;
+    uploaded_by: string | null;
+    created_at: ColumnType<Date, never, never>;
+  };
+  /** Which people a photo shows (0021). */
+  media_people: {
+    media_id: string;
+    person_id: string;
   };
   unions: {
     id: Generated<string>;
