@@ -548,6 +548,22 @@ describe('who sees it', () => {
   });
 });
 
+describe('Admin > Backups > Include uploaded files', () => {
+  it('is ticked with the default settings, and shows an explicit off as off', async () => {
+    open();
+    const on = (await screen.findByLabelText('Include uploaded files')) as HTMLInputElement;
+    expect(on.checked).toBe(true);
+    cleanup();
+    open({
+      '/api/admin/backups': {
+        status: 200,
+        body: page({ status: status({ settings: { ...DEFAULT_BACKUP_SETTINGS, includeFiles: false } }) }),
+      },
+    });
+    expect(((await screen.findByLabelText('Include uploaded files')) as HTMLInputElement).checked).toBe(false);
+  });
+});
+
 describe('Admin > Backups > Photos and files', () => {
   const files = (state: string, keyId: string | null = '0123456789abcdef') => ({
     '/api/admin/files': { status: 200, body: { state, keyId, photos: 3, photoBytes: 5_242_880 } },
