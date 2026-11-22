@@ -31,6 +31,32 @@ test('add a person, find them in People, open the profile and edit the details',
   // Edit details: deceased, with a death date.
   await page.getByRole('button', { name: 'Edit details' }).click();
   const edit = page.getByRole('dialog', { name: `Edit details: Walter ${family}` });
+  // The calendar beside the typed date (#109): it opens on the month the field holds, goes to a year by typing it, to a month by
+  // choosing it, and to a day with the arrow keys. Enter fills the same field. Escape closes the calendar and not the dialog.
+  const birth = edit.getByLabel('Birth date', { exact: true });
+  const toggle = edit.getByRole('button', { name: 'Choose Birth date on a calendar' });
+  await toggle.click();
+  const calendar = edit.getByRole('dialog', { name: 'Calendar for Birth date' });
+  await expect(calendar.locator('caption')).toHaveText('March 1930');
+  await calendar.getByLabel('Year', { exact: true }).fill('1903');
+  await calendar.getByLabel('Year', { exact: true }).press('Enter');
+  await calendar.getByLabel('Month', { exact: true }).selectOption('6');
+  await expect(calendar.locator('caption')).toHaveText('June 1903');
+  await calendar.getByRole('button', { name: 'Jun 1, 1903' }).focus();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowRight');
+  await expect(calendar.getByRole('button', { name: 'Jun 9, 1903' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(calendar).toHaveCount(0);
+  await expect(birth).toHaveValue('1903-06-09');
+  await expect(toggle).toBeFocused();
+  await toggle.click();
+  await expect(calendar).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(calendar).toHaveCount(0);
+  await expect(edit).toBeVisible();
+  await expect(birth).toHaveValue('1903-06-09');
+
   await edit.getByLabel('Status', { exact: true }).selectOption('deceased');
   await edit.getByLabel('Date of death', { exact: true }).fill('2005-11-02');
   await edit.getByRole('button', { name: 'Save' }).click();
@@ -38,7 +64,8 @@ test('add a person, find them in People, open the profile and edit the details',
   const facts = page.getByRole('main');
   await expect(facts.getByText('Nov 2, 2005')).toBeVisible();
   await expect(facts.getByText('Deceased', { exact: true })).toBeVisible();
-  await expect(facts.getByText('1930 – 2005')).toBeVisible();
+  await expect(facts.getByText('Jun 9, 1903')).toBeVisible();
+  await expect(facts.getByText('1903 – 2005')).toBeVisible();
 });
 
 test('a bad date is explained and nothing is saved', async ({ adminPage: page }) => {
