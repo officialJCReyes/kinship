@@ -96,9 +96,10 @@ export function App() {
   const showPrefix = session.data?.user.showPrefix ?? DEFAULT_DISPLAY.showPrefix;
   const showSuffix = session.data?.user.showSuffix ?? DEFAULT_DISPLAY.showSuffix;
   const showDeceasedMark = session.data?.user.showDeceasedMark ?? DEFAULT_DISPLAY.showDeceasedMark;
+  const weekStart = session.data?.user.weekStart ?? DEFAULT_DISPLAY.weekStart;
   useLayoutEffect(
-    () => setDisplay({ dateFormat, nameForm, showPrefix, showSuffix, showDeceasedMark }),
-    [dateFormat, nameForm, showPrefix, showSuffix, showDeceasedMark],
+    () => setDisplay({ dateFormat, nameForm, showPrefix, showSuffix, showDeceasedMark, weekStart }),
+    [dateFormat, nameForm, showPrefix, showSuffix, showDeceasedMark, weekStart],
   );
   const display = useDisplay();
   // The account's color scheme and theme: applied to the page and written to the browser's mirror (signed out, the
