@@ -20,6 +20,8 @@ import type { FastifyInstance } from 'fastify';
 import type { Transaction } from 'kysely';
 import type { Database } from '../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../errors.js';
+import { getMedia, mediaPeople, deleteMediaOnlyOf } from '../media/store.js';
+import { removeFiles } from './media.js';
 import { canAddChildUnder, canEditPerson, isAdmin } from '../people/actor.js';
 import type { Actor } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
@@ -53,6 +55,7 @@ import {
   withChildren,
 } from '../people/store.js';
 import type { PersonRow, PersonValues } from '../people/store.js';
+import type { FilesService } from '../files/state.js';
 import type { RouteLimit } from './shared.js';
 
 type Trx = Transaction<Database>;
@@ -101,7 +104,7 @@ const personPatchSchema = {
   type: 'object',
   additionalProperties: false,
   minProperties: 1,
-  properties: personProperties,
+  properties: { ...personProperties, photoMediaId: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 64 }] } },
 };
 
 export function parseGender(raw: unknown): 'male' | 'female' | 'other' | null {
@@ -153,6 +156,10 @@ function parsePersonPatch(patch: PersonPatch, current: { deceased: boolean }): P
     values.surname_particle = cleanOptionalName(patch.surnameParticle, 'invalid_surname_particle');
   }
   if (patch.gender !== undefined) values.gender = parseGender(patch.gender);
+  if (patch.photoMediaId !== undefined) {
+    if (patch.photoMediaId !== null && !isUuid(patch.photoMediaId)) throw notFound('photo_not_found');
+    values.photo_media_id = patch.photoMediaId;
+  }
   if (patch.birth !== undefined) {
     const birth = parseDateInput(patch.birth);
     values.birth_date = birth?.value ?? null;
@@ -175,7 +182,7 @@ function parsePersonPatch(patch: PersonPatch, current: { deceased: boolean }): P
   return values;
 }
 
-export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): void {
+export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, files?: FilesService): void {
   const run = withActor;
 
   // --- list and search ------------------------------------------------------
@@ -280,6 +287,11 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
             throw badRequest('placeholder_needs_name');
           values.is_placeholder = false;
         }
+        if (values.photo_media_id) {
+          // The profile photo must be a photo of this person. Said clearly here; the database insists on it too.
+          if (!(await getMedia(trx, values.photo_media_id))) throw notFound('photo_not_found');
+          if (!(await mediaPeople(trx, values.photo_media_id)).includes(id)) throw conflict('photo_not_linked');
+        }
         const row = await updatePerson(trx, id, values);
         if (!row) throw forbidden(); // the row-level security policy said no after all
         const warnings = body.birth !== undefined ? await parentAgeWarnings(trx, id) : [];
@@ -306,7 +318,7 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
       const { id } = request.params as { id: string };
       const confirmed = (request.query as { confirm?: string }).confirm === 'true';
       if (!isUuid(id)) throw notFound('person_not_found');
-      await run(request, async (trx, actor) => {
+      const gone = await run(request, async (trx, actor) => {
         if (!isAdmin(actor)) throw forbidden();
         if (!(await getPerson(trx, id))) throw notFound('person_not_found');
         if (await personHasAccount(trx, id)) throw conflict('person_has_account');
@@ -314,11 +326,16 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit): v
         if ((preview.unions > 0 || preview.children > 0) && !confirmed) {
           throw conflict('confirm_required', { ...preview });
         }
+        // The photos that show only this person go with them; a photo that shows someone else too stays (its link goes).
+        const photos = await deleteMediaOnlyOf(trx, id);
         // The database moves the children and removes the unions (trigger in migration 0004).
         await trx.deleteFrom('people').where('id', '=', id).execute();
         // An "Unknown" pair nobody hangs from any more goes with the last child.
         await removeOrphanPlaceholders(trx);
+        return photos;
       });
+      // After the commit, so a rolled-back delete never loses a file (one left behind is only an orphan the sweeper removes).
+      removeFiles(request, files, gone.storageIds);
       return reply.code(204).send();
     },
   );

@@ -2,6 +2,7 @@
 import { ACCOUNT_ERROR_CODES } from './accounts.js';
 import type { PasswordChangeCode } from './accounts.js';
 import { BACKUP_ERROR_CODES } from './backup.js';
+import { MEDIA_ERROR_CODES } from './media.js';
 import { PEOPLE_ERROR_CODES } from './people.js';
 import { SETUP_ERROR_CODES } from './setup.js';
 import { UPDATE_ERROR_CODES } from './updates.js';
@@ -141,6 +142,8 @@ export const API_ERROR_CODES = [
   ...BACKUP_ERROR_CODES,
   // The update check and What's new (see updates.ts).
   ...UPDATE_ERROR_CODES,
+  // Photos (see media.ts).
+  ...MEDIA_ERROR_CODES,
 ] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 

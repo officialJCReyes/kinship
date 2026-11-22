@@ -6,6 +6,7 @@ export * from './changelog.js';
 export * from './dates.js';
 export * from './files.js';
 export * from './i18n.js';
+export * from './media.js';
 export * from './names.js';
 export { en } from './messages/en.js';
 export type { MessageKey } from './messages/en.js';

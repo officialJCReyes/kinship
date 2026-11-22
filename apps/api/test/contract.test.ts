@@ -11,6 +11,7 @@ import {
   BACKUP_ERROR_CODES,
   BACKUP_ROUTES,
   FILES_ROUTES,
+  MEDIA_ERROR_CODES,
   en,
   PEOPLE_ERROR_CODES,
   PEOPLE_ROUTES,
@@ -35,7 +36,12 @@ afterAll(() => t.close());
 describe('routes', () => {
   it('registers exactly the people, relationship and tree routes the shared package lists', () => {
     const mine = registered
-      .filter((r) => /^\w+ \/api\/(people|unions|labels|tree|relationship)/.test(r) && !r.startsWith('HEAD '))
+      .filter(
+        (r) =>
+          /^\w+ \/api\/(people|unions|labels|tree|relationship)/.test(r) &&
+          !r.includes('/photos') &&
+          !r.startsWith('HEAD '),
+      )
       .sort();
     const declared = PEOPLE_ROUTES.map((r) => `${r.method} ${r.path}`).sort();
     expect(mine).toEqual(declared);
@@ -61,6 +67,7 @@ describe('error codes and messages', () => {
   it('has an English message for every people error code and every warning', () => {
     for (const code of PEOPLE_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
     for (const code of BACKUP_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
+    for (const code of MEDIA_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
     for (const code of WARNING_CODES) expect(en, code).toHaveProperty(`warning.${code}`);
   });
 

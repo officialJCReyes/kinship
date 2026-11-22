@@ -82,7 +82,8 @@ export interface PersonInput {
   deceased?: boolean;
   death?: PartialDateInput | null;
 }
-export type PersonPatch = Partial<PersonInput>;
+/** A change to a person. `photoMediaId` sets (an id of a photo linked to this person) or clears (null) the profile photo. */
+export type PersonPatch = Partial<PersonInput> & { photoMediaId?: string | null };
 
 export interface Person {
   id: string;
@@ -104,6 +105,8 @@ export interface Person {
    * label); it is never a sex to draw or show. Naming the person makes this false.
    */
   isPlaceholder: boolean;
+  /** The profile photo (a photo linked to this person), or null. */
+  photoMediaId: string | null;
   createdAt: string;
   updatedAt: string;
 }

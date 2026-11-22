@@ -29,6 +29,7 @@ type Trx = Transaction<Database>;
 
 export const PERSON_COLUMNS = [
   'id',
+  'photo_media_id',
   'given_name',
   'surname',
   'second_surname',
@@ -81,6 +82,7 @@ export function toPerson(row: PersonRow): Person {
     deceased: row.deceased,
     death: toPartialDate(row.death_date, row.death_precision),
     isPlaceholder: row.is_placeholder,
+    photoMediaId: row.photo_media_id,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   };
@@ -144,6 +146,8 @@ export interface PersonValues {
   death_precision: PartialDate['precision'];
   /** Only a patch on a placeholder sets this (to false: it was given a name). */
   is_placeholder?: boolean;
+  /** Only a patch sets this: the profile photo, or null for none. */
+  photo_media_id?: string | null;
 }
 
 export async function insertPerson(trx: Trx, createdBy: string, values: PersonValues): Promise<PersonRow> {
