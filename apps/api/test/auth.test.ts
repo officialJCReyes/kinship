@@ -63,6 +63,7 @@ describe('POST /api/auth/login', () => {
         treeDefaultView: 'family',
         showExtendedRelatives: false,
         showDeceasedMark: true,
+        weekStart: 'sunday',
         passwordChangedAt: null, // set directly in the database by the test, so how it changed is unknown
         passwordChangedVia: null,
       },

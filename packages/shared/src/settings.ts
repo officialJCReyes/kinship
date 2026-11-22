@@ -38,6 +38,16 @@ export type TreeWheel = (typeof TREE_WHEELS)[number];
 export const TREE_DEFAULT_VIEWS = ['family', 'pedigree', 'fan', 'descendants'] as const;
 export type TreeDefaultView = (typeof TREE_DEFAULT_VIEWS)[number];
 
+/** The first day of the week in the calendar a date field can open (ADR 0032). Saturday is for people who use a Saturday-first week. */
+export const WEEK_STARTS = ['sunday', 'monday', 'saturday'] as const;
+export type WeekStart = (typeof WEEK_STARTS)[number];
+
+/** The weekdays (0 is Sunday, 6 is Saturday) in the order a calendar that starts on `start` shows them. */
+export function weekdayOrder(start: WeekStart): number[] {
+  const first = start === 'monday' ? 1 : start === 'saturday' ? 6 : 0;
+  return Array.from({ length: 7 }, (_, i) => (first + i) % 7);
+}
+
 /** Everything an account chooses for itself. */
 export interface UserSettings {
   /** Which family this account's charts follow for an adopted person. */
@@ -55,6 +65,8 @@ export interface UserSettings {
   showExtendedRelatives: boolean;
   /** Show † after the name of a person who has died. */
   showDeceasedMark: boolean;
+  /** The first day of the week in the date picker. */
+  weekStart: WeekStart;
 }
 
 export const DEFAULT_COLOR_SCHEME: ColorScheme = 'forest';
@@ -67,6 +79,7 @@ export const DEFAULT_TREE_WHEEL: TreeWheel = 'zoom';
 export const DEFAULT_TREE_DEFAULT_VIEW: TreeDefaultView = 'family';
 export const DEFAULT_SHOW_EXTENDED_RELATIVES = false;
 export const DEFAULT_SHOW_DECEASED_MARK = true;
+export const DEFAULT_WEEK_START: WeekStart = 'sunday';
 
 /** The settings that only the chart's gear panel owns, and what "Restore defaults" sets them to (never Names, colors, dates or lineage). */
 export const CHART_SETTING_DEFAULTS = {
@@ -76,7 +89,7 @@ export const CHART_SETTING_DEFAULTS = {
   treeDefaultView: 'family',
 } as const satisfies Partial<UserSettings>;
 
-/** What a new account starts with (the same values as the column defaults in migrations 0006, 0010, 0017 and 0018). */
+/** What a new account starts with (the same values as the column defaults in migrations 0006, 0010, 0017, 0018 and 0020). */
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   lineageView: DEFAULT_LINEAGE_VIEW,
   colorScheme: DEFAULT_COLOR_SCHEME,
@@ -89,6 +102,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   treeDefaultView: DEFAULT_TREE_DEFAULT_VIEW,
   showExtendedRelatives: DEFAULT_SHOW_EXTENDED_RELATIVES,
   showDeceasedMark: DEFAULT_SHOW_DECEASED_MARK,
+  weekStart: DEFAULT_WEEK_START,
 };
 
 /** The error code for each setting that was given a value that is not on its list. */
@@ -104,6 +118,7 @@ export const SETTING_ERROR_CODES = {
   treeDefaultView: 'invalid_tree_default_view',
   showExtendedRelatives: 'invalid_show_extended_relatives',
   showDeceasedMark: 'invalid_show_deceased_mark',
+  weekStart: 'invalid_week_start',
 } as const;
 export type SettingErrorCode = (typeof SETTING_ERROR_CODES)[keyof typeof SETTING_ERROR_CODES];
 
@@ -120,6 +135,7 @@ const LISTS: { [K in keyof UserSettings]: readonly string[] | 'boolean' } = {
   treeDefaultView: TREE_DEFAULT_VIEWS,
   showExtendedRelatives: 'boolean',
   showDeceasedMark: 'boolean',
+  weekStart: WEEK_STARTS,
 };
 
 export type ParsedSettings =

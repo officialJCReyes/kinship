@@ -6,7 +6,16 @@ import { PEOPLE_ERROR_CODES } from './people.js';
 import { SETUP_ERROR_CODES } from './setup.js';
 import { UPDATE_ERROR_CODES } from './updates.js';
 import type { SetupFamily } from './setup.js';
-import type { ColorScheme, DateFormat, NameForm, Theme, TreeDefaultView, TreeWheel, UserSettings } from './settings.js';
+import type {
+  ColorScheme,
+  DateFormat,
+  NameForm,
+  Theme,
+  TreeDefaultView,
+  TreeWheel,
+  UserSettings,
+  WeekStart,
+} from './settings.js';
 import type { LineageView } from './people.js';
 
 /** Response of GET /api/version. `schema` is the database schema number, or null when the database is unreachable. */
@@ -53,6 +62,7 @@ export interface AuthUser {
   treeDefaultView: TreeDefaultView;
   showExtendedRelatives: boolean;
   showDeceasedMark: boolean;
+  weekStart: WeekStart;
   /** When and how the password last changed (ISO time and a code), or null when it was set before KinShip recorded it. */
   passwordChangedAt: string | null;
   passwordChangedVia: PasswordChangeCode | null;
@@ -120,6 +130,7 @@ export const API_ERROR_CODES = [
   'invalid_tree_default_view',
   'invalid_show_extended_relatives',
   'invalid_show_deceased_mark',
+  'invalid_week_start',
   // Invitations, set-password links and passwords (see accounts.ts).
   ...ACCOUNT_ERROR_CODES,
   // People and relationships (see people.ts).

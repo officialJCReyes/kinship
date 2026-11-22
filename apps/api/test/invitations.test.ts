@@ -346,6 +346,7 @@ describe('accepting an invitation', () => {
       treeDefaultView: 'family',
       showExtendedRelatives: false,
       showDeceasedMark: true,
+      weekStart: 'sunday',
       lineageView: 'adoptive',
     });
     // The cookie works, and the password works.

@@ -147,6 +147,7 @@ export const ADMIN: AuthUser = {
   treeDefaultView: 'family',
   showExtendedRelatives: false,
   showDeceasedMark: true,
+  weekStart: 'sunday',
   passwordChangedAt: null,
   passwordChangedVia: null,
 };
@@ -167,6 +168,7 @@ export const MEMBER: AuthUser = {
   treeDefaultView: 'family',
   showExtendedRelatives: false,
   showDeceasedMark: true,
+  weekStart: 'sunday',
   passwordChangedAt: null,
   passwordChangedVia: null,
 };
@@ -187,6 +189,7 @@ export const READER: AuthUser = {
   treeDefaultView: 'family',
   showExtendedRelatives: false,
   showDeceasedMark: true,
+  weekStart: 'sunday',
   passwordChangedAt: null,
   passwordChangedVia: null,
 };

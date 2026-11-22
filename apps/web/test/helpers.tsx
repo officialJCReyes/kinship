@@ -25,6 +25,7 @@ export const ALICE = {
   treeDefaultView: 'family',
   showExtendedRelatives: false,
   showDeceasedMark: true,
+  weekStart: 'sunday',
   passwordChangedAt: null,
   passwordChangedVia: null,
 } as const;

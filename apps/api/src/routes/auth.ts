@@ -225,6 +225,7 @@ export function settingsColumns(settings: Partial<UserSettings>) {
       ? { show_extended_relatives: settings.showExtendedRelatives }
       : {}),
     ...(settings.showDeceasedMark !== undefined ? { show_deceased_mark: settings.showDeceasedMark } : {}),
+    ...(settings.weekStart !== undefined ? { week_start: settings.weekStart } : {}),
   };
 }
 
@@ -253,6 +254,7 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
         'tree_default_view',
         'show_extended_relatives',
         'show_deceased_mark',
+        'week_start',
         'password_changed_at',
         'password_changed_via',
       ])
@@ -280,6 +282,7 @@ export async function readMe(db: Kysely<Database>, userId: string): Promise<MeRe
       treeDefaultView: result.user.tree_default_view,
       showExtendedRelatives: result.user.show_extended_relatives,
       showDeceasedMark: result.user.show_deceased_mark,
+      weekStart: result.user.week_start,
       passwordChangedAt: result.user.password_changed_at?.toISOString() ?? null,
       passwordChangedVia: result.user.password_changed_via,
     },

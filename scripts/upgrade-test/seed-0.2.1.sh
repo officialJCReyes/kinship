@@ -146,5 +146,9 @@ assert_seed_after_upgrade() {
   expect "200" "$(post_as_admin "/api/admin/accounts/$visitor_id/enable" '{}' | awk '{print $NF}')" "enabling the Visiting User"
   expect "200" "$(login_status "$user_email" "$user_password")" "the Visiting User signing in after it was enabled again"
   expect "$vera" "$(sql "select person_id from users where email = '$user_email'")" "the Visiting User's person after disable and enable"
+
+  # Migration 0020 (the week start; ADR 0032): every account, the existing ones too, starts on Sunday, and the API says so.
+  expect "sunday sunday sunday" "$(sql "select string_agg(week_start, ' ') from users")" "the week start of every account"
+  expect "sunday" "$(curl -s -b "$jar2" "${base}/api/auth/me" | json "['user']['weekStart']")" "weekStart in GET /api/auth/me"
   rm -f "$jar2"
 }

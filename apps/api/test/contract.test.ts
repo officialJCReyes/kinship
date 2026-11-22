@@ -142,6 +142,7 @@ const userColumns = [
   'tree_default_view',
   'show_extended_relatives',
   'show_deceased_mark',
+  'week_start',
   'last_sign_in_at',
   'password_changed_at',
   'password_changed_via',

@@ -237,6 +237,31 @@ describe('My settings', () => {
     expect(screen.getByLabelText('Date format')).toBe(select);
   });
 
+  it('shows Week starts on next to the date format, starts on Sunday, and sends the choice with a live example', async () => {
+    const fetchMock = mockApi(haleRoutes(ADMIN, { 'PATCH /api/auth/me': meWith({ ...ADMIN, weekStart: 'monday' }) }));
+    renderApp('/settings');
+    await screen.findByRole('heading', { name: 'My settings' });
+    const select = screen.getByLabelText('Week starts on') as HTMLSelectElement;
+    expect(select.value).toBe('sunday');
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual(['Sunday', 'Monday', 'Saturday']);
+    expect(screen.getByText('The calendar in a date field shows: Su Mo Tu We Th Fr Sa.')).toBeTruthy();
+    // It sits in the Display group, after the date format, and does not follow it.
+    const labels = screen.getAllByRole('combobox').map((c) => c.getAttribute('id'));
+    expect(labels.indexOf(screen.getByLabelText('Week starts on').id)).toBe(
+      labels.indexOf(screen.getByLabelText('Date format').id) + 1,
+    );
+    fireEvent.change(screen.getByLabelText('Date format'), { target: { value: 'iso' } });
+    expect((screen.getByLabelText('Week starts on') as HTMLSelectElement).value).toBe('sunday');
+    fireEvent.change(select, { target: { value: 'monday' } });
+    await waitFor(() => expect(bodyOf(fetchMock, 'PATCH /api/auth/me')).toEqual({ weekStart: 'monday' }));
+    await screen.findByText('The calendar in a date field shows: Mo Tu We Th Fr Sa Su.');
+    cleanup();
+    vi.unstubAllGlobals();
+    mockApi(haleRoutes({ ...ADMIN, weekStart: 'saturday' }));
+    renderApp('/settings');
+    await screen.findByText('The calendar in a date field shows: Sa Su Mo Tu We Th Fr.');
+  });
+
   it('sends the family choice, and the profile banner and the page agree', async () => {
     const fetchMock = mockApi(haleRoutes(ADMIN, { 'PATCH /api/auth/me': meWith({ ...ADMIN, lineageView: 'birth' }) }));
     renderApp('/settings');
