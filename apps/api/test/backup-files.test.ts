@@ -217,12 +217,14 @@ describe('free space', () => {
     expect((failure as BackupError).kind).toBe('disk_space');
     expect((failure as BackupError).message).toContain(`the photos are ${photos} bytes`);
     expect((failure as BackupError).message).toContain(`${need} are needed`);
+    // The database grows by a few pages between measuring it here and the backup measuring it again (pg_database_size is not
+    // frozen), so "enough" gets a 5 % margin: the rule being tested is the order of magnitude, not the last byte.
     await expect(
-      createBackup({ ...ctx, freeBytes: () => need }, { kind: 'manual', includeFiles: true }),
+      createBackup({ ...ctx, freeBytes: () => Math.ceil(need * 1.05) }, { kind: 'manual', includeFiles: true }),
     ).resolves.toBeTruthy();
     // Without photos the rule is the database alone (plus a tenth).
     await expect(
-      createBackup({ ...ctx, freeBytes: () => spaceNeeded(size, 0) }, { kind: 'manual' }),
+      createBackup({ ...ctx, freeBytes: () => Math.ceil(spaceNeeded(size, 0) * 1.05) }, { kind: 'manual' }),
     ).resolves.toBeTruthy();
   }, 120_000);
 });
