@@ -319,7 +319,7 @@ describe('the schedule and what to keep', () => {
 });
 
 describe('restoring, and the two things to keep outside', () => {
-  it('gives the command-line steps and has no restore button', async () => {
+  it('has a Restore button for each encrypted backup, and the command-line steps for a new server', async () => {
     open();
     const card = await screen.findByRole('region', { name: 'Restoring a backup' });
     expect(within(card).getByText('docker compose stop web api')).toBeTruthy();
@@ -327,10 +327,192 @@ describe('restoring, and the two things to keep outside', () => {
       within(card).getByText('docker compose run --rm api kinship restore kinship-YYYY-MM-DD-HHMM.tar.enc'),
     ).toBeTruthy();
     expect(within(card).getByText('docker compose up -d')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /restore/i })).toBeNull();
+    // One per encrypted archive; the plain safety copy has none.
+    const restores = screen.getAllByRole('button', { name: /^Restore / });
+    expect(restores.map((b) => b.getAttribute('aria-label'))).toEqual(['Restore kinship-2026-11-14-0200.tar.enc']);
     const keep = screen.getByRole('region', { name: 'Keep the passphrase outside the backup' }).textContent ?? '';
     expect(keep).toContain('backup passphrase');
     expect(keep).not.toContain('FILE_ENCRYPTION_KEY'); // there are no uploaded files in 0.2, so no file key
+  });
+
+  it('turns the Restore buttons off without a usable passphrase and while a backup is running, and says why', async () => {
+    open({
+      '/api/admin/backups': {
+        status: 200,
+        body: page({ status: status({ passphrase: 'missing', problems: ['passphrase_missing'], healthy: false }) }),
+      },
+    });
+    const button = (await screen.findByRole('button', {
+      name: 'Restore kinship-2026-11-14-0200.tar.enc',
+    })) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText(/Restoring needs a usable backup passphrase on this server/)).toBeTruthy();
+    cleanup();
+    vi.unstubAllGlobals();
+    open({ '/api/admin/backups': { status: 200, body: page({ status: status({ running: true }) }) } });
+    const busy = (await screen.findByRole('button', {
+      name: 'Restore kinship-2026-11-14-0200.tar.enc',
+    })) as HTMLButtonElement;
+    expect(busy.disabled).toBe(true);
+    expect(screen.getByText(/A backup or test is running/)).toBeTruthy();
+  });
+});
+
+const check = (change: Record<string, unknown> = {}) => ({
+  status: 200,
+  body: {
+    ticket: 'ticket-1',
+    expiresAt: '2026-11-22T10:01:00.000Z',
+    name: 'kinship-2026-11-14-0200.tar.enc',
+    createdAt: '2026-11-14T02:00:00.000Z',
+    appVersion: '0.2.1',
+    schema: 18,
+    pendingMigrations: 2,
+    newerApp: false,
+    accounts: 5,
+    ownAccountMissing: false,
+    ...change,
+  },
+});
+
+describe('the Restore dialog', () => {
+  const openDialog = async (routes: Record<string, MockRoute> = {}) => {
+    const fetchMock = open({ 'POST /api/admin/backups/restore-check': check(), ...routes });
+    const opener = await screen.findByRole('button', { name: 'Restore kinship-2026-11-14-0200.tar.enc' });
+    opener.focus(); // a click focuses the button in a browser; the dialog gives the focus back to it
+    fireEvent.click(opener);
+    return fetchMock;
+  };
+  const dialog = () => screen.getByRole('dialog');
+
+  it('checks the backup first, says what it will do, and changes nothing until the password and the word are typed', async () => {
+    const fetchMock = await openDialog();
+    expect(within(dialog()).getByText('Checking the backup: decrypting it and checking every block…')).toBeTruthy();
+    await within(dialog()).findByText(/Made Nov 14, 2026, 3:00 AM by KinShip 0\.2\.1 \(database schema 18\)\./);
+    expect(calls(fetchMock)).toContain('POST /api/admin/backups/restore-check');
+    expect(calls(fetchMock)).not.toContain('POST /api/admin/backups/restore');
+    const d = within(dialog());
+    expect(d.getByRole('heading', { name: 'Restore Nov 14, 2026, 3:00 AM' })).toBeTruthy();
+    expect(d.getByText(/Anything added since Nov 14, 2026, 3:00 AM is lost\./)).toBeTruthy();
+    expect(
+      d.getByText('Newer database changes that will be applied after the restore: 2.', { exact: false }),
+    ).toBeTruthy();
+    expect(
+      d
+        .getAllByRole('listitem')
+        .slice(0, 4)
+        .map((li) => li.textContent),
+    ).toEqual([
+      expect.stringContaining('safety copy'),
+      expect.stringContaining('maintenance mode'),
+      expect.stringContaining('replaced in one step'),
+      expect.stringContaining('starts again'),
+    ]);
+    // Accounts come back as they were, said plainly.
+    expect(d.getByText(/deleted or disabled since then comes back active, with the password it had then/)).toBeTruthy();
+    expect(d.queryByText(/not in it/)).toBeNull();
+    // Not yet: nothing typed, a wrong word, then right.
+    const go = d.getByRole('button', { name: 'Restore now' }) as HTMLButtonElement;
+    expect(go.disabled).toBe(true);
+    fireEvent.change(d.getByLabelText('Your password'), { target: { value: 'a password' } });
+    fireEvent.change(d.getByLabelText('Type RESTORE to confirm'), { target: { value: 'restore' } });
+    expect(go.disabled).toBe(true);
+    fireEvent.change(d.getByLabelText('Type RESTORE to confirm'), { target: { value: 'RESTORE' } });
+    expect(go.disabled).toBe(false);
+  });
+
+  it('warns when your own account is not in the backup, when the backup is from a newer KinShip, and when it has no accounts', async () => {
+    await openDialog({
+      'POST /api/admin/backups/restore-check': check({ ownAccountMissing: true, newerApp: true, accounts: 0 }),
+    });
+    const d = within(dialog());
+    await d.findByText(/Your own account was created after this backup was made/);
+    expect(d.getByText(/made by a newer KinShip \(0\.2\.1\)/)).toBeTruthy();
+    expect(d.getByText(/This backup has no accounts\. KinShip will go back to first-run setup/)).toBeTruthy();
+  });
+
+  it('sends the ticket, the word and the password, and then shows the maintenance page', async () => {
+    const fetchMock = await openDialog({
+      'POST /api/admin/backups/restore': { status: 202, body: { started: true } },
+      '/api/maintenance': { status: 200, body: { phase: 'replacing', since: '2026-11-22T10:00:00.000Z' } },
+    });
+    const d = within(dialog());
+    await d.findByLabelText('Your password');
+    fireEvent.change(d.getByLabelText('Your password'), { target: { value: 'a password' } });
+    fireEvent.change(d.getByLabelText('Type RESTORE to confirm'), { target: { value: 'RESTORE' } });
+    fireEvent.click(d.getByRole('button', { name: 'Restore now' }));
+    expect(await screen.findByRole('heading', { name: 'KinShip is being restored from a backup' })).toBeTruthy();
+    const call = fetchMock.mock.calls.find(([input]) => String(input) === '/api/admin/backups/restore');
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      ticket: 'ticket-1',
+      word: 'RESTORE',
+      password: 'a password',
+    });
+    // The ticket goes in the body, never in a URL.
+    expect(calls(fetchMock).join('\n')).not.toContain('ticket-1');
+    expect(await screen.findByText('Replacing everything with the backup…')).toBeTruthy();
+    expect(screen.queryByRole('navigation')).toBeNull();
+  });
+
+  it('says so when the password is wrong, and keeps the dialog', async () => {
+    await openDialog({
+      'POST /api/admin/backups/restore': { status: 400, body: { error: 'invalid_current_password' } },
+    });
+    const d = within(dialog());
+    await d.findByLabelText('Your password');
+    fireEvent.change(d.getByLabelText('Your password'), { target: { value: 'nope' } });
+    fireEvent.change(d.getByLabelText('Type RESTORE to confirm'), { target: { value: 'RESTORE' } });
+    fireEvent.click(d.getByRole('button', { name: 'Restore now' }));
+    expect(await d.findByText('That password is not right.')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'KinShip is being restored from a backup' })).toBeNull();
+  });
+
+  it('an expired ticket sends you back to the check', async () => {
+    await openDialog({
+      'POST /api/admin/backups/restore': { status: 400, body: { error: 'restore_ticket_invalid' } },
+    });
+    const d = within(dialog());
+    await d.findByLabelText('Your password');
+    fireEvent.change(d.getByLabelText('Your password'), { target: { value: 'a password' } });
+    fireEvent.change(d.getByLabelText('Type RESTORE to confirm'), { target: { value: 'RESTORE' } });
+    fireEvent.click(d.getByRole('button', { name: 'Restore now' }));
+    expect(await d.findByText(/The check of this backup has expired/)).toBeTruthy();
+    expect(d.getByRole('button', { name: 'Check again' })).toBeTruthy();
+  });
+
+  it('says why a backup cannot be restored, from a code or from a sentence that holds no path', async () => {
+    await openDialog({
+      'POST /api/admin/backups/restore-check': {
+        status: 400,
+        body: { error: 'restore_failed', errorKind: 'wrong_passphrase' },
+      },
+    });
+    expect(await within(dialog()).findByText(/does not open this backup/)).toBeTruthy();
+    expect(within(dialog()).queryByLabelText('Your password')).toBeNull();
+    cleanup();
+    vi.unstubAllGlobals();
+    await openDialog({
+      'POST /api/admin/backups/restore-check': {
+        status: 400,
+        body: { error: 'restore_failed', errorKind: 'refused', detail: 'This backup carries uploaded files.' },
+      },
+    });
+    expect(await within(dialog()).findByText('This backup carries uploaded files.')).toBeTruthy();
+    cleanup();
+    vi.unstubAllGlobals();
+    await openDialog({
+      'POST /api/admin/backups/restore-check': { status: 409, body: { error: 'backup_busy' } },
+    });
+    expect(await within(dialog()).findByText(/already running/)).toBeTruthy();
+  });
+
+  it('closes with Escape and gives the focus back to the button that opened it', async () => {
+    await openDialog();
+    await within(dialog()).findByLabelText('Your password');
+    const opener = screen.getByRole('button', { name: 'Restore kinship-2026-11-14-0200.tar.enc' });
+    fireEvent.keyDown(dialog(), { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener);
   });
 });
 

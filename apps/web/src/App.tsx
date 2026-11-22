@@ -6,6 +6,8 @@ import { AccountMenu } from './components/AccountMenu.js';
 import { Logo } from './components/Logo.js';
 import { WhatsNewHost } from './components/WhatsNew.js';
 import { VersionMismatchPage } from './pages/VersionMismatchPage.js';
+import { leaveMaintenance, useMaintenance } from './lib/maintenance.js';
+import { MaintenancePage } from './pages/MaintenancePage.js';
 import { useVersionMismatch } from './lib/version-mismatch.js';
 import { t } from './i18n.js';
 import { DEFAULT_DISPLAY, setDisplay, useDisplay } from './lib/display.js';
@@ -87,6 +89,7 @@ function SetupRoute() {
 
 export function App() {
   const mismatch = useVersionMismatch();
+  const maintenance = useMaintenance();
   const session = useSession(false);
   const signedIn = Boolean(session.data);
   // The account's date format and name choices feed the display store (signed out: the defaults). The page content
@@ -121,6 +124,8 @@ export function App() {
   // the chart redraws what it must by itself (TreePage), keeping the panel, the focus and the view.
   const onTree = fullWidth;
   // The web and the api are on different versions: nothing else works, so say so on a page of its own.
+  // The site is paused for a restore: nothing else works, so say so on a page of its own (ADR 0031).
+  if (maintenance) return <MaintenancePage onLeave={leaveMaintenance} />;
   if (mismatch) return <VersionMismatchPage mismatch={mismatch} />;
   return (
     <NoticeProvider>

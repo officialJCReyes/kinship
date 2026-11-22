@@ -8,6 +8,7 @@ import * as api from '../api.js';
 import { ApiError } from '../api.js';
 import { useSession } from '../auth.js';
 import { backupsKey, useBackups } from '../admin/backups.js';
+import { RestoreDialog } from '../admin/RestoreDialog.js';
 import { Dialog } from '../components/Dialog.js';
 import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
@@ -154,10 +155,15 @@ function BackupTable({
   items,
   zone,
   onDownload,
+  onRestore,
+  canRestore,
 }: {
   items: BackupListItem[];
   zone: string;
   onDownload: (item: BackupListItem) => void;
+  onRestore: (item: BackupListItem) => void;
+  /** A usable passphrase, and no backup or test running. */
+  canRestore: boolean;
 }) {
   if (items.length === 0) return <p className="muted">{t('backups.list.empty')}</p>;
   return (
@@ -194,14 +200,25 @@ function BackupTable({
               </td>
               <td>
                 {item.encrypted ? (
-                  <button
-                    type="button"
-                    className="button small"
-                    aria-label={t('backups.downloadFile', { name: item.name })}
-                    onClick={() => onDownload(item)}
-                  >
-                    {t('backups.download')}
-                  </button>
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="button small"
+                      aria-label={t('backups.downloadFile', { name: item.name })}
+                      onClick={() => onDownload(item)}
+                    >
+                      {t('backups.download')}
+                    </button>
+                    <button
+                      type="button"
+                      className="button small"
+                      aria-label={t('backups.restoreFile', { name: item.name })}
+                      disabled={!canRestore}
+                      onClick={() => onRestore(item)}
+                    >
+                      {t('backups.restore.button')}
+                    </button>
+                  </div>
                 ) : (
                   <span className="muted small">{t('backups.downloadNotEncrypted')}</span>
                 )}
@@ -380,11 +397,19 @@ function SettingsForm({
   );
 }
 
-function RestoreCard() {
+function RestoreCard({ canRestore, reason }: { canRestore: boolean; reason: 'passphrase' | 'busy' | null }) {
   return (
     <section className="card stack" aria-labelledby="backups-restore">
       <h2 id="backups-restore">{t('backups.restore.title')}</h2>
       <p>{t('backups.restore.intro')}</p>
+      {!canRestore && reason ? (
+        <p className="muted small" role="status">
+          {t(reason === 'passphrase' ? 'backups.restore.needsPassphrase' : 'backups.restore.busy')}
+        </p>
+      ) : null}
+      <p className="muted small">{t('backups.restore.undo')}</p>
+      <h3>{t('backups.restore.cli.title')}</h3>
+      <p>{t('backups.restore.cli.intro')}</p>
       <ol className="restore-steps">
         <li>
           {t('backups.restore.step1')}
@@ -407,7 +432,8 @@ function RestoreCard() {
 /**
  * Admin → Backups. SuperAdmin only (anyone else gets the not-found page; the API refuses them anyway). The page shows how
  * backups are doing, starts one, tests the newest, lists what is on the server with a password-protected download, edits the
- * schedule and retention, and says how to restore (from the command line; there is no Restore button).
+ * schedule and retention, restores a listed backup from the app (a check, then maintenance mode; ADR 0031), and keeps the command
+ * line steps for a new server.
  */
 export function AdminBackupsPage() {
   const session = useSession(false);
@@ -416,6 +442,7 @@ export function AdminBackupsPage() {
   const backups = useBackups(isSuper);
   const [message, setMessage] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<BackupListItem | null>(null);
+  const [restoring, setRestoring] = useState<BackupListItem | null>(null);
   // Kept here, not in the form: the form is rebuilt when the saved settings come back from the server.
   const [saved, setSaved] = useState(false);
   const start = useMutation({
@@ -431,6 +458,7 @@ export function AdminBackupsPage() {
   if (backups.isError) return <ErrorState error={backups.error} onRetry={() => void backups.refetch()} />;
 
   const { status, backups: items } = backups.data;
+  const canRestore = status.passphrase === 'ok' && !status.running;
   return (
     <div className="stack backups-page">
       <div>
@@ -451,7 +479,13 @@ export function AdminBackupsPage() {
       />
       <section className="card stack" aria-labelledby="backups-list">
         <h2 id="backups-list">{t('backups.list.title')}</h2>
-        <BackupTable items={items} zone={status.settings.timeZone} onDownload={setDownloading} />
+        <BackupTable
+          items={items}
+          zone={status.settings.timeZone}
+          onDownload={setDownloading}
+          onRestore={setRestoring}
+          canRestore={canRestore}
+        />
       </section>
       <SettingsForm
         key={JSON.stringify(status.settings)}
@@ -463,8 +497,14 @@ export function AdminBackupsPage() {
         <h2 id="backups-keep">{t('backups.keep.title')}</h2>
         <p>{t('backups.keep.body')}</p>
       </section>
-      <RestoreCard />
+      <RestoreCard
+        canRestore={canRestore}
+        reason={status.passphrase !== 'ok' ? 'passphrase' : status.running ? 'busy' : null}
+      />
       {downloading ? <DownloadDialog item={downloading} onClose={() => setDownloading(null)} /> : null}
+      {restoring ? (
+        <RestoreDialog item={restoring} zone={status.settings.timeZone} onClose={() => setRestoring(null)} />
+      ) : null}
     </div>
   );
 }

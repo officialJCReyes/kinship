@@ -2690,3 +2690,21 @@ pre.code {
   margin-top: 2px;
   white-space: normal;
 }
+
+.restore-warnings {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.restore-warnings .bad {
+  color: var(--crit);
+  font-weight: 600;
+}
+
+.maintenance .maintenance-phase {
+  font-size: 1.1rem;
+  margin: 0;
+}
