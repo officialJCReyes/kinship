@@ -42,7 +42,7 @@ The data is the backup's. **Accounts deleted or disabled since the backup come b
 
 ### Version rules and refusals
 - An **older schema** is allowed (migrations apply after the restore); a **newer schema** is refused; a **newer app version with a schema this image knows** is allowed with a warning.
-- **A backup that carries files is refused.** Restore replays the database only; the archive's `files/` entries are not put back. Nothing can carry files before uploads exist, but a restore that silently skipped photos would be data loss. **Step 37 (photos, #98) must extend restore to put the files back and delete this guard** (`preflight` in `backup/restore.ts`, and its test).
+- *(Superseded by 0035: restore now puts the files back.)* **A backup that carries files is refused.** Restore replays the database only; the archive's `files/` entries are not put back. Nothing can carry files before uploads exist, but a restore that silently skipped photos would be data loss. **Step 37 (photos, #98) must extend restore to put the files back and delete this guard** (`preflight` in `backup/restore.ts`, and its test).
 - **Free space** in the backups folder must be at least **twice the database** (the safety copy and the decrypted backup), for the command line too. The message gives both amounts and no path. The api cannot see the database volume: it needs about twice the database size free there while the old schema is still in place.
 
 ### Concurrency
@@ -55,4 +55,5 @@ A second click answers 409 `restore_busy`; a running backup or test answers 409 
 - The Restore button needs the api to be restarted by Docker (`restart: unless-stopped` in `compose.yml`). A custom compose file or `docker run` without a restart policy leaves the api down after a restore. INSTALL.md and UPGRADE.md say so.
 - The site is paused for roughly 5 to 15 seconds on a family tree (a restore of 50,000 people measured at 2.8 seconds including the safety copy); the rest is the restart.
 - Two bugs were found by testing this and fixed with it: a wrong password did not stop the download-ticket handler (the helper returned the reply, which is thenable), and a `pg_restore` that ended before reading the dump left `tar` blocked and the restore hanging.
-- Not built: upload, restoring from a plain `.sql.gz`, partial restores, a preview diff, restoring media files, an automatic rollback after a failed post-restore migration, a passphrase typed in the browser.
+- **Superseded in part by [0035](0035-restore-with-photos.md):** restoring media files is built, and the "a backup that carries files is refused" decision above no longer holds.
+- Not built: upload, restoring from a plain `.sql.gz`, partial restores, a preview diff, an automatic rollback after a failed post-restore migration, a passphrase typed in the browser.

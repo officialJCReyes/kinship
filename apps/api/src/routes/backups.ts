@@ -316,6 +316,7 @@ export function registerBackupRoutes(
         newerApp: facts.newerApp,
         accounts: facts.accounts,
         ownAccountMissing,
+        files: facts.files,
       };
     },
   );

@@ -371,6 +371,7 @@ const check = (change: Record<string, unknown> = {}) => ({
     newerApp: false,
     accounts: 5,
     ownAccountMissing: false,
+    files: { included: false, count: 0, bytes: 0 },
     ...change,
   },
 });
@@ -452,6 +453,26 @@ describe('the Restore dialog', () => {
     expect(calls(fetchMock).join('\n')).not.toContain('ticket-1');
     expect(await screen.findByText('Replacing everything with the backup…')).toBeTruthy();
     expect(screen.queryByRole('navigation')).toBeNull();
+  });
+
+  it('says whether the chosen backup includes photos, and what happens to the photos here', async () => {
+    await openDialog({
+      'POST /api/admin/backups/restore-check': check({ files: { included: true, count: 42, bytes: 5_242_880 } }),
+    });
+    const d = within(dialog());
+    expect(
+      await d.findByText(/this backup carries 42 photo files \(5\.0 MB\)\. They replace the photos here/),
+    ).toBeTruthy();
+    expect(d.getByText(/checked first and swapped in right after/)).toBeTruthy();
+    expect(d.queryByText(/does not include photos/)).toBeNull();
+  });
+
+  it('a backup without photos says the photos here stay, and that newer ones are removed after 7 days', async () => {
+    await openDialog();
+    const d = within(dialog());
+    expect(await d.findByText(/does not include photos, so the photos here stay as they are/)).toBeTruthy();
+    expect(d.getByText(/removed after 7 days/)).toBeTruthy();
+    expect(d.getByText(/shows a placeholder/)).toBeTruthy();
   });
 
   it('says so when the password is wrong, and keeps the dialog', async () => {

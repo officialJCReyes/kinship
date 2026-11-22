@@ -289,6 +289,7 @@ describe('who may check and restore, and what the check says', () => {
       newerApp: false,
       accounts: 5,
       ownAccountMissing: false,
+      files: { included: false, count: 0, bytes: 0 },
       ticket: expect.any(String),
     });
     expect(Date.parse(answer.body?.['expiresAt'] as string) - Date.now()).toBeLessThanOrEqual(

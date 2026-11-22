@@ -8,7 +8,7 @@ import { ApiError } from '../api.js';
 import { Dialog } from '../components/Dialog.js';
 import { Field } from '../components/Field.js';
 import { t } from '../i18n.js';
-import { formatInstant } from '../lib/backups.js';
+import { formatBytes, formatInstant } from '../lib/backups.js';
 import { errorMessage } from '../lib/errors.js';
 import { enterMaintenance } from '../lib/maintenance.js';
 
@@ -148,6 +148,14 @@ export function RestoreDialog({ item, zone, onClose }: { item: BackupListItem; z
             </div>
             <ul className="restore-warnings">
               <li>{t('backups.restore.accountsBack')}</li>
+              <li>
+                {check.files.included
+                  ? t('backups.restore.photosIncluded', {
+                      count: check.files.count,
+                      size: formatBytes(check.files.bytes),
+                    })
+                  : t('backups.restore.photosNone')}
+              </li>
               {check.newerApp ? <li>{t('backups.restore.newerApp', { version: check.appVersion })}</li> : null}
               {check.ownAccountMissing ? <li className="bad">{t('backups.restore.ownMissing')}</li> : null}
               {check.accounts === 0 ? <li className="bad">{t('backups.restore.noAccounts')}</li> : null}
