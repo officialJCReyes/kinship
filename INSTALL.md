@@ -154,7 +154,18 @@ Copy `data/backups` (and your `.env`) somewhere else regularly: a backup on the 
 
 ### Restoring
 
-A restore **replaces everything**: people, accounts, settings. It is done on the server with KinShip stopped, never from the browser.
+A restore **replaces everything**: people, accounts, settings. There are two ways.
+
+**From the app (the usual way).** **Admin → Backups**, SuperAdmin only: press **Restore** next to a backup. KinShip first checks the backup (nothing changes) and tells you what it will do; then you type your password and the word `RESTORE`. KinShip makes a safety copy of what is there, pauses the site (people see a maintenance page), replaces the database in one transaction, and **restarts itself**; everyone is signed out, you too, and the page says how it ended. The password you sign in with afterwards is the one the account had when the backup was made, and accounts that were deleted or disabled since then come back active (review Admin → Users). To undo it, restore the `pre-restore-<time>.tar.enc` copy it made. It needs:
+
+- **a restart policy**: the `compose.yml` in this repository has `restart: unless-stopped`. If you run KinShip with your own compose file or `docker run`, give the api container a restart policy, or it stays stopped after a restore;
+- **a usable `BACKUP_PASSPHRASE`** in `.env` (it is never typed in the browser);
+- **free space** in the backups folder of at least **twice the size of the database**, and **at least the size of the database free on the PostgreSQL volume** (the old data stays until the new data is committed);
+- a backup without uploaded files: a backup that carries files is refused until a later release can put the files back.
+
+It does not work for a brand-new server (nobody can sign in yet): use the command line below.
+
+**From the command line** (a new server, a backup made with another passphrase, or when KinShip will not start). Done on the server with KinShip stopped:
 
 ```sh
 docker compose stop web api
@@ -162,7 +173,7 @@ docker compose run --rm api kinship restore kinship-2026-11-14-0300.tar.enc   # 
 docker compose up -d
 ```
 
-It checks the whole backup first, makes a safety copy of what is there (`pre-restore-<time>.tar.enc`), then replaces the database in **one transaction**; if anything fails, the database is exactly as it was. It refuses a backup made by a newer KinShip or PostgreSQL, one with other database role names, and any restore while KinShip is running. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date at the next start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
+It checks the whole backup first, makes a safety copy of what is there (`pre-restore-<time>.tar.enc`), then replaces the database in **one transaction**; if anything fails, the database is exactly as it was. It refuses a backup made by a newer KinShip or PostgreSQL, one with other database role names, one that carries uploaded files, one when the backups folder has less than twice the database size free, and any restore while KinShip is running. Afterwards everyone is signed out and open invitations and set-password links are cancelled. A backup from an older version is brought up to date at the next start. `--yes` skips the question (for scripts), and the passphrase comes from `.env` or `--passphrase-file`.
 
 ### A new machine, after a disaster
 
