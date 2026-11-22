@@ -208,6 +208,37 @@ compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api di
 expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state with the key back"
 save_logs
 
+step "A photo uploaded after the upgrade is stored encrypted, served back, and carried by a backup"
+# A real 64x64 PNG made here (no picture from anywhere else goes in this repo).
+python3 - "$work/test-photo.png" <<'PY'
+import struct, sys, zlib
+w = h = 64
+raw = b"".join(b"\x00" + bytes(v for x in range(w) for v in ((x * 4) % 256, (y * 4) % 256, 128)) for y in range(h))
+def chunk(kind, data):
+    body = kind + data
+    return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+open(sys.argv[1], "wb").write(png)
+PY
+upload_out="$(curl -s -w '\n%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "Origin: ${base}" -H 'Content-Type: image/png' -b "$jar" --data-binary "@$work/test-photo.png" "${base}/api/people/${marcus}/photos")"
+upload_code="${upload_out##*$'\n'}"; upload_body="${upload_out%$'\n'*}"
+expect 201 "$upload_code" "the upload after the upgrade ($upload_body)"
+photo_id="$(echo "$upload_body" | json "['photo']['id']")"
+expect 2 "$(find "$work/data/files/objects" -type f | wc -l | tr -d ' ')" "files on disk after one upload (full size and avatar)"
+if grep -q 'PNG' "$(find "$work/data/files/objects" -type f | head -1)"; then fail "a stored photo file is not encrypted"; fi
+curl -s -b "$jar" -o "$work/avatar.png" -w '%{http_code} %{content_type}\n' "${base}/api/media/${photo_id}/avatar" | grep -q '^200 image/png$' || fail "the avatar was not served as a PNG"
+[ "$(head -c 8 "$work/avatar.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] || fail "the served avatar is not a PNG"
+avatar_sum="$(openssl dgst -sha256 "$work/avatar.png" | awk '{print $NF}')"
+expect 1 "$(echo "$(curl -s -b "$jar" "${base}/api/admin/files")" | json "['photos']")" "photos Admin counts"
+# A backup now carries the photo, and its test reads it back with the key.
+with_files="$(compose exec -T api kinship backup 2>&1 | sed -n 's/^Backup written: \([^ ]*\) .*/\1/p' | head -1)"
+echo "backup with photos: ${with_files}"
+[ -f "$work/data/backups/${with_files}" ] || fail "the backup with photos is not in the backups folder (${with_files})"
+verify_out="$(compose exec -T api kinship backup-verify "${with_files}" --full 2>&1)" || fail "kinship backup-verify --full failed for ${with_files}: ${verify_out}"
+echo "$verify_out" | tail -4
+echo "$verify_out" | grep -qi 'key OK' || fail "the backup test did not report 'key OK' for the photos: ${verify_out}"
+save_logs
+
 # A release that already keeps an upgrade log (0.2.0-rc.1 on) wrote its own row for its fresh install, with from_schema NULL; the
 # rows that count here are the ones from an upgrade (from_schema set).
 if [ "$previous_schema" != "$top_schema" ]; then
@@ -308,6 +339,24 @@ if [ -n "$safety" ]; then
   expect 200 "$(login_status "$member_email" "$member_password")" "member sign-in after the restore"
   [ "$(sql "select count(*) from upgrade_log where event = 'restore'")" -ge 1 ] || fail "no restore row in the upgrade log"
 fi
+
+step "Restore the backup WITH photos on a brand-new machine: empty database, empty files folder, only the file, .env and compose.yml"
+save_logs
+compose down --volumes >/dev/null
+find "$work/data/files" -mindepth 1 -delete
+[ -f "$work/data/backups/${with_files}" ] || fail "the backup with photos disappeared with the stack"
+compose up -d db --wait --wait-timeout 120
+restore_out="$(compose run --rm -T api kinship restore "${with_files}" --yes 2>&1)" || fail "kinship restore of the backup with photos failed: ${restore_out}"
+echo "$restore_out" | tail -6
+echo "$restore_out" >> "$logs"
+compose up -d --wait --wait-timeout 600 || fail "the stack restored from a backup with photos did not become healthy"
+rm -f "$jar"
+expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar")" "sign-in after restoring the backup with photos"
+expect 1 "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['photos']")" "photos after the restore"
+expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state after the restore"
+expect 2 "$(find "$work/data/files/objects" -type f | wc -l | tr -d ' ')" "files on disk after the restore"
+curl -s -b "$jar" -o "$work/avatar-restored.png" "${base}/api/media/${photo_id}/avatar"
+expect "$avatar_sum" "$(openssl dgst -sha256 "$work/avatar-restored.png" | awk '{print $NF}')" "the avatar's bytes after the restore"
 
 # ---- secrets -----------------------------------------------------------------------------------------------------------------
 step "No secret appears in any log"
