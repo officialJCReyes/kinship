@@ -99,6 +99,7 @@ KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HT
 - Your proxy must pass on the original `Host` header (or send `X-Forwarded-Host`) and should send `X-Forwarded-Proto` and `X-Forwarded-For`. Common proxies do this by default.
 - `TRUST_PROXY` tells KinShip which proxies to believe about those headers. The default trusts private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). If your proxy reaches KinShip from a public address, add that address. Do not set it to `true` if the web port can be reached directly from the internet.
 - If it is wrong you will see it: sign-in cookies are not marked `Secure` over HTTPS, every visitor shares one rate limit, or signing in fails with a "csrf" error.
+- **Photo uploads are up to 10 MB**, sent as the request body. KinShip's own web container allows that, but a reverse proxy in front of it may not: nginx and Nginx Proxy Manager refuse bodies over **1 MB** by default, so an upload fails with **413 Request Entity Too Large** before it reaches KinShip. Allow at least 12 MB for your KinShip address (nginx: `client_max_body_size 12m;`; Nginx Proxy Manager: add that line under Advanced; Caddy, Traefik and Cloudflare Tunnel allow it by default, though the free Cloudflare plan stops uploads over 100 MB, which is far above this). If you also let the proxy buffer requests, no change is needed beyond the size.
 
 ## Inviting people
 
