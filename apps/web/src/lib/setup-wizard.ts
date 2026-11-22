@@ -51,6 +51,8 @@ export interface WizardState {
   // Step 6, Children. A row with no name, birth date or gender is ignored.
   children: ChildDraft[];
   nextChildKey: number;
+  // Step 7, Review. The daily check for new versions; on unless switched off. Applied after the account exists, never sent to /api/setup.
+  checkUpdates: boolean;
 }
 
 export interface PartnerDraft {
@@ -120,6 +122,7 @@ export const initialWizardState: WizardState = {
   parentsStatus: 'married',
   children: [newChild(1)],
   nextChildKey: 2,
+  checkUpdates: true,
 };
 
 /** The request field each piece of state is shown in, so an answer from the server can be put next to the right input. */
@@ -143,6 +146,7 @@ export const FIELD_OF: Record<keyof WizardState, string> = {
   parentsStatus: 'family.parents.status',
   children: 'family.children',
   nextChildKey: 'family.children',
+  checkUpdates: 'checkUpdates',
 };
 
 /**

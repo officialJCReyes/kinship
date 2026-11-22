@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { GENDERS, MIN_PASSWORD_LENGTH, NAME_MAX_LENGTH, SETUP_UNION_STATUSES } from '@kinship/shared';
 import type { Gender, MessageKey, SetupStepId, SetupUnionStatus } from '@kinship/shared';
+import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { ColorSchemePicker } from '../components/ColorSchemePicker.js';
 import { DateInput } from '../components/DateInput.js';
@@ -8,6 +9,7 @@ import { Logo } from '../components/Logo.js';
 import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { t } from '../i18n.js';
+import { InfoTip } from '../components/InfoTip.js';
 import { formatDate } from '../lib/dates.js';
 import {
   MAX_CHILDREN,
@@ -569,7 +571,17 @@ function People({ items }: { items: ReturnType<typeof reviewPeople> }) {
   );
 }
 
-export function ReviewStep({ state, onChange }: { state: WizardState; onChange: (step: SetupStepId) => void }) {
+export function ReviewStep({
+  state,
+  onChange,
+  setCheckUpdates,
+}: {
+  state: WizardState;
+  onChange: (step: SetupStepId) => void;
+  setCheckUpdates: (value: boolean) => void;
+}) {
+  const checkId = useId();
+  const helpId = `${checkId}-help`;
   const birthText = (value: string, precision: string) =>
     formatDate({ value, precision: precision as 'exactly' | 'about' | 'before' | 'after' });
   const people = reviewPeople(state, birthText);
@@ -640,8 +652,25 @@ export function ReviewStep({ state, onChange }: { state: WizardState; onChange: 
         <strong>{count === 1 ? t('setup.review.person') : t('setup.review.people', { count })}</strong>
       </p>
       <p className="muted small">{t('setup.review.next')}</p>
-      <div className="callout setup-update-note">
-        <strong>{t('setup.review.updateTitle')}</strong> {t('setup.review.updateNote')}
+      <div className="option setup-update-note">
+        <input
+          id={checkId}
+          type="checkbox"
+          name="checkUpdates"
+          checked={state.checkUpdates}
+          aria-describedby={helpId}
+          onChange={(event) => setCheckUpdates(event.target.checked)}
+        />
+        <span>
+          <label htmlFor={checkId}>
+            <strong>{t('updates.settings.check')}</strong>
+          </label>
+          <InfoTip
+            id={helpId}
+            label={t('updates.settings.moreAbout', { setting: t('updates.settings.check') })}
+            text={t('updates.settings.check.help')}
+          />
+        </span>
       </div>
     </>
   );
