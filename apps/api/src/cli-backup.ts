@@ -150,6 +150,15 @@ export async function runBackupCommand(command: string, args: string[], deps: Ba
           deps.out(`This backup was made ${createdAt} by KinShip ${appVersion} (database schema ${manifest.schema}).`);
           deps.out('Restoring it REPLACES EVERYTHING in this installation: people, accounts, settings, sessions.');
           deps.out('Anything added since the backup is lost, and everyone is signed out.');
+          if (manifest.files.included) {
+            deps.out(
+              `The backup carries ${manifest.files.count} photo files (${size(manifest.files.bytes)}). They replace the photos here; the current photos are kept in the safety copy.`,
+            );
+          } else {
+            deps.out(
+              'The backup carries no photo files: the photos here stay as they are. Photos added since the backup lose their place in the family and are removed after 7 days.',
+            );
+          }
           deps.out(
             willSafetyCopy
               ? 'A safety copy of the current data is made first.'

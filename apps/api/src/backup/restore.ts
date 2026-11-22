@@ -11,11 +11,33 @@ import { sql } from 'kysely';
 import { createDb } from '../db.js';
 import type { AnySchema, UntypedDb } from '../db.js';
 import { ensureAppRole } from '../migrations/roles.js';
+import { deriveFileKeys } from '../files/key.js';
 import { markerSql } from '../files/restore-marker.js';
+import { FILES_FIX_LONG, filesFolderWritable } from '../files/state.js';
 import { readMigrationFiles } from '../migrations/files.js';
 import { runMigrations } from '../migrations/runner.js';
 import { compareVersionText } from '@kinship/shared';
-import { BACKUP_LOCK_KEY, createBackup, freeBytes, majorOf, openArchive, preRestoreName } from './archive.js';
+import {
+  BACKUP_LOCK_KEY,
+  createBackup,
+  freeBytes,
+  majorOf,
+  openArchive,
+  preRestoreName,
+  readFilesIndex,
+} from './archive.js';
+import {
+  checkRowsCovered,
+  discardStaging,
+  ensureFilesFolder,
+  finishSwap,
+  newRestoreId,
+  stageFiles,
+  writeIntent,
+  writeSweepHold,
+} from './restore-files.js';
+import type { FilesIndex } from './files.js';
+import { statSync } from 'node:fs';
 import type { BackupContext, OpenArchive } from './archive.js';
 import { BackupError } from './errors.js';
 import { fingerprintQuery } from './inspect.js';
@@ -39,7 +61,15 @@ export interface ApplyOptions {
   resetState: boolean;
   /** Set the restore marker (a comment on the public schema) to this id inside the transaction (ADR 0035). */
   restoreId?: string;
+  /**
+   * Called, BEFORE the commit, with every file name the restored photo rows use (full and avatar). It throws to roll the whole
+   * restore back. The transaction stays open while it runs: this is where the photos in the backup are matched to the rows.
+   */
+  checkFiles?: (storageIds: string[]) => void | Promise<void>;
 }
+
+export const IDS_BEGIN = 'KINSHIP-IDS-BEGIN';
+export const IDS_END = 'KINSHIP-IDS-END';
 
 /** The SQL that goes before the dump: one transaction, the schemas dropped and recreated. */
 export function prefixSql(): string {
@@ -58,6 +88,11 @@ export function prefixSql(): string {
  * schema-qualified. The last statement is the only COMMIT: a script that stops early never commits.
  */
 export function suffixSql(manifest: Manifest, appRole: string, options: ApplyOptions): string {
+  return `${suffixBefore(manifest, appRole, options)}COMMIT;\n`;
+}
+
+/** Everything of the suffix up to, but not including, the COMMIT: the checks, the marker, and (if asked) the list of file names. */
+export function suffixBefore(manifest: Manifest, appRole: string, options: ApplyOptions): string {
   const names = Object.keys(manifest.tables);
   const counts = names
     .map(
@@ -96,9 +131,18 @@ END`)};`,
   if (options.restoreId !== undefined) out.push(markerSql(options.restoreId));
   out.push(
     `DO ${dollar(`BEGIN EXECUTE pg_catalog.format('GRANT CONNECT ON DATABASE %I TO %I', pg_catalog.current_database(), ${`'${appRole.replace(/'/g, "''")}'`}); END`)};`,
-    'COMMIT;',
-    '',
   );
+  if (options.checkFiles) {
+    // The names are printed for the caller to compare with the staged files; the caller then sends COMMIT or ROLLBACK.
+    out.push(
+      '\\pset tuples_only on',
+      '\\pset format unaligned',
+      `\\echo ${IDS_BEGIN}`,
+      'SELECT storage_id FROM public.media_files UNION ALL SELECT avatar_storage_id FROM public.media_files;',
+      `\\echo ${IDS_END}`,
+    );
+  }
+  out.push('');
   return out.join('\n');
 }
 
@@ -143,8 +187,8 @@ export async function applyArchive(
   const pgRestore = spawn(tools.pgRestore, ['-f', '-', '--no-owner'], { env, stdio: ['pipe', 'pipe', 'pipe'] }) as Pipe;
   const psql = spawn(tools.psql, ['-X', '-q', '-v', 'ON_ERROR_STOP=1', '-f', '-'], {
     env,
-    stdio: ['pipe', 'ignore', 'pipe'],
-  }) as Pipe;
+    stdio: ['pipe', options.checkFiles ? 'pipe' : 'ignore', 'pipe'],
+  }) as unknown as Pipe;
   const tarError = collectStderr(tar);
   const restoreError = collectStderr(pgRestore);
   const psqlError = collectStderr(psql);
@@ -191,7 +235,22 @@ export async function applyArchive(
       await psqlDone;
       throw new ToolError('pg_restore', restoreCode ?? tarCode, clean(`${restoreError()} ${tarError()}`, secrets));
     }
-    await write(suffixSql(archive.manifest, config.db.appUser, options));
+    await write(suffixBefore(archive.manifest, config.db.appUser, options));
+    if (options.checkFiles) {
+      const ids = await readIds(psql.stdout as Readable);
+      if (ids !== null) {
+        try {
+          await options.checkFiles(ids);
+        } catch (error) {
+          await write('ROLLBACK;\n');
+          input.end();
+          await psqlDone.catch(() => undefined);
+          throw error;
+        }
+      }
+      // ids === null: psql ended before it printed them (an error in the script); its exit code, below, says why.
+    }
+    await write('COMMIT;\n');
     input.end();
   } catch (error) {
     input.destroy();
@@ -200,6 +259,35 @@ export async function applyArchive(
   }
   const code = await psqlDone;
   if (code !== 0) throw new ToolError('psql', code, clean(withoutNotices(psqlError()), secrets));
+}
+
+/** Reads psql's output until the end marker; the names between the markers. null when psql ended without printing them. */
+function readIds(stream: Readable): Promise<string[] | null> {
+  return new Promise((resolve) => {
+    let text = '';
+    const done = (value: string[] | null) => {
+      stream.off('data', onData);
+      stream.off('close', onClose);
+      resolve(value);
+    };
+    const onData = (part: Buffer) => {
+      text += part.toString('utf8');
+      const end = text.indexOf(IDS_END);
+      if (end >= 0) {
+        const begin = text.indexOf(IDS_BEGIN);
+        const body = text.slice(begin + IDS_BEGIN.length, end);
+        done(
+          body
+            .split('\n')
+            .map((line) => line.trim())
+            .filter((line) => line !== ''),
+        );
+      }
+    };
+    const onClose = () => done(null);
+    stream.on('data', onData);
+    stream.on('close', onClose);
+  });
 }
 
 /** What a restore does at the points a caller may want to show (the in-app maintenance page does). */
@@ -229,6 +317,8 @@ export interface RestoreFacts {
   newerApp: boolean;
   /** Rows in the backup's users table: 0 means the app returns to first-run setup. */
   accounts: number;
+  /** The photo files the backup carries (included: false means a database-only backup: the files folder is left as it is). */
+  files: { included: boolean; count: number; bytes: number };
 }
 
 export interface RestoreReport {
@@ -255,14 +345,6 @@ async function preflight(
   };
   const files = await readMigrationFiles(config.migrationsDir);
   const known = Math.max(0, ...files.map((f) => f.number));
-  // STEP 37 MUST DELETE THIS GUARD (issue "extend restore to media files"). restore replays the database only: the archive's
-  // files/ entries are not put back, so a backup that carries files would be restored WITHOUT them, silently. Until restore
-  // handles them, refuse. (Nothing can carry files before the release that adds uploads.)
-  if (manifest.files.included || manifest.files.count > 0) {
-    refuse(
-      'This backup carries uploaded files, and this version of KinShip cannot restore files yet, only the database. Nothing was changed.',
-    );
-  }
   if (manifest.schema > known) {
     refuse(
       `This backup was made by a newer KinShip (database schema ${manifest.schema}, version ${manifest.appVersion}); this one only knows schema ${known}. Restore it with KinShip ${manifest.appVersion} or newer.`,
@@ -295,18 +377,47 @@ async function preflight(
       refuse('KinShip is still running: the app role has open connections. Stop it first: docker compose stop web api');
     }
   }
+  if (manifest.files.included) await checkPhotosCanBeRestored(ctx, archive);
   const size = Number(
     (await sql<{ n: string }>`select pg_database_size(current_database())::text as n`.execute(conn)).rows[0]?.n,
   );
-  // Twice the database: the safety copy of what is there now, and the decrypted copy of the backup (a tar about the size of
-  // its dump) that is unpacked into the backups folder while the restore runs.
-  const need = size * 2;
+  // The backups folder holds the safety copy of what is here now (the database and its photos) and the decrypted copy of the backup
+  // (about the size of its dump, plus its photos) that is unpacked while the restore runs: twice the database, plus both sets of
+  // photos. The files folder holds the backup's photos once (staged beside the current ones, then swapped in) and a tenth more.
+  const present = await sql<{ n: string | null }>`select to_regclass('public.media_files')::text as n`.execute(conn);
+  const currentPhotos =
+    present.rows[0]?.n == null
+      ? 0
+      : Number(
+          (
+            await sql<{
+              n: string;
+            }>`select coalesce(sum(size + avatar_size), 0)::text as n from public.media_files`.execute(conn)
+          ).rows[0]?.n ?? 0,
+        );
+  const backupPhotos = manifest.files.included ? manifest.files.bytes : 0;
+  const filesDir = config.files.dir;
+  const filesNeed = manifest.files.included ? Math.ceil(backupPhotos * 1.1) : 0;
+  const sameDisk = manifest.files.included && sameDevice(config.backup.dir, filesDir);
+  const need = size * 2 + currentPhotos + backupPhotos + (sameDisk ? filesNeed : 0);
   const free = (ctx.freeBytes ?? freeBytes)(config.backup.dir);
   if (free < need) {
+    const photos = currentPhotos + backupPhotos > 0;
     throw new BackupError(
       'disk_space',
-      `Not enough free space in the backups folder for a restore: ${need} bytes are needed (twice the database, which is ${size} bytes: a safety copy and the unpacked backup) and ${free} are available.`,
+      photos
+        ? `Not enough free space in the backups folder for a restore: ${need} bytes are needed (twice the database, which is ${size} bytes: a safety copy and the unpacked backup; plus the photos: ${currentPhotos} bytes in the safety copy and ${backupPhotos} in the unpacked backup${sameDisk ? `; plus ${filesNeed} for the photos' own folder, which is on the same disk` : ''}) and ${free} are available.`
+        : `Not enough free space in the backups folder for a restore: ${need} bytes are needed (twice the database, which is ${size} bytes: a safety copy and the unpacked backup) and ${free} are available.`,
     );
+  }
+  if (manifest.files.included && !sameDisk) {
+    const filesFree = (ctx.freeBytes ?? freeBytes)(filesDir);
+    if (filesFree < filesNeed) {
+      throw new BackupError(
+        'disk_space',
+        `Not enough free space in the files folder for a restore: ${filesNeed} bytes are needed (the ${backupPhotos} bytes of photos in the backup, and a tenth more) and ${filesFree} are available.`,
+      );
+    }
   }
   const newerApp = compareVersionText(manifest.appVersion, ctx.appVersion);
   return {
@@ -316,8 +427,44 @@ async function preflight(
     pendingMigrations: files.filter((f) => f.number > manifest.schema).length,
     newerApp: newerApp !== null && newerApp > 0,
     accounts: manifest.tables['users']?.rows ?? 0,
+    files: { included: manifest.files.included, count: manifest.files.count, bytes: backupPhotos },
   };
 }
+
+/** The key must be the one that sealed the backup's photos, and the files folder must be usable. Refusals say what to do. */
+async function checkPhotosCanBeRestored(ctx: BackupContext, archive: OpenArchive): Promise<FilesIndex> {
+  const refuse = (message: string): never => {
+    throw new BackupError('refused', message);
+  };
+  const index = await readFilesIndex(archive);
+  const key = ctx.config.files.key;
+  if (!key) {
+    return refuse(
+      'This backup carries photos, which are encrypted with a file key. This server has no FILE_ENCRYPTION_KEY, so the photos could not be opened afterwards. Set it to the key that was in use when the backup was made (it is not in the backup), then try again. Nothing was changed.',
+    );
+  }
+  const mine = deriveFileKeys(key).keyId.toString('hex');
+  const other = index.files.find((f) => f.keyId !== mine);
+  if (other) {
+    refuse(
+      `This backup's photos were encrypted with a different file key (id ${other.keyId}) than this server's (id ${mine}). Restoring them would leave photos nobody can open. Put the original FILE_ENCRYPTION_KEY in .env, then try again. Nothing was changed.`,
+    );
+  }
+  if (!filesFolderWritable(ctx.config.files.dir)) {
+    refuse(
+      `The files folder ${ctx.config.files.dir} cannot be written to, so the photos could not be put back.\n${FILES_FIX_LONG}`,
+    );
+  }
+  return index;
+}
+
+const sameDevice = (a: string, b: string): boolean => {
+  try {
+    return statSync(a).dev === statSync(b).dev;
+  } catch {
+    return false;
+  }
+};
 
 /**
  * The in-app "check" step: opens and verifies the archive and runs every refusal that does not depend on the app being stopped.
@@ -358,7 +505,7 @@ export async function restoreBackup(
       const lock = await sql<{ ok: boolean }>`select pg_try_advisory_lock(${BACKUP_LOCK_KEY}) as ok`.execute(conn);
       if (!lock.rows[0]?.ok) throw new BackupError('busy', 'A backup or restore is already running.');
       try {
-        await preflight(ctx, archive, conn, { appConnections: true });
+        const facts = await preflight(ctx, archive, conn, { appConnections: true });
         // An empty database (a brand-new server) has no schema_info table: nothing to make a safety copy of.
         const present = await sql<{
           present: boolean;
@@ -394,12 +541,18 @@ export async function restoreBackup(
         if (hasData) {
           hooks.phase?.('safety_copy');
           hooks.progress('Making a safety copy of the current data first...');
-          const made = await createBackup(ctx, {
-            kind: 'pre-restore',
-            name: preRestoreName(ctx.now?.() ?? new Date(), true),
-            lockHeld: true,
-            db,
-          });
+          const name = preRestoreName(ctx.now?.() ?? new Date(), true);
+          let made;
+          try {
+            // The safety copy carries the photos that are here now, so a restore can be undone completely.
+            made = await createBackup(ctx, { kind: 'pre-restore', name, lockHeld: true, db, includeFiles: true });
+          } catch (error) {
+            // Photos in the database but a files folder that is not the one that holds them (a lost mount, the very thing a restore
+            // from backup repairs): there are no photos here to copy, so the safety copy is the database alone.
+            if (!(error instanceof BackupError) || error.kind !== 'files') throw error;
+            hooks.progress('The photo files here cannot be read, so the safety copy holds the database only.');
+            made = await createBackup(ctx, { kind: 'pre-restore', name, lockHeld: true, db });
+          }
           safetyCopy = made.name;
           hooks.progress(`Safety copy: ${made.name}`);
         } else {
@@ -408,7 +561,48 @@ export async function restoreBackup(
 
         hooks.phase?.('replacing');
         hooks.progress('Replacing the database in one transaction (nothing changes unless every check passes)...');
-        await applyArchive(ctx, archive, config.db.name, { resetState: true });
+        const filesDir = config.files.dir;
+        let restoreId: string | undefined;
+        let index: FilesIndex | undefined;
+        if (facts.files.included) {
+          index = await readFilesIndex(archive);
+          restoreId = newRestoreId();
+          hooks.progress('Unpacking the photos and checking each one...');
+          ensureFilesFolder(filesDir);
+          const staged = await stageFiles(ctx.tools, archive.tarPath, index, filesDir, restoreId);
+          hooks.progress(`${staged.count} photo files are ready.`);
+          writeIntent(filesDir, restoreId, ctx.now?.() ?? new Date());
+        }
+        try {
+          await applyArchive(ctx, archive, config.db.name, {
+            resetState: true,
+            ...(restoreId !== undefined && index !== undefined
+              ? { restoreId, checkFiles: (ids: string[]) => checkRowsCovered(ids, index as FilesIndex) }
+              : {}),
+          });
+        } catch (error) {
+          // Rolled back: the database is as it was, and so are the photos.
+          if (restoreId !== undefined) discardStaging(filesDir, restoreId);
+          throw error;
+        }
+        if (restoreId !== undefined) {
+          hooks.progress('Putting the photos in place...');
+          try {
+            finishSwap(filesDir, restoreId);
+          } catch (error) {
+            // The database is already restored. The intent stays, and the next start finishes the swap from it.
+            log('error', 'the photo files could not be swapped in after the restore; the next start will finish it', {
+              reason: clean(String(error), [config.db.ownerPassword]),
+            });
+            throw new BackupError(
+              'archive',
+              'The database was restored but the photo files could not be put in place yet. Start KinShip again: it finishes this on its own. If the photos are still missing after that, restore the "Before a restore" copy.',
+            );
+          }
+        } else {
+          // A database-only backup leaves the files folder alone. Photos uploaded since have no row now: they are kept for a week.
+          writeSweepHold(filesDir, (ctx.now?.() ?? new Date()).getTime());
+        }
 
         hooks.phase?.('migrating');
         hooks.progress('Restored. Checking the migrations...');

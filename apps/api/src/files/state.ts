@@ -48,6 +48,9 @@ export interface FilesService {
   acceptsUploads(): boolean;
 }
 
+/** Can this folder be created and written to? (Creates it if it is missing, like the api does at start.) */
+export const filesFolderWritable = (dir: string): boolean => writable(dir);
+
 function writable(dir: string): boolean {
   try {
     mkdirSync(dir, { recursive: true, mode: 0o700 });
