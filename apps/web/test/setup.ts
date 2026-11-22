@@ -3,11 +3,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
+import { leaveMaintenance } from '../src/lib/maintenance.js';
 
 // The real public/theme-init.js, loaded the way the browser does before React starts (jsdom has no matchMedia, so
 // the device counts as light unless a test says otherwise).
 new Function(readFileSync(join(import.meta.dirname, '../public/theme-init.js'), 'utf8'))();
 
 afterEach(() => {
+  // A test that started a restore leaves the app on the maintenance page: the next test must start on a normal one.
+  leaveMaintenance();
   cleanup();
 });

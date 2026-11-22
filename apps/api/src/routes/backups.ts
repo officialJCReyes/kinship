@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Admin > Backups (SuperAdmin only, checked here on every route). Backups themselves run in the scheduler (and the command
-// line); these routes list, start, test, change the schedule and hand out downloads. There is no restore route: a restore
-// replaces everything and is done from the command line with the stack stopped (INSTALL.md).
+// Admin > Backups (SuperAdmin only, checked here on every route). Backups themselves run in the scheduler (and the command line);
+// these routes list, start, test, change the schedule, hand out downloads, and restore (ADR 0031): a check that changes nothing,
+// then a restore that needs the ticket from the check, the typed word and the password again, pauses the site, replaces
+// everything and exits so Docker starts a fresh api.
 import { createReadStream, lstatSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { join } from 'node:path';

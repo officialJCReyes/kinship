@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { CSRF_HEADER, CSRF_VALUE } from '@kinship/shared';
+import { enterMaintenance } from './lib/maintenance.js';
 import { reportVersionMismatch } from './lib/version-mismatch.js';
 import type {
   AcceptLinkRequest,
@@ -21,6 +22,9 @@ import type {
   WhatsNewResponse,
   BackupsResponse,
   DownloadTicket,
+  MaintenanceStatus,
+  RestoreCheck,
+  RestoreRequest,
   ApiErrorCode,
   ApiHealth,
   ApiVersion,
@@ -110,6 +114,7 @@ async function send(
   }
   if (response.status === 503) {
     const details = asRecord(parsed);
+    if (details.error === 'maintenance') enterMaintenance();
     if (details.error === 'version_mismatch') {
       reportVersionMismatch({
         web: typeof details.web === 'string' ? details.web : '',
@@ -217,6 +222,37 @@ export async function requestDownloadTicket(name: string, password: string): Pro
   const reply = await send('POST', '/api/admin/backups/download-ticket', { name, password });
   if (reply.status !== 200) fail('/api/admin/backups/download-ticket', reply);
   return reply.body as DownloadTicket;
+}
+
+/** What a restore of this listed archive would do (changes nothing), and the ticket to confirm it with. */
+export async function checkRestore(name: string): Promise<RestoreCheck> {
+  const reply = await send('POST', '/api/admin/backups/restore-check', { name });
+  if (reply.status !== 200) fail('/api/admin/backups/restore-check', reply);
+  return reply.body as RestoreCheck;
+}
+
+/** Starts the restore (202). The site goes into maintenance mode; the page then shows the maintenance screen. */
+export async function startRestore(request: RestoreRequest): Promise<void> {
+  const reply = await send('POST', '/api/admin/backups/restore', request);
+  if (reply.status !== 202) fail('/api/admin/backups/restore', reply);
+}
+
+/**
+ * Where a restore is. Public, and not through `send`: a poll that fails (the api is restarting) is an answer, not an error, and a
+ * 503 here must not report maintenance again. Resolves to null when the api cannot be reached.
+ */
+export async function fetchMaintenance(signal?: AbortSignal): Promise<MaintenanceStatus | null> {
+  try {
+    const response = await fetch('/api/maintenance', {
+      headers: { Accept: 'application/json' },
+      ...(signal ? { signal } : {}),
+    });
+    if (response.status !== 200) return null;
+    const body = asRecord(await response.json());
+    return typeof body.phase === 'string' ? (body as unknown as MaintenanceStatus) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function setup(request: SetupRequest): Promise<MeResponse> {

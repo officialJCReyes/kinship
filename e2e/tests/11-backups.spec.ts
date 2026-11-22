@@ -21,8 +21,8 @@ test('the SuperAdmin opens Backups, sees there is none yet, and backs up now', a
   await expect(page.getByRole('heading', { name: 'Backups', level: 1 })).toBeVisible();
   await expect(page.getByText('There is no backup yet. Press Back up now.')).toBeVisible();
   await expect(page.getByText('No backups yet.')).toBeVisible();
-  // There is no restore button: restoring is a command on the server.
-  await expect(page.getByRole('button', { name: /restore/i })).toHaveCount(0);
+  // No backup yet, so nothing to restore: no Restore button. The command line steps for a new server are on the page.
+  await expect(page.getByRole('button', { name: /^Restore / })).toHaveCount(0);
   await expect(
     page.getByText('docker compose run --rm api kinship restore kinship-YYYY-MM-DD-HHMM.tar.enc'),
   ).toBeVisible();
@@ -35,6 +35,20 @@ test('the SuperAdmin opens Backups, sees there is none yet, and backs up now', a
   // Each new backup is tested by restoring it into a temporary database.
   await expect(row.getByText('Passed')).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(/Last test: passed \(\d+ tables, \d+ rows, kinship-/)).toBeVisible();
+
+  // The new backup has a Restore button. Opening it only CHECKS the backup (nothing is changed, nobody is signed out); Escape closes
+  // it and the focus goes back to the button. The restore itself is journey 15, the last one, because it signs everyone out.
+  const restore = page.getByRole('button', { name: `Restore ${backupName}` });
+  await restore.focus();
+  await restore.click();
+  const dialog = page.getByRole('dialog', { name: /^Restore / });
+  await expect(dialog.getByText(/by KinShip .* \(database schema \d+\)\./)).toBeVisible({ timeout: 30_000 });
+  await expect(dialog.getByText(/Anything added since .* is lost\./)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Restore now' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(restore).toBeFocused();
+  await expect(page.getByRole('region', { name: 'Backups are working' })).toBeVisible();
 });
 
 test('the newest backup can be tested again on request', async ({ adminPage: page }) => {
