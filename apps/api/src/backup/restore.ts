@@ -13,6 +13,7 @@ import type { AnySchema, UntypedDb } from '../db.js';
 import { ensureAppRole } from '../migrations/roles.js';
 import { readMigrationFiles } from '../migrations/files.js';
 import { runMigrations } from '../migrations/runner.js';
+import { compareVersionText } from '@kinship/shared';
 import { BACKUP_LOCK_KEY, createBackup, freeBytes, majorOf, openArchive, preRestoreName } from './archive.js';
 import type { BackupContext, OpenArchive } from './archive.js';
 import { BackupError } from './errors.js';
@@ -38,7 +39,7 @@ export interface ApplyOptions {
 }
 
 /** The SQL that goes before the dump: one transaction, the schemas dropped and recreated. */
-function prefixSql(): string {
+export function prefixSql(): string {
   return [
     'BEGIN;',
     "SET LOCAL lock_timeout = '30s';",
@@ -53,7 +54,7 @@ function prefixSql(): string {
  * The SQL that goes after the dump, inside the same transaction. pg_restore leaves an empty search_path, so every name here is
  * schema-qualified. The last statement is the only COMMIT: a script that stops early never commits.
  */
-function suffixSql(manifest: Manifest, appRole: string, options: ApplyOptions): string {
+export function suffixSql(manifest: Manifest, appRole: string, options: ApplyOptions): string {
   const names = Object.keys(manifest.tables);
   const counts = names
     .map(
@@ -187,6 +188,9 @@ export async function applyArchive(
   if (code !== 0) throw new ToolError('psql', code, clean(withoutNotices(psqlError()), secrets));
 }
 
+/** What a restore does at the points a caller may want to show (the in-app maintenance page does). */
+export type RestorePhase = 'safety_copy' | 'replacing' | 'migrating';
+
 export interface RestoreHooks {
   /** Told what is about to happen, after every check has passed and before anything changes. Return false to stop. */
   confirm: (details: {
@@ -196,6 +200,21 @@ export interface RestoreHooks {
     willSafetyCopy: boolean;
   }) => Promise<boolean>;
   progress: (message: string) => void;
+  /** Optional: told when a new phase starts. */
+  phase?: (phase: RestorePhase) => void;
+}
+
+/** What a person is told about a backup before they confirm a restore. Nothing here needs the database to change. */
+export interface RestoreFacts {
+  manifest: Manifest;
+  appVersion: string;
+  createdAt: string;
+  /** How many newer database changes will be applied after the restore. */
+  pendingMigrations: number;
+  /** The backup was made by a newer KinShip version than this one (same schema, so it can be read). */
+  newerApp: boolean;
+  /** Rows in the backup's users table: 0 means the app returns to first-run setup. */
+  accounts: number;
 }
 
 export interface RestoreReport {
@@ -205,8 +224,16 @@ export interface RestoreReport {
   migrationsApplied: string[];
 }
 
-/** Everything a restore refuses, before it changes anything. */
-async function preflight(ctx: BackupContext, archive: OpenArchive, conn: UntypedDb): Promise<void> {
+/**
+ * Everything a restore refuses, before it changes anything. `appConnections: false` leaves out the one test that cannot pass
+ * while the app itself is serving (the app role has open connections): the in-app "check" step uses that.
+ */
+async function preflight(
+  ctx: BackupContext,
+  archive: OpenArchive,
+  conn: UntypedDb,
+  options: { appConnections: boolean },
+): Promise<RestoreFacts> {
   const { config, tools } = ctx;
   const { manifest } = archive;
   const refuse = (message: string): never => {
@@ -214,6 +241,14 @@ async function preflight(ctx: BackupContext, archive: OpenArchive, conn: Untyped
   };
   const files = await readMigrationFiles(config.migrationsDir);
   const known = Math.max(0, ...files.map((f) => f.number));
+  // STEP 37 MUST DELETE THIS GUARD (issue "extend restore to media files"). restore replays the database only: the archive's
+  // files/ entries are not put back, so a backup that carries files would be restored WITHOUT them, silently. Until restore
+  // handles them, refuse. (Nothing can carry files before the release that adds uploads.)
+  if (manifest.files.included || manifest.files.count > 0) {
+    refuse(
+      'This backup carries uploaded files, and this version of KinShip cannot restore files yet, only the database. Nothing was changed.',
+    );
+  }
   if (manifest.schema > known) {
     refuse(
       `This backup was made by a newer KinShip (database schema ${manifest.schema}, version ${manifest.appVersion}); this one only knows schema ${known}. Restore it with KinShip ${manifest.appVersion} or newer.`,
@@ -238,20 +273,53 @@ async function preflight(ctx: BackupContext, archive: OpenArchive, conn: Untyped
       `The backup was made with the database roles "${manifest.ownerRole}" (owner) and "${manifest.appRole}" (app); this installation uses "${config.db.ownerUser}" and "${config.db.appUser}". Set DB_OWNER_USER and DB_APP_USER in .env to the backup's names (a restore needs the same ones), then try again.`,
     );
   }
-  const open = await sql<{ n: string }>`
-    select count(*)::text as n from pg_stat_activity
-     where datname = current_database() and usename = ${config.db.appUser} and pid <> pg_backend_pid()`.execute(conn);
-  if (Number(open.rows[0]?.n) > 0) {
-    refuse('KinShip is still running: the app role has open connections. Stop it first: docker compose stop web api');
+  if (options.appConnections) {
+    const open = await sql<{ n: string }>`
+      select count(*)::text as n from pg_stat_activity
+       where datname = current_database() and usename = ${config.db.appUser} and pid <> pg_backend_pid()`.execute(conn);
+    if (Number(open.rows[0]?.n) > 0) {
+      refuse('KinShip is still running: the app role has open connections. Stop it first: docker compose stop web api');
+    }
   }
   const size = Number(
     (await sql<{ n: string }>`select pg_database_size(current_database())::text as n`.execute(conn)).rows[0]?.n,
   );
-  if (freeBytes(config.backup.dir) < size) {
+  // Twice the database: the safety copy of what is there now, and the decrypted copy of the backup (a tar about the size of
+  // its dump) that is unpacked into the backups folder while the restore runs.
+  const need = size * 2;
+  const free = (ctx.freeBytes ?? freeBytes)(config.backup.dir);
+  if (free < need) {
     throw new BackupError(
       'disk_space',
-      `Not enough free space in ${config.backup.dir} for the safety copy of the current database (${size} bytes).`,
+      `Not enough free space in the backups folder for a restore: ${need} bytes are needed (twice the database, which is ${size} bytes: a safety copy and the unpacked backup) and ${free} are available.`,
     );
+  }
+  const newerApp = compareVersionText(manifest.appVersion, ctx.appVersion);
+  return {
+    manifest,
+    appVersion: archive.header.appVersion,
+    createdAt: manifest.createdAt,
+    pendingMigrations: files.filter((f) => f.number > manifest.schema).length,
+    newerApp: newerApp !== null && newerApp > 0,
+    accounts: manifest.tables['users']?.rows ?? 0,
+  };
+}
+
+/**
+ * The in-app "check" step: opens and verifies the archive and runs every refusal that does not depend on the app being stopped.
+ * Changes nothing and holds no lock. The archive is closed again before this returns.
+ */
+export async function checkRestore(ctx: BackupContext, archivePath: string): Promise<RestoreFacts> {
+  const { config } = ctx;
+  const passphrase = config.backup.passphrase;
+  if (passphrase === undefined) throw new BackupError('passphrase', 'A restore needs the backup passphrase.');
+  const archive = await openArchive(archivePath, passphrase, ctx.tools, config.backup.dir);
+  const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 1);
+  try {
+    return await db.connection().execute((conn) => preflight(ctx, archive, conn, { appConnections: false }));
+  } finally {
+    archive.cleanup();
+    await db.destroy();
   }
 }
 
@@ -276,7 +344,7 @@ export async function restoreBackup(
       const lock = await sql<{ ok: boolean }>`select pg_try_advisory_lock(${BACKUP_LOCK_KEY}) as ok`.execute(conn);
       if (!lock.rows[0]?.ok) throw new BackupError('busy', 'A backup or restore is already running.');
       try {
-        await preflight(ctx, archive, conn);
+        await preflight(ctx, archive, conn, { appConnections: true });
         // An empty database (a brand-new server) has no schema_info table: nothing to make a safety copy of.
         const present = await sql<{
           present: boolean;
@@ -310,6 +378,7 @@ export async function restoreBackup(
 
         let safetyCopy: string | null = null;
         if (hasData) {
+          hooks.phase?.('safety_copy');
           hooks.progress('Making a safety copy of the current data first...');
           const made = await createBackup(ctx, {
             kind: 'pre-restore',
@@ -323,9 +392,11 @@ export async function restoreBackup(
           hooks.progress('The database is empty: no safety copy to make.');
         }
 
+        hooks.phase?.('replacing');
         hooks.progress('Replacing the database in one transaction (nothing changes unless every check passes)...');
         await applyArchive(ctx, archive, config.db.name, { resetState: true });
 
+        hooks.phase?.('migrating');
         hooks.progress('Restored. Checking the migrations...');
         const files = await readMigrationFiles(config.migrationsDir);
         const migrated = await runMigrations(db, {

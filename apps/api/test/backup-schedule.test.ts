@@ -272,7 +272,7 @@ describe('state.json', () => {
 
   it('starts empty, keeps the newest first, mode 0600, and leaves no temp file', async () => {
     const dir = folder();
-    expect(readState(dir)).toEqual({ version: 1, runs: [], lastTest: null });
+    expect(readState(dir)).toEqual({ version: 1, runs: [], lastTest: null, restores: [] });
     await recordRun(dir, run(1));
     await recordRun(dir, run(2, false));
     await recordTest(dir, {
@@ -322,6 +322,7 @@ describe('state.json', () => {
       version: 1 as const,
       runs: [run(3, false), run(2, true, 'pre-upgrade'), run(1, true, 'manual')],
       lastTest: null,
+      restores: [],
     };
     expect(lastSuccessfulBackupAt(state)).toBe(run(1).finishedAt);
     expect(lastSuccessfulBackupAt({ ...state, runs: [] })).toBeNull();

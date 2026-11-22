@@ -15,7 +15,7 @@ import type {
   DownloadTicket,
   DownloadTicketRequest,
 } from '@kinship/shared';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { MAX_PASSWORD_LENGTH, verifyPassword } from '../auth/passwords.js';
 import { requireSuperAdmin } from '../auth/guards.js';
 import { findLogin } from '../auth/store.js';
@@ -63,6 +63,32 @@ export function registerBackupRoutes(
   const need = (): BackupService => {
     if (!service) throw unavailable();
     return service;
+  };
+  // The signed-in person types their password again. It shares the failure limiters of changing a password. Returns the reply
+  // (already sent: 429 or 400) when the password is not accepted, or null when it is.
+  const reauthenticate = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    user: { id: string; email: string },
+    password: string,
+  ): Promise<FastifyReply | null> => {
+    const wait = Math.max(limiters.passwordIp.retryAfterMs(request.ip), limiters.passwordAccount.retryAfterMs(user.id));
+    if (wait > 0) {
+      const seconds = retrySeconds(wait);
+      return reply
+        .code(429)
+        .header('Retry-After', String(seconds))
+        .send({ error: 'rate_limited', retryAfterSeconds: seconds });
+    }
+    const login = await findLogin(db, user.email);
+    if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, password))) {
+      limiters.passwordIp.recordFailure(request.ip);
+      limiters.passwordAccount.recordFailure(user.id);
+      await sleep(failureDelayMs);
+      return reply.code(400).send({ error: 'invalid_current_password' });
+    }
+    limiters.passwordAccount.reset(user.id);
+    return null;
   };
   const sweepTickets = () => {
     for (const [key, ticket] of tickets) if (ticket.expires <= now()) tickets.delete(key);
@@ -143,25 +169,8 @@ export function registerBackupRoutes(
       if (!user || !sessionTokenHash) throw new ApiError(401, 'unauthenticated');
       const body = request.body as DownloadTicketRequest;
 
-      const wait = Math.max(
-        limiters.passwordIp.retryAfterMs(request.ip),
-        limiters.passwordAccount.retryAfterMs(user.id),
-      );
-      if (wait > 0) {
-        const seconds = retrySeconds(wait);
-        return reply
-          .code(429)
-          .header('Retry-After', String(seconds))
-          .send({ error: 'rate_limited', retryAfterSeconds: seconds }) as never;
-      }
-      const login = await findLogin(db, user.email);
-      if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, body.password))) {
-        limiters.passwordIp.recordFailure(request.ip);
-        limiters.passwordAccount.recordFailure(user.id);
-        await sleep(failureDelayMs);
-        return reply.code(400).send({ error: 'invalid_current_password' }) as never;
-      }
-      limiters.passwordAccount.reset(user.id);
+      const refused = await reauthenticate(request, reply, user, body.password);
+      if (refused) return refused as never;
 
       // The name must be one of OUR encrypted archives found by listing the folder; user input is never joined into a path.
       const found = listBackups(dir).find((item) => item.name === body.name && item.encrypted);

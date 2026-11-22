@@ -9,7 +9,10 @@ import { createBackup, openArchive } from '../src/backup/archive.js';
 import type { BackupContext } from '../src/backup/archive.js';
 import { BackupError } from '../src/backup/errors.js';
 import { fingerprint, listTables, tableStats } from '../src/backup/inspect.js';
-import { restoreBackup } from '../src/backup/restore.js';
+import { run } from '../src/backup/tools.js';
+import { readState, recordRestoreEnd, recordRestoreStart } from '../src/backup/state.js';
+import { Readable, Writable } from 'node:stream';
+import { checkRestore, prefixSql, restoreBackup, suffixSql } from '../src/backup/restore.js';
 import type { RestoreHooks } from '../src/backup/restore.js';
 import type { Tools } from '../src/backup/tools.js';
 import { sweepVerifyDatabases, verifyBackup, verifyPrefix } from '../src/backup/verify.js';
@@ -624,4 +627,171 @@ describe('testing a backup (restore into a temporary database)', () => {
     expect(await runCli(['backup-verify', made.name, '--full'], deps)).toBe(0);
     expect(out.join('\n')).toMatch(/ok\s+Restored into a temporary database/);
   }, 90_000);
+});
+
+const usersTriggers = async (db: UntypedDb) =>
+  (
+    await sql<{ tgname: string }>`
+      select tgname from pg_trigger where tgrelid = 'public.users'::regclass and not tgisinternal order by 1`.execute(
+      db,
+    )
+  ).rows.map((r) => r.tgname);
+const GUARDS = ['users_keep_a_superadmin_delete', 'users_keep_a_superadmin_update'];
+
+describe('a restore and the last-SuperAdmin triggers on users (ADR 0029, ADR 0031)', () => {
+  it('restores a database with exactly one active SuperAdmin, and the guard is there and fires afterwards', async () => {
+    const l = await live();
+    const lone = await sql<{ n: number }>`
+      select count(*)::int as n from users where role = 'superadmin' and disabled_at is null`.execute(l.test.owner);
+    expect(lone.rows[0]?.n).toBe(1);
+    expect(await usersTriggers(l.test.owner)).toEqual(expect.arrayContaining(GUARDS));
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    await restoreBackup(l.ctx, made.path, hooks());
+    expect((await sql`select 1 from users where role = 'superadmin'`.execute(l.test.owner)).rows).toHaveLength(1);
+    expect(await usersTriggers(l.test.owner)).toEqual(expect.arrayContaining(GUARDS));
+    await expect(sql`delete from users where role = 'superadmin'`.execute(l.test.owner)).rejects.toMatchObject({
+      code: 'KS044',
+    });
+    await expect(
+      sql`update users set disabled_at = now() where role = 'superadmin'`.execute(l.test.owner),
+    ).rejects.toMatchObject({ code: 'KS044' });
+  }, 120_000);
+
+  it('a backup from before 0019 ends with both triggers and the column, after the migrations that follow the restore', async () => {
+    const older = await tempMigrationsDir(true);
+    cleanups.push(() => older.remove());
+    await removeMigrationsFrom(older.dir, 19);
+    const l = await live({ migrationsDir: older.dir });
+    expect(await usersTriggers(l.test.owner)).not.toContain(GUARDS[0]);
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    expect(made.manifest.schema).toBe(18);
+    await cp(realMigrationsDir, older.dir, { recursive: true });
+    await runMigrations(l.test.owner, { dir: older.dir, appRole: l.test.config.appUser });
+    const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
+    const report = await restoreBackup(newImage, made.path, hooks());
+    expect(report.migrationsApplied).toContain('0019_account_roles_disable_delete');
+    expect(await usersTriggers(l.test.owner)).toEqual(expect.arrayContaining(GUARDS));
+    const column = await sql`select 1 from information_schema.columns
+      where table_name = 'users' and column_name = 'disabled_at'`.execute(l.test.owner);
+    expect(column.rows).toHaveLength(1);
+  }, 150_000);
+
+  it('the restore never edits users: no DELETE, UPDATE, TRUNCATE or DISABLE TRIGGER, and the triggers come after the data', async () => {
+    const l = await live();
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    const scripts = [prefixSql(), suffixSql(made.manifest, l.ctx.config.db.appUser, { resetState: true })].join('\n');
+    expect(scripts).not.toMatch(
+      /\b(delete\s+from|update|truncate(\s+table)?)\s+(only\s+)?(public\.)?"?users"?(\s|;|$)/i,
+    );
+    expect(scripts).not.toMatch(/disable\s+trigger/i);
+    expect(scripts).not.toMatch(/alter\s+table\s+(only\s+)?(public\.)?"?users"?\s/i);
+
+    const archive = await openArchive(made.path, PASS, l.ctx.tools, l.dir);
+    try {
+      const chunks: Buffer[] = [];
+      await archive.extract('database.dump', new Writable({ write: (c: Buffer, _e, cb) => (chunks.push(c), cb()) }));
+      const replay = (
+        await run(l.ctx.tools.pgRestore, ['-f', '-', '--no-owner'], {
+          env: { PATH: process.env['PATH'] ?? '' },
+          stdin: Readable.from([Buffer.concat(chunks)]),
+        })
+      ).stdout
+        .toString('utf8')
+        .split('\n');
+      const at = (pattern: RegExp) => replay.findIndex((line) => pattern.test(line));
+      const copy = at(/^COPY public\.users /);
+      expect(copy).toBeGreaterThan(-1);
+      for (const trigger of GUARDS) expect(at(new RegExp(`CREATE TRIGGER ${trigger}\\b`))).toBeGreaterThan(copy);
+      expect(replay.filter((line) => /disable trigger/i.test(line))).toEqual([]);
+      expect(replay.filter((line) => /^(DELETE FROM|UPDATE|TRUNCATE)\b.*\busers\b/i.test(line))).toEqual([]);
+    } finally {
+      archive.cleanup();
+    }
+  }, 90_000);
+});
+
+describe('what a restore refuses (step 36 rules)', () => {
+  it('a backup that carries files is refused with nothing changed (step 37 deletes this guard)', async () => {
+    const l = await live();
+    const withFiles: BackupContext = {
+      ...l.ctx,
+      files: () => {
+        const path = join(l.dir, 'a-photo.bin');
+        writeFileSync(path, 'not a real photo');
+        return Promise.resolve([{ name: 'a-photo.bin', path }]);
+      },
+    };
+    const made = await createBackup(withFiles, { kind: 'manual' });
+    expect(made.manifest.files).toEqual({ included: true, count: 1 });
+    const before = await state(l.test.owner, l.test.config.appUser);
+    const failure = await restoreBackup(l.ctx, made.path, hooks()).catch((e: unknown) => e as BackupError);
+    expect((failure as BackupError).kind).toBe('refused');
+    expect((failure as BackupError).message).toMatch(/uploaded files/);
+    expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
+    await expect(checkRestore(l.ctx, made.path)).rejects.toMatchObject({ kind: 'refused' });
+  }, 90_000);
+
+  it('needs free space of twice the database in the backups folder, and says how much of each', async () => {
+    const l = await live();
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    const size = Number(
+      (await sql<{ n: string }>`select pg_database_size(current_database())::text as n`.execute(l.test.owner)).rows[0]
+        ?.n,
+    );
+    const before = await state(l.test.owner, l.test.config.appUser);
+    const short = { ...l.ctx, freeBytes: () => size * 2 - 1 };
+    const failure = await restoreBackup(short, made.path, hooks()).catch((e: unknown) => e as BackupError);
+    expect((failure as BackupError).kind).toBe('disk_space');
+    expect((failure as BackupError).message).toContain(`${size * 2} bytes are needed`);
+    expect((failure as BackupError).message).toContain(`${size * 2 - 1} are available`);
+    expect((failure as BackupError).message).not.toContain(l.dir);
+    expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
+    await expect(
+      restoreBackup({ ...l.ctx, freeBytes: () => size * 2 + 10_000_000 }, made.path, hooks()),
+    ).resolves.toMatchObject({ cancelled: false });
+  }, 120_000);
+
+  it('checkRestore answers with the facts and changes nothing, even with the app role connected', async () => {
+    const l = await live();
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    const app = createAppDb(l.test.config);
+    cleanups.push(() => app.destroy());
+    await sql`select 1`.execute(app);
+    const before = await state(l.test.owner, l.test.config.appUser);
+    const facts = await checkRestore(l.ctx, made.path);
+    expect(facts).toMatchObject({ pendingMigrations: 0, newerApp: false, accounts: 5 });
+    expect(facts.createdAt).toBe(made.manifest.createdAt);
+    // A backup from a newer app version (same schema) is allowed, flagged.
+    const newer = await checkRestore({ ...l.ctx, appVersion: '0.0.1' }, made.path);
+    expect(newer.newerApp).toBe(true);
+    expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
+    await app.destroy();
+    expect(readdirSync(l.dir).filter((n) => n.startsWith('.work-'))).toEqual([]);
+  }, 90_000);
+});
+
+describe('the restores list in state.json', () => {
+  it('records a started restore and its end, keeps 20, and old files without the list still read', async () => {
+    const dir = folder();
+    expect(readState(dir).restores).toEqual([]);
+    writeFileSync(join(dir, 'state.json'), JSON.stringify({ version: 1, runs: [], lastTest: null }));
+    expect(readState(dir).restores).toEqual([]);
+    const base = { startedAt: '2026-11-22T10:00:00.000Z', backup: 'kinship-2026-11-22-0300.tar.enc', byUserId: 'u-1' };
+    await recordRestoreStart(dir, { id: 'r1', kind: 'started', ...base });
+    expect(readState(dir).restores).toEqual([{ id: 'r1', kind: 'started', ...base }]);
+    const end = {
+      kind: 'restored' as const,
+      ok: true,
+      finishedAt: '2026-11-22T10:00:05.000Z',
+      safetyCopy: 'pre-restore-20261122-100001.tar.enc',
+    };
+    await recordRestoreEnd(dir, 'r1', end, { id: 'r1', ...base, kind: 'started' });
+    expect(readState(dir).restores[0]).toMatchObject({ id: 'r1', kind: 'restored', ok: true, byUserId: 'u-1' });
+    // An end whose start was lost is still kept.
+    await recordRestoreEnd(dir, 'lost', { kind: 'unchanged', ok: false }, { id: 'lost', ...base, kind: 'started' });
+    expect(readState(dir).restores.map((r) => r.id)).toEqual(['lost', 'r1']);
+    for (let i = 0; i < 25; i++) await recordRestoreStart(dir, { id: `x${i}`, kind: 'started', ...base });
+    expect(readState(dir).restores).toHaveLength(20);
+    expect(readState(dir).restores[0]?.id).toBe('x24');
+  });
 });

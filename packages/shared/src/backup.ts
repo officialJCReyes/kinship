@@ -143,14 +143,48 @@ export interface BackupTestRecord {
   note?: string;
 }
 
+/**
+ * How an in-app restore ended. `started`: written before anything else, so an api that starts and finds one with nothing after
+ * it knows the restore was cut short. `unchanged`: it failed and the data is exactly as it was. `restored`: done.
+ * `restored_not_migrated`: the backup was put back but a newer database change failed afterwards (the data is valid, at the
+ * backup's older schema). `did_not_finish`: written by the next start for a `started` that never ended; the data is unchanged.
+ */
+export const RESTORE_RESULT_KINDS = [
+  'started',
+  'unchanged',
+  'restored',
+  'restored_not_migrated',
+  'did_not_finish',
+] as const;
+export type RestoreResultKind = (typeof RESTORE_RESULT_KINDS)[number];
+
+export interface RestoreRecord {
+  id: string;
+  startedAt: string;
+  finishedAt?: string;
+  /** Set when it ended: true only for `restored`. */
+  ok?: boolean;
+  kind: RestoreResultKind;
+  /** The listed archive that was restored (a generated file name). */
+  backup: string;
+  /** The generated name of the safety copy of what was there before, when one was made. */
+  safetyCopy?: string;
+  /** A short code for why it failed (never a message: those can hold paths). */
+  errorKind?: string;
+  /** The uuid of the SuperAdmin who asked. After the restore this account may no longer exist. */
+  byUserId: string;
+}
+
 export interface BackupState {
   version: 1;
   /** Newest first, at most 50. */
   runs: BackupRunRecord[];
   lastTest: BackupTestRecord | null;
+  /** Newest first, at most 20. */
+  restores: RestoreRecord[];
 }
 
-export const EMPTY_BACKUP_STATE: BackupState = { version: 1, runs: [], lastTest: null };
+export const EMPTY_BACKUP_STATE: BackupState = { version: 1, runs: [], lastTest: null, restores: [] };
 
 /** When the last backup (manual or scheduled) finished successfully, or null. The update warning in step 17 reads this. */
 export function lastSuccessfulBackupAt(state: BackupState): string | null {
