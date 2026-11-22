@@ -236,7 +236,8 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
         const databaseBytes = Number(size.rows[0]?.bytes ?? 0);
         // A database from before the photo tables (an upgrade's safety copy of an old schema) has no photos to include.
         const hasPhotoTable =
-          (await sql<{ n: string | null }>`select to_regclass('public.media_files')::text as n`.execute(conn)).rows[0]?.n != null;
+          (await sql<{ n: string | null }>`select to_regclass('public.media_files')::text as n`.execute(conn)).rows[0]
+            ?.n != null;
         const wantFiles = options.includeFiles === true && hasPhotoTable;
         const filesBytes = wantFiles ? await storedFilesBytes(conn) : 0;
         const need = spaceNeeded(databaseBytes, filesBytes);
@@ -245,9 +246,7 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
           throw new BackupError(
             'disk_space',
             `Not enough free space in ${dir}: the database is ${databaseBytes} bytes${
-              wantFiles
-                ? `, the photos are ${filesBytes} bytes, and a tenth more is needed for the archive`
-                : ''
+              wantFiles ? `, the photos are ${filesBytes} bytes, and a tenth more is needed for the archive` : ''
             }; ${need} are needed and the folder has ${free} free.`,
           );
         }

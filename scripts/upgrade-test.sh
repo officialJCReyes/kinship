@@ -188,6 +188,26 @@ done
 rm -f "$jar"
 expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar")" "sign-in of the admin"
 
+step "Photos after the upgrade: the key and the files folder are in place, and a missing key does not stop KinShip"
+files_json="$(curl -s -b "$jar" "${base}/api/admin/files")"
+echo "$files_json"
+expect ready "$(echo "$files_json" | json "['state']")" "the photo state with the key and the folder in place"
+echo "$files_json" | python3 -c 'import json,re,sys; sys.exit(0 if re.fullmatch(r"[0-9a-f]{16}", json.load(sys.stdin)["keyId"] or "") else 1)' || fail "the key id is not 16 hex characters"
+expect 0 "$(echo "$files_json" | json "['photos']")" "photos in a database that has never had one"
+expect 1 "$(sql "select count(*) from pg_proc where proname = 'kinship_media_exists'")" "migration 0021 left its start-up function"
+expect "t" "$(sql "select (obj_description('public'::regnamespace, 'pg_namespace') is null or obj_description('public'::regnamespace, 'pg_namespace') not like 'kinship-restore:%')")" "no restore marker before any restore"
+# The key is optional: take it away, and the api still starts, signs people in, and says why photos are off.
+file_key_line="$(grep '^FILE_ENCRYPTION_KEY=' "$work/.env" | tail -1 | cut -d= -f2-)"
+[ -n "$file_key_line" ] || fail "the test did not put a FILE_ENCRYPTION_KEY in .env"
+set_env FILE_ENCRYPTION_KEY ""
+compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start without a file key"
+expect key_missing "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state without a key"
+expect 200 "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" "${base}/api/people")" "the tree with photos off"
+set_env FILE_ENCRYPTION_KEY "$file_key_line"
+compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start with the file key back"
+expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state with the key back"
+save_logs
+
 # A release that already keeps an upgrade log (0.2.0-rc.1 on) wrote its own row for its fresh install, with from_schema NULL; the
 # rows that count here are the ones from an upgrade (from_schema set).
 if [ "$previous_schema" != "$top_schema" ]; then
