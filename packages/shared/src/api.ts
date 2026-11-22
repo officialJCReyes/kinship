@@ -30,9 +30,9 @@ export interface ApiVersion {
   webVersion: string | null;
 }
 
-/** Response of GET /api/health (HTTP 200 when ok, 503 when unavailable). */
+/** Response of GET /api/health (HTTP 200 when ok or during an in-app restore, 503 when unavailable). */
 export interface ApiHealth {
-  status: 'ok' | 'unavailable';
+  status: 'ok' | 'unavailable' | 'maintenance';
   database: 'ok' | 'unreachable';
 }
 

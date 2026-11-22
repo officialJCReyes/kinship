@@ -6,7 +6,7 @@
 import { createReadStream, lstatSync } from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { BACKUP_TICKET_SECONDS, parseBackupSettings } from '@kinship/shared';
+import { BACKUP_TICKET_SECONDS, parseBackupSettings, RESTORE_TICKET_SECONDS, RESTORE_WORD } from '@kinship/shared';
 import type {
   BackupListItem,
   BackupSettings,
@@ -14,6 +14,9 @@ import type {
   BackupStarted,
   DownloadTicket,
   DownloadTicketRequest,
+  RestoreCheck,
+  RestoreCheckRequest,
+  RestoreRequest,
 } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { MAX_PASSWORD_LENGTH, verifyPassword } from '../auth/passwords.js';
@@ -21,6 +24,10 @@ import { requireSuperAdmin } from '../auth/guards.js';
 import { findLogin } from '../auth/store.js';
 import { listBackups } from '../backup/archive.js';
 import type { Scheduler } from '../backup/scheduler.js';
+import { BackupError } from '../backup/errors.js';
+import { BackupFormatError } from '../backup/format.js';
+import { errorKindOf, RestoreRefused, safeDetail } from '../backup/restore-service.js';
+import type { RestoreService } from '../backup/restore-service.js';
 import { readBackupSettings, writeBackupSettings } from '../backup/settings.js';
 import { readState } from '../backup/state.js';
 import { ApiError } from '../errors.js';
@@ -31,6 +38,21 @@ import type { RouteDeps, RouteLimit } from './shared.js';
 export interface BackupService {
   scheduler: Scheduler;
   dir: string;
+  /** Restoring from the app (ADR 0031). Without it the restore routes answer 503 backup_unavailable. */
+  restore?: RestoreService;
+}
+
+interface Refusal {
+  status: 400 | 429;
+  body: Record<string, unknown>;
+  retryAfter?: number;
+}
+
+interface RestoreTicket {
+  userId: string;
+  sessionTokenHash: string;
+  name: string;
+  expires: number;
 }
 
 interface Ticket {
@@ -64,31 +86,32 @@ export function registerBackupRoutes(
     if (!service) throw unavailable();
     return service;
   };
-  // The signed-in person types their password again. It shares the failure limiters of changing a password. Returns the reply
-  // (already sent: 429 or 400) when the password is not accepted, or null when it is.
+  // The signed-in person types their password again. It shares the failure limiters of changing a password. Returns why it was not
+  // accepted (to send as the answer), or null when it was. It returns a plain value, never the reply: a reply is "thenable", and an
+  // async function that returns one waits for it and loses it.
   const reauthenticate = async (
     request: FastifyRequest,
-    reply: FastifyReply,
     user: { id: string; email: string },
     password: string,
-  ): Promise<FastifyReply | null> => {
+  ): Promise<Refusal | null> => {
     const wait = Math.max(limiters.passwordIp.retryAfterMs(request.ip), limiters.passwordAccount.retryAfterMs(user.id));
     if (wait > 0) {
       const seconds = retrySeconds(wait);
-      return reply
-        .code(429)
-        .header('Retry-After', String(seconds))
-        .send({ error: 'rate_limited', retryAfterSeconds: seconds });
+      return { status: 429, retryAfter: seconds, body: { error: 'rate_limited', retryAfterSeconds: seconds } };
     }
     const login = await findLogin(db, user.email);
     if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, password))) {
       limiters.passwordIp.recordFailure(request.ip);
       limiters.passwordAccount.recordFailure(user.id);
       await sleep(failureDelayMs);
-      return reply.code(400).send({ error: 'invalid_current_password' });
+      return { status: 400, body: { error: 'invalid_current_password' } };
     }
     limiters.passwordAccount.reset(user.id);
     return null;
+  };
+  const refuse = (reply: FastifyReply, refusal: Refusal): FastifyReply => {
+    if (refusal.retryAfter !== undefined) void reply.header('Retry-After', String(refusal.retryAfter));
+    return reply.code(refusal.status).send(refusal.body);
   };
   const sweepTickets = () => {
     for (const [key, ticket] of tickets) if (ticket.expires <= now()) tickets.delete(key);
@@ -169,8 +192,8 @@ export function registerBackupRoutes(
       if (!user || !sessionTokenHash) throw new ApiError(401, 'unauthenticated');
       const body = request.body as DownloadTicketRequest;
 
-      const refused = await reauthenticate(request, reply, user, body.password);
-      if (refused) return refused as never;
+      const refused = await reauthenticate(request, user, body.password);
+      if (refused) return refuse(reply, refused) as never;
 
       // The name must be one of OUR encrypted archives found by listing the folder; user input is never joined into a path.
       const found = listBackups(dir).find((item) => item.name === body.name && item.encrypted);
@@ -222,6 +245,115 @@ export function registerBackupRoutes(
         .header('Content-Disposition', `attachment; filename="${item.name}"`)
         .header('X-Content-Type-Options', 'nosniff');
       return reply.send(createReadStream(path));
+    },
+  );
+  // ---- Restore from the app (ADR 0031). Two steps: the check changes nothing; the restore needs the ticket, the typed word and the
+  // password again, and then pauses the site, replaces everything, and restarts the api. ----
+  const restoreTickets = new Map<string, RestoreTicket>();
+  const sweepRestoreTickets = () => {
+    for (const [key, ticket] of restoreTickets) if (ticket.expires <= now()) restoreTickets.delete(key);
+  };
+  const needRestore = (): RestoreService => {
+    const restore = need().restore;
+    if (!restore) throw unavailable();
+    return restore;
+  };
+  /** A refusal or failure of the check or the start, as an API answer: a code, and a sentence only when it holds no path. */
+  const restoreProblem = (error: unknown): never => {
+    if (error instanceof ApiError) throw error;
+    if (error instanceof RestoreRefused) {
+      if (error.code === 'not_found') throw notFound();
+      if (error.code === 'unavailable') throw unavailable();
+      throw new ApiError(409, 'restore_busy', { errorKind: error.code });
+    }
+    if (error instanceof BackupError && error.kind === 'busy') throw new ApiError(409, 'backup_busy');
+    if (error instanceof BackupError || error instanceof BackupFormatError) {
+      const detail = safeDetail(error);
+      throw new ApiError(400, 'restore_failed', { errorKind: errorKindOf(error), ...(detail ? { detail } : {}) });
+    }
+    throw error;
+  };
+
+  app.post(
+    '/api/admin/backups/restore-check',
+    {
+      // Opening and verifying an archive takes a moment of CPU (the passphrase key, the SHA-256 of the dump): a tighter limit.
+      config: { rateLimit: { ...limit.rateLimit, max: 6 } },
+      schema: {
+        body: {
+          type: 'object',
+          required: ['name'],
+          additionalProperties: false,
+          properties: { name: { type: 'string', maxLength: 128 } },
+        },
+      },
+    },
+    async (request): Promise<RestoreCheck> => {
+      const restore = needRestore();
+      const user = request.user;
+      const sessionTokenHash = request.sessionTokenHash;
+      if (!user || !sessionTokenHash) throw new ApiError(401, 'unauthenticated');
+      const { name } = request.body as RestoreCheckRequest;
+      const facts = await restore.check(name).catch(restoreProblem);
+      // Was this account created after the backup was made? Then it is not in the backup.
+      const mine = await request.withTransaction((trx) =>
+        trx.selectFrom('users').select('created_at').where('id', '=', user.id).executeTakeFirst(),
+      );
+      const ownAccountMissing = mine ? mine.created_at.getTime() > new Date(facts.createdAt).getTime() : false;
+      sweepRestoreTickets();
+      const ticket = randomBytes(32).toString('base64url');
+      const expires = now() + RESTORE_TICKET_SECONDS * 1000;
+      restoreTickets.set(ticketKey(ticket), { userId: user.id, sessionTokenHash, name, expires });
+      return {
+        ticket,
+        expiresAt: new Date(expires).toISOString(),
+        name,
+        createdAt: facts.createdAt,
+        appVersion: facts.appVersion,
+        schema: facts.manifest.schema,
+        pendingMigrations: facts.pendingMigrations,
+        newerApp: facts.newerApp,
+        accounts: facts.accounts,
+        ownAccountMissing,
+      };
+    },
+  );
+
+  app.post(
+    '/api/admin/backups/restore',
+    {
+      config: limit,
+      schema: {
+        body: {
+          type: 'object',
+          required: ['ticket', 'word', 'password'],
+          additionalProperties: false,
+          properties: {
+            ticket: { type: 'string', maxLength: 100 },
+            word: { type: 'string', maxLength: 32 },
+            password: { type: 'string', maxLength: MAX_PASSWORD_LENGTH },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const restore = needRestore();
+      const user = request.user;
+      const sessionTokenHash = request.sessionTokenHash;
+      if (!user || !sessionTokenHash) throw new ApiError(401, 'unauthenticated');
+      const body = request.body as RestoreRequest;
+      // Checked here, not only by the button: the word, then the password. Neither spends the ticket.
+      if (body.word !== RESTORE_WORD) throw new ApiError(400, 'invalid_restore_word');
+      const refused = await reauthenticate(request, user, body.password);
+      if (refused) return refuse(reply, refused);
+      const key = ticketKey(body.ticket);
+      const found = restoreTickets.get(key);
+      restoreTickets.delete(key);
+      if (!found || found.expires <= now() || found.userId !== user.id || found.sessionTokenHash !== sessionTokenHash) {
+        throw new ApiError(400, 'restore_ticket_invalid');
+      }
+      await restore.start({ name: found.name, userId: user.id }).catch(restoreProblem);
+      return reply.code(202).send({ started: true });
     },
   );
 }

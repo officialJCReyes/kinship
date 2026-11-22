@@ -149,6 +149,16 @@ export async function applyArchive(
   const psqlDone = exited(psql);
   for (const stream of [pgRestore.stdin, psql.stdin]) stream?.on('error', () => undefined);
   tar.stdout?.pipe(pgRestore.stdin as Writable);
+  // If pg_restore ends before it has read everything (it crashed, or it was refused), tar would block on a pipe nobody reads and the
+  // whole restore would hang. Stop it: pg_restore's own exit code already tells the story.
+  void restoreDone
+    .then(() => {
+      tar.stdout?.unpipe();
+      // Drained (not just left alone): the child's 'close' waits for its output to end.
+      tar.stdout?.resume();
+      tar.kill();
+    })
+    .catch(() => undefined);
 
   const input = psql.stdin as Writable;
   // Writes with back-pressure, and stops waiting if psql has already gone (then its exit code tells the story).
