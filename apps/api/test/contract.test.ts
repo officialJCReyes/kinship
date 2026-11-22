@@ -84,6 +84,7 @@ describe('error codes and messages', () => {
 // (a compile error otherwise) and must match the real tables (a test failure otherwise).
 const peopleColumns = [
   'id',
+  'photo_media_id',
   'given_name',
   'surname',
   'second_surname',
@@ -159,13 +160,30 @@ const userColumns = [
   'created_at',
   'updated_at',
 ] as const satisfies ReadonlyArray<keyof Database['users']>;
+const mediaColumns = [
+  'id',
+  'storage_id',
+  'avatar_storage_id',
+  'mime',
+  'size',
+  'avatar_size',
+  'width',
+  'height',
+  'taken_on',
+  'key_id',
+  'uploaded_by',
+  'created_at',
+] as const satisfies ReadonlyArray<keyof Database['media_files']>;
+const mediaPeopleColumns = ['media_id', 'person_id'] as const satisfies ReadonlyArray<keyof Database['media_people']>;
 type Missing<T, L extends readonly string[]> = Exclude<keyof T, L[number]>;
 const complete: [
   Missing<Database['people'], typeof peopleColumns>,
   Missing<Database['unions'], typeof unionColumns>,
   Missing<Database['person_parents'], typeof parentColumns>,
   Missing<Database['users'], typeof userColumns>,
-] extends [never, never, never, never]
+  Missing<Database['media_files'], typeof mediaColumns>,
+  Missing<Database['media_people'], typeof mediaPeopleColumns>,
+] extends [never, never, never, never, never, never]
   ? true
   : false = true;
 
@@ -185,5 +203,7 @@ describe('database types', () => {
     expect(await columnsOf('unions')).toEqual([...unionColumns].sort());
     expect(await columnsOf('person_parents')).toEqual([...parentColumns].sort());
     expect(await columnsOf('users')).toEqual([...userColumns].sort());
+    expect(await columnsOf('media_files')).toEqual([...mediaColumns].sort());
+    expect(await columnsOf('media_people')).toEqual([...mediaPeopleColumns].sort());
   });
 });

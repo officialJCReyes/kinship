@@ -4,7 +4,7 @@
 - Date: 2026-11-22
 - Builds on: [0014 Built-in backups, and the api's use of the owner role](0014-backup-and-owner-access.md), [0021 Optional AI features](0021-optional-ai-features.md)
 - Part of step 37 (profile photos and encrypted media, release 0.3.0). This record covers the key, the format and the storage; the table and the sweeper join it in the next part, and photos themselves are [0034](0034-photos-and-media.md) (later).
-- No migration in this part.
+- Migration **0021** (media tables) arrived with the second part; its section is at the end.
 
 ## Context
 
@@ -45,3 +45,21 @@ then chunks of 64 KiB:  length (u32 big endian) | ciphertext | 16-byte GCM tag
 - 0.3.0 is no longer an image-only update for an existing install: it needs a key in `.env` and the bind mount in `compose.yml` before photos work. UPGRADE.md says so. The key is optional, so nothing breaks for someone who does not follow it (no `feat!:` is needed; the release pipeline only demands an UPGRADE section for a breaking commit or lists a migration, and this block exists either way).
 - The e2e stack and the upgrade test must create the folder and a key.
 - Backups keep working unchanged; carrying the files in them is the next part (backup lists files from the snapshot), and **restore-with-files must exist before any file can be created** (#205, ADR 0035).
+
+## The media tables, the store and the sweeper (part 37b)
+
+### Migration 0021 (forward-only, additive; the previous release ignores it)
+- `media_files`: id, `storage_id` and `avatar_storage_id` (the two files of one photo: **one file per variant**, each 32 random hex characters, unique), `mime` (JPEG, PNG or WebP only), `size` and `avatar_size` (bytes on disk), `width`, `height`, **`taken_on`**, `key_id` (16 hex), `uploaded_by` (SET NULL), `created_at`. The prompt's column list had one storage id; a second is needed because each variant is its own file.
+- **`taken_on` is `public.partial_date`**, the domain people's dates already use (`YYYY`, `YYYY-MM` or `YYYY-MM-DD`, stored as typed; migration 0003), and NULL is valid. A photo has no `before`/`about`/`after` precision (EXIF is a plain date and the person typing it is giving a date, not a claim); that is the one place it is narrower than a person's date, and it needs no new column if it is ever wanted.
+- `media_people(media_id, person_id)`, both ON DELETE CASCADE, the pair is the primary key.
+- `people.photo_media_id` with **two foreign keys**: to `media_files` (SET NULL) and a composite `(photo_media_id, id)` to `media_people` (SET NULL on the column). The second makes the database itself refuse a profile photo that is not linked to that person, and clears it when the link or the photo goes. It has its own column GRANT (`people` uses column grants).
+- **Privileges:** 0001's default privileges give the app role everything on a new table, so 0021 revokes all and grants only what is used: `media_files` SELECT, DELETE, INSERT of the listed columns and UPDATE of `taken_on` alone; `media_people` SELECT, INSERT, DELETE. A test proves a `width` update is refused.
+- **Row-level security, forced:** SELECT for every signed-in role. INSERT into `media_files` for an admin or a Member with `uploaded_by` = the signed-in account (Users never). UPDATE (the date) and DELETE for admins or the uploader; the uploader must still be a Member or admin (a demoted account cannot delete or edit). Link rows follow **`kinship_can_edit_person`** (new helper `kinship_can_edit_person_id`): admins; a Member for their own person and people in their line that they added. Raw-SQL tests run the whole matrix.
+- Three small SECURITY DEFINER functions (`kinship_media_exists`, `kinship_media_key_ids`, `kinship_media_storage_ids`, EXECUTE for the app role only) answer what start-up and the sweeper must ask with nobody signed in, where row-level security would show an empty table.
+
+### The store (`src/files/objects.ts`, `src/media/store.ts`)
+- The object store writes through `tmp/` (exclusive create, fsync, rename) so a file appears whole or not at all, and accepts only a name that is exactly 32 lowercase hex characters, so no caller can reach outside `objects/`.
+- The row functions take the request's transaction. Deleting returns the storage ids, and **the files are removed after the commit**: a rolled-back delete never loses a file, and a failed removal leaves an orphan for the sweeper. A person delete first deletes the photos that show only that person (a photo shared with someone else stays), then the person.
+
+### The sweeper
+Hourly, in the existing job runner. It removes an object file no row names only when it is **older than one hour** and not inside a **hold**: a DB-only restore writes `<files>/.sweep-hold` with a time seven days ahead (written by the restore part), and nothing is removed until then. It also clears `tmp/` leftovers older than an hour. It does nothing unless the files state is `ready`, and does nothing while the backup lock is held. The lock is only probed, not kept: an in-app restore pauses the job runner and the command line runs with the api stopped, so nothing else changes the folder during a sweep, and holding the lock would make a scheduled backup find it busy.
