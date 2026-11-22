@@ -62,6 +62,7 @@ const toRelPerson = (row: Parameters<typeof toPerson>[0]): RelPerson => {
     deceased: person.deceased,
     death: person.death,
     isPlaceholder: person.isPlaceholder,
+    photoMediaId: person.photoMediaId,
   };
 };
 

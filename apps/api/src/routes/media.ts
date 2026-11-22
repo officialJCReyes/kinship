@@ -100,12 +100,13 @@ export function registerMediaRoutes(app: FastifyInstance, options: MediaRouteOpt
 
   /** Photos can be used right now? Looks at the folder again before saying no, so fixing a mount needs no restart. */
   const ready = async (forUpload: boolean): Promise<FilesService> => {
-    if (!files) throw new ApiError(503, 'files_unavailable');
+    if (!files) throw new ApiError(503, 'files_unavailable', { reason: 'key_missing' });
     const usable = () => (forUpload ? files.acceptsUploads() : files.usable());
     // An upload looks again every time (a key that stopped matching the stored photos must refuse it); showing a picture only
     // looks again after a "no".
     if (forUpload || !usable()) await files.refresh();
-    if (!usable()) throw new ApiError(503, 'files_unavailable');
+    // `reason` says which of the three it is (key_missing, files_unavailable, key_mismatch), so the page can say what to do.
+    if (!usable()) throw new ApiError(503, 'files_unavailable', { reason: files.status().state });
     return files;
   };
 
@@ -142,7 +143,7 @@ export function registerMediaRoutes(app: FastifyInstance, options: MediaRouteOpt
       const body = request.body;
       const processed = await processImage(Buffer.isBuffer(body) ? body : Buffer.alloc(0));
       const keys = store.keys();
-      if (!keys) throw new ApiError(503, 'files_unavailable');
+      if (!keys) throw new ApiError(503, 'files_unavailable', { reason: 'key_missing' });
       const objects = createObjectStore(store.dir, () => keys);
       const written: string[] = [];
       try {
@@ -256,7 +257,8 @@ export function registerMediaRoutes(app: FastifyInstance, options: MediaRouteOpt
       const row = await request.withTransaction((trx) => getMedia(trx, id));
       if (!row) throw notFound('photo_not_found');
       const keys = service.keys();
-      if (!keys || row.keyId !== keys.keyId.toString('hex')) throw new ApiError(503, 'files_unavailable');
+      if (!keys || row.keyId !== keys.keyId.toString('hex'))
+        throw new ApiError(503, 'files_unavailable', { reason: 'key_mismatch' });
       const objects = createObjectStore(service.dir, () => keys);
       let bytes: Buffer;
       try {

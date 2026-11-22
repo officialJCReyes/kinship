@@ -858,6 +858,7 @@ export type RelPerson = Pick<
   | 'deceased'
   | 'death'
   | 'isPlaceholder'
+  | 'photoMediaId'
 >;
 
 /** A custom label between the pair, from the first person's side (ADR 0009). */

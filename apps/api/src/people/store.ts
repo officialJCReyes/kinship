@@ -397,16 +397,19 @@ export async function countUnionChildren(trx: Trx, unionId: string): Promise<num
 
 /** What deleting this person would change, for the confirm prompt. */
 export async function deletePreview(trx: Trx, personId: string): Promise<DeletePreview> {
-  const result = await sql<{ unions: string; children: string }>`
+  const result = await sql<{ unions: string; children: string; photos: string }>`
     select
       (select count(*) from unions where partner_a_id = ${personId} or partner_b_id = ${personId}) as unions,
       (select count(*) from person_parents pp
         where pp.parent_id = ${personId}
-           or pp.union_id in (select id from unions where partner_a_id = ${personId} or partner_b_id = ${personId})) as children`.execute(
+           or pp.union_id in (select id from unions where partner_a_id = ${personId} or partner_b_id = ${personId})) as children,
+      (select count(*) from media_files m
+        where exists (select 1 from media_people mp where mp.media_id = m.id and mp.person_id = ${personId}::uuid)
+          and not exists (select 1 from media_people mp where mp.media_id = m.id and mp.person_id <> ${personId}::uuid)) as photos`.execute(
     trx,
   );
   const row = result.rows[0];
-  return { unions: Number(row?.unions ?? 0), children: Number(row?.children ?? 0) };
+  return { unions: Number(row?.unions ?? 0), children: Number(row?.children ?? 0), photos: Number(row?.photos ?? 0) };
 }
 
 export async function personHasAccount(trx: Trx, personId: string): Promise<boolean> {

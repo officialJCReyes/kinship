@@ -333,6 +333,8 @@ export interface DeletePreview {
   unions: number;
   /** Children who would keep one parent instead of two, or lose their only parent. */
   children: number;
+  /** Photos that show only this person: they are deleted with them (a photo of someone else too stays). */
+  photos: number;
 }
 
 export interface AddParentRequest {
