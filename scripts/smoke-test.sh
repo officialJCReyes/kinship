@@ -39,6 +39,10 @@ fail() { printf '\nFAILED: %s\n' "$*" >&2; compose logs --no-color --tail 60 >&2
 cleanup() {
   if [ "${KEEP:-0}" = "1" ]; then echo "KEEP=1: leaving the stack running (project $project, files in $work)"; return; fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  # The photo files belong to the api's user (uid 1000) in folders only it can open: empty them from a container, as root.
+  if [ -d "$work/data/files" ]; then
+    docker run --rm -v "$work/data/files:/files" --entrypoint sh node:26-alpine -c 'find /files -mindepth 1 -delete' >/dev/null 2>&1 || true
+  fi
   rm -rf "$work"
 }
 trap cleanup EXIT
