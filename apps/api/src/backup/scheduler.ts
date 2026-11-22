@@ -42,6 +42,12 @@ export interface Scheduler {
   startTest(): boolean;
   status(now?: Date): Promise<BackupStatus>;
   readonly running: boolean;
+  /**
+   * An in-app restore is about to replace the database: no new scheduled or manual backup or test starts until `resume()`
+   * (they answer "busy"). One that is already running is not interrupted: `running` says so.
+   */
+  pause(): void;
+  resume(): void;
 }
 
 const id = () => randomBytes(6).toString('hex');
@@ -79,6 +85,7 @@ export function createScheduler(
   let timer: NodeJS.Timeout | undefined;
   let first: NodeJS.Timeout | undefined;
   let busy = false;
+  let paused = false;
 
   const settings = async (): Promise<BackupSettings> => {
     const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 1);
@@ -153,7 +160,7 @@ export function createScheduler(
   }
 
   async function tick(now = new Date()): Promise<void> {
-    if (busy) return;
+    if (busy || paused) return;
     if (!config.backup.enabled || passphraseState(config.backup.passphrase) !== 'ok') return;
     let s: BackupSettings;
     try {
@@ -171,11 +178,15 @@ export function createScheduler(
     const lastRun = state.runs[0];
     if (lastRun && !lastRun.ok && now.getTime() - new Date(lastRun.finishedAt).getTime() < RETRY_AFTER_FAILURE_MS)
       return;
+    // Marked busy while it runs, so a restore asked for in the meantime sees it and does not start (and the page shows it).
+    busy = true;
     try {
       await perform('scheduled', s);
     } catch (error) {
       // Busy: another api container or the command line is making one. Not a failure.
       log('info', 'scheduled backup skipped', { reason: sanitized(error).message });
+    } finally {
+      busy = false;
     }
   }
 
@@ -194,7 +205,7 @@ export function createScheduler(
       if (timer) clearInterval(timer);
     },
     async runNow() {
-      if (busy) throw new BackupError('busy', 'A backup is already running.');
+      if (busy || paused) throw new BackupError('busy', 'A backup is already running.');
       busy = true;
       try {
         return await perform('manual', await settings());
@@ -203,7 +214,7 @@ export function createScheduler(
       }
     },
     async testLatest() {
-      if (busy) throw new BackupError('busy', 'A backup or test is already running.');
+      if (busy || paused) throw new BackupError('busy', 'A backup or test is already running.');
       const newest = listBackups(dir).find((i) => i.kind === 'manual');
       if (!newest) throw new BackupError('archive', 'There is no backup to test yet.');
       busy = true;
@@ -224,7 +235,7 @@ export function createScheduler(
       }
     },
     startRun() {
-      if (busy) return false;
+      if (busy || paused) return false;
       // runNow sets the busy flag before its first await, so a second click right after this one sees it.
       this.runNow().catch((error: unknown) =>
         log('warn', 'the manual backup did not start', { reason: sanitized(error).message }),
@@ -232,7 +243,7 @@ export function createScheduler(
       return true;
     },
     startTest() {
-      if (busy) return false;
+      if (busy || paused) return false;
       this.testLatest().catch((error: unknown) =>
         log('warn', 'the backup test did not run', { reason: sanitized(error).message }),
       );
@@ -290,6 +301,12 @@ export function createScheduler(
     },
     get running() {
       return busy;
+    },
+    pause() {
+      paused = true;
+    },
+    resume() {
+      paused = false;
     },
   };
 }

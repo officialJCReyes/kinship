@@ -270,7 +270,72 @@ export interface DownloadTicket {
 
 export const BACKUP_TICKET_SECONDS = 30;
 
+// ---- restoring from the app (ADR 0031) ----
+
+/** The word the SuperAdmin types to confirm a restore. Checked by the server too. */
+export const RESTORE_WORD = 'RESTORE';
+/** The check's ticket is single use, valid this long, and bound to this session and this file. */
+export const RESTORE_TICKET_SECONDS = 60;
+
+/** Where an in-app restore is, for the maintenance page. `idle`: nothing is happening (the site is serving). */
+export const MAINTENANCE_PHASES = ['idle', 'pausing', 'safety_copy', 'replacing', 'migrating', 'finishing'] as const;
+export type MaintenancePhase = (typeof MAINTENANCE_PHASES)[number];
+
+/** POST /api/admin/backups/restore-check: which archive. Nothing is changed and nobody is signed out by asking. */
+export interface RestoreCheckRequest {
+  name: string;
+}
+
+/** What a person is told about an archive before they confirm. The ticket is spent by POST /api/admin/backups/restore. */
+export interface RestoreCheck {
+  ticket: string;
+  expiresAt: string;
+  /** The listed archive's file name. */
+  name: string;
+  /** When the backup was made (ISO) and by which KinShip version and database schema. */
+  createdAt: string;
+  appVersion: string;
+  schema: number;
+  /** Newer database changes that will be applied after the restore. */
+  pendingMigrations: number;
+  /** The backup was made by a newer KinShip version than this one (it can still be read). */
+  newerApp: boolean;
+  /** Accounts in the backup. 0: the app returns to first-run setup. */
+  accounts: number;
+  /** The signed-in account was created after this backup was made, so it is not in it. */
+  ownAccountMissing: boolean;
+}
+
+/** POST /api/admin/backups/restore: the ticket from the check, the word, and the password again. Answers 202. */
+export interface RestoreRequest {
+  ticket: string;
+  word: string;
+  password: string;
+}
+
+/** How the last in-app restore ended, as the public maintenance endpoint tells it: no ids, emails or paths. */
+export interface LastRestore {
+  ok: boolean;
+  kind: RestoreResultKind;
+  finishedAt: string;
+  /** The generated name of the safety copy of what was there before, when one was made. */
+  safetyCopy?: string;
+}
+
+/** GET /api/maintenance (public, no database): where a restore is, and how the last one ended. */
+export interface MaintenanceStatus {
+  phase: MaintenancePhase;
+  /** When this phase began, or null when idle. */
+  since: string | null;
+  lastRestore?: LastRestore;
+}
+
 export const BACKUP_ERROR_CODES = [
+  'restore_busy',
+  'restore_failed',
+  'restore_ticket_invalid',
+  'invalid_restore_word',
+  'maintenance',
   'backup_busy',
   'backup_not_found',
   'backup_unavailable',
@@ -286,4 +351,6 @@ export const BACKUP_ROUTES = [
   { method: 'PATCH', path: '/api/admin/backups/settings', access: 'superadmin' },
   { method: 'POST', path: '/api/admin/backups/download-ticket', access: 'superadmin' },
   { method: 'GET', path: '/api/admin/backups/download', access: 'superadmin' },
+  { method: 'POST', path: '/api/admin/backups/restore-check', access: 'superadmin' },
+  { method: 'POST', path: '/api/admin/backups/restore', access: 'superadmin' },
 ] as const;

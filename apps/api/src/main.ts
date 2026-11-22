@@ -7,6 +7,8 @@ import { createAppDb } from './db.js';
 import { migrateWithSafetyCopy, SafetyCopyError } from './backup/upgrade.js';
 import { readVersion } from './version.js';
 import { backupHousekeeping, createScheduler } from './backup/scheduler.js';
+import { createRestoreService, lastRestoreOf, reconcileRestores } from './backup/restore-service.js';
+import { createMaintenance } from './maintenance.js';
 import { createJobRunner } from './jobs/runner.js';
 import { createUpdateChecker } from './updates/checker.js';
 import { loadBundledDocs } from './updates/docs.js';
@@ -55,7 +57,7 @@ async function main(): Promise<void> {
   // 2. As the app role: serve requests.
   const db = createAppDb(config.db);
   await prepareSetupToken(db, config.publicUrl, (text) => console.log(text));
-  const stopCleanup = scheduleSessionCleanup(db, log);
+  let stopCleanup = scheduleSessionCleanup(db, log);
   // Built-in backups: the schedule runs in this process. It needs a usable passphrase; without one it stays off (see above).
   const backupCtx = {
     config,
@@ -65,6 +67,8 @@ async function main(): Promise<void> {
       console.log(JSON.stringify({ level, time: Date.now(), msg: message, ...fields })),
   };
   void backupHousekeeping(backupCtx);
+  // A restore that was started and never ended (the api was killed) left the data as it was; say so.
+  await reconcileRestores(config.backup.dir, backupCtx.log);
   const scheduler = createScheduler(backupCtx);
   // The api's own periodic jobs share one runner: the backup schedule and the daily update check. The update check reads GitHub's
   // public release list through HTTPS_PROXY when that is set (ADR 0015), and sends nothing about this installation.
@@ -75,15 +79,43 @@ async function main(): Promise<void> {
   jobs.register(checker.job);
   jobs.start();
 
+  // In-app restore (ADR 0031): the maintenance gate, and the service that pauses everything, replaces the database and exits so
+  // Docker starts a fresh api. `app` is created below; the service reaches it through this holder.
+  const maintenance = createMaintenance({ lastRestore: () => lastRestoreOf(config.backup.dir) });
+  const holder: { app?: ReturnType<typeof buildApp> } = {};
+  const restore = createRestoreService({
+    ctx: backupCtx,
+    maintenance,
+    scheduler,
+    async pause() {
+      jobs.pause();
+      stopCleanup();
+      return jobs.idle(30_000);
+    },
+    resume() {
+      jobs.resume();
+      stopCleanup = scheduleSessionCleanup(db, log);
+    },
+    closePool: () => db.destroy(),
+    closeIdle: () => holder.app?.server.closeIdleConnections(),
+    exit: (code) => {
+      // Let the last log lines and the answer to the page's poll go out, then end the process.
+      setTimeout(() => process.exit(code), 500).unref();
+    },
+  });
+
   const app = buildApp({
     db,
     version,
     logLevel: config.logLevel,
     trustProxy: config.trustProxy,
-    backups: { scheduler, dir: config.backup.dir },
+    maintenance,
+    backups: { scheduler, dir: config.backup.dir, restore },
     updates: { checker, docs: loadBundledDocs() },
     sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
   });
+
+  holder.app = app;
 
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`${signal} received, shutting down`);

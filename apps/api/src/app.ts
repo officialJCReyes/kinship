@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { WEB_VERSION_HEADER } from '@kinship/shared';
-import type { ApiHealth, ApiVersion, VersionMismatch } from '@kinship/shared';
+import type { ApiHealth, ApiVersion, MaintenanceStatus, VersionMismatch } from '@kinship/shared';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
@@ -22,6 +22,7 @@ import { registerLabelRoutes } from './routes/labels.js';
 import { registerLinkRoutes } from './routes/links.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import type { RouteLimit } from './routes/shared.js';
+import type { Maintenance } from './maintenance.js';
 import { registerBackupRoutes } from './routes/backups.js';
 import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
@@ -44,6 +45,8 @@ declare module 'fastify' {
 }
 
 export interface AppOptions {
+  /** Maintenance mode for an in-app restore. Without it the gate is off and /api/maintenance always says idle. */
+  maintenance?: Maintenance;
   /** The backup scheduler and folder, for Admin > Backups. Without it those routes answer 503. */
   backups?: BackupService;
   /** The update check and the bundled changelog, for Admin > Updates and What's new. Without it those routes do not exist. */
@@ -137,6 +140,22 @@ export function buildApp(options: AppOptions): FastifyInstance {
     return withUserTransaction(db, this.user?.id ?? null, fn);
   });
 
+  // The maintenance gate (ADR 0031), first of all. While an in-app restore pauses the site, everything but these three answers 503
+  // "maintenance". A request that gets past it is counted until it ends, so the restore can wait for it before the pool is closed.
+  const maintenance = options.maintenance;
+  if (maintenance) {
+    app.addHook('onRequest', async (request, reply) => {
+      const path = request.url.split('?')[0];
+      if (path === '/api/health' || path === '/api/version' || path === '/api/maintenance') return;
+      if (maintenance.active()) {
+        void reply.header('Cache-Control', 'no-store').header('Retry-After', '5');
+        return reply.code(503).send({ error: 'maintenance', phase: maintenance.phase() });
+      }
+      const end = maintenance.begin();
+      reply.raw.once('close', end);
+    });
+  }
+
   // 0. The web container and this api must be the same version (ADR 0015). nginx adds the web's version to every request it passes
   // on; a different one gets a 503 for everything except the health and version checks, so a half-updated install fails loudly
   // instead of misbehaving. A request without the header (the dev server, a script) is not checked.
@@ -205,6 +224,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
   });
 
   app.get('/api/health', async (request, reply) => {
+    // During an in-app restore the app's database pool is closed on purpose: 200, so nothing restarts the container.
+    if (maintenance?.active()) return { status: 'maintenance', database: 'ok' } satisfies ApiHealth;
     try {
       await sql`select 1`.execute(db);
       return { status: 'ok', database: 'ok' } satisfies ApiHealth;
@@ -212,6 +233,18 @@ export function buildApp(options: AppOptions): FastifyInstance {
       request.log.error({ err: error }, 'health check: database unreachable');
       return reply.code(503).send({ status: 'unavailable', database: 'unreachable' } satisfies ApiHealth);
     }
+  });
+
+  // Public, no database, no session: people are signed out during a restore. Phase and time, and how the last restore ended.
+  void app.register(async (routes) => {
+    routes.get(
+      '/api/maintenance',
+      { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+      async (_request, reply): Promise<MaintenanceStatus> => {
+        void reply.header('Cache-Control', 'no-store');
+        return maintenance?.status() ?? { phase: 'idle', since: null };
+      },
+    );
   });
 
   // Public. The schema number comes from the database; if that is unreachable the version still answers.

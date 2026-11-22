@@ -18,6 +18,11 @@ export interface JobRunner {
   tick(now?: Date): Promise<void>;
   start(): void;
   stop(): void;
+  /** No job starts until `resume()`. One that is running is not interrupted: `idle()` waits for it. */
+  pause(): void;
+  resume(): void;
+  /** Resolves true when no job is running, false when `timeoutMs` passed first. */
+  idle(timeoutMs: number): Promise<boolean>;
 }
 
 export const TICK_MS = 60_000;
@@ -27,10 +32,12 @@ export const START_DELAY_MS = 2 * 60_000;
 export function createJobRunner(log: JobLog, options: { tickMs?: number; startDelayMs?: number } = {}): JobRunner {
   const jobs: Job[] = [];
   const running = new Set<string>();
+  let paused = false;
   let first: NodeJS.Timeout | undefined;
   let timer: NodeJS.Timeout | undefined;
 
   async function tick(now = new Date()): Promise<void> {
+    if (paused) return;
     await Promise.all(
       jobs.map(async (job) => {
         if (running.has(job.name)) return;
@@ -63,6 +70,20 @@ export function createJobRunner(log: JobLog, options: { tickMs?: number; startDe
     stop() {
       if (first) clearTimeout(first);
       if (timer) clearInterval(timer);
+    },
+    pause() {
+      paused = true;
+    },
+    resume() {
+      paused = false;
+    },
+    async idle(timeoutMs) {
+      const deadline = Date.now() + timeoutMs;
+      while (running.size > 0) {
+        if (Date.now() >= deadline) return false;
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+      return true;
     },
   };
 }
