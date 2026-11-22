@@ -342,6 +342,32 @@ describe('the media rows, the start-up questions and the sweeper', () => {
       expect(after.removed).toEqual([orphan.storageId]);
     });
 
+    it('refuses to delete anything, and says why, when no row uses any file but the folder holds files', async () => {
+      const s = setup();
+      // A fresh database with no photo rows at all.
+      const empty = await createTestDatabase();
+      try {
+        await ensureAppRole(empty.owner, empty.config.appUser, empty.config.appPassword);
+        await runMigrations(empty.owner, { dir: realMigrationsDir, appRole: empty.config.appUser });
+        const emptyApp = empty.track(createAppDb(empty.config));
+        const stray = s.store.put(Buffer.from('a file and no rows'));
+        age(s.store.pathOf(stray.storageId), 3 * HOUR_MS);
+        await s.service.refresh();
+        const logs: string[] = [];
+        const result = await sweepOrphans({
+          db: emptyApp,
+          files: s.service,
+          objects: s.store,
+          log: (level, message) => logs.push(`${level}: ${message}`),
+        });
+        expect(result).toMatchObject({ skipped: 'no_rows_but_files', removed: [] });
+        expect(s.store.exists(stray.storageId)).toBe(true);
+        expect(logs.join('\n')).toMatch(/warn: the files sweep did nothing: the database says no photo uses any file/);
+      } finally {
+        await empty.cleanup();
+      }
+    });
+
     it('an unreadable or empty hold file is no hold', () => {
       const s = setup();
       expect(holdUntil(s.dir)).toBe(0);

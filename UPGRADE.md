@@ -4,7 +4,7 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 ## Unreleased (will become 0.3.0)
 
-**0.3.0 changes the database and some settings.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0020.tar.enc`) and then applies the migrations.
+**0.3.0 changes the database and some settings.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0022.tar.enc`) and then applies the migrations.
 
 ### Photos need a key and a folder: set them up before you rely on photos
 
@@ -36,7 +36,7 @@ There is no setting to turn file encryption off. If the key in `.env` is not the
 
 ### API changes
 
-Migrations 0018, 0019 and 0020 change the database; the safety copy's name ends in `-to-0020`. Migration 0018 adds four columns to `users`. `GET /api/auth/me`, the sign-in response, `PATCH /api/auth/me` and the `settings` object of `POST /api/setup` gain `treeWheel` (`zoom` or `scroll`), `treeDefaultView` (`family`, `pedigree`, `fan` or `descendants`), `showExtendedRelatives` and `showDeceasedMark` (booleans). New error codes: `invalid_tree_wheel`, `invalid_tree_default_view`, `invalid_show_extended_relatives`, `invalid_show_deceased_mark`. `GET /api/tree/:id` accepts `collateral=siblings` (the person's siblings and half-siblings with their partners and descendants, without aunts, uncles and cousins); `collateral=true` keeps its meaning.
+Migrations 0018 to 0022 change the database; the safety copy's name ends in `-to-0022`. Migration 0018 adds four columns to `users`. `GET /api/auth/me`, the sign-in response, `PATCH /api/auth/me` and the `settings` object of `POST /api/setup` gain `treeWheel` (`zoom` or `scroll`), `treeDefaultView` (`family`, `pedigree`, `fan` or `descendants`), `showExtendedRelatives` and `showDeceasedMark` (booleans). New error codes: `invalid_tree_wheel`, `invalid_tree_default_view`, `invalid_show_extended_relatives`, `invalid_show_deceased_mark`. `GET /api/tree/:id` accepts `collateral=siblings` (the person's siblings and half-siblings with their partners and descendants, without aunts, uncles and cousins); `collateral=true` keeps its meaning.
 
 Migration 0019 adds `users.disabled_at` (null while the account is active), account functions, and two triggers that refuse to demote, disable or delete the last active SuperAdmin, **whoever runs the SQL**: if you ever edit the `users` table by hand and need to, `ALTER TABLE users DISABLE TRIGGER users_keep_a_superadmin_update` (and `..._delete`). Nothing else changes for scripts. New routes, all admin-only: `PATCH /api/admin/accounts/:id/role` (`{role, currentRole}`), `POST /api/admin/accounts/:id/disable` and `/enable`, `GET /api/admin/accounts/:id/delete-preview` and `POST /api/admin/accounts/:id/delete` (`{confirmEmail}`; a body, not a URL). Each row of `GET /api/admin/accounts` gains `allowedRoles`, `disabledAt`, `canDisable`, `canDelete` and `lastSuperAdmin`, and a `status` of `disabled`. New error codes: `self_not_allowed`, `last_superadmin`, `account_role_changed`, `account_disabled`, `account_not_disabled`, `confirmation_mismatch`.
 
