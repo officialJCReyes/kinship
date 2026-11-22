@@ -224,8 +224,9 @@ upload_out="$(curl -s -w '\n%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "
 upload_code="${upload_out##*$'\n'}"; upload_body="${upload_out%$'\n'*}"
 expect 201 "$upload_code" "the upload after the upgrade ($upload_body)"
 photo_id="$(echo "$upload_body" | json "['photo']['id']")"
-expect 2 "$(find "$work/data/files/objects" -type f | wc -l | tr -d ' ')" "files on disk after one upload (full size and avatar)"
-if grep -q 'PNG' "$(find "$work/data/files/objects" -type f | head -1)"; then fail "a stored photo file is not encrypted"; fi
+expect 2 "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after one upload (full size and avatar)"
+# The files folder belongs to the api's user, so look inside the container.
+if compose exec -T api sh -c 'grep -rlE "IHDR|PNG" /var/lib/kinship/files/objects' | grep -q .; then fail "a stored photo file is not encrypted"; fi
 curl -s -b "$jar" -o "$work/avatar.png" -w '%{http_code} %{content_type}\n' "${base}/api/media/${photo_id}/avatar" | grep -q '^200 image/png$' || fail "the avatar was not served as a PNG"
 [ "$(head -c 8 "$work/avatar.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] || fail "the served avatar is not a PNG"
 avatar_sum="$(openssl dgst -sha256 "$work/avatar.png" | awk '{print $NF}')"
@@ -343,7 +344,7 @@ fi
 step "Restore the backup WITH photos on a brand-new machine: empty database, empty files folder, only the file, .env and compose.yml"
 save_logs
 compose down --volumes >/dev/null
-find "$work/data/files" -mindepth 1 -delete
+compose run --rm -T --entrypoint sh api -c 'find /var/lib/kinship/files -mindepth 1 -delete'
 [ -f "$work/data/backups/${with_files}" ] || fail "the backup with photos disappeared with the stack"
 compose up -d db --wait --wait-timeout 120
 restore_out="$(compose run --rm -T api kinship restore "${with_files}" --yes 2>&1)" || fail "kinship restore of the backup with photos failed: ${restore_out}"
@@ -354,7 +355,7 @@ rm -f "$jar"
 expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar")" "sign-in after restoring the backup with photos"
 expect 1 "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['photos']")" "photos after the restore"
 expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state after the restore"
-expect 2 "$(find "$work/data/files/objects" -type f | wc -l | tr -d ' ')" "files on disk after the restore"
+expect 2 "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after the restore"
 curl -s -b "$jar" -o "$work/avatar-restored.png" "${base}/api/media/${photo_id}/avatar"
 expect "$avatar_sum" "$(openssl dgst -sha256 "$work/avatar-restored.png" | awk '{print $NF}')" "the avatar's bytes after the restore"
 

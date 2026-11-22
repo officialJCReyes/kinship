@@ -168,7 +168,7 @@ my_person="$(post /api/people '{"givenName":"Photo","surname":"Smoke"}' -b "$jar
 upload_out="$(curl -s -w '\n%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "Origin: ${base}" -H 'Content-Type: image/png' -b "$jar" --data-binary "@$work/photo.png" "${base}/api/people/${my_person}/photos")"
 expect 201 "${upload_out##*$'\n'}" "the photo upload (${upload_out%$'\n'*})"
 photo_id="$(echo "${upload_out%$'\n'*}" | json "['photo']['id']")"
-expect 2 "$(find "$work/data/files/objects" -type f | wc -l | tr -d ' ')" "files on disk after one upload (full size and avatar)"
+expect 2 "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after one upload (full size and avatar)"
 curl -s -b "$jar" -D "$work/photo-headers.txt" -o "$work/photo-avatar.png" "${base}/api/media/${photo_id}/avatar"
 grep -qi '^content-type: image/png' "$work/photo-headers.txt" || fail "the avatar was not served as image/png"
 grep -qi '^cache-control: private, max-age=31536000, immutable' "$work/photo-headers.txt" || fail "the picture is not cached for a year"
