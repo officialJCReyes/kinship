@@ -141,6 +141,8 @@ export interface BackupTestRecord {
   /** The names of the checks that failed. */
   failed?: string[];
   note?: string;
+  /** What the photo check found, when the backup carries photos: "N files, X MB, key OK". */
+  files?: string;
 }
 
 /**

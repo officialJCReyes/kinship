@@ -195,6 +195,7 @@ export const en = {
     'A test restores the newest backup into a temporary database, compares it with what was backed up, and throws it away. Your live data is not touched.',
   'backups.started': 'Started. This page updates when it is done.',
   'backups.loadFailed': 'Could not load the backups.',
+  'backups.lastTest.files': 'Photos: {files}.',
   'backups.lastTest.ok': 'Last test: passed ({tables} tables, {rows} rows, {file})',
   'backups.lastTest.failed': 'Last test: FAILED for {file}: {failed}',
   'backups.lastTest.archiveOnly': 'The archive was checked but not restored into a temporary database. {note}',
@@ -253,6 +254,10 @@ export const en = {
   'backups.settings.keepHelp':
     'The newest backup of each of the last days, weeks and months is kept. The newest backup is never removed.',
   'backups.settings.includeFiles': 'Include uploaded files',
+  'backups.settings.includeFilesHelp':
+    'Each backup then holds a full copy of every photo ({size} now), so the backups folder grows with your photos and each backup takes longer. Switch it off to back up the database alone: the photos are then not in the backup, and restoring that backup leaves the photos folder as it is.',
+  'backups.settings.includeFilesHelpNone':
+    'Each backup then holds a full copy of every photo, so the backups folder grows with your photos. Switch it off to back up the database alone: the photos are then not in the backup, and restoring that backup leaves the photos folder as it is.',
   'backups.settings.testAfter': 'Test each backup after it is made',
   'backups.settings.save': 'Save settings',
   'backups.settings.saved': 'Settings saved.',

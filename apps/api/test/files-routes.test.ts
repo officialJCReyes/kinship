@@ -39,7 +39,8 @@ describe('GET /api/admin/files', () => {
   it('says ready with the key id, and never the key', async () => {
     const response = await as('superadmin', 'GET', '/api/admin/files');
     expect(response.status).toBe(200);
-    const body = response.body as { state: string; keyId: string };
+    const body = response.body as { state: string; keyId: string; photos: number; photoBytes: number };
+    expect(body).toMatchObject({ photos: 0, photoBytes: 0 });
     expect(body.state).toBe('ready');
     expect(body.keyId).toMatch(/^[0-9a-f]{16}$/);
     const text = JSON.stringify(response.body);
@@ -56,6 +57,8 @@ describe('without a key', () => {
       expect((await as2('superadmin', 'GET', '/api/admin/files')).body).toEqual({
         state: 'key_missing',
         keyId: null,
+        photos: 0,
+        photoBytes: 0,
       });
     } finally {
       await bare.close();

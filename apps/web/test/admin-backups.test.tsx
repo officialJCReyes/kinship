@@ -550,7 +550,7 @@ describe('who sees it', () => {
 
 describe('Admin > Backups > Photos and files', () => {
   const files = (state: string, keyId: string | null = '0123456789abcdef') => ({
-    '/api/admin/files': { status: 200, body: { state, keyId } },
+    '/api/admin/files': { status: 200, body: { state, keyId, photos: 3, photoBytes: 5_242_880 } },
   });
 
   it('says photos are on and shows the key id, with the warning about losing the key', async () => {
@@ -569,6 +569,17 @@ describe('Admin > Backups > Photos and files', () => {
     open(files(state, keyId));
     const card = await screen.findByRole('region', { name: 'Photos and files' });
     expect(within(card).getByRole('alert').textContent).toMatch(text);
+  });
+
+  it('warns that each backup holds a full copy of the photos, with the size now', async () => {
+    open(files('ready'));
+    expect(await screen.findByText(/full copy of every photo \(5\.0 MB now\)/)).toBeTruthy();
+  });
+
+  it('says the same without a size when the status cannot be read', async () => {
+    open();
+    await screen.findByRole('heading', { name: 'Backups', level: 1 });
+    expect(screen.getByText(/full copy of every photo, so the backups folder grows/)).toBeTruthy();
   });
 
   it('is left out when the status cannot be read, and the rest of the page works', async () => {

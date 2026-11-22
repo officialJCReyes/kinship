@@ -11,11 +11,18 @@
 export const FILES_STATES = ['ready', 'key_missing', 'files_unavailable', 'key_mismatch'] as const;
 export type FilesState = (typeof FILES_STATES)[number];
 
-/** GET /api/admin/files (SuperAdmin only). */
-export interface FilesStatus {
+/** Whether photos can be used, and with which key. */
+export interface FilesHealth {
   state: FilesState;
   /** The non-secret id of the configured key (16 hex characters), to compare with another install or your notes. */
   keyId: string | null;
+}
+
+/** GET /api/admin/files (SuperAdmin only). */
+export interface FilesStatus extends FilesHealth {
+  /** How many photos there are, and the bytes their stored files take (full size and avatar). For the backup size estimate. */
+  photos: number;
+  photoBytes: number;
 }
 
 export const FILES_ROUTES = [{ method: 'GET', path: '/api/admin/files', access: 'superadmin' }] as const;

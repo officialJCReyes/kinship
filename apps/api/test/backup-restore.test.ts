@@ -28,6 +28,7 @@ import { createTestDatabase } from './helpers/db.js';
 import type { TestDatabase } from './helpers/db.js';
 import { realMigrationsDir, removeMigrationsFrom, tempMigrationsDir } from './helpers/migrations-dir.js';
 import { testConfig, testTools } from './helpers/pg-tools.js';
+import { addTestPhoto, setUpFilesFolder, testKeys } from './helpers/photos.js';
 
 /** The newest migration number. Never write the last number into a test: a later migration moves it. */
 const LATEST = readdirSync(realMigrationsDir).filter((n) => /^\d{4}_.*\.sql$/.test(n)).length;
@@ -713,16 +714,10 @@ describe('a restore and the last-SuperAdmin triggers on users (ADR 0029, ADR 003
 describe('what a restore refuses (step 36 rules)', () => {
   it('a backup that carries files is refused with nothing changed (step 37 deletes this guard)', async () => {
     const l = await live();
-    const withFiles: BackupContext = {
-      ...l.ctx,
-      files: () => {
-        const path = join(l.dir, 'a-photo.bin');
-        writeFileSync(path, 'not a real photo');
-        return Promise.resolve([{ name: 'a-photo.bin', path }]);
-      },
-    };
-    const made = await createBackup(withFiles, { kind: 'manual' });
-    expect(made.manifest.files).toEqual({ included: true, count: 1 });
+    setUpFilesFolder(l.ctx.config.files.dir);
+    await addTestPhoto(l.test.owner, l.ctx.config.files.dir, testKeys());
+    const made = await createBackup(l.ctx, { kind: 'manual', includeFiles: true });
+    expect(made.manifest.files).toMatchObject({ included: true, count: 2 });
     const before = await state(l.test.owner, l.test.config.appUser);
     const failure = await restoreBackup(l.ctx, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('refused');

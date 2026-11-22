@@ -139,7 +139,7 @@ If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_
 
 ## Back up and restore
 
-**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database (0.2 stores no photos or other files yet). It is encrypted with `BACKUP_PASSPHRASE`, which the backup does not contain: keep it somewhere other than this server. Without it nobody can open the backup.
+**What a backup is.** One encrypted file, `data/backups/kinship-YYYY-MM-DD-HHMM.tar.enc` (UTC), holding a copy of the whole database and, unless you switch off "Include uploaded files" in Admin → Backups, **a full copy of every photo** (so the folder grows with your photos; Admin shows the size). It is encrypted with `BACKUP_PASSPHRASE`, which the backup does not contain: keep it somewhere other than this server. Without it nobody can open the backup. **The photos inside it are encrypted with your `FILE_ENCRYPTION_KEY`, which the backup does not contain either: keep that key too, or the photos in a backup can never be opened.** "Test the latest backup" reads about 20 of the photos back with the key on this server and says "N files, X MB, key OK".
 
 **Making them.** Backups run on a schedule inside the api (every day at 03:00 by default; change the schedule, how many to keep and the time zone in **Admin → Backups**, SuperAdmin only). **Back up now** makes one at once, and **Test the latest backup** restores the newest one into a temporary database, compares it, and throws it away. **Download** asks for your password again. From the command line:
 

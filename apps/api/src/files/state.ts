@@ -10,7 +10,7 @@
 import { randomBytes } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { FilesState, FilesStatus } from '@kinship/shared';
+import type { FilesState, FilesHealth } from '@kinship/shared';
 import type { FilesConfig } from '../config.js';
 import { deriveFileKeys } from './key.js';
 import type { FileKeys } from './key.js';
@@ -40,8 +40,8 @@ export interface FilesService {
   keys(): FileKeys | null;
   dir: string;
   /** Looks again (the folder may have been mounted or fixed, the sample may have changed). */
-  refresh(): Promise<FilesStatus>;
-  status(): FilesStatus;
+  refresh(): Promise<FilesHealth>;
+  status(): FilesHealth;
   /** Uploads and serving need exactly this. */
   usable(): boolean;
   /** New uploads additionally need the key to match what is stored. */

@@ -4,12 +4,15 @@
 // with what the manifest recorded, and throwing the database away. Nothing about the live data is touched, and the app role is
 // only used for the final functional check (inside the temporary database).
 import { createHash, randomBytes } from 'node:crypto';
+import { Writable } from 'node:stream';
 import { sql } from 'kysely';
 import { createDb } from '../db.js';
 import type { AnySchema, UntypedDb } from '../db.js';
+import { decryptFile } from '../files/crypto.js';
+import { deriveFileKeys } from '../files/key.js';
 import { readMigrationFiles } from '../migrations/files.js';
-import { BACKUP_LOCK_KEY, openArchive } from './archive.js';
-import type { BackupContext } from './archive.js';
+import { BACKUP_LOCK_KEY, openArchive, readFilesIndex } from './archive.js';
+import type { BackupContext, OpenArchive } from './archive.js';
 import { BackupError } from './errors.js';
 import { fingerprint, fingerprintDifferences, tableStats } from './inspect.js';
 import { applyArchive } from './restore.js';
@@ -70,6 +73,96 @@ export async function sweepVerifyDatabases(ctx: BackupContext, db?: UntypedDb): 
   return dropped;
 }
 
+/** How many photo files "Test the latest backup" opens with the current key. It does not re-hash every file. */
+export const FILE_SAMPLE = 20;
+
+const megabytes = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`;
+
+/**
+ * The photo checks of a test, for an archive that carries files: the index agrees with the entries and the manifest; (when there
+ * is a temporary database) every photo row is covered by the index; and about 20 files are read back out of the archive, matched
+ * to their size and SHA-256 and decrypted with the CURRENT file key ("N files, X MB, key OK").
+ */
+async function verifyFiles(ctx: BackupContext, archive: OpenArchive, temp: UntypedDb | null): Promise<VerifyCheck[]> {
+  const checks: VerifyCheck[] = [];
+  const index = await readFilesIndex(archive);
+  const entries = new Set(
+    archive.entries.filter((e) => e.startsWith('files/') && e !== 'files/').map((e) => e.slice(6)),
+  );
+  const named = new Set(index.files.map((f) => f.name));
+  const total = index.files.reduce((sum, f) => sum + f.bytes, 0);
+  const stray = [...entries].filter((n) => !named.has(n)).length + [...named].filter((n) => !entries.has(n)).length;
+  const sameTotals = index.files.length === archive.manifest.files.count && total === archive.manifest.files.bytes;
+  checks.push({
+    name: 'The photo index matches the files in the backup and its manifest',
+    ok: stray === 0 && sameTotals,
+    ...(stray + (sameTotals ? 0 : 1) > 0
+      ? { detail: `${stray} file(s) differ between the index and the backup${sameTotals ? '' : '; the totals differ'}` }
+      : {}),
+  });
+  if (temp) {
+    const rows = await sql<{ id: string }>`
+      select storage_id as id from media_files union all select avatar_storage_id from media_files`.execute(temp);
+    const gone = new Set(index.missing);
+    const uncovered = rows.rows.filter((r) => !named.has(r.id) && !gone.has(r.id)).length;
+    checks.push({
+      name: 'Every photo in the database is in the backup',
+      ok: uncovered === 0 && index.missing.length === 0,
+      ...(uncovered > 0 || index.missing.length > 0
+        ? {
+            detail: [
+              uncovered > 0 ? `${uncovered} file(s) are not in the index` : '',
+              index.missing.length > 0
+                ? `${index.missing.length} file(s) were already missing when the backup was made`
+                : '',
+            ]
+              .filter(Boolean)
+              .join('; '),
+          }
+        : {}),
+    });
+  }
+  const keys = ctx.config.files.key ? deriveFileKeys(ctx.config.files.key) : null;
+  if (!keys) {
+    checks.push({
+      name: 'Photos open with the current file key',
+      ok: true,
+      detail: 'skipped: no FILE_ENCRYPTION_KEY is set here',
+    });
+    return checks;
+  }
+  const mine = keys.keyId.toString('hex');
+  const picked = [...index.files].sort(() => Math.random() - 0.5).slice(0, FILE_SAMPLE);
+  const problems: string[] = [];
+  for (const file of picked) {
+    const chunks: Buffer[] = [];
+    await archive.extract(`files/${file.name}`, new Writable({ write: (c: Buffer, _e, cb) => (chunks.push(c), cb()) }));
+    const data = Buffer.concat(chunks);
+    if (data.length !== file.bytes || createHash('sha256').update(data).digest('hex') !== file.sha256) {
+      problems.push(`${file.name.slice(0, 8)}… differs from the index`);
+      continue;
+    }
+    if (file.keyId !== mine) {
+      problems.push(`${file.name.slice(0, 8)}… was sealed with a different key`);
+      continue;
+    }
+    try {
+      decryptFile(keys, data);
+    } catch {
+      problems.push(`${file.name.slice(0, 8)}… does not open`);
+    }
+  }
+  checks.push({
+    name: `${picked.length} sampled photo file(s) match the index and open with the current file key`,
+    ok: problems.length === 0,
+    detail:
+      problems.length === 0
+        ? `${index.files.length} files, ${megabytes(total)}, key OK`
+        : problems.slice(0, 5).join('; '),
+  });
+  return checks;
+}
+
 /**
  * Checks an archive. Always: every block authenticates, the entry names, the manifest, the SHA-256 of the dump and that
  * pg_restore can read it. Then, if the owner may create databases: restore into `kinship_verify_<random>`, compare every table's
@@ -85,6 +178,7 @@ export async function verifyBackup(ctx: BackupContext, archivePath: string): Pro
   const secrets = [config.db.ownerPassword, passphrase];
   const archive = await openArchive(archivePath, passphrase, tools, config.backup.dir);
   checks.push({ name: 'Every block authenticates; the manifest and the database dump match', ok: true });
+  const carriesFiles = archive.manifest.files.included;
   const tableCount = Object.keys(archive.manifest.tables).length;
   const rows = Object.values(archive.manifest.tables).reduce((sum, t) => sum + t.rows, 0);
   const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 3);
@@ -98,9 +192,10 @@ export async function verifyBackup(ctx: BackupContext, archivePath: string): Pro
         const can = await sql<{ ok: boolean }>`
           select (rolsuper or rolcreatedb) as ok from pg_roles where rolname = current_user`.execute(conn);
         if (!can.rows[0]?.ok) {
+          if (carriesFiles) checks.push(...(await verifyFiles(ctx, archive, null)));
           return {
             mode: 'archive-only' as const,
-            ok: true,
+            ok: checks.every((c) => c.ok),
             checks,
             tables: tableCount,
             rows,
@@ -190,6 +285,7 @@ export async function verifyBackup(ctx: BackupContext, archivePath: string): Pro
               ...(Number(seen) !== expectedPeople ? { detail: `saw ${seen}, expected ${expectedPeople}` } : {}),
             });
           }
+          if (carriesFiles) checks.push(...(await verifyFiles(ctx, archive, inTemp)));
         } finally {
           await inTemp.destroy();
           await asApp.destroy();

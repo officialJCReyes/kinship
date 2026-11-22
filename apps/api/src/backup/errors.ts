@@ -6,6 +6,7 @@ export type BackupErrorKind =
   | 'busy' // a backup or restore is already running
   | 'disk_space'
   | 'tool' // pg_dump, tar or another tool failed
+  | 'files' // photos are in the database but the files folder cannot be read
   | 'archive' // the archive is not good (see the message)
   | 'refused' // a restore was refused before it touched anything (too new, wrong roles, the app is running, ...)
   | 'manifest';

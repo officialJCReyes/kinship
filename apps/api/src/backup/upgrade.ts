@@ -185,7 +185,6 @@ async function makeSafetyCopy(ctx: UpgradeContext, conn: UntypedDb, from: number
           ...(ctx.kdf ? { kdf: ctx.kdf } : {}),
           ...(ctx.now ? { now: ctx.now } : {}),
           ...(ctx.freeBytes ? { freeBytes: ctx.freeBytes } : {}),
-          files: () => Promise.resolve([]),
         },
         { kind: 'pre-upgrade', name },
       );
