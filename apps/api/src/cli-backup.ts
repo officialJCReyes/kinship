@@ -9,6 +9,9 @@ import { ConfigError, loadConfig } from './config.js';
 import type { Config } from './config.js';
 import { createBackup, decryptToFile, listBackups, openArchive } from './backup/archive.js';
 import { restoreBackup } from './backup/restore.js';
+import { readBackupSettings } from './backup/settings.js';
+import { createDb } from './db.js';
+import type { AnySchema } from './db.js';
 import { verifyBackup } from './backup/verify.js';
 import type { BackupContext, Log } from './backup/archive.js';
 import { BackupError } from './backup/errors.js';
@@ -92,7 +95,15 @@ export async function runBackupCommand(command: string, args: string[], deps: Ba
       const config = (deps.config ?? loadConfig)();
       const version = readVersion(config.gitCommit, config.buildDate);
       const ctx: BackupContext = { config, tools, log: jsonLog, appVersion: version.version };
-      const result = await createBackup(ctx, { kind: 'manual' });
+      // "Include uploaded files" (Admin > Backups) applies to the command line too.
+      const owner = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 1);
+      let includeFiles: boolean;
+      try {
+        includeFiles = (await readBackupSettings(owner)).includeFiles;
+      } finally {
+        await owner.destroy();
+      }
+      const result = await createBackup(ctx, { kind: 'manual', includeFiles });
       deps.out(`Backup written: ${result.name} (${size(result.bytes)}) in ${config.backup.dir}`);
       deps.out('Keep BACKUP_PASSPHRASE somewhere other than this server: the backup does not contain it.');
       return 0;

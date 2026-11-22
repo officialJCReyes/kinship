@@ -226,6 +226,27 @@ describe('migrations and flows run as a role that is not a superuser', () => {
   });
 });
 
+describe('the photo tables, with an owner that is not a superuser', () => {
+  it('start-up and the sweeper still see the rows through the definer functions (RLS is not forced on the owner there)', async () => {
+    const me = (await sql<{ id: string }>`select id from users where email = 'marcus@example.com'`.execute(owner))
+      .rows[0]?.id as string;
+    // Photos are added as the signed-in app role would add them.
+    await db.transaction().execute(async (trx) => {
+      await sql`select set_config('kinship.user_id', ${me}, true)`.execute(trx);
+      await sql`insert into media_files (storage_id, avatar_storage_id, mime, size, avatar_size, width, height, key_id, uploaded_by)
+        values (${'a'.repeat(32)}, ${'b'.repeat(32)}, 'image/png', 10, 10, 1, 1, ${'0123456789abcdef'}, ${me})`.execute(
+        trx,
+      );
+    });
+    const exists = await sql<{ ok: boolean }>`select public.kinship_media_exists() as ok`.execute(db);
+    expect(exists.rows[0]?.ok).toBe(true);
+    const keys = await sql<{ id: string }>`select public.kinship_media_key_ids() as id`.execute(db);
+    expect(keys.rows.map((r) => r.id)).toEqual(['0123456789abcdef']);
+    const names = await sql<{ id: string }>`select public.kinship_media_storage_ids() as id`.execute(db);
+    expect(names.rows.map((r) => r.id).sort()).toEqual(['a'.repeat(32), 'b'.repeat(32)]);
+  });
+});
+
 describe('why row-level security is not forced on users and family_tree', () => {
   it('forcing it on users would lock the owner-run sign-in function out of the accounts', async () => {
     const before = await sql<{

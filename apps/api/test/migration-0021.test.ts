@@ -324,6 +324,43 @@ describe('media tables: constraints and row-level security, as the app role in r
     expect(grants.rows[0]?.n).toBe('0');
   });
 
+  it('the three start-up functions are read-only, pinned to pg_catalog, closed to PUBLIC, and answer only booleans, key ids and file names', async () => {
+    const names = ['kinship_media_exists', 'kinship_media_key_ids', 'kinship_media_storage_ids'];
+    const rows = await sql<{
+      proname: string;
+      provolatile: string;
+      prosecdef: boolean;
+      proconfig: string[] | null;
+      returns: string;
+      public_exec: boolean;
+      app_exec: boolean;
+    }>`
+      select p.proname, p.provolatile, p.prosecdef, p.proconfig,
+             pg_catalog.format_type(p.prorettype, null) as returns,
+             has_function_privilege('public', p.oid, 'execute') as public_exec,
+             has_function_privilege(${test.config.appUser}, p.oid, 'execute') as app_exec
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = any(${names}) order by p.proname`.execute(test.owner);
+    expect(rows.rows.map((r) => r.proname)).toEqual([...names].sort());
+    for (const row of rows.rows) {
+      expect(row.provolatile, `${row.proname} is STABLE (Postgres refuses writes in it)`).toBe('s');
+      expect(row.prosecdef).toBe(true);
+      expect(row.proconfig).toContain('search_path=pg_catalog, pg_temp');
+      expect(row.public_exec, `${row.proname} is closed to PUBLIC`).toBe(false);
+      expect(row.app_exec).toBe(true);
+    }
+    expect(Object.fromEntries(rows.rows.map((r) => [r.proname, r.returns]))).toEqual({
+      kinship_media_exists: 'boolean',
+      kinship_media_key_ids: 'text',
+      kinship_media_storage_ids: 'text',
+    });
+    // The text they return is only ever a key id or a storage name: 16 or 32 lowercase hex characters.
+    const text = await sql<{ id: string }>`
+      select public.kinship_media_key_ids() as id union all select public.kinship_media_storage_ids()`.execute(app);
+    expect(text.rows.length).toBeGreaterThan(0);
+    for (const { id } of text.rows) expect(id).toMatch(/^([0-9a-f]{16}|[0-9a-f]{32})$/);
+  });
+
   it('is cleaned up', async () => {
     await test.cleanup();
   });

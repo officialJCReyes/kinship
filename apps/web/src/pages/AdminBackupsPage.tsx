@@ -79,7 +79,8 @@ function StatusCard({
           {test.mode === 'archive-only'
             ? t('backups.lastTest.archiveOnly', { note: test.note ?? '' })
             : test.ok
-              ? t('backups.lastTest.ok', { tables: test.tables, rows: test.rows, file: test.file })
+              ? t('backups.lastTest.ok', { tables: test.tables, rows: test.rows, file: test.file }) +
+                (test.files ? ` ${t('backups.lastTest.files', { files: test.files })}` : '')
               : t('backups.lastTest.failed', { file: test.file, failed: (test.failed ?? []).join('; ') })}
         </p>
       ) : null}
@@ -260,10 +261,12 @@ function SettingsForm({
   settings,
   saved,
   setSaved,
+  photoBytes,
 }: {
   settings: BackupSettings;
   saved: boolean;
   setSaved: (saved: boolean) => void;
+  photoBytes: number;
 }) {
   const client = useQueryClient();
   const [draft, setDraft] = useState<Draft>(toDraft(settings));
@@ -370,6 +373,11 @@ function SettingsForm({
           />{' '}
           {t('backups.settings.includeFiles')}
         </label>
+        <p className="muted small">
+          {photoBytes > 0
+            ? t('backups.settings.includeFilesHelp', { size: formatBytes(photoBytes) })
+            : t('backups.settings.includeFilesHelpNone')}
+        </p>
         <label className="check">
           <input
             type="checkbox"
@@ -494,6 +502,7 @@ export function AdminBackupsPage() {
         settings={status.settings}
         saved={saved}
         setSaved={setSaved}
+        photoBytes={files.data?.photoBytes ?? 0}
       />
       {files.data ? <FilesCard status={files.data} /> : null}
       <section className="card stack" aria-labelledby="backups-keep">

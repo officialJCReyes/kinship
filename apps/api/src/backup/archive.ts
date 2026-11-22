@@ -28,8 +28,8 @@ import { createOwnerDb } from '../db.js';
 import type { UntypedDb } from '../db.js';
 import { createDecryptStream, createEncryptStream, passphraseProblem } from './crypto.js';
 import { BackupError } from './errors.js';
-import { listMediaFiles } from './files.js';
-import type { MediaFile } from './files.js';
+import { collectFiles, parseFilesIndex, storedFilesBytes } from './files.js';
+import type { CollectedFiles, FilesIndex } from './files.js';
 import { LEAD_LENGTH, readPreamble } from './format.js';
 import type { ArchiveHeader, KdfParams } from './format.js';
 import { assertOwnerReadsEverything, fingerprint, tableStats } from './inspect.js';
@@ -52,8 +52,6 @@ export interface BackupContext {
   /** Only tests lower the KDF cost. */
   kdf?: { N: number; r: number; p: number };
   now?: () => Date;
-  /** The media files to include. Defaults to the real list (none in 0.2). */
-  files?: () => Promise<MediaFile[]>;
   /** Free bytes in a folder. Only tests replace it. */
   freeBytes?: (dir: string) => number;
 }
@@ -190,7 +188,16 @@ export interface CreateOptions {
   lockHeld?: boolean;
   /** An owner connection to use instead of opening one (the caller closes it). */
   db?: UntypedDb;
+  /**
+   * Carry the stored photo files in the archive. Off by default: a database-only archive (an upgrade's safety copy, or "Include
+   * uploaded files" switched off) leaves the files folder alone when it is restored.
+   */
+  includeFiles?: boolean;
 }
+
+/** The free space a backup needs: the database and the photos, and a tenth more. */
+export const spaceNeeded = (databaseBytes: number, filesBytes: number): number =>
+  Math.ceil((databaseBytes + filesBytes) * 1.1);
 
 /**
  * Makes one encrypted archive of the whole database (and the media files): a pg_dump taken as the owner under an exported
@@ -226,12 +233,18 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
         const size = await sql<{ bytes: string }>`select pg_database_size(current_database())::text as bytes`.execute(
           conn,
         );
-        const need = Number(size.rows[0]?.bytes ?? 0);
+        const databaseBytes = Number(size.rows[0]?.bytes ?? 0);
+        const filesBytes = options.includeFiles ? await storedFilesBytes(conn) : 0;
+        const need = spaceNeeded(databaseBytes, filesBytes);
         const free = (ctx.freeBytes ?? freeBytes)(dir);
         if (free < need) {
           throw new BackupError(
             'disk_space',
-            `Not enough free space in ${dir}: the database is ${need} bytes and the folder has ${free} free.`,
+            `Not enough free space in ${dir}: the database is ${databaseBytes} bytes${
+              options.includeFiles
+                ? `, the photos are ${filesBytes} bytes, and a tenth more is needed for the archive`
+                : ''
+            }; ${need} are needed and the folder has ${free} free.`,
           );
         }
 
@@ -245,6 +258,7 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
         await sql`begin isolation level repeatable read read only`.execute(conn);
         let manifest: Omit<Manifest, 'dump' | 'files'>;
         let dump: HashingFile;
+        let collected: CollectedFiles | undefined;
         try {
           const snapshot = (await sql<{ id: string }>`select pg_export_snapshot() as id`.execute(conn)).rows[0]?.id;
           if (!snapshot) throw new BackupError('tool', 'The database gave no snapshot.');
@@ -286,22 +300,36 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
             dump.writableFinished ? resolve() : dump.once('finish', () => resolve()),
           );
           if (result.code !== 0) throw new ToolError('pg_dump', result.code, result.stderr);
+          // The photos named by the rows of THIS snapshot (not by whatever is on the disk now).
+          if (options.includeFiles) collected = await collectFiles(conn, config.files.dir);
         } finally {
           await sql`rollback`.execute(conn);
         }
 
-        // The media files, if any, are linked into the work folder so tar can follow them.
-        const media = await (ctx.files ?? listMediaFiles)();
-        if (media.length > 0) mkdirSync(join(work, 'files'), { mode: 0o700 });
-        for (const file of media) {
-          if (!/^[A-Za-z0-9._-]{1,200}$/.test(file.name))
-            throw new BackupError('archive', `Not a safe file name for the archive: ${file.name}`);
-          symlinkSync(file.path, join(work, 'files', file.name));
+        // The photo files are linked into the work folder so tar can follow them; the index says what each must be.
+        // "Included" means there is something to put back: a family with no photos yet makes the same archive as a database-only
+        // one, so restoring it leaves the files folder alone (a restore that swapped in an empty folder would delete photos uploaded
+        // since, with no way back).
+        const included =
+          collected !== undefined && (collected.index.files.length > 0 || collected.index.missing.length > 0);
+        if (collected && included) {
+          mkdirSync(join(work, 'files'), { mode: 0o700 });
+          for (const [fileName, path] of collected.paths) symlinkSync(path, join(work, 'files', fileName));
+          writeFileSync(join(work, 'files.json'), JSON.stringify(collected.index), { mode: 0o600 });
+          if (collected.index.missing.length > 0) {
+            log('warn', 'some photos have a row but no file; the backup lists them as missing', {
+              count: collected.index.missing.length,
+            });
+          }
         }
         const full: Manifest = {
           ...manifest,
           dump: { file: 'database.dump', sha256: dump.sha256, bytes: dump.bytes },
-          files: { included: media.length > 0, count: media.length },
+          files: {
+            included,
+            count: included ? (collected?.index.files.length ?? 0) : 0,
+            bytes: included ? (collected?.bytes ?? 0) : 0,
+          },
         };
         writeFileSync(join(work, 'manifest.json'), JSON.stringify(full), { mode: 0o600 });
 
@@ -316,7 +344,7 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
         });
         const sink = createWriteStream(temp, { flags: 'wx', mode: 0o600 });
         const written = pipeline(encrypt, sink);
-        const names = ['manifest.json', 'database.dump', ...(media.length > 0 ? ['files'] : [])];
+        const names = ['manifest.json', 'database.dump', ...(included ? ['files.json', 'files'] : [])];
         const tar = await run(tools.tar, ['-c', '-h', '-f', '-', '-C', work, ...names], {
           env: { PATH: process.env['PATH'] ?? '' },
           stdout: encrypt,
@@ -414,7 +442,7 @@ export function listBackups(dir: string): ListedBackup[] {
 
 // ---- opening an archive ----
 
-const ENTRY = /^(manifest\.json|database\.dump|files\/?|files\/[A-Za-z0-9._-]{1,200})$/;
+const ENTRY = /^(manifest\.json|database\.dump|files\.json|files\/?|files\/[0-9a-f]{32})$/;
 
 /** Throws unless every entry of a tar listing is one we expect and nothing is repeated. */
 export function checkEntryNames(names: readonly string[]): void {
@@ -427,6 +455,17 @@ export function checkEntryNames(names: readonly string[]): void {
   }
   if (!seen.has('manifest.json') || !seen.has('database.dump')) {
     throw new BackupError('archive', 'The backup is missing its manifest or its database dump.');
+  }
+}
+
+/** The photo index of an archive that carries files, read and checked for shape. */
+export async function readFilesIndex(archive: OpenArchive): Promise<FilesIndex> {
+  const chunks: Buffer[] = [];
+  await archive.extract('files.json', new Writable({ write: (c: Buffer, _e, cb) => (chunks.push(c), cb()) }));
+  try {
+    return parseFilesIndex(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+  } catch (error) {
+    throw new BackupError('archive', error instanceof Error ? error.message : 'The backup file index cannot be read.');
   }
 }
 
@@ -502,6 +541,8 @@ export async function openArchive(
     }
     const fileEntries = entries.filter((e) => e.startsWith('files/') && e !== 'files/').length;
     if (fileEntries !== manifest.files.count)
+      throw new BackupError('archive', 'The files in the backup do not match its manifest.');
+    if (manifest.files.included !== entries.includes('files.json'))
       throw new BackupError('archive', 'The files in the backup do not match its manifest.');
     return { tarPath, header, manifest, entries, extract, cleanup };
   } catch (error) {

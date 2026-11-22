@@ -10,9 +10,10 @@ A tar archive containing:
 
 | Entry | What |
 |---|---|
-| `manifest.json` | What the backup is: schema number, app version, Postgres versions, role names, per-table row counts and digests, a fingerprint of the row-level security and grants, the SHA-256 of `database.dump`, and a `files` section. |
+| `manifest.json` | What the backup is: schema number, app version, Postgres versions, role names, per-table row counts and digests, a fingerprint of the row-level security and grants, the SHA-256 of `database.dump`, and a `files` section: `{"included": false, "count": 0, "bytes": 0}` for a database-only backup (an upgrade's safety copy, or "Include uploaded files" switched off), otherwise `included: true` with the number of files and their total stored size. Archives made before 0.3 have no `bytes`. |
 | `database.dump` | A `pg_dump -Fc --no-owner` dump of the whole database, taken as the database owner so that row-level security hides nothing. |
-| `files/...` | Uploaded media, still encrypted with the file key, when there are any. (KinShip 0.2 has none: `files` says `{"included": false, "count": 0}`.) |
+| `files.json` | Only when the backup carries photos. The index: `{"version": 1, "files": [{"name", "bytes", "sha256", "keyId"}], "missing": [...]}`. `name` is the file's storage id (32 hex characters); `bytes` and `sha256` are of the stored (encrypted) file; `keyId` is the id of the file key it was sealed with. `missing` lists photos whose row was in the database but whose file was not on the disk. |
+| `files/<storage id>` | The photos' stored files, byte for byte as they are on the server: still encrypted with the file key (`FILE_ENCRYPTION_KEY`), which the backup does not contain. The list comes from the database under the same snapshot as `database.dump`. Without the key they cannot be opened. |
 
 The backup does **not** contain `FILE_ENCRYPTION_KEY` or the backup passphrase. Keep both outside the server.
 

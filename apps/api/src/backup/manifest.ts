@@ -20,7 +20,8 @@ export interface Manifest {
   tables: Record<string, TableStats>;
   fingerprint: Fingerprint;
   dump: { file: 'database.dump'; sha256: string; bytes: number };
-  files: { included: boolean; count: number };
+  /** `included`: the archive carries the photo files (and files.json). `bytes`: their stored size (older archives: 0). */
+  files: { included: boolean; count: number; bytes: number };
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -44,6 +45,10 @@ export function parseManifest(value: unknown): Manifest {
   if (!isRecord(dump) || dump['file'] !== 'database.dump' || typeof dump['sha256'] !== 'string') fail('dump');
   const files = value['files'];
   if (!isRecord(files) || typeof files['included'] !== 'boolean' || !Number.isInteger(files['count'])) fail('files');
+  const filesRecord = files as Record<string, unknown>;
+  const filesBytes = filesRecord['bytes'];
+  if (filesBytes === undefined) filesRecord['bytes'] = 0;
+  else if (!Number.isInteger(filesBytes) || (filesBytes as number) < 0) fail('files');
   for (const stats of Object.values(value['tables'] as Record<string, unknown>)) {
     if (!isRecord(stats) || !Number.isInteger(stats['rows']) || typeof stats['digest'] !== 'string') fail('tables');
   }

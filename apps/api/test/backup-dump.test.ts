@@ -164,31 +164,6 @@ describe('a backup of the populated Hale database', () => {
     }
   });
 
-  it('carries media files in a files/ slot, and refuses an unsafe file name', async () => {
-    const dir = folder();
-    const photo = join(folder(), 'whatever.bin');
-    writeFileSync(photo, 'encrypted photo bytes');
-    const result = await createBackup(
-      context(dir, { files: () => Promise.resolve([{ name: 'photo-1.bin', path: photo }]) }),
-      { kind: 'manual' },
-    );
-    expect(result.manifest.files).toEqual({ included: true, count: 1 });
-    const archive = await openArchive(result.path, PASS, testTools(), dir);
-    try {
-      expect(archive.entries).toContain('files/photo-1.bin');
-      const out = sink();
-      await archive.extract('files/photo-1.bin', out.stream);
-      expect(out.text().toString()).toBe('encrypted photo bytes');
-    } finally {
-      archive.cleanup();
-    }
-    await expect(
-      createBackup(context(folder(), { files: () => Promise.resolve([{ name: '../evil', path: photo }]) }), {
-        kind: 'manual',
-      }),
-    ).rejects.toThrow(/safe file name/);
-  });
-
   it('refuses a missing or weak passphrase, and a folder it cannot write to, with the fix', async () => {
     await expect(createBackup(context(folder(), {}, null), { kind: 'manual' })).rejects.toMatchObject({
       kind: 'passphrase',
@@ -278,8 +253,19 @@ describe('opening an archive', () => {
 
   it('accepts only the entries we write', () => {
     expect(() => checkEntryNames(['manifest.json', 'database.dump'])).not.toThrow();
-    expect(() => checkEntryNames(['manifest.json', 'database.dump', 'files/', 'files/a-1.bin'])).not.toThrow();
-    for (const bad of ['../evil', '/etc/passwd', 'files/../x', 'files/sub/x', 'other.txt', 'files/ a', '']) {
+    expect(() =>
+      checkEntryNames(['manifest.json', 'database.dump', 'files.json', 'files/', `files/${'a'.repeat(32)}`]),
+    ).not.toThrow();
+    for (const bad of [
+      '../evil',
+      '/etc/passwd',
+      'files/../x',
+      'files/sub/x',
+      'other.txt',
+      'files/ a',
+      'files/a-1.bin',
+      '',
+    ]) {
       expect(() => checkEntryNames(['manifest.json', 'database.dump', bad]), bad).toThrow(/unexpected entry/);
     }
     expect(() => checkEntryNames(['manifest.json', 'database.dump', 'manifest.json'])).toThrow(/twice/);

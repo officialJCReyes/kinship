@@ -22,6 +22,7 @@ import { buildFamily, signInAll } from './helpers/family.js';
 import type { Family } from './helpers/family.js';
 import { realMigrationsDir, tempMigrationsDir } from './helpers/migrations-dir.js';
 import { testConfig, testTools } from './helpers/pg-tools.js';
+import { addTestPhoto, setUpFilesFolder, testKeys } from './helpers/photos.js';
 
 const PASS = 'a long backup passphrase for tests';
 const CHEAP = { N: 2 ** 4, r: 8, p: 1 };
@@ -331,17 +332,9 @@ describe('who may check and restore, and what the check says', () => {
     const r = await rig();
     const made = await createBackup(r.ctx, { kind: 'manual' });
     // A backup that carries files is refused (step 37 removes the guard).
-    const withFiles = await createBackup(
-      {
-        ...r.ctx,
-        files: () => {
-          const path = join(r.dir, 'a-photo.bin');
-          writeFileSync(path, 'x');
-          return Promise.resolve([{ name: 'a-photo.bin', path }]);
-        },
-      },
-      { kind: 'manual' },
-    );
+    setUpFilesFolder(r.ctx.config.files.dir);
+    await addTestPhoto(r.t.owner, r.ctx.config.files.dir, testKeys());
+    const withFiles = await createBackup(r.ctx, { kind: 'manual', includeFiles: true });
     const refused = await check(r, withFiles.name);
     expect(refused.status).toBe(400);
     expect(refused.body).toMatchObject({ error: 'restore_failed', errorKind: 'refused' });

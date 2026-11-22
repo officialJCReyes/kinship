@@ -14,12 +14,12 @@ import { createBackup, ensureBackupDir, listBackups } from './archive.js';
 import type { BackupContext } from './archive.js';
 import { passphraseState } from './crypto.js';
 import { BackupError } from './errors.js';
-import { listMediaFiles } from './files.js';
 import { applyRetention } from './retention.js';
 import { latestDue, nextDue } from './schedule-time.js';
 import { readBackupSettings } from './settings.js';
 import { readState, recordRun, recordTest } from './state.js';
 import { sweepVerifyDatabases, verifyBackup } from './verify.js';
+import type { VerifyResult } from './verify.js';
 import { randomBytes } from 'node:crypto';
 
 export const TICK_MS = 60_000;
@@ -75,6 +75,12 @@ export function cleanStaleTemp(dir: string, now = Date.now()): string[] {
   return removed;
 }
 
+/** The "N files, X MB, key OK" line of a test that checked photos, for the history. */
+function filesNote(result: VerifyResult): { files?: string } {
+  const found = result.checks.find((c) => c.ok && c.detail !== undefined && c.detail.endsWith('key OK'));
+  return found?.detail ? { files: found.detail } : {};
+}
+
 export function createScheduler(
   ctx: BackupContext,
   options: { tickMs?: number; startDelayMs?: number } = {},
@@ -96,16 +102,11 @@ export function createScheduler(
     }
   };
 
-  const withFiles = (s: BackupSettings): BackupContext => ({
-    ...ctx,
-    files: s.includeFiles ? (ctx.files ?? listMediaFiles) : () => Promise.resolve([]),
-  });
-
   /** The backup itself, then the test and the retention. Never throws for a failed backup: it is recorded. */
   async function perform(kind: 'scheduled' | 'manual', s: BackupSettings): Promise<BackupRunRecord> {
     const startedAt = clock().toISOString();
     try {
-      const made = await createBackup(withFiles(s), { kind });
+      const made = await createBackup(ctx, { kind, includeFiles: s.includeFiles });
       const record: BackupRunRecord = {
         id: id(),
         kind,
@@ -128,6 +129,7 @@ export function createScheduler(
             rows: result.rows,
             ...(result.ok ? {} : { failed: result.checks.filter((c) => !c.ok).map((c) => c.name) }),
             ...(result.note ? { note: result.note } : {}),
+            ...filesNote(result),
           });
           if (!result.ok) log('error', 'the new backup failed its test', { file: made.name });
         }
@@ -229,6 +231,7 @@ export function createScheduler(
           rows: result.rows,
           ...(result.ok ? {} : { failed: result.checks.filter((c) => !c.ok).map((c) => c.name) }),
           ...(result.note ? { note: result.note } : {}),
+          ...filesNote(result),
         });
       } finally {
         busy = false;
