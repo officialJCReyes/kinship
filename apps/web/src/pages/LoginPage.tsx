@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { ApiError, fetchVersion } from '../api.js';
 import { useLogin } from '../auth.js';
-import { CardMark } from '../components/LogoMark.js';
+import { CardHeader } from '../components/LogoMark.js';
 import { Field } from '../components/Field.js';
 import { t } from '../i18n.js';
 
@@ -35,8 +35,9 @@ export function LoginPage() {
 
   return (
     <section className="card narrow">
-      <CardMark />
-      <h1>{t('login.title')}</h1>
+      <CardHeader>
+        <h1>{t('login.title')}</h1>
+      </CardHeader>
       <form onSubmit={onSubmit} noValidate>
         <Field
           label={t('login.email')}
@@ -61,7 +62,7 @@ export function LoginPage() {
             {loginErrorMessage(login.error)}
           </div>
         ) : null}
-        <button className="button primary" type="submit" disabled={login.isPending}>
+        <button className="button primary card-submit" type="submit" disabled={login.isPending}>
           {login.isPending ? t('login.submitting') : t('login.submit')}
         </button>
       </form>

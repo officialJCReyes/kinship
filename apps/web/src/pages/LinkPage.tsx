@@ -9,7 +9,7 @@ import * as api from '../api.js';
 import { ApiError } from '../api.js';
 import { meKey } from '../auth.js';
 import { Field } from '../components/Field.js';
-import { CardMark } from '../components/LogoMark.js';
+import { CardHeader } from '../components/LogoMark.js';
 import { Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { errorMessage } from '../lib/errors.js';
@@ -23,8 +23,9 @@ const problem = (error: unknown): string =>
 function InvalidLink() {
   return (
     <section className="card narrow">
-      <CardMark />
-      <h1>{t('linkPage.invalidTitle')}</h1>
+      <CardHeader>
+        <h1>{t('linkPage.invalidTitle')}</h1>
+      </CardHeader>
       <p>{t('linkPage.invalidBody')}</p>
       <p>
         <Link to="/login">{t('linkPage.toSignIn')}</Link>
@@ -64,7 +65,7 @@ export function LinkPage() {
   if (lookup.isPending) {
     return (
       <section className="card narrow">
-        <CardMark />
+        <CardHeader />
         <Loading />
       </section>
     );
@@ -72,7 +73,7 @@ export function LinkPage() {
   if (lookup.isError) {
     return (
       <section className="card narrow">
-        <CardMark />
+        <CardHeader />
         <div className="alert" role="alert">
           {problem(lookup.error)}
         </div>
@@ -115,12 +116,17 @@ export function LinkPage() {
 
   return (
     <section className="card narrow">
-      <CardMark />
+      <CardHeader>
+        <h1>
+          {link.kind === 'reset'
+            ? t('linkPage.resetTitle')
+            : link.treeName
+              ? t('linkPage.inviteTitle', { tree: link.treeName })
+              : t('linkPage.inviteTitleNoTree')}
+        </h1>
+      </CardHeader>
       {link.kind === 'invite' ? (
         <>
-          <h1>
-            {link.treeName ? t('linkPage.inviteTitle', { tree: link.treeName }) : t('linkPage.inviteTitleNoTree')}
-          </h1>
           {link.invitedBy ? <p>{t('linkPage.invitedBy', { name: link.invitedBy })}</p> : null}
           <p>
             {t('linkPage.role', { role: t(`role.${link.role}` as MessageKey) })}{' '}
@@ -135,10 +141,7 @@ export function LinkPage() {
           ) : null}
         </>
       ) : (
-        <>
-          <h1>{t('linkPage.resetTitle')}</h1>
-          <p>{t('linkPage.resetBody', { name: link.displayName })}</p>
-        </>
+        <p>{t('linkPage.resetBody', { name: link.displayName })}</p>
       )}
       <form onSubmit={(event) => void onSubmit(event)} noValidate>
         {askName ? (
@@ -176,7 +179,7 @@ export function LinkPage() {
             {problem(failure)}
           </div>
         ) : null}
-        <button className="button primary" type="submit" disabled={busy}>
+        <button className="button primary card-submit" type="submit" disabled={busy}>
           {busy
             ? t('linkPage.saving')
             : link.kind === 'invite'

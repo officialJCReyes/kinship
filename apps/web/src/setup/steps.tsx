@@ -5,7 +5,7 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { ColorSchemePicker } from '../components/ColorSchemePicker.js';
 import { DateInput } from '../components/DateInput.js';
-import { CardMark } from '../components/LogoMark.js';
+import { CardHeader } from '../components/LogoMark.js';
 import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { t } from '../i18n.js';
@@ -39,8 +39,9 @@ export interface StepProps {
 export function AccountStep({ state, errors, set }: StepProps) {
   return (
     <>
-      <CardMark />
-      <h1 tabIndex={-1}>{t('setup.title')}</h1>
+      <CardHeader>
+        <h1 tabIndex={-1}>{t('setup.title')}</h1>
+      </CardHeader>
       <p className="muted">{t('setup.intro')}</p>
       <Field
         label={t('setup.tokenLabel')}

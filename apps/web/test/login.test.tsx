@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ME, WEB_VERSION, calls, chooseFromAccountMenu, mockApi, renderApp, signedOut } from './helpers.js';
+import {
+  ME,
+  WEB_VERSION,
+  calls,
+  chooseFromAccountMenu,
+  expectCardHeader,
+  mockApi,
+  renderApp,
+  signedOut,
+} from './helpers.js';
 import type { MockRoute } from './helpers.js';
 
 afterEach(() => {
@@ -37,6 +46,13 @@ describe('login page', () => {
     expect(screen.queryByText(/to your family tree/)).toBeNull();
     expect(screen.getByText('Forgot your password? Ask an admin for a set-password link.')).toBeTruthy();
     expect(screen.queryByText(/runs this server/)).toBeNull();
+  });
+
+  it('centres the mark, the heading and the Sign in button; the fields stay below, full width', async () => {
+    await openLogin();
+    expectCardHeader(screen.getByRole('heading', { name: 'Sign in' }));
+    expect(screen.getByRole('button', { name: 'Sign in' }).classList.contains('card-submit')).toBe(true);
+    expect(screen.getByLabelText('Email').closest('.card-header')).toBeNull();
   });
 
   it('shows the version and a source link in the footer', async () => {

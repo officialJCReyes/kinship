@@ -236,8 +236,19 @@ h1 {
   flex: none;
 }
 
-.logo-block {
-  margin-bottom: 10px;
+/* The signed-out card pages' header (sign in, /invite, /reset, setup, maintenance): mark and heading centred. */
+.card-header {
+  text-align: center;
+}
+
+.card-header .logo {
+  margin: 0 auto 10px;
+}
+
+/* The sign-in card's one button, centred under the full-width fields. */
+.card-submit {
+  display: block;
+  margin-inline: auto;
 }
 
 nav a {
