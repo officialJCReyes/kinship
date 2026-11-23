@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// "Photo actions" on a thumbnail (step 41): set the photo as someone's profile picture straight from a grid (the Media page and a
+// "Photo actions" on a thumbnail (step 41): set the photo as someone's profile photo straight from a grid (the Media page and a
 // profile's Photos card), without opening the viewer. The viewer keeps its own "Set as profile photo". Same request as the viewer
 // (PATCH /api/people/:id {photoMediaId}) and the same permission: the person's own permissions.edit from the API.
 import type { PersonDetail } from '@kinship/shared';
@@ -76,7 +76,7 @@ export function PhotoActions({
     ? [
         {
           key: 'item-0',
-          label: t('photo.actions.setProfile'),
+          label: t('photo.setProfile'),
           onSelect: () => undefined,
           disabledReason: t('photo.actions.checking'),
         },
@@ -85,16 +85,14 @@ export function PhotoActions({
       ? [
           {
             key: 'item-0',
-            label: t('photo.actions.setProfile'),
+            label: t('photo.setProfile'),
             onSelect: () => undefined,
             disabledReason: t('photo.actions.nobody'),
           },
         ]
       : editable.map((detail, index) => ({
           key: `item-${index}`,
-          label: one
-            ? t('photo.actions.setProfile')
-            : t('photo.actions.setProfileFor', { name: displayName(detail.person) }),
+          label: one ? t('photo.setProfile') : t('photo.actions.setProfileFor', { name: displayName(detail.person) }),
           onSelect: () => choose(detail),
           disabledReason: detail.person.photoMediaId === mediaId ? t('photo.actions.already') : undefined,
         }));
