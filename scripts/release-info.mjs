@@ -350,11 +350,21 @@ export function validateManifest(manifest) {
   return manifest;
 }
 
-/** The release body and the manifest the in-app update notice will read (from 0.2). */
-export function buildNotes({ version, prerelease, read, git, tags }) {
+/**
+ * The release body and the manifest the in-app update notice will read (from 0.2). `event` is the GitHub event name
+ * (GITHUB_EVENT_NAME) and `tags` every existing tag, the one for this version included when it exists. In a pull request preview
+ * for a version that is already tagged, the release being rehearsed has already shipped, so the rule "breaking changes need an
+ * UPGRADE.md section" is not checked there (a warning says so). Tag pushes, dry runs and a pull request whose version has no tag
+ * yet (the release pull request) stay strict.
+ */
+export function buildNotes({ version, prerelease, read, git, tags, event }) {
   const parsed = parseVersion(version);
   const section = extractChangelogSection(read('CHANGELOG.md'), version);
-  const previous = previousTag(tags, parsed);
+  const alreadyReleased = tags.includes(`v${version}`);
+  const previous = previousTag(
+    tags.filter((tag) => tag !== `v${version}`),
+    parsed,
+  );
   const { migration, breaking } = detectChanges(git, previous);
 
   const readOptional = (file) => {
@@ -366,7 +376,11 @@ export function buildNotes({ version, prerelease, read, git, tags }) {
   };
   const upgrade = readOptional('UPGRADE.md');
   const upgradeNotes = extractUpgradeNotes(upgrade, version);
-  if (breaking && upgradeNotes === null) {
+  if (breaking && upgradeNotes === null && event === 'pull_request' && alreadyReleased) {
+    console.log(
+      `::warning::v${version} is already released, so the rule that breaking changes since ${previous} need an UPGRADE.md "## ${version}" section is not checked in this pull request preview.`,
+    );
+  } else if (breaking && upgradeNotes === null) {
     throw new Error(
       `This release has breaking changes since ${previous}, but UPGRADE.md has no "## ${version}" section. Write one first.`,
     );
@@ -431,7 +445,8 @@ function main() {
         prerelease: parseVersion(version).pre !== null,
         read: readFromRepo,
         git: gitIn,
-        tags: listTags().filter((tag) => tag !== `v${version}`),
+        tags: listTags(),
+        event: process.env.GITHUB_EVENT_NAME,
       });
       mkdirSync(arg, { recursive: true });
       writeFileSync(join(arg, 'release-notes.md'), body);
