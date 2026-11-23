@@ -31,14 +31,17 @@ test('restore a backup: maintenance page, result, signed out, data replaced, api
   await page.goto('/admin/backups');
   const list = page.getByRole('region', { name: 'Backups on this server' });
   // The names stop at the minute, so a backup made in the same minute as an earlier one gets a "-2" and so on: the way to know
-  // WHICH backup is ours is to count the rows before and wait for one more (waiting for "Working…" to disappear can pass before
-  // it has appeared, and then the photos would change while the backup is still running).
-  const namesBefore = await list.getByRole('rowheader').allInnerTexts();
+  // WHICH backup is ours is to wait for a name that was not listed before (waiting for "Working…" to disappear can pass before
+  // it has appeared, and then the photos would change while the backup is still running). Not a count of rows: retention keeps
+  // the newest backup of each day, so the earlier backup of today (journey 11's) can be removed as soon as this one is written,
+  // and the number of rows then stays the same.
+  const listed = async () => (await list.getByRole('rowheader').allInnerTexts()).map((n) => n.trim());
+  const namesBefore = await listed();
+  const newNames = async () => (await listed()).filter((n) => !namesBefore.includes(n));
   await page.getByRole('button', { name: 'Back up now' }).click();
-  await expect(list.getByRole('rowheader')).toHaveCount(namesBefore.length + 1, { timeout: 120_000 });
+  await expect.poll(newNames, { timeout: 120_000 }).toHaveLength(1);
   await expect(page.getByText('Working…')).toBeHidden({ timeout: 120_000 });
-  const namesAfter = (await list.getByRole('rowheader').allInnerTexts()).map((n) => n.trim());
-  const name = namesAfter.find((n) => !namesBefore.map((b) => b.trim()).includes(n)) ?? '';
+  const name = (await newNames())[0] ?? '';
   expect(name).toMatch(/^kinship-/);
 
   // Something happens after it: a person who is not in the backup.
