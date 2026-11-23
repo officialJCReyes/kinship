@@ -7,7 +7,7 @@ import { createAccount } from '../support/accounts.js';
 import { createPerson } from '../support/api.js';
 import { password, surname, uniq } from '../support/data.js';
 import { expect, test } from '../support/fixtures.js';
-import { apiExec, apiLog } from '../support/stack.js';
+import { apiExec, apiLog, webLog } from '../support/stack.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -67,11 +67,19 @@ test('a download needs the password again, and hands over the encrypted file', a
   await expect(dialog.getByText('That password is not right.')).toBeVisible();
 
   await dialog.getByLabel('Your password').fill(password());
-  const [download] = await Promise.all([
+  const [download, ticketResponse] = await Promise.all([
     page.waitForEvent('download'),
+    page.waitForResponse((r) => r.url().endsWith('/api/admin/backups/download-ticket') && r.status() === 200),
     dialog.getByRole('button', { name: 'Download' }).click(),
   ]);
   expect(download.suggestedFilename()).toBe(backupName);
+  // The one-time ticket travels in the download's query string; neither the api's log nor nginx's keeps it (#74).
+  const ticket = ((await ticketResponse.json()) as { ticket: string }).ticket;
+  expect(ticket.length).toBeGreaterThan(20);
+  await expect.poll(() => webLog()).toContain('GET /api/admin/backups/download HTTP/1.1');
+  expect(webLog()).not.toContain(ticket);
+  expect(apiLog()).toContain('/api/admin/backups/download?ticket=[redacted]');
+  expect(apiLog()).not.toContain(ticket);
   const path = await download.path();
   const bytes = readFileSync(path);
   expect(bytes.subarray(0, 4).toString('latin1')).toBe('KSBK');
