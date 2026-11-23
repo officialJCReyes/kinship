@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { t } from '../i18n.js';
+import { recallLegendOpen, rememberLegendOpen } from './remember.js';
 import type { TreeViewName } from './treeView.js';
 
 function Leaf() {
@@ -11,7 +13,11 @@ function Leaf() {
   );
 }
 
-/** What the lines and colours mean: one row per thing, a few rows for each view (the last one is in every view). */
+/**
+ * What the lines and colours mean: one row per thing, a few rows for each view (the last one is in every view). Hidden at first
+ * behind its small "Legend" button; the person's choice to open or close it is remembered (remember.ts), so moving to another
+ * person, view or family view never opens it again.
+ */
 export function Legend({
   view = 'family',
   deceasedMark = true,
@@ -23,9 +29,20 @@ export function Legend({
   relativesHidden?: boolean;
 }) {
   const cards = view !== 'fan';
+  const [open, setOpen] = useState(recallLegendOpen);
   return (
-    <details className="legend" open>
-      <summary>{t('tree.legend.title')}</summary>
+    <details className="legend" open={open}>
+      <summary
+        onClick={(event) => {
+          // Toggled here, on the click (Enter and Space on a summary are clicks too), not on the later "toggle" event: the chart
+          // can draw its legend again in between, and the choice must be stored whatever happens next.
+          event.preventDefault();
+          setOpen(!open);
+          rememberLegendOpen(!open);
+        }}
+      >
+        {t('tree.legend.title')}
+      </summary>
       <div role="group" aria-label={t('tree.legend.title')} className="legend-rows">
         {view === 'family' ? (
           <>

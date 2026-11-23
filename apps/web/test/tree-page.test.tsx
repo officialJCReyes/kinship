@@ -213,6 +213,82 @@ describe('the chart', () => {
   });
 });
 
+describe('the legend’s open or closed state', () => {
+  const legend = () => document.querySelector<HTMLDetailsElement>('details.legend');
+  /** The legend is drawn again with each chart: wait for it, then check it is open or closed. */
+  const legendIs = (open: boolean) => waitFor(() => expect(legend()?.open).toBe(open));
+  const toggleLegend = () => fireEvent.click(screen.getByText('Legend', { selector: 'summary' }));
+
+  it('starts hidden, with the small Legend button still there', async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    await legendIs(false);
+    expect(screen.getByText('Legend', { selector: 'summary' })).toBeTruthy();
+  });
+
+  it('once opened, stays open on another person’s tree, in a family view (the leaf) and in another view', async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    toggleLegend();
+    await legendIs(true);
+    expect(window.localStorage.getItem('kinship.tree.legendOpen')).toBe('1');
+    // The leaf flip: a family view
+    fireEvent.click(screen.getByRole('button', { name: 'Show Lena’s family (3 people)' }));
+    expect(await screen.findByText('Lena’s family')).toBeTruthy();
+    await legendIs(true);
+    // Another person's tree, opened afresh
+    cleanup();
+    renderApp('/tree/daniel');
+    await screen.findByRole('button', { name: /^Daniel Hale/ });
+    await legendIs(true);
+    // Another view
+    cleanup();
+    renderApp('/tree/daniel?view=pedigree');
+    await screen.findByRole('group', { name: 'Legend' });
+    await legendIs(true);
+  });
+
+  it('once closed, stays closed when switching person and through the leaf', async () => {
+    window.localStorage.setItem('kinship.tree.legendOpen', '1');
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    await legendIs(true);
+    toggleLegend();
+    await legendIs(false);
+    expect(window.localStorage.getItem('kinship.tree.legendOpen')).toBe('0');
+    fireEvent.click(screen.getByRole('button', { name: 'Show Lena’s family (3 people)' }));
+    expect(await screen.findByText('Lena’s family')).toBeTruthy();
+    await legendIs(false);
+    cleanup();
+    renderApp('/tree/daniel');
+    await screen.findByRole('button', { name: /^Daniel Hale/ });
+    await legendIs(false);
+  });
+
+  it('holds the choice for the visit when storage is blocked', async () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    mockApi(haleRoutes(READER));
+    renderApp('/tree/daniel');
+    await screen.findByRole('button', { name: /^Daniel Hale/ });
+    await legendIs(false);
+    toggleLegend();
+    await legendIs(true);
+    cleanup();
+    renderApp('/tree/marcus');
+    await screen.findByRole('button', { name: /^Marcus Hale/ });
+    await legendIs(true);
+    vi.restoreAllMocks();
+  });
+});
+
 describe('the view in the address', () => {
   it('draws the Family tree for a view it does not know', async () => {
     mockApi(haleRoutes(ADMIN));
