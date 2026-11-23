@@ -2,6 +2,22 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0-rc.2] - 2026-11-23
+
+Second release candidate of 0.3.0. If you are on rc.1 this is an image update only; if you are on 0.2.1 read UPGRADE.md first.
+
+### Changed
+
+- Set a person's profile photo from the camera on their picture, on the profile or in the tree's person panel: upload a new photo, or choose one of the photos that already show them. You can also set it straight from the Media page or a profile's Photos card, without opening the photo.
+- The tree legend starts hidden behind a small Legend button. Open or close it and it stays that way as you move between people, views and families.
+- The sign-in card is centred, with one logo mark and one line for a forgotten password.
+
+### Fixed
+
+- Dropdown arrows stay inside their boxes.
+- The backup download link no longer appears in the server logs.
+- A restore no longer fails with "pg_restore failed" after the database had been read in full. This could happen at random, more often with many photos; the restore then changed nothing.
+
 ## [0.3.0-rc.1] - 2026-11-22
 
 Release candidate of 0.3.0. Back up first and read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md).
