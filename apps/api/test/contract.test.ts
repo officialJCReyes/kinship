@@ -107,7 +107,6 @@ const peopleColumns = [
   'death_date',
   'death_precision',
   'is_placeholder',
-  'search_name',
   'search_names',
   'created_by',
   'created_at',
@@ -200,7 +199,7 @@ describe('database types', () => {
       await sql<{ column_name: string }>`
         select column_name from information_schema.columns
          where table_schema = 'public' and table_name = ${table} and column_name <> 'password_hash'
-           and not (is_generated = 'ALWAYS' and column_name not in ('search_name', 'search_names'))
+           and not (is_generated = 'ALWAYS' and column_name <> 'search_names')
          order by column_name`.execute(t.owner)
     ).rows.map((r) => r.column_name);
 

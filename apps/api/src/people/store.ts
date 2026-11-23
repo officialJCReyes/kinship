@@ -197,7 +197,7 @@ export async function listPeople(trx: Trx, query: PeopleQuery): Promise<{ rows: 
   return { rows: rows.slice(0, query.limit), hasMore: rows.length > query.limit };
 }
 
-/** Lower-cased, accent-free search words, the same way the database builds people.search_name. */
+/** Lower-cased, accent-free search words, the same way the database builds people.search_names. */
 export async function normalizeSearchWords(trx: Trx, q: string): Promise<string[]> {
   const words = q.trim().split(/\s+/).filter(Boolean).slice(0, 5);
   if (words.length === 0) return [];

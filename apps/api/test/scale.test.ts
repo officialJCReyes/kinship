@@ -162,7 +162,7 @@ describe('about 2,000 people', () => {
     }
     // the raw query, without the HTTP layer
     const plan = await sql<{ 'QUERY PLAN': string }>`
-      explain analyze select id from people where search_name like '%given1%' and search_name like '%surname4%'`.execute(
+      explain analyze select id from people where search_names like '%given1%' and search_names like '%surname4%'`.execute(
       t.owner,
     );
     const text = plan.rows.map((r) => r['QUERY PLAN']).join('\n');
