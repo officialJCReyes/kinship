@@ -100,10 +100,18 @@ hash_password() { compose exec -T api node --input-type=module -e "import { hash
 save_logs() { compose logs --no-color >> "$logs" 2>&1 || true; }
 
 # A fingerprint of everything a person typed in, over columns every release has. Status is left out on purpose: migration 0007
-# changes Married to Widowed when a partner is deceased.
+# changes Married to Widowed when a partner is deceased. The surname is read as migration 0024 folds it (ADR 0038): on a release
+# that has people.surname_particle (0017 to 0023) the particle goes in front unless the surname already starts with it, so the
+# same name gives the same fingerprint before and after the fold. Releases without the column read the surname as it is.
 digest() {
+  local surname="surname"
+  if [ "$(sql "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'people' and column_name = 'surname_particle'")" = "1" ]; then
+    surname="case when surname_particle is null or lower(surname) = lower(surname_particle)
+                    or left(lower(surname), length(surname_particle) + 1) = lower(surname_particle) || ' '
+                  then surname else surname_particle || ' ' || surname end"
+  fi
   sql "select md5(string_agg(x, '|' order by x)) from (
-         select 'p:' || id || given_name || surname || coalesce(gender, '') || coalesce(birth_date::text, '') || birth_precision || deceased::text || coalesce(death_date::text, '') as x from people
+         select 'p:' || id || given_name || ${surname} || coalesce(gender, '') || coalesce(birth_date::text, '') || birth_precision || deceased::text || coalesce(death_date::text, '') as x from people
          union all select 'u:' || id || partner_a_id || partner_b_id || coalesce(start_date::text, '') from unions
          union all select 'c:' || child_id || kind || coalesce(union_id::text, '') || coalesce(parent_id::text, '') from person_parents
          union all select 'a:' || id || email || role || coalesce(person_id::text, '') from users) t"

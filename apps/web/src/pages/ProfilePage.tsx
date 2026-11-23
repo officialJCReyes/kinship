@@ -239,12 +239,6 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                 <dd>{person.nickname}</dd>
               </>
             ) : null}
-            {person.surnameParticle ? (
-              <>
-                <dt>{t('person.surnameParticleFact')}</dt>
-                <dd>{person.surnameParticle}</dd>
-              </>
-            ) : null}
             <dt>{t('person.birthSurname')}</dt>
             <dd>{person.surname}</dd>
             {person.secondSurname ? (

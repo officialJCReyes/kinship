@@ -110,10 +110,11 @@ export interface Database {
     second_surname: string | null;
     /** The surname taken at marriage, optional (0007). */
     married_surname: string | null;
-    /** Dr., Sir; Jr., II; a nickname; de, de la (0017). All optional. */
+    /** Dr., Sir; Jr., II; a nickname (0017). All optional. */
     name_prefix: string | null;
     name_suffix: string | null;
     nickname: string | null;
+    /** Unread and unwritten since 0024, which folded it into `surname` (ADR 0038); dropped by a later migration. */
     surname_particle: string | null;
     gender: 'male' | 'female' | 'other' | null;
     /** As typed: YYYY, YYYY-MM or YYYY-MM-DD. The generated *_from and *_to columns exist but are only used in SQL. */
@@ -202,12 +203,16 @@ export interface Database {
  * a network blip). `pg` reports that as an "error" event on the pool, and an
  * unhandled one would crash the process. We log it instead; the pool discards
  * the dead connection and opens a new one when needed.
+ *
+ * `onNotice` receives the text of every NOTICE the server sends on these connections (a migration's RAISE NOTICE, for
+ * example 0024 naming the rows it left alone). Without it notices are dropped, as before.
  */
 export function createDb<T = Database>(
   db: Pick<DbConfig, 'host' | 'port' | 'name'>,
   user: string,
   password: string,
   max = 10,
+  onNotice?: (message: string) => void,
 ): Kysely<T> {
   const pool = new pg.Pool({ host: db.host, port: db.port, database: db.name, user, password, max });
   pool.on('error', (error) => {
@@ -215,6 +220,11 @@ export function createDb<T = Database>(
       JSON.stringify({ level: 'warn', time: Date.now(), msg: 'idle database connection dropped', err: error.message }),
     );
   });
+  if (onNotice) {
+    pool.on('connect', (client) => {
+      client.on('notice', (notice) => onNotice(notice.message ?? ''));
+    });
+  }
   return new Kysely<T>({ dialect: new PostgresDialect({ pool }) });
 }
 

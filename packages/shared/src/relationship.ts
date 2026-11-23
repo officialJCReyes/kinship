@@ -886,7 +886,6 @@ export type RelPerson = Pick<
   | 'marriedSurname'
   | 'namePrefix'
   | 'nameSuffix'
-  | 'surnameParticle'
   | 'gender'
   | 'birth'
   | 'deceased'

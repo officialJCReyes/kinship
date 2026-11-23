@@ -88,7 +88,6 @@ const personProperties = {
   namePrefix: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 400 }] },
   nameSuffix: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 400 }] },
   nickname: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 400 }] },
-  surnameParticle: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 400 }] },
   gender: { anyOf: [{ type: 'null' }, { type: 'string', maxLength: 16 }] },
   birth: dateSchema,
   deceased: { type: 'boolean' },
@@ -128,7 +127,6 @@ export function parsePersonInput(input: PersonInput): PersonValues {
     name_prefix: cleanOptionalName(input.namePrefix, 'invalid_name_prefix'),
     name_suffix: cleanOptionalName(input.nameSuffix, 'invalid_name_suffix'),
     nickname: cleanOptionalName(input.nickname, 'invalid_nickname'),
-    surname_particle: cleanOptionalName(input.surnameParticle, 'invalid_surname_particle'),
     gender: parseGender(input.gender),
     birth_date: birth?.value ?? null,
     birth_precision: birth?.precision ?? 'exactly',
@@ -152,9 +150,6 @@ function parsePersonPatch(patch: PersonPatch, current: { deceased: boolean }): P
   if (patch.namePrefix !== undefined) values.name_prefix = cleanOptionalName(patch.namePrefix, 'invalid_name_prefix');
   if (patch.nameSuffix !== undefined) values.name_suffix = cleanOptionalName(patch.nameSuffix, 'invalid_name_suffix');
   if (patch.nickname !== undefined) values.nickname = cleanOptionalName(patch.nickname, 'invalid_nickname');
-  if (patch.surnameParticle !== undefined) {
-    values.surname_particle = cleanOptionalName(patch.surnameParticle, 'invalid_surname_particle');
-  }
   if (patch.gender !== undefined) values.gender = parseGender(patch.gender);
   if (patch.photoMediaId !== undefined) {
     if (patch.photoMediaId !== null && !isUuid(patch.photoMediaId)) throw notFound('photo_not_found');

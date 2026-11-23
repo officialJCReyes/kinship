@@ -13,7 +13,6 @@ export interface PersonDraft {
   namePrefix: string;
   givenName: string;
   nickname: string;
-  surnameParticle: string;
   surname: string;
   secondSurname: string;
   marriedSurname: string;
@@ -29,7 +28,6 @@ export function emptyPersonDraft(gender: Gender | '' = ''): PersonDraft {
     namePrefix: '',
     givenName: '',
     nickname: '',
-    surnameParticle: '',
     surname: '',
     secondSurname: '',
     marriedSurname: '',
@@ -46,7 +44,6 @@ export function draftFromPerson(person: Person): PersonDraft {
     namePrefix: person.namePrefix ?? '',
     givenName: person.givenName,
     nickname: person.nickname ?? '',
-    surnameParticle: person.surnameParticle ?? '',
     surname: person.surname,
     secondSurname: person.secondSurname ?? '',
     marriedSurname: person.marriedSurname ?? '',
@@ -85,7 +82,6 @@ export function checkPersonDraft(draft: PersonDraft): { input: PersonInput | nul
       namePrefix: draft.namePrefix.trim() || null,
       nameSuffix: draft.nameSuffix.trim() || null,
       nickname: draft.nickname.trim() || null,
-      surnameParticle: draft.surnameParticle.trim() || null,
       gender: draft.gender === '' ? null : draft.gender,
       birth: birth ?? null,
       deceased: draft.deceased,
@@ -142,15 +138,7 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
           value={draft.nickname}
           onChange={(event) => onChange({ ...draft, nickname: event.target.value })}
         />
-        <Field
-          label={t('person.surnameParticle')}
-          name="surnameParticle"
-          autoComplete="off"
-          maxLength={AFFIX_MAX_LENGTH}
-          placeholder={t('person.surnameParticlePlaceholder')}
-          value={draft.surnameParticle}
-          onChange={(event) => onChange({ ...draft, surnameParticle: event.target.value })}
-        />
+        <div />
       </div>
       <div className="grid2">
         <Field

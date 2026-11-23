@@ -3,6 +3,7 @@
 - Status: **Accepted** (decisions by JC, step 38)
 - Date: 2026-11-22
 - Amends: [0017 release-please](0017-release-please.md) (its "Pre-releases" line and the `UPGRADE.md` gap)
+- Amended by: [0038 The surname particle is part of the surname](0038-surname-particle-folded.md) (the rc.1 and rc.2 seed wrappers also set `SEED_PARTICLES=1`)
 - Builds on: [0004 Releases and images](0004-release-and-images.md), [0016 The upgrade test](0016-upgrade-test.md)
 - No migration.
 

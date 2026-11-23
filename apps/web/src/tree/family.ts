@@ -174,17 +174,10 @@ export function nodeLabel(person: Person): string {
   return parts.join(t('tree.node.separator'));
 }
 
-export function initials(
-  person: Pick<Person, 'givenName' | 'surname' | 'secondSurname' | 'marriedSurname'> & {
-    surnameParticle?: string | null;
-  },
-): string {
+export function initials(person: Pick<Person, 'givenName' | 'surname' | 'secondSurname' | 'marriedSurname'>): string {
   const first = Array.from(person.givenName.trim())[0] ?? '';
-  // The particle (de, de la, van) is not part of the initial: "Beatriz de la Cruz" is BC.
-  let surname = displaySurname(person).trim();
-  if (person.surnameParticle && surname.startsWith(`${person.surnameParticle} `)) {
-    surname = surname.slice(person.surnameParticle.length + 1);
-  }
+  // A particle is part of the surname (ADR 0038), so it gives the initial: "Rosa de la Cruz" is RD.
+  const surname = displaySurname(person).trim();
   const last = Array.from(surname)[0] ?? '';
   return `${first}${last}`.toUpperCase();
 }

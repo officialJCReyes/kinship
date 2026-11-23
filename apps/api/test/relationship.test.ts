@@ -230,7 +230,6 @@ describe('who may ask, and what the body carries', () => {
       'marriedSurname',
       'namePrefix',
       'nameSuffix',
-      'surnameParticle',
       'gender',
       'birth',
       'deceased',
