@@ -35,6 +35,7 @@ import { registerRelationshipRoutes } from './routes/relationship.js';
 import { registerTreeRoutes } from './routes/tree.js';
 import { registerUnionRoutes } from './routes/unions.js';
 import type { VersionInfo } from './version.js';
+import { serializeRequest } from './log-redact.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -112,7 +113,12 @@ export function buildApp(options: AppOptions): FastifyInstance {
     mediaRequestsPerMinute = 2400,
   } = options;
   const app = Fastify({
-    logger: { level: logLevel, ...(logStream ? { stream: logStream } : {}) },
+    logger: {
+      level: logLevel,
+      // The request line without one-time secrets (the backup download ticket is a query parameter: #74).
+      serializers: { req: serializeRequest },
+      ...(logStream ? { stream: logStream } : {}),
+    },
     trustProxy: options.trustProxy ?? false,
     bodyLimit: 64 * 1024,
     // Do not turn a number into a string, or an array into its first item: a request is either the right shape or refused.
