@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <!--
-KNOWN DIFFERENCES FROM THE BUILT APP (as of 0.3.0 step 36, Nov 22 2026)
-This file is the approved specification, but the built app has moved on. Where they differ, the built behaviour below wins; ask JC if unsure. A full catch-up pass is planned after step 37, before 0.3.0-rc.1. Older differences are listed in kinship-build-status-and-handoff.md, section "Corrections to older docs".
+KNOWN DIFFERENCES FROM THE BUILT APP (as of 0.3.0 step 37, Nov 22 2026)
+This file is the approved specification, but the built app has moved on. Where they differ, the built behaviour below wins; ask JC if unsure. A full catch-up pass is planned before 0.3.0-rc.1. Older differences are listed in kinship-build-status-and-handoff.md, section "Corrections to older docs".
 1. Chart: this mockup has no gear panel (Cards, Names, Relatives, Navigation), no scroll mode for the mouse wheel and no hidden-relatives legend row. In the app, aunts, uncles and cousins are hidden by default and shown from the gear.
 2. Relationship finder: the app gives in-law and step names only for Married and Widowed partners (here Separated counts too). Divorced, Annulment and Separated partners of a blood relative read "ex-" (here any status counts as a former partner). A spouse's grandchild reads "Step-grandson" (here "Wife's grandson"). A single shared ancestor is "half" only when a side has a second, different known parent (here always half). The app has no "With birth places" switch and no Print or PDF in 0.3.0 (they come in 0.5 and 0.7).
 3. Admin, Users: the app has a row actions menu with Change role, Disable or Enable, and Delete. A disabled account is signed out and cannot sign in; Delete needs the account disabled first and a typed email. Nobody acts on their own account, and the last SuperAdmin can never be demoted, disabled or deleted. This mockup shows none of it.
 4. My settings: the line saying the chart's gear panel shows the same settings is true for Names only. The app also has a Week starts on setting in Display (Sunday, Monday or Saturday) that this mockup lacks.
-5. Admin, Backups: the app's Restore dialog asks for the SuperAdmin's password as well as the typed word RESTORE, shows a maintenance page while it runs, and a backup that carries files is refused until media restore ships in step 37 (this mockup says database and files are replaced, and has no password field).
+5. Admin, Backups: the app's Restore dialog asks for the SuperAdmin's password as well as the typed word RESTORE, shows a maintenance page while it runs, and since step 37 it does replace the photos too (this mockup has no password field).
 6. Dates: the app has a calendar picker next to the typed date field, which stays primary; this mockup has none.
+7. Photos (step 37): the app takes pictures only (JPEG, PNG, WebP; no documents or PDFs yet) from the Photos card on a profile, re-encodes them and keeps no EXIF except a date taken that the uploader sees and can edit (never GPS). Each photo opens a viewer with Set as profile photo, Remove from this person and Delete, shown only where the account may change that person. Admins, and a Member for their own person and people in their line, may add and edit; a Member deletes only their own uploads; a User never changes photos; every signed-in account sees photos of living people. This mockup's avatar input accepts any image type and its upload permissions differ.
+8. Media tab (step 37): the app's Media page is a family-wide grid of photos with a person filter and Load more, for every role. It has no upload, titles, captions or lightbox arrows; this mockup shows titles and years that are outside the 0.3.0 slice.
+9. First-run setup, Review step: the app has a Check for new versions switch (on by default) in place of the paragraph about update notices that this mockup still shows.
 -->
 <html lang="en">
 <head>

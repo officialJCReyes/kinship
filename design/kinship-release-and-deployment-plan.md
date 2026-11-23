@@ -83,7 +83,7 @@ Compose files are named `compose.yml` (not `docker-compose.yml`), as JC prefers.
 - Every upgrade note says "back up first" and links to the built-in backup (from 0.2). **A release with a database migration or a breaking change also triggers the backup warning inside the app (section 7).**
 - **Rollback = restore the backup** taken before the upgrade. Down-migrations are not written. To make a one-step rollback realistic, schema changes use *expand then contract*: a release adds the new column or table while still working with the old one, and a later release removes the old one.
 - The API runs pending migrations at startup under a lock (as already decided). If a migration fails the container stops, the database is left unchanged (migrations run in a transaction where Postgres allows), and the log says what to do.
-- **Automatic safety copy before a migration (decided: on by default, JC Nov 15):** when the `api` starts and finds pending migrations, it first writes a Postgres dump to the backups volume (`pre-upgrade-<from schema>-to-<to schema>.tar.enc`, for example `pre-upgrade-0006-to-0016.tar.enc`; a plain `.sql.gz` only when no backup passphrase is set), keeps the last three, and only then migrates. This is a safety net, **not a replacement for the SuperAdmin's own backup** (it sits on the same server and does not include media files). The SuperAdmin can switch it off in Admin → Updates ("Safety copy before a database change"), for example for a very large database. The "What's new" popup names the copy that was written.
+- **Automatic safety copy before a migration (decided: on by default, JC Nov 15):** when the `api` starts and finds pending migrations, it first writes a Postgres dump to the backups volume (`pre-upgrade-<from schema>-to-<to schema>.tar.enc`, for example `pre-upgrade-0006-to-0016.tar.enc`; a plain `.sql.gz` only when no backup passphrase is set), keeps the last three, and only then migrates. This is a safety net, **not a replacement for the SuperAdmin's own backup** (it sits on the same server and stays database-only, so it does not include photos; the backup you take yourself and the `pre-restore` copy that Restore makes do carry them). The SuperAdmin can switch it off in Admin → Updates ("Safety copy before a database change"), for example for a very large database. The "What's new" popup names the copy that was written.
 - **Postgres major versions:** the app moves to a newer Postgres major only in a release that says so and ships the upgrade steps (a dump and restore, which the built-in backup already does). Postgres 18 is supported by its makers until November 2030, so this is not expected before then.
 
 ### Support policy (accepted by JC, Nov 15)
@@ -186,7 +186,7 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 - **Names (decided by JC, Nov 19):** married women's names default to the maiden-name form, "Maiden name (Married name)", also for existing accounts, with the four forms offered in the gear panel and My settings; **name prefixes (Dr., Sir) and suffixes (Jr., II) are new person data in 0.3.0** (KinShip does not store them yet), shown by default, not required, with an on/off in the gear's Names group. This needs a forward-only migration (expand-then-contract), an ADR and a mockup update before the build, and a GEDCOM mapping note for 0.7 (NPFX and NSFX). **Prefixes and suffixes show by default for new and existing accounts (JC, Nov 19).** A **nickname** and **surname particles** (de, de la, van) go in the same name migration (decided Nov 19; if they do not fit, they move to 0.5). Plan for the rest of the GEDCOM gaps: `kinship-gedcom-coverage.md`. **Built in step 28 (Nov 20; ADR 0024, migration 0017):** prefix, suffix, nickname and surname particle, the four name forms, and the default change for every account.
 - Timeline and map (OpenStreetMap by default).
 - Performance target: 2,000 people draw and pan smoothly.
-- **Moved in from 0.2 and 1.5 (Nov 18, ADR 0018):** profile photos and Media upload to local storage, **encrypted before it is stored** (this adds a key, a volume and an UPGRADE step; issue #98); the in-app Restore button with a maintenance mode (#73; built in step 36); changing an account's role (#57); disabling and deleting accounts (#56); crossing minimisation in the tree layout (#21); the per-user default chart view (#48, from 1.5). **Built so far:** crossing minimisation (step 31), the per-user default chart view (step 33), and role change plus disable and delete accounts (step 35, Nov 21; ADR 0029, migration 0019). The in-app Restore (#73, ADR 0031) and the calendar picker with a per-user week start (#109, ADR 0032, migration 0020) were built in step 36 (Nov 22). Still to build: photos and encrypted media (#98), which also extends the restore to media files (#205).
+- **Moved in from 0.2 and 1.5 (Nov 18, ADR 0018):** profile photos and Media upload to local storage, **encrypted before it is stored** (this adds a key, a volume and an UPGRADE step; issue #98); the in-app Restore button with a maintenance mode (#73; built in step 36); changing an account's role (#57); disabling and deleting accounts (#56); crossing minimisation in the tree layout (#21); the per-user default chart view (#48, from 1.5). **Built so far:** crossing minimisation (step 31), the per-user default chart view (step 33), and role change plus disable and delete accounts (step 35, Nov 21; ADR 0029, migration 0019). The in-app Restore (#73, ADR 0031) and the calendar picker with a per-user week start (#109, ADR 0032, migration 0020) were built in step 36 (Nov 22). **Photos and encrypted media (#98) and the media restore (#205) were built in step 37 (Nov 22; ADRs 0033 to 0035, migrations 0021 and 0022):** a file key, the `./data/files` folder, the sharp image pipeline, upload and serve, the profile Photos card, avatars everywhere, backups and restore that carry the photos, and the Media tab (37e). Pictures only; documents are later.
 
 ### v0.4.0 — "Email, sign-in and notifications"
 - Email through Resend or SMTP with the editable templates and a test button; invites and password resets by email.
@@ -312,7 +312,7 @@ Purpose: prove the whole delivery chain with the smallest useful app.
 Account menu → **About KinShip** shows the version, schema, build, license (AGPL-3.0-or-later), a **Source code link** to the repository and the sentence that anyone running a modified copy for others must offer them its source, plus the **What's new** button.
 
 ### First-run wizard
-The last step has a short note that KinShip checks for new versions once a day by reading GitHub's public release list, sends nothing about the install, and can be turned off in Admin → Updates.
+The last step has a **"Check for new versions" switch, on by default** (changed in step 37, #213: the earlier paragraph about update notices is gone). The same switch lives in Admin → Updates; KinShip reads GitHub's public release list once a day and sends nothing about the install.
 
 ### Why GitHub and not an update server of our own
 One more thing to run and secure; GitHub already publishes the release feed, and the manifest makes it machine-readable.
@@ -335,7 +335,7 @@ services:
     image: ghcr.io/officialjcreyes/kinship-api:0.3.1
     env_file: .env
     depends_on: { db: { condition: service_healthy } }
-    volumes: ["kinship-files:/data/files", "kinship-backups:/data/backups"]
+    volumes: ["./data/files:/var/lib/kinship/files", "./data/backups:/var/lib/kinship/backups"]
     restart: unless-stopped
   db:
     image: postgres:18
@@ -346,7 +346,7 @@ services:
     volumes: ["kinship-db:/var/lib/postgresql"]   # Postgres 18 images keep data in a version folder under this path
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U kinship"], interval: 10s }
     restart: unless-stopped
-volumes: { kinship-db: {}, kinship-files: {}, kinship-backups: {} }
+volumes: { kinship-db: {} }   # files and backups are bind mounts under ./data, so you see and back up the folders yourself
 ```
 (The exact fields are finalized when the first release is built. There is no update-check variable; that setting lives in the app.)
 
