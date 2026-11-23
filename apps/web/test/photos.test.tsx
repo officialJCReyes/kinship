@@ -179,7 +179,7 @@ describe('uploading', () => {
     expect(calls(fetchMock).some((c) => c.startsWith('PATCH /api/media'))).toBe(false);
   });
 
-  it('the profile picture button uploads and makes it the profile photo', async () => {
+  it('the profile photo button uploads and makes it the profile photo', async () => {
     const fetchMock = await profile({
       'POST /api/people/ben/photos': OK('new3'),
       'PATCH /api/people/ben': { status: 200, body: { person: detailFor(ADMIN, 'ben').person, warnings: [] } },
