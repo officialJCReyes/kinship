@@ -1,7 +1,7 @@
 # 0036. Dropping people.search_name (#33)
 
 - Status: **Accepted** (decisions by JC, step 38)
-- Date: 2026-11-23
+- Date: 2026-11-22
 - Amends: [0005 People, relationships and who may change them](0005-people-and-relationships.md) (name search reads `search_names`), [0008 Second and married surnames](0008-names-and-widowed.md) (the contract step it promised), [0024 Names](0024-names.md) ("dropping it is a later, separate step": this is it)
 - Migration: `0023_drop_search_name.sql`
 
