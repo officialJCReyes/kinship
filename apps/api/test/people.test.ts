@@ -543,7 +543,7 @@ describe('deleting a person', () => {
   it('without confirm, reports what would happen (409 confirm_required with counts)', async () => {
     const response = await as(admin, 'DELETE', `/api/people/${f.person.rosa}`);
     expect(response.status).toBe(409);
-    expect(response.body).toEqual({ error: 'confirm_required', unions: 1, children: 1 });
+    expect(response.body).toEqual({ error: 'confirm_required', unions: 1, children: 1, photos: 0 });
     expect((await as(admin, 'GET', `/api/people/${f.person.rosa}`)).status).toBe(200);
   });
 
@@ -574,6 +574,7 @@ describe('deleting a person', () => {
       error: 'confirm_required',
       unions: 2,
       children: 3,
+      photos: 0,
     });
     expect((await as(admin, 'DELETE', `/api/people/${dad}?confirm=false`)).status).toBe(409);
     expect((await as(admin, 'DELETE', `/api/people/${dad}?confirm=true`)).status).toBe(204);

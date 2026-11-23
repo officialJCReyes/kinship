@@ -58,6 +58,10 @@ import type {
   UpdateMeRequest,
   UpdateParentLinkRequest,
   LinkKind,
+  MediaInfo,
+  MediaPatch,
+  PersonPhotos,
+  PhotoUploadResponse,
   UnionResponse,
 } from '@kinship/shared';
 
@@ -343,6 +347,67 @@ export async function updatePerson(id: string, patch: PersonPatch): Promise<Pers
 /** Without `confirm`, a person with relationships or children is refused with 409 confirm_required (and counts). */
 export async function deletePerson(id: string, confirm: boolean): Promise<void> {
   const path = `/api/people/${encodeURIComponent(id)}${confirm ? '?confirm=true' : ''}`;
+  const reply = await send('DELETE', path);
+  if (!succeeded(reply)) fail(path, reply);
+}
+
+// --- Photos (ADR 0034). Every path here is in MEDIA_ROUTES (a test checks it). ---
+
+export async function fetchPersonPhotos(personId: string, signal?: AbortSignal): Promise<PersonPhotos> {
+  const path = `/api/people/${encodeURIComponent(personId)}/photos`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as PersonPhotos;
+}
+
+/** The raw picture is the request body; the API decides what it is from its first bytes. */
+export async function uploadPhoto(personId: string, file: Blob): Promise<PhotoUploadResponse> {
+  const path = `/api/people/${encodeURIComponent(personId)}/photos`;
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        [CSRF_HEADER]: CSRF_VALUE,
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+  } catch {
+    throw new ApiError(`${path} could not be reached`);
+  }
+  let body: unknown = {};
+  try {
+    body = await response.json();
+  } catch {
+    // nginx answers 413 with a page, not JSON: the status alone says what happened.
+  }
+  const reply = { status: response.status, body };
+  if (response.status === 503) {
+    const details = asRecord(body);
+    if (details.error === 'maintenance') enterMaintenance();
+  }
+  if (reply.status !== 201) fail(path, reply);
+  return reply.body as PhotoUploadResponse;
+}
+
+export async function updateMedia(id: string, patch: MediaPatch): Promise<MediaInfo> {
+  const path = `/api/media/${encodeURIComponent(id)}`;
+  const reply = await send('PATCH', path, patch);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as MediaInfo;
+}
+
+export async function deleteMedia(id: string): Promise<void> {
+  const path = `/api/media/${encodeURIComponent(id)}`;
+  const reply = await send('DELETE', path);
+  if (!succeeded(reply)) fail(path, reply);
+}
+
+/** Takes the photo off one person (it stays for the others). */
+export async function removePhotoFromPerson(personId: string, mediaId: string): Promise<void> {
+  const path = `/api/people/${encodeURIComponent(personId)}/photos/${encodeURIComponent(mediaId)}`;
   const reply = await send('DELETE', path);
   if (!succeeded(reply)) fail(path, reply);
 }

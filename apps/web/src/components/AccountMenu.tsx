@@ -4,7 +4,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useLogout } from '../auth.js';
+import { Avatar } from './Avatar.js';
 import { t } from '../i18n.js';
+import { usePersonDetail } from '../people/queries.js';
 import { isAdmin } from '../people/permissions.js';
 
 function initialsOf(name: string): string {
@@ -30,6 +32,8 @@ export function AccountMenu({ user }: { user: AuthUser }) {
   const wrap = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+  // The picture on the button is the profile photo of the person this account is linked to, when there is one.
+  const person = usePersonDetail(user.personId ?? undefined, { quiet: true });
 
   // A click or tap outside closes it.
   useEffect(() => {
@@ -84,9 +88,12 @@ export function AccountMenu({ user }: { user: AuthUser }) {
           }
         }}
       >
-        <span className="avatar" aria-hidden="true">
-          {initialsOf(user.displayName)}
-        </span>
+        <Avatar
+          photoMediaId={person.data?.person.photoMediaId ?? null}
+          initials={initialsOf(user.displayName)}
+          size="sm"
+          className="ava-pill"
+        />
         <span className="account-name">{user.displayName}</span>
       </button>
       {open ? (

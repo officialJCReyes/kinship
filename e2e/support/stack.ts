@@ -5,7 +5,7 @@
 // ghcr.io/officialjcreyes/kinship-{web,api}:e2e (built by CI, or by `pnpm e2e:build-images`).
 import { randomBytes } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -50,6 +50,7 @@ function ensureImages(): void {
 /** Starts db, api and web from a fresh, throwaway install and waits until every service is healthy. */
 export function startStack(): void {
   ensureImages();
+  emptyFilesFolder();
   rmSync(WORK_DIR, { recursive: true, force: true });
   mkdirSync(WORK_DIR, { recursive: true });
   copyFileSync(join(REPO_ROOT, 'compose.yml'), join(WORK_DIR, 'compose.yml'));
@@ -85,6 +86,66 @@ export function startStack(): void {
   );
 }
 
+/**
+ * The photo files belong to the api's user (uid 1000) in folders only it can open, so the test user cannot delete them: empty the
+ * folder from a container, as root, before the work folder is removed.
+ */
+function emptyFilesFolder(): void {
+  const folder = join(WORK_DIR, 'data', 'files');
+  if (!existsSync(folder)) return;
+  spawnSync(
+    'docker',
+    [
+      'run',
+      '--rm',
+      '-v',
+      `${folder}:/files`,
+      '--entrypoint',
+      'sh',
+      'node:26-alpine',
+      '-c',
+      'find /files -mindepth 1 -delete',
+    ],
+    { stdio: 'ignore' },
+  );
+}
+
+/** The names of the stored photo files (objects/<2 hex>/<32 hex>), read inside the api container. */
+export function storedFiles(): string[] {
+  const out = compose(
+    ['exec', '-T', 'api', 'sh', '-c', 'find /var/lib/kinship/files/objects -type f | sed "s#.*/##" | sort'],
+    {
+      allowFailure: true,
+    },
+  );
+  return out
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/** Does any stored photo file contain these bytes? (A photo file must never contain a picture's own bytes.) */
+export function storedFilesContain(text: string): boolean {
+  const result = spawnSync(
+    'docker',
+    [
+      'compose',
+      '--project-name',
+      PROJECT,
+      '--project-directory',
+      WORK_DIR,
+      'exec',
+      '-T',
+      'api',
+      'sh',
+      '-c',
+      `grep -rlF -- '${text}' /var/lib/kinship/files/objects`,
+    ],
+    { encoding: 'utf8' },
+  );
+  return result.stdout.trim().length > 0;
+}
+
 /** Runs one SQL statement in the database container as the owner role (to arrange or read what no screen can). */
 export function dbExec(statement: string): string {
   return compose([
@@ -113,6 +174,7 @@ export function stopStack(): void {
     writeFileSync(join(LOG_DIR, `${service}.log`), compose(['logs', '--no-color', service], { allowFailure: true }));
   }
   compose(['down', '--volumes', '--remove-orphans'], { allowFailure: true });
+  emptyFilesFolder();
 }
 
 /** The one-time setup token the api printed in its log, as a person running the server would read it. */

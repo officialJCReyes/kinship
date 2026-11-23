@@ -400,6 +400,19 @@ describe('deleting a person', () => {
     expect((await get('user', `/api/media/${shared['id'] as string}/full`)).statusCode).toBe(200);
   });
 
+  it('the confirm_required preview says how many photos go with the person (those that show only them)', async () => {
+    // Tomas hangs from Beatriz alone: deleting Beatriz needs a confirmation, and the preview counts her photos.
+    const person = family.person.beatriz;
+    await photoOf('superadmin', person);
+    const shared = (await photoOf('superadmin', person)).photo;
+    await sql`insert into media_people (media_id, person_id) values (${shared['id'] as string}, ${family.person.tomas})`.execute(
+      t.owner,
+    );
+    const preview = await as('superadmin', 'DELETE', `/api/people/${person}`);
+    expect(preview.status).toBe(409);
+    expect(preview.body).toMatchObject({ error: 'confirm_required', photos: 1 });
+  });
+
   it('a delete that is refused leaves the photos alone', async () => {
     // Marcus has an account: the delete is refused with 409 and nothing is removed.
     const { photo } = await photoOf('superadmin', family.person.marcus);

@@ -71,6 +71,9 @@ RUN v="$(cat /tmp/web-version.txt)" \
  && rm /tmp/web-version.txt
 USER 101
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+# A mistake in the nginx config (a bad directive, a missing brace) fails the build here, not when the container starts. The api's address is
+# looked up per request through a variable, so nginx does not need the api to exist at build time.
+RUN nginx -t
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
   CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]

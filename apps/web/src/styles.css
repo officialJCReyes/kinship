@@ -2708,3 +2708,184 @@ pre.code {
   font-size: 1.1rem;
   margin: 0;
 }
+
+/* A person's picture (the Avatar component): initials underneath, the photo on top when there is one. */
+.ava {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: 600 13px var(--display);
+  line-height: 1;
+}
+
+.ava img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.ava-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.ava-md {
+  width: 36px;
+  height: 36px;
+}
+
+.ava-lg {
+  width: 88px;
+  height: 88px;
+  font-size: 30px;
+}
+
+.ava-pill {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.profile-id {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.profile-avatar {
+  position: relative;
+  flex: none;
+}
+
+.avatar-upload {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.avatar-upload:focus-within {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.avatar-upload input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.people-list li .person-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.photo-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  cursor: pointer;
+}
+
+.photo-tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-tile.is-profile {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.photo-tile .photo-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 11px;
+}
+
+.photo-full {
+  display: block;
+  max-width: 100%;
+  max-height: 60vh;
+  margin: 0 auto 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.photo-dialog-facts {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.photo-dialog .actions.wrap {
+  flex-wrap: wrap;
+}
+
+.panel-id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.panel-id .panel-name {
+  min-width: 0;
+  margin: 0;
+}
+
+.panel-id .ava-lg {
+  width: 56px;
+  height: 56px;
+  font-size: 20px;
+}
+
+.rcard .ava {
+  margin-bottom: 4px;
+}

@@ -56,7 +56,7 @@ describe('when photos cannot be used, uploads and pictures answer 503 files_unav
     const image = await makeImage();
     expect(await send(admin, `/api/people/${family.person.walter}/photos`, image, 'POST')).toMatchObject({
       status: 503,
-      body: { error: 'files_unavailable' },
+      body: { error: 'files_unavailable', reason: 'key_missing' },
     });
     expect(await send(admin, '/api/media/3e9f2a3c-0000-4000-8000-000000000000/full')).toMatchObject({
       status: 503,
@@ -98,6 +98,7 @@ describe('when photos cannot be used, uploads and pictures answer 503 files_unav
       ).body,
     ).toEqual({
       error: 'files_unavailable',
+      reason: 'files_unavailable',
     });
   });
 
@@ -118,11 +119,15 @@ describe('when photos cannot be used, uploads and pictures answer 503 files_unav
     sample = ['0123456789abcdef']; // some stored photo was sealed with another key
     expect((await send(admin, `/api/people/${family.person.walter}/photos`, await makeImage(), 'POST')).body).toEqual({
       error: 'files_unavailable',
+      reason: 'key_mismatch',
     });
     expect((await send(admin, `/api/media/${id}/full`)).status).toBe(200);
     // A photo that says it was sealed with another key is refused, not decrypted into garbage.
     await sql`update media_files set key_id = '0123456789abcdef' where id = ${id}`.execute(t.owner);
-    expect((await send(admin, `/api/media/${id}/full`)).body).toEqual({ error: 'files_unavailable' });
+    expect((await send(admin, `/api/media/${id}/full`)).body).toEqual({
+      error: 'files_unavailable',
+      reason: 'key_mismatch',
+    });
   });
 });
 

@@ -190,6 +190,7 @@ describe('who may ask, and what the body carries', () => {
       'deceased',
       'death',
       'isPlaceholder',
+      'photoMediaId',
     ].sort();
     for (const person of Object.values(body.people)) expect(Object.keys(person).sort()).toEqual(allowed);
     expect(response.body).not.toMatch(/nickname|Danny|createdAt|email|medical|dna|identity/i);

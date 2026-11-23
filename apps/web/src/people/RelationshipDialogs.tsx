@@ -13,6 +13,7 @@ import { errorMessage } from '../lib/errors.js';
 
 import { useSession } from '../auth.js';
 import { useNotices } from '../notices.js';
+import { usePersonPhotos } from './photos.js';
 import { useRefreshPeople } from './queries.js';
 import { asksMarriedSurname, checkUnionDraft, draftFromUnion, MarriedSurnames, UnionFields } from './UnionForm.js';
 import { isAdmin } from './permissions.js';
@@ -143,7 +144,10 @@ export function DeletePersonDialog({ person, onClose }: { person: Person; onClos
   const refresh = useRefreshPeople();
   const { notify } = useNotices();
   const navigate = useNavigate();
-  const [counts, setCounts] = useState<{ unions: number; children: number } | null>(null);
+  const [counts, setCounts] = useState<{ unions: number; children: number; photos: number } | null>(null);
+  // Photos that show only this person go with them. Known before anything is asked, from the person's photo list.
+  const photos = usePersonPhotos(person.id);
+  const photoCount = counts?.photos ?? photos.data?.items.filter((photo) => photo.people.length === 1).length ?? 0;
   const remove = useMutation({ mutationFn: (confirm: boolean) => api.deletePerson(person.id, confirm) });
 
   const run = (confirm: boolean) => {
@@ -156,7 +160,11 @@ export function DeletePersonDialog({ person, onClose }: { person: Person; onClos
       },
       onError: (error) => {
         if (error instanceof api.ApiError && error.status === 409 && error.code === 'confirm_required') {
-          setCounts({ unions: Number(error.details.unions ?? 0), children: Number(error.details.children ?? 0) });
+          setCounts({
+            unions: Number(error.details.unions ?? 0),
+            children: Number(error.details.children ?? 0),
+            photos: Number(error.details.photos ?? 0),
+          });
         }
       },
     });
@@ -173,6 +181,9 @@ export function DeletePersonDialog({ person, onClose }: { person: Person; onClos
       ) : (
         <p>{t('delete.body')}</p>
       )}
+      {photoCount > 0 ? (
+        <p role="note">{t(photoCount === 1 ? 'delete.photos.one' : 'delete.photos.many', { count: photoCount })}</p>
+      ) : null}
       {showError ? <FormError error={remove.error} /> : null}
       <div className="actions">
         <ActionButton onClick={onClose}>{t('common.cancel')}</ActionButton>

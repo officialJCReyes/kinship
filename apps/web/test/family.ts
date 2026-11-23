@@ -395,6 +395,7 @@ export function haleRoutes(me: AuthUser, extra: Record<string, MockRoute> = {}):
   };
   for (const { id } of PEOPLE) {
     routes[`GET /api/people/${id}`] = { status: 200, body: detailFor(me, id) };
+    routes[`GET /api/people/${id}/photos`] = { status: 200, body: { items: [] } };
   }
   routes['GET /api/tree/*'] = (_init, path) => {
     const url = new URL(path, 'http://x');

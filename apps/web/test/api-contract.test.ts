@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { ACCOUNT_ROUTES, CSRF_HEADER, PEOPLE_ROUTES } from '@kinship/shared';
+import { ACCOUNT_ROUTES, CSRF_HEADER, MEDIA_ROUTES, PEOPLE_ROUTES } from '@kinship/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as api from '../src/api.js';
 
@@ -53,6 +53,32 @@ describe('the web API client and the shared route table', () => {
     for (const call of seen) {
       expect(
         [...PEOPLE_ROUTES, ...ACCOUNT_ROUTES].some((route) => matches(route, call.method, call.path)),
+        `${call.method} ${call.path}`,
+      ).toBe(true);
+      if (call.method !== 'GET') expect(call.csrf, `${call.method} ${call.path}`).toBe(true);
+    }
+  });
+
+  it('calls the photo routes MEDIA_ROUTES lists, with the CSRF header on every change', async () => {
+    const seen: { method: string; path: string; csrf: boolean }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => {
+        const headers = (init.headers ?? {}) as Record<string, string>;
+        seen.push({ method: (init.method ?? 'GET').toUpperCase(), path: String(input), csrf: CSRF_HEADER in headers });
+        const status = init.method === 'DELETE' ? 204 : init.method === 'POST' ? 201 : 200;
+        return Promise.resolve(new Response(status === 204 ? null : '{}', { status }));
+      }),
+    );
+    await api.fetchPersonPhotos('p1');
+    await api.uploadPhoto('p1', new Blob(['x'], { type: 'image/png' }));
+    await api.removePhotoFromPerson('p1', 'm1');
+    await api.updateMedia('m1', { takenOn: '2019' });
+    await api.deleteMedia('m1');
+    expect(seen).toHaveLength(5);
+    for (const call of seen) {
+      expect(
+        MEDIA_ROUTES.some((route) => matches(route, call.method, call.path)),
         `${call.method} ${call.path}`,
       ).toBe(true);
       if (call.method !== 'GET') expect(call.csrf, `${call.method} ${call.path}`).toBe(true);
