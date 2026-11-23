@@ -695,13 +695,37 @@ ul.plain li {
   cursor: not-allowed;
 }
 
+/*
+ * Every select draws its own chevron, inside its box. A native select (appearance: auto) lets the browser place the arrow,
+ * and Chrome puts it against the right border whatever the padding, so it looked outside the box. Here the arrow is two
+ * small gradients in the select's own text colour (so it follows every scheme, light and dark), in a right padding kept
+ * free for it. The rules below set only background-color, never the background shorthand, so they keep this arrow.
+ */
+select {
+  --chevron-inset: 14px;
+  appearance: none;
+  padding-right: calc(var(--chevron-inset) + 20px);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - var(--chevron-inset) - 5px) 50%,
+    calc(100% - var(--chevron-inset)) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+select:disabled {
+  opacity: 0.6;
+}
+
 .field select,
 .date-row select {
   width: 100%;
-  padding: 9px 11px;
+  padding: 9px calc(var(--chevron-inset) + 20px) 9px 11px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--ink);
   font: inherit;
 }
@@ -748,12 +772,36 @@ input[type='search']:focus-visible,
   padding: 0 10px;
 }
 
-.calendar-toggle svg {
+/* Outlined line icons in buttons (the calendar, the camera, photo actions): drawn in the button's text colour. */
+.calendar-toggle svg,
+.line-icon {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/*
+ * A square button holding only an icon (the camera on an avatar, a photo's actions): the .button border, radius and colours,
+ * at a 30 px tap size. Its name is its aria-label.
+ */
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.icon-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.icon-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .calendar {
@@ -769,7 +817,7 @@ input[type='search']:focus-visible,
 
 .calendar-head {
   display: grid;
-  grid-template-columns: auto 1fr 84px auto;
+  grid-template-columns: auto 1fr 72px auto;
   gap: 6px;
   align-items: center;
   margin-bottom: 8px;
@@ -787,9 +835,14 @@ input[type='search']:focus-visible,
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--bg);
+  background-color: var(--bg);
   color: var(--ink);
   font: inherit;
+}
+
+.calendar-head select {
+  --chevron-inset: 9px;
+  padding-right: calc(var(--chevron-inset) + 17px);
 }
 
 .calendar-head select:focus-visible,
@@ -2778,34 +2831,11 @@ pre.code {
   flex: none;
 }
 
-.avatar-upload {
+/* The camera button sits on the large avatar's lower-right corner. */
+.avatar-corner {
   position: absolute;
-  right: -6px;
-  bottom: -6px;
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 2px solid var(--panel);
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  cursor: pointer;
-}
-
-.avatar-upload:focus-within {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-
-.avatar-upload input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
+  right: -8px;
+  bottom: -8px;
 }
 
 .people-list li .person-cell {

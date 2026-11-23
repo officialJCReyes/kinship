@@ -191,6 +191,19 @@ describe('uploading', () => {
     expect(all.indexOf('POST /api/people/ben/photos')).toBeLessThan(all.indexOf('PATCH /api/people/ben'));
   });
 
+  it('the camera button looks like the other icon buttons: outlined line icon, .button tokens, its name, 30 px', async () => {
+    await profile();
+    const camera = screen.getByRole('button', { name: 'Add profile photo' });
+    expect(camera.tagName).toBe('BUTTON');
+    expect([...camera.classList]).toEqual(expect.arrayContaining(['button', 'icon-button']));
+    const icon = camera.querySelector('svg')!;
+    expect(icon.classList.contains('line-icon')).toBe(true);
+    expect(icon.getAttribute('aria-hidden')).toBe('true');
+    // Outlined: no shape in it is filled; the stroke comes from .line-icon (currentColor), as on the calendar button.
+    expect([...icon.querySelectorAll('*')].every((shape) => !shape.getAttribute('fill'))).toBe(true);
+    expect(camera.closest('.avatar-corner')).not.toBeNull();
+  });
+
   const failures: Array<[string, MockRoute, RegExp]> = [
     ['too big (413 from the api)', { status: 413, body: { error: 'image_too_large' } }, /larger than 10 MB/],
     ['too big (413 from nginx, a page)', { status: 413, text: '<html>413</html>' }, /larger than 10 MB/],
