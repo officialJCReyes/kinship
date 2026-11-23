@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createHash, randomBytes } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Writable } from 'node:stream';
@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { checkEntryNames, createBackup, openArchive, readFilesIndex, spaceNeeded } from '../src/backup/archive.js';
 import type { BackupContext } from '../src/backup/archive.js';
 import { BackupError } from '../src/backup/errors.js';
-import { parseFilesIndex } from '../src/backup/files.js';
+import { collectFiles, parseFilesIndex } from '../src/backup/files.js';
 import { parseManifest } from '../src/backup/manifest.js';
 import { verifyBackup } from '../src/backup/verify.js';
 import { deriveFileKeys } from '../src/files/key.js';
@@ -196,7 +196,7 @@ describe('a backup with photos', () => {
 describe('free space', () => {
   it('needs the database plus the photos, and a tenth more', () => {
     expect(spaceNeeded(1000, 0)).toBe(1100);
-    expect(spaceNeeded(1000, 9000)).toBe(11_000);
+    expect(spaceNeeded(1000, 9000)).toBe(20_900);
     expect(spaceNeeded(0, 0)).toBe(0);
   });
 
@@ -227,6 +227,29 @@ describe('free space', () => {
       createBackup({ ...ctx, freeBytes: () => Math.ceil(spaceNeeded(size, 0) * 1.05) }, { kind: 'manual' }),
     ).resolves.toBeTruthy();
   }, 120_000);
+});
+
+describe('a photo deleted while the backup runs', () => {
+  it('is staged as it was at the snapshot, so deleting it afterwards cannot break the archive', async () => {
+    const { dir, ctx, photos, filesDir } = await withPhotos(2);
+    const stage = join(dir, 'stage');
+    const conn = t.owner;
+    const collected = await collectFiles(conn, filesDir, stage);
+    expect(collected.index.files).toHaveLength(4);
+    expect([...collected.paths.values()].every((p) => p.startsWith(stage))).toBe(true);
+    // Someone deletes a photo (row and files) right after it was read: what the backup holds does not change.
+    const victim = photos[0]!;
+    for (const name of [victim.storageId, victim.avatarStorageId])
+      rmSync(join(filesDir, 'objects', name.slice(0, 2), name));
+    for (const name of [victim.storageId, victim.avatarStorageId]) {
+      expect(existsSync(join(stage, name))).toBe(true);
+      expect(readFileSync(join(stage, name)).length).toBe(collected.index.files.find((f) => f.name === name)!.bytes);
+    }
+    // And a whole backup made after a file vanished still works: the vanished one is listed as missing.
+    rmSync(join(filesDir, 'objects', photos[1]!.storageId.slice(0, 2), photos[1]!.storageId));
+    const made = await createBackup(ctx, { kind: 'manual', includeFiles: true });
+    expect(made.manifest.files.count).toBe(1); // three of the four are gone from disk
+  });
 });
 
 describe('testing a backup with photos', () => {

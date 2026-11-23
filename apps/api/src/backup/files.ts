@@ -6,7 +6,7 @@
 // exported snapshot as the dump, never from a listing of the folder afterwards: a file uploaded after the snapshot has no row in
 // the dump and is left out; a file whose row is in the dump is in the archive, or named in `missing`.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { copyFileSync, linkSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sql } from 'kysely';
 import type { UntypedDb } from '../db.js';
@@ -55,8 +55,12 @@ export async function storedFilesBytes(conn: UntypedDb | { executeQuery: unknown
  * Reads the list of files from the open snapshot transaction on `conn`, then each file from `filesDir`. Throws a BackupError when
  * there are photos in the database but the files folder is not the one that holds them (no marker): a backup that quietly leaves
  * every photo out would be worse than one that fails and says why.
+ *
+ * With `stageDir`, each file is put there (a hard link when the two folders share a disk, else a copy) AT ONCE, while it is read.
+ * A photo deleted a moment later (someone removes it while the backup runs) then cannot make the archive fail: the backup holds
+ * the file as it was at the snapshot. A file that is gone by the time it is staged is listed as missing, like one that was never there.
  */
-export async function collectFiles(conn: UntypedDb, filesDir: string): Promise<CollectedFiles> {
+export async function collectFiles(conn: UntypedDb, filesDir: string, stageDir?: string): Promise<CollectedFiles> {
   const rows = await sql<{ id: string }>`
     select storage_id as id from media_files union all select avatar_storage_id from media_files order by 1`.execute(
     conn,
@@ -96,8 +100,32 @@ export async function collectFiles(conn: UntypedDb, filesDir: string): Promise<C
         `A stored photo file (${name.slice(0, 8)}…) is not a KinShip file, so it cannot be backed up.`,
       );
     }
+    let kept = path;
+    if (stageDir) {
+      mkdirSync(stageDir, { recursive: true, mode: 0o700 });
+      kept = join(stageDir, name);
+      try {
+        linkSync(path, kept);
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          index.missing.push(name);
+          continue;
+        }
+        // Another disk (the usual case in Docker: two mounted folders), or a file system that cannot link: copy it.
+        try {
+          copyFileSync(path, kept);
+        } catch (copyError) {
+          if ((copyError as NodeJS.ErrnoException).code === 'ENOENT') {
+            index.missing.push(name);
+            continue;
+          }
+          throw copyError;
+        }
+      }
+    }
     index.files.push({ name, bytes: data.length, sha256: createHash('sha256').update(data).digest('hex'), keyId });
-    paths.set(name, path);
+    paths.set(name, kept);
     bytes += data.length;
   }
   return { index, paths, bytes };

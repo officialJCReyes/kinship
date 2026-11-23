@@ -16,7 +16,6 @@ import {
   renameSync,
   rmSync,
   statfsSync,
-  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -195,9 +194,12 @@ export interface CreateOptions {
   includeFiles?: boolean;
 }
 
-/** The free space a backup needs: the database and the photos, and a tenth more. */
+/**
+ * The free space a backup needs: the database, the photos twice (staged beside the archive, then inside it; Docker's two mounted
+ * folders are two disks, so the staging is a copy), and a tenth more.
+ */
 export const spaceNeeded = (databaseBytes: number, filesBytes: number): number =>
-  Math.ceil((databaseBytes + filesBytes) * 1.1);
+  Math.ceil((databaseBytes + 2 * filesBytes) * 1.1);
 
 /**
  * Makes one encrypted archive of the whole database (and the media files): a pg_dump taken as the owner under an exported
@@ -304,7 +306,7 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
           );
           if (result.code !== 0) throw new ToolError('pg_dump', result.code, result.stderr);
           // The photos named by the rows of THIS snapshot (not by whatever is on the disk now).
-          if (wantFiles) collected = await collectFiles(conn, config.files.dir);
+          if (wantFiles) collected = await collectFiles(conn, config.files.dir, join(work, 'files'));
         } finally {
           await sql`rollback`.execute(conn);
         }
@@ -316,8 +318,7 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
         const included =
           collected !== undefined && (collected.index.files.length > 0 || collected.index.missing.length > 0);
         if (collected && included) {
-          mkdirSync(join(work, 'files'), { mode: 0o700 });
-          for (const [fileName, path] of collected.paths) symlinkSync(path, join(work, 'files', fileName));
+          mkdirSync(join(work, 'files'), { recursive: true, mode: 0o700 });
           writeFileSync(join(work, 'files.json'), JSON.stringify(collected.index), { mode: 0o600 });
           if (collected.index.missing.length > 0) {
             log('warn', 'some photos have a row but no file; the backup lists them as missing', {
