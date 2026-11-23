@@ -110,15 +110,13 @@ export const en = {
   'home.comingNext': 'The family tree is coming next.',
 
   'login.title': 'Sign in',
-  'login.subtitle': 'Sign in to your family tree.',
   'login.email': 'Email',
   'login.password': 'Password',
   'login.submit': 'Sign in',
   'login.submitting': 'Signing in…',
   'login.invalidCredentials': 'The email or password is not correct.',
   'login.rateLimited': 'Too many attempts. Try again in {minutes} minute(s).',
-  'login.forgot':
-    'Forgot your password? Ask an admin for a set-password link. If you are the only admin, ask the person who runs this server.',
+  'login.forgot': 'Forgot your password? Ask an admin for a set-password link.',
   'login.footer': 'KinShip {version}',
 
   'setup.title': 'Welcome to KinShip',

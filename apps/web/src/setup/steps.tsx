@@ -5,7 +5,7 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { ColorSchemePicker } from '../components/ColorSchemePicker.js';
 import { DateInput } from '../components/DateInput.js';
-import { Logo } from '../components/Logo.js';
+import { CardMark } from '../components/LogoMark.js';
 import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { t } from '../i18n.js';
@@ -39,9 +39,7 @@ export interface StepProps {
 export function AccountStep({ state, errors, set }: StepProps) {
   return (
     <>
-      <div className="logo-block">
-        <Logo height={44} />
-      </div>
+      <CardMark />
       <h1 tabIndex={-1}>{t('setup.title')}</h1>
       <p className="muted">{t('setup.intro')}</p>
       <Field

@@ -31,16 +31,25 @@ describe('the KinShip logo', () => {
     expect(svg.getAttribute('height')).toBe('38');
   });
 
-  it('is in the header when signed out, and on /login at 52 px, decorative, beside the "Sign in" heading', async () => {
+  it('is in the header when signed out; the /login card has only the sailboat mark, 44 px, decorative', async () => {
     mockApi(signedOut);
     renderApp('/login');
     await screen.findByRole('heading', { name: 'Sign in' });
     expect(screen.getByRole('link', { name: 'KinShip home' })).toBeTruthy();
-    expect(logos().map((l) => l.getAttribute('height'))).toEqual(['38', '52']);
+    expect(logos().map((l) => l.getAttribute('height'))).toEqual(['38', '44']);
     expect(logos().every((l) => l.getAttribute('aria-hidden') === 'true')).toBe(true);
+    // The card does not repeat the wordmark the header already shows, and follows light and dark through the same tokens.
+    const mark = logos()[1]!;
+    const colors = new Set(
+      [...mark.querySelectorAll('*')]
+        .flatMap((e) => [e.getAttribute('fill'), e.getAttribute('stroke')])
+        .filter((c) => c && c !== 'none'),
+    );
+    expect([...colors].sort()).toEqual(['var(--amber)', 'var(--logo-detail)', 'var(--logo-ink)', 'var(--logo-sail)']);
+    expect(screen.queryAllByRole('img')).toHaveLength(0);
   });
 
-  it('is on /setup at 44 px, and only on the first step’s heading', async () => {
+  it('is on /setup as the 44 px mark, and only on the first step’s heading', async () => {
     mockApi(needsSetup);
     renderApp('/setup');
     await screen.findByRole('heading', { name: 'Welcome to KinShip' });

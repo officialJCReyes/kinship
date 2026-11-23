@@ -105,11 +105,13 @@ KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HT
 
 Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link to copy and send yourself (it sends no email). The link works once, lasts 7 days and is shown only once; if you lose it, make a new one (that cancels the old). Whoever opens it chooses a password and is signed in. An account linked to nobody can be linked later under **Admin → Users → Link to a person**.
 
-## Locked out? Set a new password
+## Lost your password
+
+The sign-in page says "Forgot your password? Ask an admin for a set-password link." (KinShip sends no email yet.)
 
 **Anyone who is not a SuperAdmin:** ask an admin. On **Admin → Users**, **Set-password link** makes a 24-hour link for that account (a Family Admin can do this for Members and Users; a SuperAdmin for anyone but themselves). Using it signs the account out everywhere, and the account's **My settings** page shows that an admin set the password.
 
-**A SuperAdmin who is locked out:** whoever runs the server sets a new password from the command line; it asks twice, shows nothing, and signs that account out everywhere:
+**A SuperAdmin who is locked out** (the only admin of a family always is one): whoever runs the server sets a new password from the command line; it asks twice, shows nothing, and signs that account out everywhere:
 
 ```sh
 docker compose exec -it api kinship set-password you@example.com
