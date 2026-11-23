@@ -137,12 +137,14 @@ test('a prefix, nickname, a particle in the surname and a suffix: shown by defau
   await page.goto('/people');
   await page.getByRole('button', { name: 'Add person' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add person' });
-  await dialog.getByLabel('Prefix (optional)').fill('Dra.');
+  // Prefix and suffix are drop downs (backlog 12): a listed choice, and one typed under "Other…".
+  await dialog.getByLabel('Prefix (optional)').selectOption('Dra.');
   await dialog.getByLabel('Given name').fill('Beatriz');
   await dialog.getByLabel('Nickname (optional)').fill('Bea');
   await expect(dialog.getByLabel(/particle/i)).toHaveCount(0);
   await dialog.getByLabel('Surname', { exact: true }).fill(`de la ${family}`);
-  await dialog.getByLabel('Suffix (optional)').fill('Jr.');
+  await dialog.getByLabel('Suffix (optional)').selectOption({ label: 'Other…' });
+  await dialog.getByLabel('Suffix, as you write it').fill('Jr.');
   await dialog.getByRole('button', { name: 'Add person' }).click();
 
   const full = `Dra. Beatriz de la ${family} Jr.`;
