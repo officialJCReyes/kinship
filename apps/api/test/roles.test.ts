@@ -569,7 +569,7 @@ describe('row-level security by itself', () => {
       sql`update unions set partner_a_id = ${f.person.priya} where id = ${f.union.marcusPriya}`,
       sql`update unions set created_by = null where id = ${f.union.marcusPriya}`,
       sql`update person_parents set child_id = ${f.person.leo} where child_id = ${f.person.sofia}`,
-      sql`update people set search_name = 'x' where id = ${f.person.daniel}`,
+      sql`update people set search_names = 'x' where id = ${f.person.daniel}`,
     ]) {
       await expect(asUser(admin, (trx) => statement.execute(trx))).rejects.toThrow(/permission denied|cannot|column/i);
     }

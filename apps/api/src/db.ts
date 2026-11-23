@@ -124,8 +124,7 @@ export interface Database {
     death_precision: Generated<DatePrecisionCode>;
     /** True for an "Unknown father/mother" stand-in (0015): no name, no dates. Naming it clears the flag. */
     is_placeholder: Generated<boolean>;
-    search_name: ColumnType<string, never, never>;
-    /** Search text over the given name and all three surnames (0007). Replaces search_name, which is dropped in a later release. */
+    /** Search text over every part of the name (0007, rebuilt by 0017). The old search_name was dropped by 0023. */
     search_names: ColumnType<string, never, never>;
     /** The profile photo (0021): a media_files row linked to this person, or null. */
     photo_media_id: string | null;
