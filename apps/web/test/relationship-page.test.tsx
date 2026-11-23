@@ -122,6 +122,15 @@ describe('the relationship finder page', () => {
     expect(screen.getByText('Leo Hale is one generation further down the family tree than Naomi Brooks.')).toBeTruthy();
     expect(screen.getByText(/The term is the same from either side/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/younger|older/);
+    // The general "how it was worked out" paragraph is gone (backlog 10); only this panel explains anything.
+    expect(document.body.textContent).not.toMatch(/Worked out from the tree alone/);
+  });
+
+  it('has no paragraph on how the answer was worked out', async () => {
+    mockApi(routes());
+    renderApp('/relationship');
+    await screen.findByText('Choose two people to see how they are related.');
+    expect(document.body.textContent).not.toMatch(/Worked out from the tree alone|closest shared ancestor, counts/);
   });
 
   it('has no explainer for a plain cousin', async () => {

@@ -1454,8 +1454,6 @@ export const en = {
     'Removed works in both directions. {first} and {second} are each other’s {name}. The term is the same from either side.',
   'finder.removed.example':
     'For example, your parent’s first cousin and your first cousin’s child are both your first cousins once removed.',
-  'finder.method':
-    'Worked out from the tree alone: it finds the closest shared ancestor, counts generations up from each person, then names the result. A shared ancestor couple means a full relationship; a single known shared ancestor with a second, different parent on one side means half. Cousin level is the smaller generation count minus one, and “removed” is the difference between the two counts. Only current marriages (Married or Widowed) give in-law and step names.',
   'finder.people.unknown': 'Unknown person',
   // The relationship finder's words (ADR 0028). Lower case so they can sit inside a longer name; the finder capitalizes the first letter.
   'rel.self': 'same person',
