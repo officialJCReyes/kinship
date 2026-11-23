@@ -11,7 +11,8 @@ import { EmptyState, ErrorState, Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { displayName } from '../lib/names.js';
 import { photoUrl } from '../lib/photos.js';
-import { PhotoDialog } from '../people/photos.js';
+import { PhotoActions } from '../people/PhotoActions.js';
+import { PhotoDialog, ProfilePhotoMarker } from '../people/photos.js';
 import { peopleKey, usePersonDetail } from '../people/queries.js';
 
 /** The viewer for one photo: the person its actions are about is the filtered person, or the only one it shows. */
@@ -59,16 +60,21 @@ export function MediaPage() {
         <ul className="photo-grid" aria-label={t('media.title')}>
           {items.map((item) => {
             const names = item.shows.map((p) => displayName(p)).join(', ');
+            // Whose profile photo it is: known from the list itself, so the marker costs nothing.
+            const profileOf = item.shows.filter((p) => p.photoMediaId === item.id).map((p) => displayName(p));
+            const profile = profileOf.length > 0 ? t('media.tile.profile', { names: profileOf.join(', ') }) : '';
             return (
               <li key={item.id}>
                 <button
                   type="button"
                   className="photo-tile"
-                  aria-label={names ? t('media.tile', { names }) : t('media.tile.nobody')}
+                  aria-label={names ? t('media.tile', { names, profile }) : t('media.tile.nobody')}
                   onClick={() => setOpen(item.id)}
                 >
                   <img src={photoUrl(item.id, 'avatar')} alt="" loading="lazy" decoding="async" />
+                  {profile ? <ProfilePhotoMarker /> : null}
                 </button>
+                <PhotoActions mediaId={item.id} people={item.shows.map((p) => p.id)} />
               </li>
             );
           })}

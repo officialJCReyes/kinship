@@ -15,6 +15,7 @@ import { formatDate, isValidDateText } from '../lib/dates.js';
 import { displayName } from '../lib/names.js';
 import { checkPhotoFile, PHOTO_ACCEPT, photoErrorMessage, photoUrl } from '../lib/photos.js';
 import { useNotices } from '../notices.js';
+import { PhotoActions } from './PhotoActions.js';
 import { peopleKey, useRefreshPeople } from './queries.js';
 
 export function usePersonPhotos(personId: string) {
@@ -357,6 +358,15 @@ export function PhotoDialog({
   );
 }
 
+/** The small "Profile photo" marker on a thumbnail that is someone's profile photo (the tile's name says it in words). */
+export function ProfilePhotoMarker() {
+  return (
+    <span className="photo-badge" aria-hidden="true">
+      {t('photo.profileMarker')}
+    </span>
+  );
+}
+
 /** The Photos card on a profile. */
 export function PhotosCard({ person, canEdit }: { person: Person; canEdit: boolean }) {
   const photos = usePersonPhotos(person.id);
@@ -400,12 +410,9 @@ export function PhotosCard({ person, canEdit }: { person: Person; canEdit: boole
                   onClick={() => setOpen(item.id)}
                 >
                   <img src={photoUrl(item.id, 'avatar')} alt="" loading="lazy" decoding="async" />
-                  {profile ? (
-                    <span className="photo-badge" aria-hidden="true">
-                      ★
-                    </span>
-                  ) : null}
+                  {profile ? <ProfilePhotoMarker /> : null}
                 </button>
+                <PhotoActions mediaId={item.id} people={item.people} known={{ [person.id]: canEdit }} />
               </li>
             );
           })}

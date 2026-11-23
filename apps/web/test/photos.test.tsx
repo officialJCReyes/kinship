@@ -113,7 +113,7 @@ describe('the Photos card', () => {
   it('lists the photos as buttons, marks the profile photo, and is empty politely', async () => {
     await profile({}, [PHOTO('a'), PHOTO('b')], ADMIN, { photoMediaId: 'b' });
     const grid = await screen.findByRole('list', { name: 'Photos' });
-    const tiles = within(grid).getAllByRole('button');
+    const tiles = within(grid).getAllByRole('button', { name: /^Open photo/ });
     expect(tiles.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Open photo 1 of 2',
       'Open photo 2 of 2, the profile photo',
