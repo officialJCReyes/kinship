@@ -576,3 +576,56 @@ test('the real CHANGELOG.md has no [Unreleased] heading and every release in it 
   assert.equal(extractChangelogSection(text, '0.2.1').date, '2026-11-19');
   assert.equal(extractChangelogSection(text, '0.2.0').date, '2026-11-18');
 });
+
+// The pull request preview rehearses the release in package.json. When that version is already tagged, the breaking-changes rule
+// (UPGRADE.md needs a section) is only warned about there; every other situation stays strict.
+function previewNotes({ event, tags, upgrade }) {
+  const breaking = fakeGit({ log: 'feat!: x\0' });
+  const files = upgrade ? { 'UPGRADE.md': '## 0.2.0\nDo this.\n' } : {};
+  const logged = [];
+  const original = console.log;
+  console.log = (...args) => logged.push(args.join(' '));
+  try {
+    const result = buildNotes({
+      version: '0.2.0',
+      prerelease: false,
+      read: repo('0.2.0', files),
+      git: breaking,
+      tags,
+      event,
+    });
+    return { result, logged };
+  } finally {
+    console.log = original;
+  }
+}
+
+test('preview: a pull request for a version that is already tagged warns instead of failing, and has no upgrade notes', () => {
+  const { result, logged } = previewNotes({ event: 'pull_request', tags: ['v0.1.0', 'v0.2.0'] });
+  assert.equal(result.manifest.breaking, true);
+  assert.equal(result.manifest.upgradeNotes, null);
+  assert.equal(result.previous, 'v0.1.0', 'still compared with the previous tag, not with itself');
+  assert.ok(logged.some((line) => line.startsWith('::warning::') && /v0\.2\.0 is already released/.test(line)));
+});
+
+test('preview: a pull request whose version has no tag yet (the release pull request) still needs the UPGRADE.md section', () => {
+  assert.throws(
+    () => previewNotes({ event: 'pull_request', tags: ['v0.1.0'] }),
+    /breaking changes since v0\.1\.0, but UPGRADE\.md has no "## 0\.2\.0" section/,
+  );
+});
+
+test('a tag push, or a dry run, for a version that is tagged still needs the UPGRADE.md section', () => {
+  for (const event of ['push', 'workflow_dispatch', undefined])
+    assert.throws(
+      () => previewNotes({ event, tags: ['v0.1.0', 'v0.2.0'] }),
+      /UPGRADE\.md has no "## 0\.2\.0" section/,
+      String(event),
+    );
+});
+
+test('preview: a pull request with the section present passes, with no warning and the notes read', () => {
+  const { result, logged } = previewNotes({ event: 'pull_request', tags: ['v0.2.0'], upgrade: true });
+  assert.equal(result.manifest.upgradeNotes, 'Do this.');
+  assert.equal(logged.filter((line) => line.startsWith('::warning::')).length, 0);
+});
