@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { ReactNode } from 'react';
 
 /**
  * The KinShip sailboat mark alone (no wordmark), for the top of a card on a page whose header already shows the full logo
@@ -49,11 +50,16 @@ export function LogoMark({ size }: { size: number }) {
   );
 }
 
-/** The card header shared by the signed-out card pages: the mark, then the page's own heading. */
-export function CardMark() {
+/**
+ * The card header shared by the signed-out card pages (sign in, /invite and /reset, the first-run wizard's first step,
+ * the maintenance page): the mark, then the page's own heading, both centred. The fields below stay full width and
+ * left-aligned. A page that has no heading yet (a link still loading) passes none and still shows the mark.
+ */
+export function CardHeader({ children }: { children?: ReactNode }) {
   return (
-    <div className="logo-block">
+    <div className="card-header">
       <LogoMark size={44} />
+      {children}
     </div>
   );
 }

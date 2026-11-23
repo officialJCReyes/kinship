@@ -2,7 +2,7 @@
 import type { LastRestore, MaintenanceStatus, MessageKey } from '@kinship/shared';
 import { useEffect, useRef, useState } from 'react';
 import * as api from '../api.js';
-import { CardMark } from '../components/LogoMark.js';
+import { CardHeader } from '../components/LogoMark.js';
 import { t } from '../i18n.js';
 
 /** How often the page asks where the restore is. */
@@ -54,8 +54,9 @@ export function MaintenancePage({ onLeave }: { onLeave: () => void }) {
     return (
       <main className="page-width">
         <section className="card stack maintenance" aria-labelledby="maintenance-title">
-          <CardMark />
-          <h1 id="maintenance-title">{t('maintenance.title')}</h1>
+          <CardHeader>
+            <h1 id="maintenance-title">{t('maintenance.title')}</h1>
+          </CardHeader>
           <p className="muted">{t('maintenance.intro')}</p>
           <p role="status" aria-live="polite" className="maintenance-phase">
             {shown.text}
@@ -71,8 +72,9 @@ export function MaintenancePage({ onLeave }: { onLeave: () => void }) {
   return (
     <main className="page-width">
       <section className="card stack maintenance" aria-labelledby="maintenance-title" role="status" aria-live="polite">
-        <CardMark />
-        <h1 id="maintenance-title">{t(key('title'))}</h1>
+        <CardHeader>
+          <h1 id="maintenance-title">{t(key('title'))}</h1>
+        </CardHeader>
         <p>{t(key('body'))}</p>
         {kind === 'restored' ? <p>{t('maintenance.result.restored.accounts')}</p> : null}
         {last?.safetyCopy ? (

@@ -32,6 +32,18 @@ export const ALICE = {
 export const ME = { user: ALICE, treeName: 'Hale Family' };
 /** The version the web app was built with (vite.config.ts reads it from package.json). */
 export const WEB_VERSION = __WEB_VERSION__;
+
+/**
+ * The signed-out card pages share one centred header: the 44 px mark and the page's heading together in .card-header,
+ * with the form below it outside the header (so labels and fields stay full width and left-aligned).
+ */
+export function expectCardHeader(heading: HTMLElement): void {
+  const header = heading.parentElement!;
+  if (!header.classList.contains('card-header')) throw new Error('the heading is not in the card header');
+  const mark = header.querySelector(':scope > svg.logo');
+  if (mark?.getAttribute('height') !== '44') throw new Error('the card header has no 44 px mark');
+  if (header.querySelector('input, label, form')) throw new Error('the card header holds form fields');
+}
 export const VERSION = {
   name: 'kinship-api',
   version: WEB_VERSION,

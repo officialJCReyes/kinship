@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLL_MS, MaintenancePage } from '../src/pages/MaintenancePage.js';
 import { enterMaintenance, leaveMaintenance } from '../src/lib/maintenance.js';
-import { mockApi, renderApp, signedIn } from './helpers.js';
+import { expectCardHeader, mockApi, renderApp, signedIn } from './helpers.js';
 import type { MockRoute } from './helpers.js';
 
 beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: false }));
@@ -55,6 +55,7 @@ describe('the maintenance page', () => {
     const marks = document.querySelectorAll('svg.logo');
     expect(marks).toHaveLength(1);
     expect(marks[0]!.getAttribute('aria-hidden')).toBe('true');
+    expectCardHeader(screen.getByRole('heading', { name: 'KinShip is being restored from a backup' }));
   });
 
   it('keeps going through the seconds the api is gone (502, network errors), and then shows the result', async () => {

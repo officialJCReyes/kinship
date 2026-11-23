@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { calls, mockApi, renderApp } from './helpers.js';
+import { calls, expectCardHeader, mockApi, renderApp } from './helpers.js';
 import {
   GOOD,
   TOKEN,
@@ -72,6 +72,7 @@ describe('step 1, Account', () => {
       expect(screen.getByLabelText(label)).toBeTruthy();
     }
     expect(screen.getByText(/docker compose logs api/)).toBeTruthy();
+    expectCardHeader(screen.getByRole('heading', { name: 'Welcome to KinShip' }));
     expect(field('Password').getAttribute('autocomplete')).toBe('new-password');
     expect(screen.getByText('This screen never appears again once an account exists.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();

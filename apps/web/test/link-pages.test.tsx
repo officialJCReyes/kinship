@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { forgetFragmentToken } from '../src/lib/fragment-token.js';
-import { ALICE, ME, calls, mockApi, renderApp, signedOut } from './helpers.js';
+import { ALICE, ME, calls, expectCardHeader, mockApi, renderApp, signedOut } from './helpers.js';
 import type { MockRoute } from './helpers.js';
 
 const TOKEN = 'SECRET-link-token_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789';
@@ -88,6 +88,9 @@ describe('the invitation page', () => {
     expect(marks[0]!.getAttribute('height')).toBe('44');
     expect(marks[0]!.getAttribute('aria-hidden')).toBe('true');
     expect(document.querySelectorAll('svg.logo')).toHaveLength(2);
+    // The same centred header as the sign-in card, and the same centred button.
+    expectCardHeader(heading);
+    expect(screen.getByRole('button', { name: /password/i }).classList.contains('card-submit')).toBe(true);
   });
 
   it('shows who invited you, the role, the person, the note and the address, without a signed-in browser', async () => {
