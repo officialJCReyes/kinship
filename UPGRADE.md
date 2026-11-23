@@ -2,7 +2,7 @@
 
 Notes for upgrading from one release to the next, newest first. Read the section for the version you are moving to. The release process requires a section here for any release with a breaking change.
 
-## Unreleased (will become 0.3.0)
+## 0.3.0-rc.1
 
 **0.3.0 changes the database and some settings.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0023.tar.enc`) and then applies migrations 0017 to 0023. The safety copy holds the database only, not the photos (there are none before 0.3.0); your own backups and the copy a restore makes carry the photos.
 
