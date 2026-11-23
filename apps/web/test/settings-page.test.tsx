@@ -59,7 +59,7 @@ describe('the account menu', () => {
       within(nav)
         .getAllByRole('link')
         .map((l) => l.textContent),
-    ).toEqual(['Home', 'Family tree', 'People']);
+    ).toEqual(['Home', 'Family tree', 'People', 'Media']);
   });
 
   it('moves with the arrow keys, closes with Escape and gives the focus back, and closes on a click outside', async () => {

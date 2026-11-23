@@ -2,7 +2,15 @@
 //
 // Photos (ADR 0034). Upload is the raw picture as the request body (no multipart): the type comes from its first bytes. Serving
 // decrypts the whole file before the first byte is sent, so a damaged file is an error and never a half picture.
-import type { MediaInfo, MediaPatch, PersonPhotos, PhotoUploadResponse } from '@kinship/shared';
+import { MEDIA_PAGE_SIZE } from '@kinship/shared';
+import type {
+  MediaInfo,
+  MediaListItem,
+  MediaPage,
+  MediaPatch,
+  PersonPhotos,
+  PhotoUploadResponse,
+} from '@kinship/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Transaction } from 'kysely';
 import type { Database } from '../db.js';
@@ -14,13 +22,15 @@ import { isValidPartialDate } from '../people/dates.js';
 import { canEditPerson, isAdmin } from '../people/actor.js';
 import type { Actor } from '../people/actor.js';
 import { withActor } from '../people/run.js';
-import { getPerson, isUuid } from '../people/store.js';
+import { toRelPerson } from '../people/relationship.js';
+import { getPerson, isUuid, PERSON_COLUMNS } from '../people/store.js';
 import { processImage } from '../media/image.js';
 import {
   deleteMedia,
   getMedia,
   insertMedia,
   linkMedia,
+  listMedia,
   listPersonMedia,
   mediaPeople,
   setTakenOn,
@@ -109,6 +119,54 @@ export function registerMediaRoutes(app: FastifyInstance, options: MediaRouteOpt
     if (!usable()) throw new ApiError(503, 'files_unavailable', { reason: files.status().state });
     return files;
   };
+
+  // --- every photo of the family, a page at a time ---------------------------
+  app.get(
+    '/api/media',
+    {
+      config: editLimit,
+      schema: {
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { person: { type: 'string', maxLength: 64 }, cursor: { type: 'string', maxLength: 64 } },
+        },
+      },
+    },
+    async (request): Promise<MediaPage> => {
+      const query = request.query as { person?: string; cursor?: string };
+      if (query.person !== undefined && !isUuid(query.person)) throw notFound('person_not_found');
+      if (query.cursor !== undefined && !isUuid(query.cursor)) throw badRequest('invalid_cursor');
+      return withActor(request, async (trx, actor) => {
+        const rows = await listMedia(trx, {
+          ...(query.person ? { personId: query.person } : {}),
+          ...(query.cursor ? { after: query.cursor } : {}),
+          limit: MEDIA_PAGE_SIZE,
+        });
+        const page = rows.slice(0, MEDIA_PAGE_SIZE);
+        const ids = page.map((row) => row.id);
+        // Who each photo shows, with names: one query for the whole page (row-level security still applies).
+        const links = ids.length
+          ? await trx
+              .selectFrom('media_people as mp')
+              .innerJoin('people as p', 'p.id', 'mp.person_id')
+              .select([...PERSON_COLUMNS.map((c) => `p.${c}` as `p.${(typeof PERSON_COLUMNS)[number]}`), 'mp.media_id'])
+              .where('mp.media_id', 'in', ids)
+              .execute()
+          : [];
+        const shows = new Map<string, MediaListItem['shows']>();
+        for (const link of links) {
+          const list = shows.get(link.media_id) ?? [];
+          list.push(toRelPerson(link as never));
+          shows.set(link.media_id, list);
+        }
+        const items: MediaListItem[] = [];
+        for (const row of page) items.push({ ...(await infoOf(trx, actor, row)), shows: shows.get(row.id) ?? [] });
+        const last = page.at(-1);
+        return { items, nextCursor: rows.length > MEDIA_PAGE_SIZE && last ? last.id : null };
+      });
+    },
+  );
 
   // --- a person's photos ---------------------------------------------------
   app.get(

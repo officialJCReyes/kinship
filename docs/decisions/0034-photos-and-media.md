@@ -46,7 +46,9 @@ Photos arrive from family members' phones and cameras: any size, any orientation
 - **Date taken** is asked right after an upload, with the EXIF suggestion filled in and its source said; leaving it empty saves nothing. It is a plain typed date (no "about" or "before"), shown in the viewer's date format.
 - **Profile photo:** the round button on the profile picture uploads and sets it at once; a photo already in the Photos card gets "Set as profile photo". Remove from this person and Delete each ask first, and Delete says it is for everyone.
 - **Deleting a person** says how many photos go with them (the photos that show only them), before anything is asked (from the person's photo list), and again from the server's `confirm_required` preview (`photos`).
-- The Media page and the Media tab are the next part.
+### The Media page (37e)
+- **`GET /api/media`** (any signed-in role) pages the family's photos, newest first, 60 at a time, optionally for one person (`?person=`). The cursor is the last photo's id (ids are uuidv7, so they sort by creation). Each item is the photo as the profile shows it (permissions for the asking account, `takenOn`) plus `shows`, the people in it with their names. Row-level security gives every role the same list.
+- **`/media`** is a grid of the small variants (lazy-loaded) with the person picker as the filter, "Load more", and the same viewer as the profile. The viewer's person actions (Set as profile photo, Remove from this person) are about the filtered person, or the only person the photo shows, and are offered only if the account may change that person (asked of the person, not guessed); a photo of several people opened with no filter offers the date and Delete. No upload here, no lightbox arrows, no titles or captions. The **Media** tab is in the main navigation for every role.
 
 ## Consequences
 - The api image grows by about 19 MB, and a very large upload costs about 200 MB of memory for a few seconds.

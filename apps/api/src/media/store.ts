@@ -115,6 +115,31 @@ export async function listPersonMedia(trx: Trx, personId: string): Promise<Media
   return rows.map((r) => toRow(r as never));
 }
 
+/**
+ * The family-wide list, newest first. Ids are uuidv7, so they sort by creation time and one id is a complete cursor. Asks for
+ * `limit + 1` rows so the caller knows whether there is another page. `personId` keeps the photos that show that person.
+ */
+export async function listMedia(
+  trx: Trx,
+  options: { personId?: string; after?: string; limit: number },
+): Promise<MediaRow[]> {
+  let query = trx
+    .selectFrom('media_files as m')
+    .select(COLUMNS.map((c) => `m.${c}` as `m.${(typeof COLUMNS)[number]}`));
+  if (options.personId)
+    query = query.where(
+      'm.id',
+      'in',
+      trx.selectFrom('media_people').select('media_id').where('person_id', '=', options.personId),
+    );
+  if (options.after) query = query.where('m.id', '<', options.after);
+  const rows = await query
+    .orderBy('m.id', 'desc')
+    .limit(options.limit + 1)
+    .execute();
+  return rows.map((r) => toRow(r as never));
+}
+
 /** The people a photo is linked to. */
 export async function mediaPeople(trx: Trx, mediaId: string): Promise<string[]> {
   const rows = await trx.selectFrom('media_people').select('person_id').where('media_id', '=', mediaId).execute();

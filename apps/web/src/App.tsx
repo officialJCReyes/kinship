@@ -26,6 +26,7 @@ import { NotFoundPage } from './pages/NotFoundPage.js';
 import { PeoplePage } from './pages/PeoplePage.js';
 import { ProfilePage } from './pages/ProfilePage.js';
 import { SettingsPage } from './pages/SettingsPage.js';
+import { MediaPage } from './pages/MediaPage.js';
 import { SetupPage } from './pages/SetupPage.js';
 import { TreeIndexPage, TreePage } from './tree/TreePage.js';
 import { entryAddress } from './tree/treeView.js';
@@ -148,6 +149,9 @@ export function App() {
               <NavLink to="/people" end>
                 {t('nav.people')}
               </NavLink>
+              <NavLink to="/media" end>
+                {t('nav.media')}
+              </NavLink>
             </nav>
           ) : null}
           {session.data ? <AccountMenu user={session.data.user} /> : null}
@@ -185,6 +189,7 @@ export function App() {
             <Route path="/tree/:id" element={<TreePage />} />
             <Route path="/relationship" element={<RelationshipPage />} />
             <Route path="/people" element={<PeoplePage />} />
+            <Route path="/media" element={<MediaPage />} />
             <Route path="/people/:id" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/about" element={<AboutPage />} />

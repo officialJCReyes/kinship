@@ -65,17 +65,22 @@ describe('the web API client and the shared route table', () => {
       'fetch',
       vi.fn((input: RequestInfo | URL, init: RequestInit = {}) => {
         const headers = (init.headers ?? {}) as Record<string, string>;
-        seen.push({ method: (init.method ?? 'GET').toUpperCase(), path: String(input), csrf: CSRF_HEADER in headers });
+        seen.push({
+          method: (init.method ?? 'GET').toUpperCase(),
+          path: String(input).split('?')[0] ?? '',
+          csrf: CSRF_HEADER in headers,
+        });
         const status = init.method === 'DELETE' ? 204 : init.method === 'POST' ? 201 : 200;
         return Promise.resolve(new Response(status === 204 ? null : '{}', { status }));
       }),
     );
     await api.fetchPersonPhotos('p1');
+    await api.fetchMedia({ person: 'p1', cursor: 'c1' });
     await api.uploadPhoto('p1', new Blob(['x'], { type: 'image/png' }));
     await api.removePhotoFromPerson('p1', 'm1');
     await api.updateMedia('m1', { takenOn: '2019' });
     await api.deleteMedia('m1');
-    expect(seen).toHaveLength(5);
+    expect(seen).toHaveLength(6);
     for (const call of seen) {
       expect(
         MEDIA_ROUTES.some((route) => matches(route, call.method, call.path)),
