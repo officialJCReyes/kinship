@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// "Photo actions" on a thumbnail (step 41): set as profile picture straight from the Media page and a profile's Photos card,
+// "Photo actions" on a thumbnail (step 41): set as profile photo straight from the Media page and a profile's Photos card,
 // for the people the account may edit, checked only when the menu opens; keyboard use; the refresh; the "Profile photo" marker.
 import type { MediaInfo, MediaListItem, RelPerson } from '@kinship/shared';
 import { readFileSync } from 'node:fs';
@@ -58,7 +58,7 @@ const actions = async () => {
 const menuItems = async () => {
   const menu = screen.getByRole('menu', { name: 'Photo actions' });
   // Wait for the permission check to end.
-  await waitFor(() => expect(within(menu).queryByText('Checking whose picture you may change…')).toBeNull());
+  await waitFor(() => expect(within(menu).queryByText('Checking whose profile photo you may change…')).toBeNull());
   return within(menu).getAllByRole('menuitem');
 };
 const patchBody = (fetchMock: ReturnType<typeof mockApi>, path: string) => {
@@ -67,34 +67,34 @@ const patchBody = (fetchMock: ReturnType<typeof mockApi>, path: string) => {
 };
 
 describe('Photo actions on the Media page', () => {
-  it('a photo of one person: one item, "Set as profile picture", with the viewer’s PATCH; a notice names them', async () => {
+  it('a photo of one person: one item, "Set as profile photo", with the viewer’s PATCH; a notice names them', async () => {
     const fetchMock = media(ADMIN, [ITEM('a', [rel('ben')])]);
     const [button] = await actions();
     expect(button!.getAttribute('aria-haspopup')).toBe('menu');
     fireEvent.click(button!);
     const items = await menuItems();
-    expect(items.map((item) => item.textContent)).toEqual(['Set as profile picture']);
+    expect(items.map((item) => item.textContent)).toEqual(['Set as profile photo']);
     const mediaLoads = calls(fetchMock).filter((c) => c === 'GET /api/media').length;
     fireEvent.click(items[0]!);
     await waitFor(() => expect(patchBody(fetchMock, '/api/people/ben')).toEqual({ photoMediaId: 'a' }));
-    expect(await screen.findByText('Profile picture set for Ben Hale.')).toBeTruthy();
+    expect(await screen.findByText('Profile photo set for Ben Hale.')).toBeTruthy();
     // Every people query is refreshed (the list, the avatars): no reload.
     await waitFor(() =>
       expect(calls(fetchMock).filter((c) => c === 'GET /api/media').length).toBeGreaterThan(mediaLoads),
     );
   });
 
-  it('a photo of several people: one item per person, "Set as profile picture for <Name>"', async () => {
+  it('a photo of several people: one item per person, "Set as profile photo for <Name>"', async () => {
     const fetchMock = media(ADMIN, [ITEM('b', [rel('ben'), rel('walter')])]);
     fireEvent.click((await actions())[0]!);
     const items = await menuItems();
     expect(items.map((item) => item.textContent)).toEqual([
-      'Set as profile picture for Ben Hale',
-      'Set as profile picture for Walter Hale',
+      'Set as profile photo for Ben Hale',
+      'Set as profile photo for Walter Hale',
     ]);
     fireEvent.click(items[1]!);
     await waitFor(() => expect(patchBody(fetchMock, '/api/people/walter')).toEqual({ photoMediaId: 'b' }));
-    expect(await screen.findByText('Profile picture set for Walter Hale.')).toBeTruthy();
+    expect(await screen.findByText('Profile photo set for Walter Hale.')).toBeTruthy();
   });
 
   it('asks who may be edited only when a menu is opened, never one request per thumbnail', async () => {
@@ -117,12 +117,12 @@ describe('Photo actions on the Media page', () => {
     media(MEMBER, [ITEM('a', [rel('marcus'), rel('ben')]), ITEM('b', [rel('ben')])]);
     const [both, benOnly] = await actions();
     fireEvent.click(both!);
-    expect((await menuItems()).map((item) => item.textContent)).toEqual(['Set as profile picture for Marcus Hale']);
+    expect((await menuItems()).map((item) => item.textContent)).toEqual(['Set as profile photo for Marcus Hale']);
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
     fireEvent.click(benOnly!);
     const [nobody] = await menuItems();
     expect(nobody!.getAttribute('aria-disabled')).toBe('true');
-    expect(nobody!.textContent).toContain('You cannot change the profile picture of anyone in this photo.');
+    expect(nobody!.textContent).toContain('You cannot change the profile photo of anyone in this photo.');
   });
 
   it('is keyboard operable: Down opens it, the first item has focus, Enter chooses', async () => {
@@ -131,7 +131,7 @@ describe('Photo actions on the Media page', () => {
     button!.focus();
     fireEvent.keyDown(button!, { key: 'ArrowDown' });
     await menuItems();
-    await waitFor(() => expect(document.activeElement?.textContent).toBe('Set as profile picture'));
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('Set as profile photo'));
     // A menu item is a button: Enter on it is a click.
     fireEvent.click(document.activeElement!);
     await waitFor(() => expect(patchBody(fetchMock, '/api/people/ben')).toEqual({ photoMediaId: 'a' }));
@@ -156,7 +156,7 @@ describe('Photo actions on the Media page', () => {
     fireEvent.click((await actions())[0]!);
     const [ben, walter] = await menuItems();
     expect(ben!.getAttribute('aria-disabled')).toBe('true');
-    expect(ben!.textContent).toContain('It is already the profile picture.');
+    expect(ben!.textContent).toContain('It is already the profile photo.');
     expect(walter!.getAttribute('aria-disabled')).toBeNull();
   });
 });
@@ -177,18 +177,18 @@ describe('Photo actions on a profile’s Photos card', () => {
   const cardActions = async () =>
     within(await screen.findByRole('list', { name: 'Photos' })).queryAllByRole('button', { name: 'Photo actions' });
 
-  it('sets the profile picture from the grid, without opening the viewer, and refreshes the avatar', async () => {
+  it('sets the profile photo from the grid, without opening the viewer, and refreshes the avatar', async () => {
     const fetchMock = card(ADMIN, [INFO('p1', ['ben']), INFO('p2', ['ben'])], 'p2');
     const loads = () => calls(fetchMock).filter((c) => c === 'GET /api/people/ben').length;
     const [first] = await cardActions();
     fireEvent.click(first!);
     const items = await menuItems();
-    expect(items.map((item) => item.textContent)).toEqual(['Set as profile picture']);
+    expect(items.map((item) => item.textContent)).toEqual(['Set as profile photo']);
     const before = loads();
     fireEvent.click(items[0]!);
     await waitFor(() => expect(patchBody(fetchMock, '/api/people/ben')).toEqual({ photoMediaId: 'p1' }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(await screen.findByText('Profile picture set for Ben Hale.')).toBeTruthy();
+    expect(await screen.findByText('Profile photo set for Ben Hale.')).toBeTruthy();
     await waitFor(() => expect(loads()).toBeGreaterThan(before));
     // The profile photo's tile keeps its marker.
     expect(
