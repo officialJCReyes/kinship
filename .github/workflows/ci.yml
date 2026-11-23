@@ -267,7 +267,7 @@ jobs:
           PREVIOUS_TAG: v0.3.0-rc.1
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
 
-  # Not a required check (yet). A real browser against the real web, api and Postgres containers.
+  # A required check ("Protect main" ruleset). A real browser against the real web, api and Postgres containers.
   e2e:
     name: End-to-end (Playwright)
     runs-on: ubuntu-24.04
