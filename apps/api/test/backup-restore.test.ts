@@ -12,7 +12,7 @@ import { fingerprint, listTables, tableStats } from '../src/backup/inspect.js';
 import { run } from '../src/backup/tools.js';
 import { readState, recordRestoreEnd, recordRestoreStart } from '../src/backup/state.js';
 import { Readable, Writable } from 'node:stream';
-import { checkRestore, prefixSql, restoreBackup, suffixSql } from '../src/backup/restore.js';
+import { checkRestore, pipelineFailure, prefixSql, restoreBackup, suffixSql } from '../src/backup/restore.js';
 import type { RestoreHooks } from '../src/backup/restore.js';
 import type { Tools } from '../src/backup/tools.js';
 import { sweepVerifyDatabases, verifyBackup, verifyPrefix } from '../src/backup/verify.js';
@@ -288,6 +288,91 @@ describe('a restore that fails leaves the database exactly as it was', () => {
     );
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
   }, 90_000);
+});
+
+describe('tar still reading the archive when pg_restore ends (#240)', () => {
+  const real = () => testTools();
+  /** A line that counts this call: one counter per call shape (the same archive read the same way). */
+  const countCall = (dir: string) => [
+    `key=$(printf '%s' "$*" | cksum | cut -d' ' -f1)`,
+    `case "$*" in *database.dump*) echo x >> '${dir}/'"$key";; esac`,
+  ];
+  /** True in the shell when this is the second read of the same archive's dump: the restore's own replay. */
+  const isReplay = (dir: string) => `[ "$(wc -l < '${dir}/'"$key" 2>/dev/null || echo 0)" -ge 2 ]`;
+
+  /**
+   * tar as the restore runs it, with the order of events fixed. The opened backup's dump is read twice: for its checksum when the
+   * archive is opened, then for the replay (the safety copy is a different archive). On the replay this tar writes the whole dump
+   * and then stays busy, as real tar is while it reads the photos and the end of the archive, until the restore stops it.
+   */
+  function tarStillReading(): string {
+    const dir = folder();
+    return wrapper(
+      [
+        ...countCall(dir),
+        `'${real().tar}' "$@" || exit $?`,
+        `case "$*" in *database.dump*) if ${isReplay(dir)}; then exec sleep 300; fi;; esac`,
+      ].join('\n'),
+    );
+  }
+
+  it('a successful pg_restore is not reported as failed because tar was stopped after it', async () => {
+    const l = await live();
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    const count = async (table: string) =>
+      Number(
+        (await sql<{ n: string }>`select count(*) as n from ${sql.table(table)}`.execute(l.test.owner)).rows[0]?.n,
+      );
+    const unions = await count('unions');
+    expect(unions).toBeGreaterThan(0);
+    await sql`delete from person_parents`.execute(l.test.owner);
+    await sql`delete from unions`.execute(l.test.owner);
+    // Before the fix: "pg_restore failed with exit code 0", the error seen in CI.
+    const report = await restoreBackup(withTools(l.ctx, { tar: tarStillReading() }), made.path, hooks());
+    expect(report.cancelled).toBe(false);
+    expect(await count('unions')).toBe(unions);
+  }, 90_000);
+
+  it('tar failing on its own before pg_restore has finished still fails the restore, names tar, and changes nothing', async () => {
+    const l = await live();
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    const before = await state(l.test.owner, l.test.config.appUser);
+    const dir = folder();
+    // On the replay, tar writes the whole dump and then fails (a damaged end of the archive). pg_restore starts only once that tar
+    // process is gone, so tar's failure always comes first.
+    const tar = wrapper(
+      [
+        ...countCall(dir),
+        `'${real().tar}' "$@" || exit $?`,
+        `case "$*" in *database.dump*) if ${isReplay(dir)}; then echo $$ > '${dir}/tar.pid'; echo "tar: unexpected EOF in archive" >&2; exit 2; fi;; esac`,
+      ].join('\n'),
+    );
+    const pgRestore = wrapper(
+      [
+        `cat > '${dir}/dump'`,
+        `while [ ! -f '${dir}/tar.pid' ] || kill -0 "$(cat '${dir}/tar.pid')" 2>/dev/null; do sleep 0.02; done`,
+        `exec '${real().pgRestore}' "$@" < '${dir}/dump'`,
+      ].join('\n'),
+      real().pgRestore,
+    );
+    const failure = await restoreBackup(withTools(l.ctx, { tar, pgRestore }), made.path, hooks()).catch(
+      (e: unknown) => e as Error,
+    );
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toMatch(/^tar failed with exit code 2/);
+    expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
+  }, 90_000);
+
+  it('the rule: pg_restore always counts; tar only when it ended before pg_restore', () => {
+    expect(pipelineFailure(0, { code: 0, endedAfterRestore: false })).toBeNull();
+    expect(pipelineFailure(0, { code: null, endedAfterRestore: true })).toBeNull(); // stopped by the restore
+    expect(pipelineFailure(0, { code: 141, endedAfterRestore: true })).toBeNull(); // the broken pipe after pg_restore
+    expect(pipelineFailure(0, { code: 2, endedAfterRestore: false })).toBe('tar');
+    expect(pipelineFailure(0, { code: null, endedAfterRestore: false })).toBe('tar');
+    expect(pipelineFailure(1, { code: 0, endedAfterRestore: false })).toBe('pg_restore');
+    expect(pipelineFailure(1, { code: null, endedAfterRestore: true })).toBe('pg_restore');
+    expect(pipelineFailure(null, { code: 0, endedAfterRestore: false })).toBe('pg_restore');
+  });
 });
 
 describe('what a restore refuses before it touches anything', () => {
