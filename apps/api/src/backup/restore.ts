@@ -148,6 +148,21 @@ END`)};`,
 
 const FAIL_SQL = `DO ${dollar("BEGIN RAISE EXCEPTION 'the dump inside the backup could not be read; nothing was changed'; END")};\n`;
 
+/**
+ * Which step of tar -> pg_restore failed, or null when the dump was read in full. pg_restore's exit code always counts. tar's counts
+ * only when tar ended before pg_restore did: once pg_restore has succeeded it had the whole dump (whose checksum was already
+ * checked when the archive was opened, and whose content the checks inside the transaction verify), and tar is then stopped while
+ * it still reads the rest of the archive, so its code says nothing about the dump (#240).
+ */
+export function pipelineFailure(
+  restoreCode: number | null,
+  tar: { code: number | null; endedAfterRestore: boolean },
+): 'pg_restore' | 'tar' | null {
+  if (restoreCode !== 0) return 'pg_restore';
+  if (tar.code !== 0 && !tar.endedAfterRestore) return 'tar';
+  return null;
+}
+
 type Pipe = ChildProcessByStdio<Writable | null, Readable | null, Readable>;
 
 function exited(child: Pipe): Promise<number | null> {
@@ -199,8 +214,15 @@ export async function applyArchive(
   tar.stdout?.pipe(pgRestore.stdin as Writable);
   // If pg_restore ends before it has read everything (it crashed, or it was refused), tar would block on a pipe nobody reads and the
   // whole restore would hang. Stop it: pg_restore's own exit code already tells the story.
+  //
+  // tar is also still running when pg_restore ends normally: after writing database.dump it reads the rest of the archive (the
+  // photos, files.json, the end blocks) before it exits. Stopped then (or hit by the broken pipe), its exit code is not 0, and that
+  // must not fail a restore whose pg_restore succeeded (#240). So whether tar ended before or after pg_restore is recorded here.
+  let restoreEnded = false;
+  const tarOutcome = tarDone.then((code) => ({ code, endedAfterRestore: restoreEnded }));
   void restoreDone
     .then(() => {
+      restoreEnded = true;
       tar.stdout?.unpipe();
       // Drained (not just left alone): the child's 'close' waits for its output to end.
       tar.stdout?.resume();
@@ -228,12 +250,17 @@ export async function applyArchive(
   try {
     await write(prefixSql());
     for await (const chunk of pgRestore.stdout as Readable) await write(chunk as Buffer);
-    const [tarCode, restoreCode] = await Promise.all([tarDone, restoreDone]);
-    if (tarCode !== 0 || restoreCode !== 0) {
+    const [tarEnd, restoreCode] = await Promise.all([tarOutcome, restoreDone]);
+    const failed = pipelineFailure(restoreCode, tarEnd);
+    if (failed) {
       await write(FAIL_SQL);
       input.end();
       await psqlDone;
-      throw new ToolError('pg_restore', restoreCode ?? tarCode, clean(`${restoreError()} ${tarError()}`, secrets));
+      throw new ToolError(
+        failed,
+        failed === 'pg_restore' ? restoreCode : tarEnd.code,
+        clean(`${restoreError()} ${tarError()}`, secrets),
+      );
     }
     await write(suffixBefore(archive.manifest, config.db.appUser, options));
     if (options.checkFiles) {
