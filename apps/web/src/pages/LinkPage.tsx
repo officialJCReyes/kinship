@@ -9,6 +9,7 @@ import * as api from '../api.js';
 import { ApiError } from '../api.js';
 import { meKey } from '../auth.js';
 import { Field } from '../components/Field.js';
+import { CardMark } from '../components/LogoMark.js';
 import { Loading } from '../components/States.js';
 import { t } from '../i18n.js';
 import { errorMessage } from '../lib/errors.js';
@@ -22,6 +23,7 @@ const problem = (error: unknown): string =>
 function InvalidLink() {
   return (
     <section className="card narrow">
+      <CardMark />
       <h1>{t('linkPage.invalidTitle')}</h1>
       <p>{t('linkPage.invalidBody')}</p>
       <p>
@@ -62,6 +64,7 @@ export function LinkPage() {
   if (lookup.isPending) {
     return (
       <section className="card narrow">
+        <CardMark />
         <Loading />
       </section>
     );
@@ -69,6 +72,7 @@ export function LinkPage() {
   if (lookup.isError) {
     return (
       <section className="card narrow">
+        <CardMark />
         <div className="alert" role="alert">
           {problem(lookup.error)}
         </div>
@@ -111,6 +115,7 @@ export function LinkPage() {
 
   return (
     <section className="card narrow">
+      <CardMark />
       {link.kind === 'invite' ? (
         <>
           <h1>

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { ApiError, fetchVersion } from '../api.js';
 import { useLogin } from '../auth.js';
-import { Logo } from '../components/Logo.js';
+import { CardMark } from '../components/LogoMark.js';
 import { Field } from '../components/Field.js';
 import { t } from '../i18n.js';
 
@@ -35,11 +35,8 @@ export function LoginPage() {
 
   return (
     <section className="card narrow">
-      <div className="logo-block">
-        <Logo height={52} />
-      </div>
+      <CardMark />
       <h1>{t('login.title')}</h1>
-      <p className="muted">{t('login.subtitle')}</p>
       <form onSubmit={onSubmit} noValidate>
         <Field
           label={t('login.email')}

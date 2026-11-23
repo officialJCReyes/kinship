@@ -51,6 +51,10 @@ describe('the maintenance page', () => {
     expect(fetchMock.mock.calls.length).toBe(3);
     expect(screen.queryByRole('navigation')).toBeNull();
     expect(screen.queryByRole('link')).toBeNull();
+    // No site header here: the card's own sailboat mark is the only logo, decorative.
+    const marks = document.querySelectorAll('svg.logo');
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('keeps going through the seconds the api is gone (502, network errors), and then shows the result', async () => {

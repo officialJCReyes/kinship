@@ -29,6 +29,16 @@ describe('login page', () => {
     expect(screen.getByLabelText('Password').getAttribute('type')).toBe('password');
   });
 
+  it('says each thing once: the heading, two fields, the button, one line about a forgotten password', async () => {
+    await openLogin();
+    const card = screen.getByRole('heading', { name: 'Sign in' }).closest('section')!;
+    expect(card.querySelectorAll('h1')).toHaveLength(1);
+    expect(card.querySelectorAll('input')).toHaveLength(2);
+    expect(screen.queryByText(/to your family tree/)).toBeNull();
+    expect(screen.getByText('Forgot your password? Ask an admin for a set-password link.')).toBeTruthy();
+    expect(screen.queryByText(/runs this server/)).toBeNull();
+  });
+
   it('shows the version and a source link in the footer', async () => {
     await openLogin();
     expect(await screen.findByText(`KinShip ${WEB_VERSION}`, { exact: false })).toBeTruthy();

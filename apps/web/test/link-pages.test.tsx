@@ -78,6 +78,18 @@ describe('the invitation page', () => {
     expect(JSON.stringify({ ...window.localStorage, ...window.sessionStorage })).not.toContain(TOKEN);
   });
 
+  it('opens the card with the sailboat mark, as the sign-in page does (the header keeps the full logo)', async () => {
+    mockApi(linkRoutes({ status: 200, body: RESET }));
+    open('/reset');
+    renderApp('/reset');
+    const heading = await screen.findByRole('heading', { name: 'Choose a new password' });
+    const marks = heading.closest('section')!.querySelectorAll('svg.logo');
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.getAttribute('height')).toBe('44');
+    expect(marks[0]!.getAttribute('aria-hidden')).toBe('true');
+    expect(document.querySelectorAll('svg.logo')).toHaveLength(2);
+  });
+
   it('shows who invited you, the role, the person, the note and the address, without a signed-in browser', async () => {
     mockApi(linkRoutes({ status: 200, body: INVITE }));
     open('/invite');
