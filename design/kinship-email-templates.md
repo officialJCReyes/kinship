@@ -32,6 +32,14 @@ Local accounts only, and the reset link only while single sign-on is off (local 
 - **Reset link.** Subject "Reset your KinShip password". Heading "Reset your password"; says someone asked to reset the password for the account (shows the account address); **Choose a new password** button; small print: the link works once and expires in 1 hour (with the clock time) and the full address to copy; "Good to know": ignore it if you did not ask, your current password keeps working; KinShip never emails or asks for your password; people who sign in with single sign-on change their password at their identity provider. A new request cancels the older link.
 - **Password changed.** Subject "Your KinShip password was changed". Says when it changed and that every other device was signed out; if it was not you, a **Secure my account** button (signs out everything and forces a new password) and a note that a family admin can lock the account. This is a security notice and **cannot be turned off**.
 
+**Request form and non-enumeration design (JC, Nov 22; built in 0.4, not before).** The sign-in page's "Forgot password?" opens a one-field page (email only) and a single button. Rules:
+- **Identical answer.** Every request gets the same status, the same body ("If that address has an account, a reset link is on its way") and the same timing, whether or not the address exists. The lookup and the send happen after the response is written, never before it.
+- **Who gets mail.** Only an enabled local account that has a password, and only while single sign-on is off. A disabled account, an unknown address or an SSO-only account gets nothing and no different answer.
+- **When the link shows.** "Forgot password?" appears only when a mail provider is configured and SSO is off. Until then the sign-in page says to ask an admin for a set-password link (the 0.3.0 wording).
+- **Limits.** Per-IP and per-address limits that are silent (the answer never changes; extra requests just send nothing).
+- **Open:** whether an emailed reset may cancel an admin-made set-password link (a new request already cancels an older emailed link).
+- Built on the same sender as invitations (Resend or SMTP, Admin -> Storage & email).
+
 ## 4. Weekly digest (designed) - off by default
 **Decided by JC: the weekly digest is off by default.** Nobody gets it unless they turn it on. In the mockup:
 - My settings → notifications has a **Weekly digest** checkbox, unchecked, described as "A Sunday email with the week's birthdays, new photos and changes to the tree. Off by default." (It no longer means "instead of single emails"; it is an extra email.)
