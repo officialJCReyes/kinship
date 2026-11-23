@@ -487,11 +487,15 @@ describe('a changelog written by release-please', () => {
     expect(sectionsBetween(sections, '0.1.0-alpha.2', '0.2.1').map((s) => s.version)).toEqual(['0.2.1', '0.2.0']);
     const real = readFileSync(new URL('../../../CHANGELOG.md', import.meta.url), 'utf8');
     expect(real).not.toMatch(/^## \[?Unreleased/im);
-    expect(
-      parseChangelog(real)
-        .slice(0, 2)
-        .map((s) => s.version),
-    ).toEqual(['0.2.1', '0.2.0']);
+    // Not the exact versions (every release adds one at the top): the newest section is the version being built, and the
+    // sections run newest first, release candidates below their release, so the reader finds every one of them.
+    const versions = parseChangelog(real).map((s) => s.version);
+    const building = (JSON.parse(readFileSync(new URL('package.json', root), 'utf8')) as { version: string }).version;
+    expect(versions[0]).toBe(building);
+    expect(versions).toEqual(expect.arrayContaining(['0.2.1', '0.2.0', '0.2.0-rc.1']));
+    for (let i = 1; i < versions.length; i++) {
+      expect(compareSemver(parseSemver(versions[i - 1]!)!, parseSemver(versions[i]!)!), versions[i]).toBeGreaterThan(0);
+    }
   });
 
   it('is found in the range an admin on alpha.2 is shown after updating', () => {
