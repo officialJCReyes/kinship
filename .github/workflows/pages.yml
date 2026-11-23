@@ -37,9 +37,14 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Two jobs, as in GitHub's Pages starter workflows: build and upload, then deploy. With upload-pages-artifact and deploy-pages in
+# ONE job, deploy-pages sometimes lists the run's artifacts a fraction of a second after the upload and finds none ("Found 0
+# artifact(s)"; actions/deploy-pages#451). That failed the first deploy after a Release run (run 45109796125, #229). Across a job
+# boundary the artifact is listed long after it was finalized, and re-running only the failed deploy job reuses the same artifact
+# (re-running a one-job layout uploads a second "github-pages" artifact and then fails on that).
 jobs:
-  deploy:
-    name: Publish the website
+  build:
+    name: Build the website
     # A workflow_run only counts when the Release workflow succeeded on a pushed tag (not a dry run, not a pull request).
     if: >-
       github.event_name != 'workflow_run' ||
@@ -48,17 +53,11 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read # check out the repository and read the latest release
-      pages: write # publish to GitHub Pages
-      id-token: write # prove to Pages that this run is the publisher
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       # Always the site on main, even when started by a Release run on a tag.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -94,5 +93,19 @@ jobs:
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
+
+  deploy:
+    name: Publish the website
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write # publish to GitHub Pages
+      id-token: write # prove to Pages that this run is the publisher
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
