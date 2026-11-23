@@ -234,7 +234,7 @@ describe('step 2, Tree', () => {
 describe('step 3, You', () => {
   it('prefills the names by splitting the account name, and nothing is preselected for gender', async () => {
     await toYou();
-    expect(field('Given name').value).toBe('Marcus');
+    expect(field('Given (and middle) name').value).toBe('Marcus');
     expect(field('Surname').value).toBe('Hale');
     expect(field('Gender').value).toBe('');
     expect(
@@ -247,9 +247,24 @@ describe('step 3, You', () => {
     ).toBeTruthy();
   });
 
+  it('has the same row 1 as the person forms: Given then Surname, each required with an asterisk screen readers skip', async () => {
+    await toYou();
+    const given = field('Given (and middle) name');
+    const surname = field('Surname');
+    expect(given.compareDocumentPosition(surname) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(given.closest('.setup-grid')).toBe(surname.closest('.setup-grid'));
+    for (const input of [given, surname]) {
+      expect(input.required).toBe(true);
+      const mark = input.closest('.field')!.querySelector('.required-mark');
+      expect(mark?.getAttribute('aria-hidden')).toBe('true');
+    }
+    // No other field on this step is marked, and nothing on the page explains the asterisk in words (no legend, as agreed).
+    expect(document.querySelectorAll('.required-mark')).toHaveLength(2);
+  });
+
   it('keeps names typed over when the person goes back and changes the account name', async () => {
     await toYou();
-    type('Given name', 'Marc');
+    type('Given (and middle) name', 'Marc');
     back();
     back();
     type('Your name', 'Someone Else');
@@ -257,19 +272,19 @@ describe('step 3, You', () => {
     await screen.findByRole('heading', { name: 'Name your first tree' });
     next();
     await screen.findByRole('heading', { name: 'Start with you' });
-    expect(field('Given name').value).toBe('Marc');
+    expect(field('Given (and middle) name').value).toBe('Marc');
     expect(field('Surname').value).toBe('Hale');
   });
 
   it('cannot be skipped: there is no skip button, and both names are required', async () => {
     await toYou();
     expect(screen.queryByRole('button', { name: 'Skip this step' })).toBeNull();
-    type('Given name', '   ');
+    type('Given (and middle) name', '   ');
     type('Surname', '');
     next();
     expect(await screen.findByText('Enter a given name (up to 100 characters).')).toBeTruthy();
     expect(screen.getByText('Enter a surname (up to 100 characters).')).toBeTruthy();
-    await waitFor(() => expect(document.activeElement).toBe(field('Given name')));
+    await waitFor(() => expect(document.activeElement).toBe(field('Given (and middle) name')));
     expect(progress()).toBe('Step 3 of 7 · You');
   });
 
@@ -382,7 +397,7 @@ describe('what the server says to Create my tree', () => {
     expect(screen.getByText('Enter a date as YYYY, YYYY-MM or YYYY-MM-DD. The day and month must exist.')).toBeTruthy();
     expect(field('Birth date').getAttribute('aria-invalid')).toBe('true');
     await waitFor(() => expect(document.activeElement).toBe(field('Birth date')));
-    expect(field('Given name').value).toBe('Marcus');
+    expect(field('Given (and middle) name').value).toBe('Marcus');
     // Typing in the field clears the message.
     type('Birth date', '1986');
     expect(screen.queryByText(/Enter a date as/)).toBeNull();

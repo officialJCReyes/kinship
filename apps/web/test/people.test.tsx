@@ -69,7 +69,7 @@ describe('people list', () => {
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Add person' }));
     submit();
     expect(screen.getAllByText('Enter a given name (up to 100 characters).').length).toBe(1);
-    type('Given name', 'Walter');
+    type('Given (and middle) name', 'Walter');
     type('Surname', 'Hale');
     submit();
     expect(await screen.findByRole('heading', { name: 'Walter Hale' })).toBeTruthy();
@@ -200,7 +200,7 @@ describe('edit details', () => {
     await screen.findByRole('heading', { name: 'Marcus Hale' });
     click('Edit details');
     const dialog = screen.getByRole('dialog', { name: 'Edit details: Marcus Hale' });
-    expect((within(dialog).getByLabelText('Given name') as HTMLInputElement).value).toBe('Marcus');
+    expect((within(dialog).getByLabelText('Given (and middle) name') as HTMLInputElement).value).toBe('Marcus');
     type('Birth date', '1951-02-30');
     fireEvent.blur(screen.getByLabelText('Birth date'));
     click('Save');
@@ -329,7 +329,7 @@ describe('add relative', () => {
       'Priya Nair (Divorced)',
       'The other parent is not on the tree',
     ]);
-    type('Given name', 'Noa');
+    type('Given (and middle) name', 'Noa');
     type('Surname', 'Hale');
     fireEvent.change(other, { target: { value: 'u2' } });
     click('Save');
@@ -356,7 +356,7 @@ describe('add relative', () => {
     click('Add relative');
     click('Add daughter');
     expect(screen.queryByRole('option', { name: /Elena/ })).toBeNull();
-    type('Given name', 'Ida');
+    type('Given (and middle) name', 'Ida');
     type('Surname', 'Hale');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -393,7 +393,7 @@ describe('add relative', () => {
     click('Add relative');
     click('Add mother');
     expect(screen.getByText(/a relationship with status Unknown will be created/)).toBeTruthy();
-    type('Given name', 'Mina');
+    type('Given (and middle) name', 'Mina');
     type('Surname', 'Hale');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -416,7 +416,7 @@ describe('add relative', () => {
     await screen.findByRole('heading', { name: 'Ben Hale' });
     click('Add relative');
     click('Add mother');
-    type('Given name', 'Mina');
+    type('Given (and middle) name', 'Mina');
     type('Surname', 'Hale');
     click('Save');
     expect(await screen.findByText('A person can have at most two parents.')).toBeTruthy();
@@ -439,7 +439,7 @@ describe('add relative', () => {
     await screen.findByRole('heading', { name: 'Ben Hale' });
     click('Add relative');
     click('Add mother');
-    type('Given name', 'Mina');
+    type('Given (and middle) name', 'Mina');
     type('Surname', 'Hale');
     click('Save');
     const alert = await screen.findByRole('alert');
@@ -492,7 +492,7 @@ describe('add relative', () => {
     await screen.findByRole('heading', { name: 'Marcus Hale' });
     click('Add relative');
     click('Add sister');
-    type('Given name', 'Tess');
+    type('Given (and middle) name', 'Tess');
     type('Surname', 'Hale');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());

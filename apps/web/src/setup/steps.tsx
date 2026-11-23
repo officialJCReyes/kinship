@@ -144,6 +144,7 @@ export function YouStep({ state, errors, set }: StepProps) {
           onChange={(event) => set('youGiven', event.target.value)}
           error={errors['family.you.givenName']}
           required
+          markRequired
         />
         <Field
           label={t('person.surname')}
@@ -154,6 +155,7 @@ export function YouStep({ state, errors, set }: StepProps) {
           onChange={(event) => set('youSurname', event.target.value)}
           error={errors['family.you.surname']}
           required
+          markRequired
         />
       </div>
       <div className="setup-grid">

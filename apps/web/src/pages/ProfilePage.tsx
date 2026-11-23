@@ -231,7 +231,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                 <dd>{person.namePrefix}</dd>
               </>
             ) : null}
-            <dt>{t('person.givenName')}</dt>
+            <dt>{t('person.givenNameFact')}</dt>
             <dd>{person.givenName}</dd>
             {person.nickname ? (
               <>

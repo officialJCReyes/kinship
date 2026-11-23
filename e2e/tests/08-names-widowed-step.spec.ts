@@ -54,7 +54,7 @@ test('a new partner with a second and a married surname shows on Facts and on th
   await page.getByRole('button', { name: /^Add partner/ }).click();
   const dialog = page.getByRole('dialog', { name: /^Add partner to/ });
   // Married is the default status, so the married-surname fields are there.
-  await dialog.getByLabel('Given name').fill('Elena');
+  await dialog.getByLabel('Given (and middle) name').fill('Elena');
   await dialog.getByLabel('Surname', { exact: true }).fill(ruiz);
   await dialog.getByLabel('Second surname').fill('Vega');
   await dialog.getByLabel('Married surname', { exact: true }).fill(hale);
