@@ -56,7 +56,6 @@ export const toRelPerson = (row: Parameters<typeof toPerson>[0]): RelPerson => {
     marriedSurname: person.marriedSurname,
     namePrefix: person.namePrefix,
     nameSuffix: person.nameSuffix,
-    surnameParticle: person.surnameParticle,
     gender: person.gender,
     birth: person.birth,
     deceased: person.deceased,

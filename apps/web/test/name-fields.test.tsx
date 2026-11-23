@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 type Parts = Partial<
-  Pick<(typeof PEOPLE)[number], 'namePrefix' | 'nameSuffix' | 'nickname' | 'surnameParticle' | 'marriedSurname'>
+  Pick<(typeof PEOPLE)[number], 'namePrefix' | 'nameSuffix' | 'nickname' | 'surname' | 'marriedSurname'>
 >;
 let saved: Array<() => void> = [];
 function undo() {
@@ -33,7 +33,7 @@ const bodyOf = (fetchMock: ReturnType<typeof mockApi>, key: string): unknown => 
   return call?.[1]?.body ? JSON.parse(String(call[1].body)) : undefined;
 };
 
-describe('Edit details: the four new name fields', () => {
+describe('Edit details: the three optional name fields', () => {
   it('offers them with the mockup’s labels, placeholders and helper text, in its order', async () => {
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/elena');
@@ -43,13 +43,12 @@ describe('Edit details: the four new name fields', () => {
     const labels = within(dialog)
       .getAllByRole('textbox')
       .map((el) => (el as HTMLInputElement).name)
-      .slice(0, 6);
-    expect(labels).toEqual(['namePrefix', 'givenName', 'nickname', 'surnameParticle', 'surname', 'nameSuffix']);
+      .slice(0, 5);
+    expect(labels).toEqual(['namePrefix', 'givenName', 'nickname', 'surname', 'nameSuffix']);
+    // The particle is part of the surname (ADR 0038): there is no field for it.
+    expect(within(dialog).queryByLabelText(/particle/i)).toBeNull();
     expect(within(dialog).getByLabelText('Prefix (optional)').getAttribute('placeholder')).toBe('Dr., Sir, Rev.');
     expect(within(dialog).getByLabelText('Nickname (optional)').getAttribute('placeholder')).toBe('Danny');
-    expect(within(dialog).getByLabelText('Surname particle (optional)').getAttribute('placeholder')).toBe(
-      'de, de la, van',
-    );
     expect(within(dialog).getByLabelText('Suffix (optional)').getAttribute('placeholder')).toBe('Jr., Sr., II');
     expect(
       within(dialog).getByText(
@@ -64,7 +63,7 @@ describe('Edit details: the four new name fields', () => {
     expect((within(dialog).getByLabelText('Nickname (optional)') as HTMLInputElement).maxLength).toBe(100);
   });
 
-  it('sends the four values, trimmed, and blank as null', async () => {
+  it('sends the three values, trimmed, and blank as null', async () => {
     const fetchMock = mockApi(
       haleRoutes(ADMIN, { 'PATCH /api/people/elena': { status: 200, body: { person: PEOPLE[3], warnings: [] } } }),
     );
@@ -73,20 +72,19 @@ describe('Edit details: the four new name fields', () => {
     click('Edit details');
     type('Prefix (optional)', ' Dra. ');
     type('Nickname (optional)', 'Ele');
-    type('Surname particle (optional)', 'de la');
     type('Suffix (optional)', '');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(bodyOf(fetchMock, 'PATCH /api/people/elena')).toMatchObject({
       namePrefix: 'Dra.',
       nickname: 'Ele',
-      surnameParticle: 'de la',
       nameSuffix: null,
     });
+    expect(bodyOf(fetchMock, 'PATCH /api/people/elena')).not.toHaveProperty('surnameParticle');
   });
 
   it('fills them from the person when editing', async () => {
-    setParts('elena', { namePrefix: 'Dr.', nickname: 'Ele', surnameParticle: 'de', nameSuffix: 'III' });
+    setParts('elena', { namePrefix: 'Dr.', nickname: 'Ele', surname: 'de Ruiz', nameSuffix: 'III' });
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/elena');
     await screen.findByRole('heading', { name: /^Dr\. Elena de Ruiz III$/ });
@@ -94,48 +92,36 @@ describe('Edit details: the four new name fields', () => {
     const value = (label: string) => (screen.getByLabelText(label) as HTMLInputElement).value;
     expect(value('Prefix (optional)')).toBe('Dr.');
     expect(value('Nickname (optional)')).toBe('Ele');
-    expect(value('Surname particle (optional)')).toBe('de');
+    expect(value('Surname')).toBe('de Ruiz');
     expect(value('Suffix (optional)')).toBe('III');
   });
 });
 
-describe('Add relative: the four new name fields', () => {
+describe('Add relative: the three optional name fields', () => {
   it('are on the new-person form', async () => {
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/ben');
     await screen.findByRole('heading', { name: 'Ben Hale' });
     click('Add relative');
     click(/^Add partner/);
-    for (const label of [
-      'Prefix (optional)',
-      'Nickname (optional)',
-      'Surname particle (optional)',
-      'Suffix (optional)',
-    ]) {
+    for (const label of ['Prefix (optional)', 'Nickname (optional)', 'Suffix (optional)']) {
       expect(screen.getByLabelText(label), label).toBeTruthy();
     }
   });
 });
 
 describe('the profile’s Facts', () => {
-  it('lists a prefix, nickname, particle and suffix only when they are set', async () => {
-    setParts('daniel', { namePrefix: 'Dr.', nickname: 'Danny', surnameParticle: 'de', nameSuffix: 'Sr.' });
+  it('lists a prefix, nickname and suffix only when they are set', async () => {
+    setParts('daniel', { namePrefix: 'Dr.', nickname: 'Danny', surname: 'de Hale', nameSuffix: 'Sr.' });
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/daniel');
     await screen.findByRole('heading', { name: 'Dr. Daniel de Hale Sr.' });
     const terms = screen.getAllByRole('term').map((el) => el.textContent);
-    expect(terms.slice(0, 6)).toEqual([
-      'Prefix',
-      'Given name',
-      'Nickname',
-      'Surname particle',
-      'Birth surname',
-      'Suffix',
-    ]);
+    expect(terms.slice(0, 5)).toEqual(['Prefix', 'Given name', 'Nickname', 'Birth surname', 'Suffix']);
     const term = (name: string) => screen.getAllByRole('term').find((el) => el.textContent === name)!;
     expect(term('Prefix').nextElementSibling?.textContent).toBe('Dr.');
     expect(term('Nickname').nextElementSibling?.textContent).toBe('Danny');
-    expect(term('Surname particle').nextElementSibling?.textContent).toBe('de');
+    expect(term('Birth surname').nextElementSibling?.textContent).toBe('de Hale');
     expect(term('Suffix').nextElementSibling?.textContent).toBe('Sr.');
     cleanup();
     undo();
@@ -144,13 +130,13 @@ describe('the profile’s Facts', () => {
     renderApp('/people/daniel');
     await screen.findByRole('heading', { name: 'Daniel Hale' });
     const plain = screen.getAllByRole('term').map((el) => el.textContent);
-    for (const absent of ['Prefix', 'Nickname', 'Surname particle', 'Suffix']) expect(plain).not.toContain(absent);
+    for (const absent of ['Prefix', 'Nickname', 'Suffix']) expect(plain).not.toContain(absent);
   });
 });
 
 describe('where the name is shown', () => {
-  it('a card, its accessible name and the people list use prefix, particle and suffix, never the nickname', async () => {
-    setParts('daniel', { namePrefix: 'Dr.', nickname: 'Danny', surnameParticle: 'de', nameSuffix: 'Sr.' });
+  it('a card, its accessible name and the people list use prefix, a particle in the surname and suffix, never the nickname', async () => {
+    setParts('daniel', { namePrefix: 'Dr.', nickname: 'Danny', surname: 'de Hale', nameSuffix: 'Sr.' });
     mockApi(haleRoutes(ADMIN));
     renderApp('/tree/daniel');
     const card = await screen.findByRole('button', { name: /^Dr\. Daniel de Hale Sr\., / });

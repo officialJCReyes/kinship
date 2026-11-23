@@ -761,6 +761,49 @@ describe('a restore and the last-SuperAdmin triggers on users (ADR 0029, ADR 003
     expect(column.rows).toHaveLength(1);
   }, 150_000);
 
+  it('a backup from 0.3.0-rc.1 or rc.2 (schema 23) with surname particles gives the same names as the fold (0024, ADR 0038)', async () => {
+    const older = await tempMigrationsDir(true);
+    cleanups.push(() => older.remove());
+    await removeMigrationsFrom(older.dir, 24);
+    const l = await live({ migrationsDir: older.dir });
+    // What the release candidates stored: the particle apart from the bare surname.
+    await sql`update people set surname_particle = 'de la' where id = ${l.family.person.rosa}`.execute(l.test.owner);
+    const rosaBefore = (
+      await sql<{ surname: string }>`select surname from people where id = ${l.family.person.rosa}`.execute(
+        l.test.owner,
+      )
+    ).rows[0]!.surname;
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    expect(made.manifest.schema).toBe(23);
+
+    // The installation moves to this build: the fold runs at start-up.
+    await cp(realMigrationsDir, older.dir, { recursive: true });
+    await runMigrations(l.test.owner, { dir: older.dir, appRole: l.test.config.appUser });
+    const folded = (
+      await sql<{
+        surname: string;
+        surname_particle: string | null;
+      }>`select surname, surname_particle from people where id = ${l.family.person.rosa}`.execute(l.test.owner)
+    ).rows[0];
+    expect(folded).toEqual({ surname: `de la ${rosaBefore}`, surname_particle: null });
+
+    // Restoring the rc archive replays the particle apart, then 0024 folds it again: the same name either way.
+    const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
+    const report = await restoreBackup(newImage, made.path, hooks());
+    expect(report.migrationsApplied).toEqual(['0024_fold_surname_particle']);
+    const restored = (
+      await sql<{
+        surname: string;
+        surname_particle: string | null;
+      }>`select surname, surname_particle from people where id = ${l.family.person.rosa}`.execute(l.test.owner)
+    ).rows[0];
+    expect(restored).toEqual(folded);
+    const left = await sql<{
+      n: string;
+    }>`select count(*)::text as n from people where surname_particle is not null`.execute(l.test.owner);
+    expect(left.rows[0]?.n).toBe('0');
+  }, 150_000);
+
   it('the restore never edits users: no DELETE, UPDATE, TRUNCATE or DISABLE TRIGGER, and the triggers come after the data', async () => {
     const l = await live();
     const made = await createBackup(l.ctx, { kind: 'manual' });

@@ -130,7 +130,7 @@ test('a dialog closes with Escape and gives focus back to the button that opened
   await expect(opener).toBeFocused();
 });
 
-test('a prefix, nickname, particle and suffix: shown by default, found by nickname, nickname only on the profile', async ({
+test('a prefix, nickname, a particle in the surname and a suffix: shown by default, found by nickname, nickname only on the profile', async ({
   adminPage: page,
 }) => {
   const family = surname('Cruz');
@@ -140,8 +140,8 @@ test('a prefix, nickname, particle and suffix: shown by default, found by nickna
   await dialog.getByLabel('Prefix (optional)').fill('Dra.');
   await dialog.getByLabel('Given name').fill('Beatriz');
   await dialog.getByLabel('Nickname (optional)').fill('Bea');
-  await dialog.getByLabel('Surname particle (optional)').fill('de la');
-  await dialog.getByLabel('Surname', { exact: true }).fill(family);
+  await expect(dialog.getByLabel(/particle/i)).toHaveCount(0);
+  await dialog.getByLabel('Surname', { exact: true }).fill(`de la ${family}`);
   await dialog.getByLabel('Suffix (optional)').fill('Jr.');
   await dialog.getByRole('button', { name: 'Add person' }).click();
 
@@ -150,9 +150,9 @@ test('a prefix, nickname, particle and suffix: shown by default, found by nickna
   const facts = page.locator('dl.facts').first();
   await expect(facts.getByText('Nickname', { exact: true })).toBeVisible();
   await expect(facts.getByText('Bea', { exact: true })).toBeVisible();
-  await expect(facts.getByText('Surname particle', { exact: true })).toBeVisible();
+  await expect(facts.getByText(`de la ${family}`, { exact: true })).toBeVisible();
 
-  // Search finds the person by the nickname, the particle with the surname, and the prefix.
+  // Search finds the person by the nickname, the surname with its particle, and the prefix.
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'People' }).click();
   for (const word of ['Bea', `de la ${family}`, 'Dra.']) {
     await page.getByLabel('Search by name').fill(word);

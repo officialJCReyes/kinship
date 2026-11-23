@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Seeds a stack running KinShip 0.3.0 (sourced by scripts/upgrade-test.sh, which provides the helpers used here).
-# seed-0.3.0-rc.1.sh sources this file: the release candidate and the release have the same API and schema.
+# seed-0.3.0-rc.1.sh and seed-0.3.0-rc.2.sh source this file with SEED_PARTICLES=1 (see below).
 #
 # The 0.2.1 seed's family, and on top of it what 0.3.0 added, each through the API where 0.3.0 has a route for it:
 #   - names (migration 0017): a prefix, a suffix and a nickname, and Margaret's married surname;
@@ -10,6 +10,11 @@
 #   - a disabled account (0019), made as a row (no browser for the invitation) and disabled through the admin route;
 #   - a profile photo (0021, 0022): a small JPEG made with sharp inside the 0.3.0 api container (PNG made here if that fails;
 #     nothing binary is in the repository), uploaded for Marcus, set as his profile photo, with a date taken.
+#
+# Surname particles (ADR 0038): the release candidates had a separate surnameParticle field, which 0.3.0 folds into the surname
+# (migration 0024) and no longer accepts. With SEED_PARTICLES=1, set by the rc wrappers, the seed adds two people through that
+# field: Rosa Cruz with "de la" (folded to "de la Cruz") and Hugo with "de" and the surname "de Vries" (left as it is, not
+# doubled). Without it (the final 0.3.0, whose API refuses the field) the seed is unchanged.
 #
 # The photo needs a file key in the 0.3.0 stack: SEED_FILE_KEY=1 makes upgrade-test.sh put one in .env before that stack
 # starts, and keep it for the upgraded one. SEED_PHOTOS is how many photos the seed leaves (the script counts files with it).
@@ -21,6 +26,7 @@
 #   Vera Hale, linked to the Visiting User; and a fourth, disabled account linked to nobody.
 SEED_FILE_KEY=1
 SEED_PHOTOS=1
+SEED_PARTICLES="${SEED_PARTICLES:-0}"
 
 seed_disabled_email="former@example.com"
 seed_disabled_password="upgrade-former-$(rand 6)"
@@ -48,6 +54,11 @@ seed_previous_release() {
   lone="$(new_person '{"givenName":"Lone","surname":"Hale","gender":"female","birth":{"value":"1990-05-05"}}')"
   twin="$(api_post "/api/people/$lone/siblings" '{"sibling":{"givenName":"Twin","surname":"Hale","gender":"male","birth":{"value":"1992-07-07"}}}' | json "['person']['id']")"
   vera="$(new_person '{"givenName":"Vera","surname":"Hale","gender":"female","birth":{"value":"1960-01-01"}}')"
+  if [ "$SEED_PARTICLES" = "1" ]; then
+    rosa_cruz="$(new_person '{"givenName":"Rosa","surname":"Cruz","surnameParticle":"de la","gender":"female","birth":{"value":"1966-03-03"}}')"
+    hugo="$(new_person '{"givenName":"Hugo","surname":"de Vries","surnameParticle":"de","gender":"male","birth":{"value":"1970-10-10"}}')"
+    expect "de la|Cruz" "$(sql "select surname_particle || '|' || surname from people where id = '$rosa_cruz'")" "Rosa's particle before the upgrade"
+  fi
 
   # Three more accounts, as rows (accepting an invitation needs a browser-like flow). The hashes are made by 0.3.0's own library.
   local member_hash user_hash former_hash
@@ -117,8 +128,10 @@ seed_patch_me() { # <jar> <json>
 # Counts and values that must be the same after the upgrade (the digest in the main script covers the 0.1 columns of every row;
 # these cover what 0.3.0 added, and say what a human would look for if it fails).
 assert_seed_after_upgrade() {
+  local real=9
+  [ "$SEED_PARTICLES" = "1" ] && real=11
   expect 2 "$(sql 'select count(*) from people where is_placeholder')" "placeholder people after the upgrade"
-  expect 11 "$(sql 'select count(*) from people')" "people after the upgrade (nine real, two placeholders)"
+  expect "$((real + 2))" "$(sql 'select count(*) from people')" "people after the upgrade ($real real, two placeholders)"
   expect 3 "$(sql 'select count(*) from unions')" "relationships after the upgrade"
   expect 5 "$(sql 'select count(*) from person_parents')" "parent links after the upgrade"
   expect 4 "$(sql 'select count(*) from users')" "accounts after the upgrade"
@@ -133,6 +146,12 @@ assert_seed_after_upgrade() {
   expect "Tom" "$(sql "select nickname from people where given_name = 'Thomas'")" "Thomas's nickname"
   expect "Ames Hale" "$(sql "select married_surname from people where id = '$margaret'")" "Margaret's married surname"
   expect 0 "$(sql "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'people' and column_name = 'search_name'")" "the old people.search_name column (dropped by 0023)"
+  # 0024 folded every particle into its surname; none was too long to fold (it would be named in a NOTICE and kept).
+  expect 0 "$(sql 'select count(*) from people where surname_particle is not null')" "people with a surname particle left after 0024"
+  if [ "$SEED_PARTICLES" = "1" ]; then
+    expect "de la Cruz" "$(sql "select surname from people where id = '$rosa_cruz'")" "Rosa's surname, folded by 0024"
+    expect "de Vries" "$(sql "select surname from people where id = '$hugo'")" "Hugo's surname, not doubled by 0024"
+  fi
 
   # The accounts' settings (0017, 0018, 0020) and the disabled account (0019).
   expect "married|monday" "$(sql "select name_form || '|' || week_start from users where email = '$member_email'")" "the Member's name form and week start"
@@ -151,7 +170,11 @@ assert_seed_after_upgrade() {
   local jar2="$work/assert-cookies.txt" code
   rm -f "$jar2"
   expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar2")" "sign-in for the seed checks"
-  expect "9" "$(curl -s -b "$jar2" "${base}/api/people?limit=50" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))')" "people in GET /api/people (the two placeholders are left out)"
+  expect "$real" "$(curl -s -b "$jar2" "${base}/api/people?limit=50" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["items"]))')" "people in GET /api/people (the two placeholders are left out)"
+  if [ "$SEED_PARTICLES" = "1" ]; then
+    expect "Rosa" "$(curl -s -b "$jar2" "${base}/api/people?q=de%20la%20cruz" | python3 -c 'import json,sys; print(" ".join(p["givenName"] for p in json.load(sys.stdin)["items"]))')" "search for a folded surname with its particle"
+    expect "" "$(curl -s -b "$jar2" "${base}/api/people/${rosa_cruz}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["person"].get("surnameParticle", ""))')" "no surnameParticle in GET /api/people/:id"
+  fi
   expect "Thomas" "$(curl -s -b "$jar2" "${base}/api/people?q=tom%20hale" | python3 -c 'import json,sys; print(" ".join(p["givenName"] for p in json.load(sys.stdin)["items"]))')" "search by nickname"
   expect "Margaret" "$(curl -s -b "$jar2" "${base}/api/people?q=margaret%20hale" | python3 -c 'import json,sys; print(" ".join(p["givenName"] for p in json.load(sys.stdin)["items"]))')" "search by married surname"
   expect "$seed_photo_id" "$(curl -s -b "$jar2" "${base}/api/people/${marcus}" | json "['person']['photoMediaId']")" "photoMediaId in GET /api/people/:id"

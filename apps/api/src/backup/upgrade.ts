@@ -223,7 +223,10 @@ async function makeSafetyCopy(ctx: UpgradeContext, conn: UntypedDb, from: number
  */
 export async function migrateWithSafetyCopy(ctx: UpgradeContext): Promise<UpgradeResult> {
   const { config, log } = ctx;
-  const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 4);
+  // A migration's RAISE NOTICE (0024 names the people it left alone) goes to the log, not nowhere.
+  const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 4, (message) =>
+    log('warn', `database notice: ${message}`, {}),
+  );
   try {
     return await db.connection().execute(async (conn) => {
       await sql`select pg_advisory_lock(${MIGRATE_LOCK_KEY})`.execute(conn);

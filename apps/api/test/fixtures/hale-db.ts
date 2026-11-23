@@ -14,10 +14,11 @@ export async function seedHale(owner: UntypedDb): Promise<Record<string, string>
       birth: p.birth,
       deceased: p.death !== undefined,
     });
-    if (p.nickname || p.namePrefix || p.nameSuffix || p.surnameParticle || p.marriedSurname) {
+    if (p.nickname || p.namePrefix || p.nameSuffix || p.marriedSurname) {
       await sql`update people set nickname = ${p.nickname ?? null}, name_prefix = ${p.namePrefix ?? null},
-        name_suffix = ${p.nameSuffix ?? null}, surname_particle = ${p.surnameParticle ?? null},
-        married_surname = ${p.marriedSurname ?? null} where id = ${id[p.key]!}`.execute(owner);
+        name_suffix = ${p.nameSuffix ?? null}, married_surname = ${p.marriedSurname ?? null} where id = ${id[p.key]!}`.execute(
+        owner,
+      );
     }
   }
   const unionIds = new Map<string, string>();
