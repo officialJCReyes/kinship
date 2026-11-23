@@ -179,7 +179,7 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/api/version)" = "502"
           curl -fsSI http://127.0.0.1:8080/ | grep -qi '^content-security-policy:'
 
-  # Not a required check (yet). A real installation of the previous release is filled with data, upgraded in place to the images
+  # A required check ("Protect main" ruleset). A real installation of the previous release is filled with data, upgraded in place to the images
   # built here, and checked (scripts/upgrade-test.sh). Because release.yml runs this whole file, it also gates every tag.
   upgrade:
     name: Upgrade test (previous release)
