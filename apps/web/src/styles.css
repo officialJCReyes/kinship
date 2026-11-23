@@ -2620,82 +2620,78 @@ pre.code {
   padding-block: 2px;
 }
 
-.rrow,
-.rchain {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
+/* Under a step that goes through shared ancestors: who they go through (backlog 9). */
+.finder-path-via {
+  margin: 2px 0 2px;
+  padding-left: 20px;
+  list-style: circle;
 }
 
-.rchain {
-  align-items: flex-start;
-}
-
-.rchain-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.rcols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 4px;
-}
-
-.rcol {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.rcol:only-child {
-  grid-column: 1 / -1;
-}
-
-.rcard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
-  color: var(--ink);
+/* The finder's drawing (backlog 9): one SVG, drawn by PathDiagram from diagramLayout.ts. It shrinks to fit down to 0.7,
+   then scrolls sideways inside this box (never the page). */
+.rdiagram {
+  overflow-x: auto;
   text-align: center;
-  text-decoration: none;
-  overflow-wrap: anywhere;
 }
 
-.rcard small {
-  color: var(--muted);
+.rsvg {
+  display: inline-block;
+  vertical-align: top;
 }
 
-.rcard.hl {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.rline,
+.rlink path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
 }
 
-.rcard.hl small {
-  color: var(--muted);
+.rlink .rarrow {
+  stroke-linejoin: round;
 }
 
-.redge {
-  display: flex;
-  justify-content: center;
-  padding: 4px 0;
-  color: var(--muted);
-  font-size: 12px;
+.rlabel {
+  fill: var(--muted);
+  font: 12px var(--body);
 }
 
-.redge span {
-  padding: 0 8px;
-  border-left: 2px solid var(--line);
+.rcard .rbox {
+  fill: var(--panel);
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.rcard.hl .rbox {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.rcard:hover .rbox {
+  stroke: var(--accent);
+}
+
+.rcard .ravatar {
+  fill: var(--accent-soft);
+}
+
+.rcard.hl .ravatar {
+  fill: var(--panel);
+}
+
+.rcard .rini {
+  fill: var(--accent);
+  font: 600 12px var(--display);
+}
+
+.rcard .rname {
+  fill: var(--ink);
+  font: 600 13px var(--body);
+}
+
+.rcard .ryears {
+  fill: var(--muted);
+  font: 12px var(--body);
 }
 
 .finder-explainer p {
@@ -2712,11 +2708,6 @@ pre.code {
   }
 
   .finder-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  /* The two lines stack: the first person's, then the second person's. */
-  .rcols {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -2959,6 +2950,3 @@ pre.code {
   font-size: 20px;
 }
 
-.rcard .ava {
-  margin-bottom: 4px;
-}

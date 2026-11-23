@@ -79,6 +79,52 @@ describe('the Hale pairs through the API', () => {
     expect(body.stepTitle).toBe(true);
     expect(body.chain!.people).toEqual([id.marcus, id.elena, id.raymond]);
     expect(body.chain!.links).toHaveLength(2);
+    // Up from Marcus to his mother (a direct line), then the marriage.
+    expect(body.chain!.hops).toEqual([
+      { dA: 1, dB: 0, half: false, ancestors: [id.elena], lineA: [id.marcus], lineB: [] },
+      null,
+    ]);
+  });
+});
+
+describe('the shared ancestors of each link in a chain (backlog 9)', () => {
+  it('a wife’s brother: the marriage, then the brothers-and-sisters link with both their parents', async () => {
+    const body = await ask('marcus', 'arjun');
+    expect(said(body)).toBe('Brother-in-law');
+    expect(body.chain!.people).toEqual([id.marcus, id.priya, id.arjun]);
+    expect(body.chain!.hops[0]).toBeNull();
+    const hop = body.chain!.hops[1]!;
+    expect(hop).toMatchObject({ dA: 1, dB: 1, half: false, lineA: [id.priya], lineB: [id.arjun] });
+    expect(hop.ancestors.sort()).toEqual([id.raj, id.meera].sort());
+    // Everyone the diagram draws is in people, and nobody else.
+    expect(Object.keys(body.people).sort()).toEqual([id.marcus, id.priya, id.arjun, id.raj, id.meera].sort());
+  });
+
+  it('a stepbrother: up to the father, across the marriage, down from the stepmother', async () => {
+    const body = await ask('marcus', 'tomas');
+    expect(body.chain!.people).toEqual([id.marcus, id.daniel, id.beatriz, id.tomas]);
+    expect(body.chain!.hops).toEqual([
+      { dA: 1, dB: 0, half: false, ancestors: [id.daniel], lineA: [id.marcus], lineB: [] },
+      null,
+      { dA: 0, dB: 1, half: false, ancestors: [id.beatriz], lineA: [], lineB: [id.tomas] },
+    ]);
+  });
+
+  it('an aunt’s ex-husband: the two-generation link through the grandparents, then the former partner', async () => {
+    const body = await ask('marcus', 'anthony');
+    expect(said(body)).toBe('Aunt’s ex-husband');
+    expect(body.kind).toBe('former');
+    const hop = body.chain!.hops[0]!;
+    expect(hop).toMatchObject({ dA: 2, dB: 1, lineA: [id.daniel, id.marcus], lineB: [id.carla] });
+    expect(hop.ancestors.sort()).toEqual([id.walter, id.rosa].sort());
+    expect(body.chain!.hops[1]).toBeNull();
+    for (const person of [id.walter, id.rosa, id.daniel]) expect(body.people[person!]).toBeDefined();
+  });
+
+  it('a stepson: the marriage, then straight down from the husband (a direct line, his only parent drawn)', async () => {
+    const body = await ask('beatriz', 'marcus');
+    expect(said(body)).toBe('Stepson');
+    expect(body.chain!.hops[1]).toMatchObject({ dA: 0, dB: 1, ancestors: [id.daniel], lineB: [id.marcus] });
   });
 });
 
