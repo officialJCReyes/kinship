@@ -209,12 +209,14 @@ describe('contrast, all 8 scheme and theme combinations', () => {
         expect(below, below.join('\n')).toEqual([]);
       });
 
-      it(`${scheme} ${mode}: the focus ring, the gender colors and the leaf reach 3 : 1 as graphics`, () => {
+      it(`${scheme} ${mode}: the focus ring, the gender colors, the leaf and the "+" nub reach 3 : 1 as graphics`, () => {
         const t = tokensFor(scheme, mode);
         const failing = (
           [
+            // The focus ring, and the "+" nub's ring and plus (backlog 15) on the card and where it overhangs the chart.
             ['accent', 'bg'],
             ['accent', 'panel'],
+            ['accent', 'accent-soft'],
             ['g-male', 'panel'],
             ['g-female', 'panel'],
             ['g-other', 'panel'],

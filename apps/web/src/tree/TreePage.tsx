@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useDisplay } from '../lib/display.js';
 import { displayName } from '../lib/names.js';
-import type { LineageView, Person, UnionWithChildren } from '@kinship/shared';
+import type { AuthUser, LineageView, Person, UnionWithChildren } from '@kinship/shared';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -10,8 +10,16 @@ import { ErrorState, Loading } from '../components/States.js';
 import { TreeSearch } from './TreeSearch.js';
 import { PersonPicker } from '../components/PersonPicker.js';
 import { t } from '../i18n.js';
-import { canEditUnion } from '../people/permissions.js';
-import { ancestorsQuery, chartQuery, descendantsQuery, familyQuery } from '../people/queries.js';
+import { AddRelativeDialog } from '../people/AddRelative.js';
+import { addableOnChart, canEditUnion } from '../people/permissions.js';
+import {
+  ancestorsQuery,
+  chartQuery,
+  descendantsQuery,
+  familyQuery,
+  useFamilyAround,
+  usePersonDetail,
+} from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 
 import type { Leaf } from './family.js';
@@ -57,6 +65,17 @@ export function TreeIndexPage() {
       </section>
     </div>
   );
+}
+
+/**
+ * The Add relative wizard for the person whose "+" was pressed on the chart (backlog 15): the same dialog the side panel's
+ * Add relative button opens, with the same data, whether the panel is open or not.
+ */
+function AddFromChart({ personId, me, onClose }: { personId: string; me: AuthUser; onClose: () => void }) {
+  const detail = usePersonDetail(personId);
+  const around = useFamilyAround(personId);
+  if (!detail.data || !around.data) return null;
+  return <AddRelativeDialog detail={detail.data} tree={around.data} me={me} onClose={onClose} />;
 }
 
 /**
@@ -239,6 +258,10 @@ export function TreePage() {
     [navigate, id, view],
   );
 
+  // Who gets the "+" on their card (the panel's Add relative rule), and whose wizard is open.
+  const addable = useMemo(() => (shown ? addableOnChart(me, shown) : new Set<string>()), [me, shown]);
+  const [adding, setAdding] = useState<string | null>(null);
+
   const unionsById = chart?.unionsById;
   const canEdit = useCallback(
     (unionId: string) => {
@@ -360,6 +383,8 @@ export function TreePage() {
             canEditUnion={canEdit}
             onSelect={activate}
             onOpen={openPanel}
+            addable={addable}
+            onAdd={setAdding}
             onLeaf={openLeaf}
             onCouple={openUnion}
             revealRequest={found}
@@ -371,6 +396,7 @@ export function TreePage() {
           />
         )}
       </div>
+      {adding && me ? <AddFromChart personId={adding} me={me} onClose={() => setAdding(null)} /> : null}
       {editing && names ? (
         <EditUnionDialog
           union={editing}
