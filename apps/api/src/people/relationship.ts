@@ -46,7 +46,7 @@ export async function loadRelGraphInput(trx: Trx): Promise<RelGraphInput> {
   };
 }
 
-const toRelPerson = (row: Parameters<typeof toPerson>[0]): RelPerson => {
+export const toRelPerson = (row: Parameters<typeof toPerson>[0]): RelPerson => {
   const person = toPerson(row);
   return {
     id: person.id,

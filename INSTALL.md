@@ -200,7 +200,7 @@ Without a usable passphrase the safety copy before an upgrade is a plain `pre-up
 # The dump gives rights to the app role, but roles are not part of a dump: create it first
 # (your DB_APP_USER from .env; kinship_app by default).
 docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE ROLE kinship_app LOGIN"'
-gunzip -c data/backups/pre-upgrade-0012-to-0013.sql.gz | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -1 -q'
+gunzip -c data/backups/pre-upgrade-0016-to-0022.sql.gz | docker compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -1 -q'
 docker compose up -d      # KinShip sets the app role's password from .env when it starts
 ```
 

@@ -2,6 +2,8 @@
 //
 // Photos (ADR 0033, ADR 0034): what the API sends and accepts, and the limits both sides know.
 
+import type { RelPerson } from './relationship.js';
+
 /** What an upload may be. Decided by the file's first bytes, never by its name or the content type the browser sends. */
 export const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 export type PhotoMime = (typeof PHOTO_MIME_TYPES)[number];
@@ -35,6 +37,20 @@ export interface MediaInfo {
   /** What the signed-in account may do with it. */
   permissions: { edit: boolean; delete: boolean };
 }
+
+/** One photo in the family-wide list: the photo, and the people it shows (names, for display). */
+export interface MediaListItem extends MediaInfo {
+  shows: RelPerson[];
+}
+
+/** GET /api/media: newest first, MEDIA_PAGE_SIZE at a time. `person` limits it to the photos that show one person. */
+export interface MediaPage {
+  items: MediaListItem[];
+  nextCursor: string | null;
+}
+
+/** Photos per page of GET /api/media. */
+export const MEDIA_PAGE_SIZE = 60;
 
 /** POST /api/people/:id/photos: the photo, and the date its EXIF says it was taken (a suggestion, not saved). */
 export interface PhotoUploadResponse {
@@ -71,6 +87,7 @@ export const MEDIA_ERROR_CODES = [
 export type MediaErrorCode = (typeof MEDIA_ERROR_CODES)[number];
 
 export const MEDIA_ROUTES = [
+  { method: 'GET', path: '/api/media', access: 'signed-in' },
   { method: 'GET', path: '/api/people/:id/photos', access: 'signed-in' },
   { method: 'POST', path: '/api/people/:id/photos', access: 'edit-person' },
   { method: 'DELETE', path: '/api/people/:id/photos/:mediaId', access: 'edit-person' },

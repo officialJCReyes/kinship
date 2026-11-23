@@ -59,6 +59,7 @@ import type {
   UpdateParentLinkRequest,
   LinkKind,
   MediaInfo,
+  MediaPage,
   MediaPatch,
   PersonPhotos,
   PhotoUploadResponse,
@@ -352,6 +353,20 @@ export async function deletePerson(id: string, confirm: boolean): Promise<void> 
 }
 
 // --- Photos (ADR 0034). Every path here is in MEDIA_ROUTES (a test checks it). ---
+
+/** One page of every photo of the family, newest first (see MediaPage). */
+export async function fetchMedia(
+  params: { person?: string | null; cursor?: string | null },
+  signal?: AbortSignal,
+): Promise<MediaPage> {
+  const query = new URLSearchParams();
+  if (params.person) query.set('person', params.person);
+  if (params.cursor) query.set('cursor', params.cursor);
+  const path = `/api/media${query.size ? `?${query}` : ''}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as MediaPage;
+}
 
 export async function fetchPersonPhotos(personId: string, signal?: AbortSignal): Promise<PersonPhotos> {
   const path = `/api/people/${encodeURIComponent(personId)}/photos`;

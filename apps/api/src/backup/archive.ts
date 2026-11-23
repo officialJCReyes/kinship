@@ -248,7 +248,9 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
           throw new BackupError(
             'disk_space',
             `Not enough free space in ${dir}: the database is ${databaseBytes} bytes${
-              wantFiles ? `, the photos are ${filesBytes} bytes, and a tenth more is needed for the archive` : ''
+              wantFiles
+                ? `, the photos are ${filesBytes} bytes (counted twice: each is staged beside the archive, then packed into it), and a tenth more is needed`
+                : ''
             }; ${need} are needed and the folder has ${free} free.`,
           );
         }

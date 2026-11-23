@@ -2,9 +2,10 @@
 //
 // Photos on a profile (ADR 0034): the Photos card, the viewer (date taken, set as profile photo, remove, delete), the choice of a
 // file, and the profile picture's upload button. Every file goes to the API, which decides what it is and strips what it carries.
-import type { MediaInfo, Person } from '@kinship/shared';
+import type { MediaInfo, Person, RelPerson } from '@kinship/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import type { ChangeEvent, FormEvent } from 'react';
 import * as api from '../api.js';
 import { ActionButton } from '../components/ActionButton.js';
@@ -221,18 +222,24 @@ export function TakenOnDialog({ uploaded, onClose }: { uploaded: Uploaded; onClo
 
 type Confirm = 'remove' | 'delete' | null;
 
-/** One photo, full size, with what can be done to it. */
-function PhotoDialog({
+/**
+ * One photo, full size, with what can be done to it. `person` is the person the actions are about (set as their profile photo,
+ * remove it from them); without one (a photo of several people, opened from the Media page) only the date and Delete are offered.
+ * `shows` names everyone in it, when the caller knows.
+ */
+export function PhotoDialog({
   photo,
   person,
   isProfile,
   canEditPerson,
+  shows,
   onClose,
 }: {
   photo: MediaInfo;
-  person: Person;
+  person: RelPerson | null;
   isProfile: boolean;
   canEditPerson: boolean;
+  shows?: RelPerson[];
   onClose: () => void;
 }) {
   const refresh = useRefreshPeople();
@@ -242,12 +249,14 @@ function PhotoDialog({
   const [editing, setEditing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const save = useSaveTakenOn(photo);
-  const name = displayName(person);
+  const name = person ? displayName(person) : '';
   const typed = text.trim();
   const invalid = typed !== '' && !isValidDateText(typed);
 
-  const setProfile = useMutation({ mutationFn: () => api.updatePerson(person.id, { photoMediaId: photo.id }) });
-  const remove = useMutation({ mutationFn: () => api.removePhotoFromPerson(person.id, photo.id) });
+  const setProfile = useMutation({
+    mutationFn: () => api.updatePerson(person?.id ?? '', { photoMediaId: photo.id }),
+  });
+  const remove = useMutation({ mutationFn: () => api.removePhotoFromPerson(person?.id ?? '', photo.id) });
   const destroy = useMutation({ mutationFn: () => api.deleteMedia(photo.id) });
   const failure = [setProfile, remove, destroy, save].find((m) => m.isError)?.error;
 
@@ -290,7 +299,10 @@ function PhotoDialog({
   };
 
   return (
-    <Dialog title={t('photo.viewer.title', { name })} onClose={onClose}>
+    <Dialog
+      title={t('photo.viewer.title', { name: person ? name : (shows ?? []).map((p) => displayName(p)).join(', ') })}
+      onClose={onClose}
+    >
       <div className="photo-dialog">
         <img className="photo-full" src={photoUrl(photo.id, 'full')} alt="" />
         <div className="photo-dialog-facts">
@@ -324,11 +336,22 @@ function PhotoDialog({
               ) : null}
             </div>
           )}
+          {shows && shows.length > 0 ? (
+            <div>
+              <strong>{t('media.shows')}: </strong>
+              {shows.map((p, index) => (
+                <span key={p.id}>
+                  {index > 0 ? ', ' : ''}
+                  <Link to={`/people/${p.id}`}>{displayName(p)}</Link>
+                </span>
+              ))}
+            </div>
+          ) : null}
           {isProfile ? <div className="muted">{t('photo.isProfile')}</div> : null}
         </div>
         <PhotoError message={failure ? photoErrorMessage(failure) : null} />
         <div className="actions wrap">
-          {canEditPerson && !isProfile ? (
+          {person && canEditPerson && !isProfile ? (
             <ActionButton
               disabled={setProfile.isPending}
               onClick={() => setProfile.mutate(undefined, { onSuccess: () => void done(t('photo.notice.profileSet')) })}
@@ -336,7 +359,7 @@ function PhotoDialog({
               {t('photo.setProfile')}
             </ActionButton>
           ) : null}
-          {canEditPerson ? (
+          {person && canEditPerson ? (
             <ActionButton onClick={() => setConfirm('remove')}>{t('photo.removeFromPerson', { name })}</ActionButton>
           ) : null}
           {photo.permissions.delete ? (

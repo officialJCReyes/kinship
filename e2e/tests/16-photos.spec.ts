@@ -99,6 +99,22 @@ test('add a photo, its date, the profile photo; encrypted on disk; refuse bad fi
     /^\/api\/media\/[0-9a-f-]+\/avatar$/,
   );
 
+  // The Media tab lists every photo of the family; filtered to Lena it is just hers, and the viewer opens from it.
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Media' }).click();
+  await expect(page.getByRole('heading', { name: 'Media', level: 1 })).toBeVisible();
+  await page.getByRole('combobox', { name: 'Show photos of' }).fill(`Lena`);
+  await page.getByRole('option', { name: new RegExp(`Lena ${family}`) }).click();
+  const tile = page.getByRole('button', { name: `Open photo of Lena ${family}` });
+  await expect(page.getByRole('list', { name: 'Media' }).getByRole('listitem')).toHaveCount(1);
+  await expect(tile.locator('img')).toHaveJSProperty('naturalWidth', 192);
+  await expect(page.getByRole('button', { name: /add photo|upload/i })).toHaveCount(0);
+  await tile.click();
+  const fromMedia = page.getByRole('dialog', { name: `Photo of Lena ${family}` });
+  await expect(fromMedia.getByText(/Shows:/)).toBeVisible();
+  await expect(fromMedia.getByRole('button', { name: 'Delete photo' })).toBeVisible();
+  await fromMedia.getByRole('button', { name: 'Done' }).click();
+  await expect(fromMedia).toBeHidden();
+
   // Pictures are for signed-in accounts only.
   const photo = dbExec(`select id from media_files where uploaded_by is not null order by created_at desc limit 1`);
   const stranger = await request.newContext({ baseURL: BASE_URL });
