@@ -260,6 +260,29 @@ describe('a person’s photos and the profile photo', () => {
     expect((cleared.body!['person'] as Json)['photoMediaId']).toBeNull();
   });
 
+  it('clearing the profile photo ("Remove profile photo") follows the rule for setting it, and keeps the photo linked', async () => {
+    const { photo } = await photoOf('superadmin', family.person.walter);
+    const id = photo['id'] as string;
+    expect((await as('superadmin', 'PATCH', `/api/people/${family.person.walter}`, { photoMediaId: id })).status).toBe(
+      200,
+    );
+    // A User never, and a Member not for someone outside their line.
+    for (const role of ['user', 'member'] as const) {
+      expect(
+        (await as(role, 'PATCH', `/api/people/${family.person.walter}`, { photoMediaId: null })).status,
+        role,
+      ).toBe(403);
+    }
+    expect(
+      ((await as('user', 'GET', `/api/people/${family.person.walter}`)).body!['person'] as Json)['photoMediaId'],
+    ).toBe(id);
+    const cleared = await as('familyadmin', 'PATCH', `/api/people/${family.person.walter}`, { photoMediaId: null });
+    expect((cleared.body!['person'] as Json)['photoMediaId']).toBeNull();
+    // The picture is still one of Walter's photos (and so on the Media page).
+    const items = (await as('user', 'GET', `/api/people/${family.person.walter}/photos`)).body!['items'] as Json[];
+    expect(items.map((item) => item['id'])).toContain(id);
+  });
+
   it('refuses a profile photo that does not show this person, or does not exist', async () => {
     const { photo } = await photoOf('superadmin', family.person.sofia);
     const other = await as('superadmin', 'PATCH', `/api/people/${family.person.leo}`, { photoMediaId: photo['id'] });
