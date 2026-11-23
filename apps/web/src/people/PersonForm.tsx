@@ -106,17 +106,11 @@ interface PersonFieldsProps {
 }
 
 export function PersonFields({ draft, onChange, showErrors, problems, showMarriedSurname = false }: PersonFieldsProps) {
+  // The same three name rows as the first-run wizard's row 1 (backlog 13): Given and Surname first, in look and in tab order,
+  // with the cursor in Given when the form opens; then the other surnames; then prefix, suffix and nickname.
   return (
     <>
-      <div className="grid2">
-        <AffixField
-          label={t('person.namePrefix')}
-          otherLabel={t('person.namePrefixOther')}
-          name="namePrefix"
-          list={NAME_PREFIXES}
-          value={draft.namePrefix}
-          onChange={(namePrefix) => onChange({ ...draft, namePrefix })}
-        />
+      <div className="grid2 name-row">
         <Field
           label={t('person.givenName')}
           name="givenName"
@@ -126,21 +120,9 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
           onChange={(event) => onChange({ ...draft, givenName: event.target.value })}
           error={showErrors && problems.givenName ? t('error.invalid_given_name') : undefined}
           required
+          markRequired
+          data-autofocus
         />
-      </div>
-      <div className="grid2">
-        <Field
-          label={t('person.nickname')}
-          name="nickname"
-          autoComplete="off"
-          maxLength={NAME_MAX_LENGTH}
-          placeholder={t('person.nicknamePlaceholder')}
-          value={draft.nickname}
-          onChange={(event) => onChange({ ...draft, nickname: event.target.value })}
-        />
-        <div />
-      </div>
-      <div className="grid2">
         <Field
           label={t('person.surname')}
           name="surname"
@@ -150,18 +132,10 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
           onChange={(event) => onChange({ ...draft, surname: event.target.value })}
           error={showErrors && problems.surname ? t('error.invalid_surname') : undefined}
           required
-        />
-        <AffixField
-          label={t('person.nameSuffix')}
-          otherLabel={t('person.nameSuffixOther')}
-          name="nameSuffix"
-          list={NAME_SUFFIXES}
-          value={draft.nameSuffix}
-          onChange={(nameSuffix) => onChange({ ...draft, nameSuffix })}
+          markRequired
         />
       </div>
-      <p className="muted field-help">{t('person.nameFieldsHelp')}</p>
-      <div className="grid2">
+      <div className={showMarriedSurname ? 'grid2 name-row' : 'name-row'}>
         <Field
           label={t('person.secondSurname')}
           name="secondSurname"
@@ -180,9 +154,34 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
             value={draft.marriedSurname}
             onChange={(event) => onChange({ ...draft, marriedSurname: event.target.value })}
           />
-        ) : (
-          <div />
-        )}
+        ) : null}
+      </div>
+      <div className="grid3 name-row">
+        <AffixField
+          label={t('person.namePrefix')}
+          otherLabel={t('person.namePrefixOther')}
+          name="namePrefix"
+          list={NAME_PREFIXES}
+          value={draft.namePrefix}
+          onChange={(namePrefix) => onChange({ ...draft, namePrefix })}
+        />
+        <AffixField
+          label={t('person.nameSuffix')}
+          otherLabel={t('person.nameSuffixOther')}
+          name="nameSuffix"
+          list={NAME_SUFFIXES}
+          value={draft.nameSuffix}
+          onChange={(nameSuffix) => onChange({ ...draft, nameSuffix })}
+        />
+        <Field
+          label={t('person.nickname')}
+          name="nickname"
+          autoComplete="off"
+          maxLength={NAME_MAX_LENGTH}
+          placeholder={t('person.nicknamePlaceholder')}
+          value={draft.nickname}
+          onChange={(event) => onChange({ ...draft, nickname: event.target.value })}
+        />
       </div>
       <div className="grid2">
         <SelectField

@@ -37,31 +37,70 @@ const bodyOf = (fetchMock: ReturnType<typeof mockApi>, key: string): unknown => 
 };
 
 describe('Edit details: the three optional name fields', () => {
-  it('offers prefix and suffix as drop downs, nickname as a box, with the helper text, in the mockup’s order', async () => {
+  it('lays out the three name rows: Given and Surname, the other surnames, then prefix, suffix and nickname (backlog 13)', async () => {
     mockApi(haleRoutes(ADMIN));
     renderApp('/people/elena');
     await screen.findByRole('heading', { name: 'Elena Ruiz' });
     click('Edit details');
     const dialog = screen.getByRole('dialog');
+    // Document order is tab order: Given and Surname first.
     const names = Array.from(dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input[name], select[name]'))
       .map((el) => el.name)
-      .slice(0, 5);
-    expect(names).toEqual(['namePrefix', 'givenName', 'nickname', 'surname', 'nameSuffix']);
+      .slice(0, 7);
+    expect(names).toEqual([
+      'givenName',
+      'surname',
+      'secondSurname',
+      'marriedSurname',
+      'namePrefix',
+      'nameSuffix',
+      'nickname',
+    ]);
+    const rows = Array.from(dialog.querySelectorAll('.name-row')).map((row) =>
+      Array.from(row.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input[name], select[name]')).map(
+        (el) => el.name,
+      ),
+    );
+    expect(rows).toEqual([
+      ['givenName', 'surname'],
+      ['secondSurname', 'marriedSurname'],
+      ['namePrefix', 'nameSuffix', 'nickname'],
+    ]);
+    // The form opens with the cursor in Given.
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText('Given (and middle) name')));
     // The particle is part of the surname (ADR 0038): there is no field for it.
     expect(within(dialog).queryByLabelText(/particle/i)).toBeNull();
     expect(within(dialog).getByLabelText('Prefix (optional)').tagName).toBe('SELECT');
     expect(within(dialog).getByLabelText('Suffix (optional)').tagName).toBe('SELECT');
     expect(within(dialog).getByLabelText('Nickname (optional)').getAttribute('placeholder')).toBe('Danny');
-    expect(
-      within(dialog).getByText(
-        'Only given name and surname are required. Prefix and suffix show on the tree and profile unless you turn them off in My settings, Names. All four are searchable.',
-      ),
-    ).toBeTruthy();
-    // Only the given name and the surname are required.
-    expect((within(dialog).getByLabelText(/^Given name/) as HTMLInputElement).required).toBe(true);
-    expect((within(dialog).getByLabelText('Surname') as HTMLInputElement).required).toBe(true);
+    // The helper text is gone.
+    expect(dialog.textContent).not.toMatch(/Only given name and surname are required/);
+    // Given and Surname are required: the input says so, and a visible asterisk that screen readers skip follows the label.
+    for (const label of ['Given (and middle) name', 'Surname']) {
+      const input = within(dialog).getByLabelText(label) as HTMLInputElement;
+      expect(input.required, label).toBe(true);
+      const mark = input.closest('.field')!.querySelector('.required-mark')!;
+      expect(mark.textContent).toBe('*');
+      expect(mark.getAttribute('aria-hidden')).toBe('true');
+    }
+    expect(dialog.querySelectorAll('.required-mark')).toHaveLength(2);
     expect((within(dialog).getByLabelText('Prefix (optional)') as HTMLSelectElement).required).toBe(false);
     expect((within(dialog).getByLabelText('Nickname (optional)') as HTMLInputElement).maxLength).toBe(100);
+  });
+
+  it('gives Second surname the row alone when the married surname is not asked for', async () => {
+    mockApi(haleRoutes(ADMIN));
+    renderApp('/people/ben');
+    await screen.findByRole('heading', { name: 'Ben Hale' });
+    click('Add relative');
+    click(/^Add son/);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByLabelText('Married surname')).toBeNull();
+    const second = within(dialog).getByLabelText('Second surname');
+    const row = second.closest('.name-row')!;
+    expect(row.querySelectorAll('input, select')).toHaveLength(1);
+    expect(row.classList.contains('grid2')).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText('Given (and middle) name')));
   });
 
   it('lists None, the shared list in order, and Other… last, as written', async () => {

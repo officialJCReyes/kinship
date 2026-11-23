@@ -104,7 +104,7 @@ describe('the "set to Widowed automatically" notice', () => {
     const reads = () => calls(fetchMock).filter((c) => c === 'GET /api/people/daniel').length;
     click('Edit details');
     const dialogReads = reads();
-    fireEvent.change(screen.getByLabelText('Given name'), { target: { value: 'Danny' } });
+    fireEvent.change(screen.getByLabelText('Given (and middle) name'), { target: { value: 'Danny' } });
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(screen.queryByText(/Widowed automatically/)).toBeNull();

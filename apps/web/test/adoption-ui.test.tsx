@@ -125,7 +125,7 @@ describe('Add relative and the type of link', () => {
     const group = within(dialog).getByRole('group', { name: 'Type of parent-child link' });
     expect((within(group).getByRole('radio', { name: 'Birth' }) as HTMLInputElement).checked).toBe(true);
     fireEvent.click(within(group).getByRole('radio', { name: 'Adoptive' }));
-    fireEvent.change(within(dialog).getByLabelText('Given name'), { target: { value: 'Mina' } });
+    fireEvent.change(within(dialog).getByLabelText('Given (and middle) name'), { target: { value: 'Mina' } });
     fireEvent.change(within(dialog).getByLabelText('Surname'), { target: { value: 'Hale' } });
     fireEvent.change(within(dialog).getByLabelText('Date of the adoption (the year is enough)'), {
       target: { value: '2001' },

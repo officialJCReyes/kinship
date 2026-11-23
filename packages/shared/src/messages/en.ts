@@ -877,7 +877,9 @@ export const en = {
   'date.precision.about': 'About',
   'date.precision.before': 'Before',
   'date.precision.after': 'After',
-  'person.givenName': 'Given name',
+  'person.givenName': 'Given (and middle) name',
+  // The profile's Facts keep the short label (backlog 13 relabels the forms only).
+  'person.givenNameFact': 'Given name',
   'person.surname': 'Surname',
   'person.birthSurname': 'Birth surname',
   'person.secondSurname': 'Second surname',
@@ -894,8 +896,6 @@ export const en = {
   'person.nicknameFact': 'Nickname',
   'person.nickname': 'Nickname (optional)',
   'person.nicknamePlaceholder': 'Danny',
-  'person.nameFieldsHelp':
-    'Only given name and surname are required. Prefix and suffix show on the tree and profile unless you turn them off in My settings, Names. All four are searchable.',
   'person.secondSurnameHelp': 'Optional, for example a mother’s family name.',
   'person.gender': 'Gender',
   'person.gender.unknown': 'Unknown',

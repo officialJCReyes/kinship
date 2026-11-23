@@ -11,7 +11,7 @@ import type {
   TreeResponse,
   UnionStatus,
 } from '@kinship/shared';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router';
 import * as api from '../api.js';
@@ -197,6 +197,11 @@ function RelativeForm({
   const chosenKind: LinkKind = admin ? linkKind : 'birth';
 
   const [mode, setMode] = useState<Mode>('new');
+  // The dialog stays open while a relative is chosen, so its own first focus has passed: put the cursor in Given now (backlog 13).
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    formRef.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+  }, []);
   const [draft, setDraft] = useState<PersonDraft>(emptyPersonDraft(GENDER_OF[kind]));
   const [existing, setExisting] = useState<Person | null>(null);
   const [union, setUnion] = useState<UnionDraft>(emptyUnionDraft());
@@ -327,7 +332,7 @@ function RelativeForm({
   };
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} noValidate>
+    <form ref={formRef} onSubmit={(event) => void onSubmit(event)} noValidate>
       {admin && (isParent || isChild || isSibling) ? (
         <fieldset className="choice">
           <legend>{t('link.type')}</legend>
