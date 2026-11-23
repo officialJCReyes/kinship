@@ -2632,6 +2632,8 @@ pre.code {
 .rdiagram {
   overflow-x: auto;
   text-align: center;
+  /* The drawing's own width (at least 0.7 of its size) must not widen the page: the box takes its parent's width and scrolls. */
+  contain: inline-size;
 }
 
 .rsvg {

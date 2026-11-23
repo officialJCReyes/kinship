@@ -59,7 +59,7 @@ function Card({ result, card }: { result: RelationshipResponse; card: DiagramCar
           </tspan>
         ))}
       </text>
-      <text className="ryears" x={card.x} y={card.y + CARD_H - 8} textAnchor="middle">
+      <text className="ryears" x={card.x} y={nameTop + fit.lines.length * fit.lineHeight + 14} textAnchor="middle">
         {lifespan(person)}
       </text>
     </>

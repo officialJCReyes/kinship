@@ -42,7 +42,8 @@ export interface PathLayout {
 }
 
 export const CARD_W = 160;
-export const CARD_H = 92;
+/** Room for the avatar, a name on up to two lines and the years under it. */
+export const CARD_H = 104;
 /** The space between rows, where the vertical lines and their labels are. */
 const ROW_GAP = 64;
 const MIN_GAP = 40;
