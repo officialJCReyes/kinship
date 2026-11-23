@@ -2,6 +2,22 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0-rc.1] - 2026-11-22
+
+Release candidate of 0.3.0. Back up first and read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md).
+
+### What 0.3.0-rc.1 adds
+
+- Profile photos: add a photo from a profile, set it as the profile picture, and browse every photo on the new Media tab. Photos are encrypted before they are stored, need a file key and a `./data/files` folder (see UPGRADE.md), and are included in backups and restores.
+- New Relationship finder: pick any two people and see how they are related, with cousin levels, half and in-law names, and the path between them.
+- Admins can change an account's role, disable an account (it is signed out at once and can be enabled again) and delete a disabled account. The last SuperAdmin can never be demoted, disabled or deleted.
+- Admins can restore a backup and the photos from Admin, Backups, with a maintenance page while it runs; a safety copy is taken first.
+- Dates can be picked from a calendar, and each person chooses which day the week starts on in My settings.
+
+### Changed
+
+- Charts now hide aunts, uncles and cousins by default. Turn them back on in the new gear panel, where you can also choose how the mouse wheel works and which view opens first.
+
 ## [0.2.1](https://github.com/officialJCReyes/kinship/compare/v0.2.0...v0.2.1) (2026-11-19)
 
 
