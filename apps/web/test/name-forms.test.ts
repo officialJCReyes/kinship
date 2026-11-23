@@ -48,8 +48,8 @@ describe('the four forms (ADR 0024)', () => {
     expect(displayName({ ...rosa, marriedSurname: 'mendez' }, 'married')).toBe('Rosa Mendez');
   });
 
-  it('puts the particle before the birth surname only, never before a married surname', () => {
-    const bea = { givenName: 'Beatriz', surname: 'Navarro', surnameParticle: 'de', marriedSurname: 'Hale' };
+  it('keeps a particle with the birth surname it belongs to, never before a married surname', () => {
+    const bea = { givenName: 'Beatriz', surname: 'de Navarro', marriedSurname: 'Hale' };
     expect(displayName(bea, 'maiden_married')).toBe('Beatriz de Navarro (Hale)');
     expect(displayName(bea, 'married')).toBe('Beatriz Hale');
     expect(displayName(bea, 'married_born')).toBe('Beatriz Hale (born de Navarro)');
@@ -69,9 +69,8 @@ describe('the four forms (ADR 0024)', () => {
   it('gives the longest realistic name in full, in order', () => {
     const long = {
       givenName: 'Beatriz',
-      surname: 'Navarro',
+      surname: 'de la Navarro',
       secondSurname: 'Ortiz',
-      surnameParticle: 'de la',
       marriedSurname: 'Hernandez-Hale',
       namePrefix: 'Dra.',
       nameSuffix: 'Jr.',

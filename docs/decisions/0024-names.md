@@ -3,6 +3,7 @@
 - Status: **Accepted** (decisions by JC, 2026-11-19 and 2026-11-20)
 - Date: 2026-11-20
 - Amends: [0006 The Family tree chart](0006-tree-view.md) (what a card shows), [0011 An account's own display settings](0011-display-settings.md) (the surname choice)
+- Amended by: [0038 The surname particle is part of the surname](0038-surname-particle-folded.md) (the particle is folded into the surname by migration 0024 and the app no longer reads or writes it)
 - Builds on: [0005 People, relationships and who may change them](0005-people-and-relationships.md), [0008 Second and married surnames](0008-names-and-widowed.md)
 - Sources: `design/kinship-tree-settings-and-search.md`, `design/kinship-gedcom-coverage.md`, the mockup's Add relative, Edit details and My settings, Names.
 

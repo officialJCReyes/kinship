@@ -27,24 +27,23 @@ const names = async (q: string) =>
     }>
   ).map((p) => `${p.givenName} ${p.surname}`);
 
-describe('prefix, suffix, nickname and surname particle (ADR 0024)', () => {
-  it('stores, trims and reads back all four; blank or null means none', async () => {
+describe('prefix, suffix and nickname (ADR 0024; the particle folded into the surname by ADR 0038)', () => {
+  it('stores, trims and reads back all three; blank or null means none', async () => {
     const created = await create({
       givenName: 'Beatriz',
-      surname: ' Cruz ',
+      surname: ' de la Cruz ',
       namePrefix: ' Dra. ',
       nameSuffix: ' Jr. ',
       nickname: ' Bea ',
-      surnameParticle: ' de la ',
     });
     expect(created.status).toBe(201);
     expect(created.body?.person).toMatchObject({
-      surname: 'Cruz',
+      surname: 'de la Cruz',
       namePrefix: 'Dra.',
       nameSuffix: 'Jr.',
       nickname: 'Bea',
-      surnameParticle: 'de la',
     });
+    expect(created.body?.person).not.toHaveProperty('surnameParticle');
     const plain = await create({
       givenName: 'Plain',
       surname: 'Name',
@@ -55,10 +54,10 @@ describe('prefix, suffix, nickname and surname particle (ADR 0024)', () => {
       namePrefix: null,
       nameSuffix: null,
       nickname: null,
-      surnameParticle: null,
     });
     const read = await as('user', 'GET', `/api/people/${created.body?.person.id}`);
-    expect(read.body?.person).toMatchObject({ namePrefix: 'Dra.', surnameParticle: 'de la', nickname: 'Bea' });
+    expect(read.body?.person).toMatchObject({ namePrefix: 'Dra.', surname: 'de la Cruz', nickname: 'Bea' });
+    expect(read.body?.person).not.toHaveProperty('surnameParticle');
   });
 
   it('changes and clears each with PATCH and leaves the other fields alone', async () => {
@@ -69,13 +68,12 @@ describe('prefix, suffix, nickname and surname particle (ADR 0024)', () => {
     expect(cleared.body?.person).toMatchObject({ nickname: null, nameSuffix: 'Sr.' });
   });
 
-  it('refuses a value over its limit (30, 30, 100, 30) or with control characters, with that field’s code', async () => {
+  it('refuses a value over its limit (30, 30, 100) or with control characters, with that field’s code', async () => {
     const base = { givenName: 'Limit', surname: 'Test' };
     const cases = [
       ['namePrefix', 'x'.repeat(31), 'invalid_name_prefix'],
       ['nameSuffix', 'x'.repeat(31), 'invalid_name_suffix'],
       ['nickname', 'x'.repeat(101), 'invalid_nickname'],
-      ['surnameParticle', 'x'.repeat(31), 'invalid_surname_particle'],
       ['nickname', 'Da\nnny', 'invalid_nickname'],
     ] as const;
     for (const [field, value, code] of cases) {
@@ -88,25 +86,23 @@ describe('prefix, suffix, nickname and surname particle (ADR 0024)', () => {
       ['namePrefix', 30],
       ['nameSuffix', 30],
       ['nickname', 100],
-      ['surnameParticle', 30],
     ] as const) {
       expect((await create({ ...base, [field]: 'x'.repeat(ok) })).status, field).toBe(201);
     }
   });
 
-  it('is searchable by nickname, particle, prefix, suffix, and still by every other part', async () => {
+  it('is searchable by nickname, a particle in the surname, prefix, suffix, and still by every other part', async () => {
     await create({
       givenName: 'Margarita',
-      surname: 'Zapata',
+      surname: 'van Zapata',
       namePrefix: 'Dr.',
       nameSuffix: 'III',
       nickname: 'Maggie',
-      surnameParticle: 'van',
       secondSurname: 'Quiroga',
       marriedSurname: 'Zapata Fox',
     });
     for (const q of ['maggie', 'MAGGIE', 'van zapata', 'dr margarita', 'iii', 'quiroga', 'fox', 'margarita zapata']) {
-      expect(await names(q), q).toEqual(['Margarita Zapata']);
+      expect(await names(q), q).toEqual(['Margarita van Zapata']);
     }
     // Accents are ignored, as before.
     await create({ givenName: 'José', surname: 'Peña', nickname: 'Pepé' });
@@ -114,13 +110,22 @@ describe('prefix, suffix, nickname and surname particle (ADR 0024)', () => {
     expect(await names('jose pena')).toEqual(['José Peña']);
   });
 
-  it('sorts by the bare surname: the particle is ignored', async () => {
-    await create({ givenName: 'Aaa', surname: 'Cruz', surnameParticle: 'de la' });
-    await create({ givenName: 'Bbb', surname: 'Alba' });
+  it('sorts a surname with a particle as written: "de la Cruz" comes under D (ADR 0038)', async () => {
+    await create({ givenName: 'Aaa', surname: 'de la Cruz' });
+    await create({ givenName: 'Ccc', surname: 'Cruz' });
     const all = ((await as('user', 'GET', '/api/people?limit=100')).body?.items as Array<{ surname: string }>).map(
       (p) => p.surname,
     );
-    expect(all.indexOf('Alba')).toBeLessThan(all.indexOf('Cruz'));
+    // Before 0024 the particle was ignored and "de la Cruz" sorted with "Cruz" by given name (Aaa first). Now the
+    // particle's letter counts, under any collation.
+    expect(all.indexOf('Cruz')).toBeLessThan(all.indexOf('de la Cruz'));
+  });
+
+  it('refuses surnameParticle in a create or a change: the field is gone (ADR 0038)', async () => {
+    const created = await create({ givenName: 'Old', surname: 'Client', surnameParticle: 'de' });
+    expect(created).toMatchObject({ status: 400, body: { error: 'invalid_request' } });
+    const changed = await as('familyadmin', 'PATCH', `/api/people/${f.person.walter}`, { surnameParticle: 'de' });
+    expect(changed).toMatchObject({ status: 400, body: { error: 'invalid_request' } });
   });
 
   it('follows the usual permissions: a User cannot write, and a Member writes only in their own line', async () => {

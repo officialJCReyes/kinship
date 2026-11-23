@@ -13,14 +13,12 @@ type NameCode =
   | 'invalid_married_surname'
   | 'invalid_name_prefix'
   | 'invalid_name_suffix'
-  | 'invalid_nickname'
-  | 'invalid_surname_particle';
+  | 'invalid_nickname';
 
 /** The longest each optional part may be, in characters (the migration's CHECKs say the same). */
 const MAX_LENGTH: Partial<Record<NameCode, number>> = {
   invalid_name_prefix: AFFIX_MAX_LENGTH,
   invalid_name_suffix: AFFIX_MAX_LENGTH,
-  invalid_surname_particle: AFFIX_MAX_LENGTH,
 };
 
 export function cleanName(raw: unknown, code: NameCode): string {

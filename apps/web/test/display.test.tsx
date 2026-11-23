@@ -119,14 +119,15 @@ describe('the account’s name form, on every screen', () => {
     }
   });
 
-  it('initials follow the surname that shows, and skip a particle', () => {
+  it('initials follow the surname that shows, a particle included (ADR 0038)', () => {
     withNames('elena', { marriedSurname: 'Hale' });
     expect(initials(elena())).toBe('ER');
     setDisplay({ ...DEFAULT_DISPLAY, nameForm: 'married' });
     expect(initials(elena())).toBe('EH');
     setDisplay({ ...DEFAULT_DISPLAY, nameForm: 'maiden' });
     expect(initials(elena())).toBe('ER');
-    expect(initials({ ...elena(), surnameParticle: 'de la', marriedSurname: null })).toBe('ER');
+    // A particle is part of the surname now: "Rosa de la Cruz" is RD, not RC.
+    expect(initials({ ...elena(), surname: 'de la Cruz', marriedSurname: null })).toBe('ED');
   });
 
   it('the profile, the list, a chart node and the picker show the choice', async () => {

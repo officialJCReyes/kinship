@@ -526,7 +526,10 @@ export async function restoreBackup(
   if (passphrase === undefined) throw new BackupError('passphrase', 'A restore needs the backup passphrase.');
   hooks.progress('Checking the backup (decrypting and verifying every block)...');
   const archive = await openArchive(archivePath, passphrase, ctx.tools, config.backup.dir);
-  const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 4);
+  // The migrations after an older backup may RAISE NOTICE (0024 names the people it left alone): log them.
+  const db = createDb<AnySchema>(config.db, config.db.ownerUser, config.db.ownerPassword, 4, (message) =>
+    log('warn', `database notice: ${message}`),
+  );
   try {
     return await db.connection().execute(async (conn) => {
       const lock = await sql<{ ok: boolean }>`select pg_try_advisory_lock(${BACKUP_LOCK_KEY}) as ok`.execute(conn);

@@ -36,7 +36,6 @@ function person(
     namePrefix: null,
     nameSuffix: null,
     nickname: null,
-    surnameParticle: null,
     gender,
     birth: birth ? { value: birth, precision: 'exactly' } : null,
     deceased: death !== null,

@@ -15,7 +15,6 @@ export interface HalePerson {
   namePrefix?: string;
   nameSuffix?: string;
   nickname?: string;
-  surnameParticle?: string;
   marriedSurname?: string;
 }
 
@@ -55,7 +54,7 @@ export const HALE_PEOPLE: readonly HalePerson[] = [
   { key: 'elena', givenName: 'Elena', surname: 'Ruiz', marriedSurname: 'Hale', gender: 'female', birth: '1960' },
   { key: 'carla', givenName: 'Carla', surname: 'Hale', gender: 'female', birth: '1962' },
   { key: 'paul', givenName: 'Paul', surname: 'Hale', gender: 'male', birth: '1960' },
-  { key: 'beatriz', givenName: 'Beatriz', surname: 'Navarro', surnameParticle: 'de', gender: 'female', birth: '1963' },
+  { key: 'beatriz', givenName: 'Beatriz', surname: 'de Navarro', gender: 'female', birth: '1963' },
   { key: 'raymond', givenName: 'Raymond', surname: 'Cole', gender: 'male', birth: '1957' },
   { key: 'anthony', givenName: 'Anthony', surname: 'Brooks', gender: 'male', birth: '1960' },
   { key: 'lucas', givenName: 'Lucas', surname: 'Moreno', gender: 'male', birth: '1978' },

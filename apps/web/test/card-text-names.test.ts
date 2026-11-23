@@ -8,18 +8,17 @@ const WIDTH = 126;
 
 const NAMES = [
   { given: 'Rosa', sur: 'Mendez', married: 'Hale' },
-  { given: 'Beatriz', sur: 'Navarro', second: 'Ortiz', particle: 'de', married: 'Hale' },
-  { given: 'Beatriz', sur: 'Navarro', particle: 'de la', pre: 'Dra.', suf: 'Jr.' },
+  { given: 'Beatriz', sur: 'de Navarro', second: 'Ortiz', married: 'Hale' },
+  { given: 'Beatriz', sur: 'de la Navarro', pre: 'Dra.', suf: 'Jr.' },
   {
     given: 'Beatriz',
-    sur: 'Navarro',
+    sur: 'de la Navarro',
     second: 'Ortiz',
-    particle: 'de la',
     married: 'Hernandez-Hale',
     pre: 'Dra.',
     suf: 'Jr.',
   },
-  { given: 'Maria Guadalupe', sur: 'Villanueva', second: 'Cruz', married: 'Hernandez-Hale', particle: 'de la' },
+  { given: 'Maria Guadalupe', sur: 'de la Villanueva', second: 'Cruz', married: 'Hernandez-Hale' },
 ];
 
 describe('the card name with the four forms, prefix and suffix', () => {
@@ -29,7 +28,6 @@ describe('the card name with the four forms, prefix and suffix', () => {
         givenName: n.given,
         surname: n.sur,
         secondSurname: n.second ?? null,
-        surnameParticle: n.particle ?? null,
         marriedSurname: n.married ?? null,
         namePrefix: n.pre ?? null,
         nameSuffix: n.suf ?? null,

@@ -2,6 +2,15 @@
 
 Notes for upgrading from one release to the next, newest first. Read the section for the version you are moving to. The release process requires a section here for any release with a breaking change.
 
+## Unreleased (will become 0.3.0)
+
+These notes change the 0.3.0-rc.2 notes below; they are merged into one 0.3.0 section when 0.3.0 is released.
+
+- **Migration 0024 folds the surname particle into the surname.** The separate "Surname particle" field of the 0.3.0 release candidates is gone: a particle (de, de la, van, von) is typed as part of the surname. For each person with one, the surname becomes "de la Cruz" (unless it already started with the particle, which is not added twice), and the field is emptied. Names show exactly as before. Two things look different: **initials** use the particle's letter ("Rosa de la Cruz" is now RD), and **lists sort by the surname as written** ("de la Cruz" under D). Search finds the same people. Nothing to do. A particle and surname longer than 100 characters together are left as they were, and the api log names them (`database notice: 0024: ...`); edit those people by hand.
+- **From 0.2.1** the first start now applies migrations 0017 to 0024, and the safety copy is `pre-upgrade-0016-to-0024.tar.enc` (not `-to-0023`). **From 0.3.0-rc.1 or rc.2** the first start applies 0024 and writes `pre-upgrade-0023-to-0024.tar.enc`; going back to the release candidate is a restore of that copy with the rc image.
+- **Restoring a backup made on rc.1 or rc.2** into this release folds its particles the same way (the restore runs 0024 afterwards).
+- **API:** `surnameParticle` is gone from `GET /api/people/:id`, the tree, the list and `GET /api/relationship`, and a create or change that sends it is refused with `invalid_request`. The error code `invalid_surname_particle` is gone. The column `people.surname_particle` stays, always empty, until a later release removes it.
+
 ## 0.3.0-rc.2
 
 **0.3.0 changes the database and some settings.** Back up first (Admin → Backups). From 0.2.1 it is an image update: change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. The first start writes a safety copy named by schema numbers (`pre-upgrade-0016-to-0023.tar.enc`) and then applies migrations 0017 to 0023. The safety copy holds the database only, not the photos (there are none before 0.3.0); your own backups and the copy a restore makes carry the photos.

@@ -9,7 +9,7 @@ import type { NameForm } from './settings.js';
 /** The parts of a person that make up their name. Everything except the given name and surname is optional. */
 export interface NameParts {
   givenName: string;
-  /** The birth surname, without any particle ("Cruz" for "de la Cruz"). */
+  /** The birth surname. A particle (de, de la, van) is part of it ("de la Cruz"; ADR 0038). */
   surname: string;
   secondSurname?: string | null | undefined;
   marriedSurname?: string | null | undefined;
@@ -19,8 +19,6 @@ export interface NameParts {
   nameSuffix?: string | null | undefined;
   /** Never part of a displayed name; shown on the profile and searched. */
   nickname?: string | null | undefined;
-  /** de, de la, van: written before the birth surname. */
-  surnameParticle?: string | null | undefined;
 }
 
 /** What one account chooses about names (the `nameForm`, `showPrefix` and `showSuffix` settings). */
@@ -64,9 +62,9 @@ export function marriedPart(married: string, maiden: string): string | null {
   return married;
 }
 
-/** The birth name's surname part: the particle, the surname, then the second surname ("de la Navarro Ortiz"). */
+/** The birth name's surname part: the surname, then the second surname ("de la Navarro Ortiz"). */
 function maidenName(person: NameParts): string {
-  return [person.surnameParticle, person.surname, person.secondSurname].filter(Boolean).join(' ');
+  return [person.surname, person.secondSurname].filter(Boolean).join(' ');
 }
 
 /**

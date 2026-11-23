@@ -37,7 +37,6 @@ export const PERSON_COLUMNS = [
   'name_prefix',
   'name_suffix',
   'nickname',
-  'surname_particle',
   'gender',
   'birth_date',
   'birth_precision',
@@ -76,7 +75,6 @@ export function toPerson(row: PersonRow): Person {
     namePrefix: row.name_prefix,
     nameSuffix: row.name_suffix,
     nickname: row.nickname,
-    surnameParticle: row.surname_particle,
     gender: row.gender,
     birth: toPartialDate(row.birth_date, row.birth_precision),
     deceased: row.deceased,
@@ -137,7 +135,6 @@ export interface PersonValues {
   name_prefix: string | null;
   name_suffix: string | null;
   nickname: string | null;
-  surname_particle: string | null;
   gender: 'male' | 'female' | 'other' | null;
   birth_date: string | null;
   birth_precision: PartialDate['precision'];
