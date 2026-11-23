@@ -29,11 +29,16 @@ test('restore a backup: maintenance page, result, signed out, data replaced, api
 
   // A backup of the data as it is now.
   await page.goto('/admin/backups');
-  await page.getByRole('button', { name: 'Back up now' }).click();
   const list = page.getByRole('region', { name: 'Backups on this server' });
+  // The names stop at the minute, so a backup made in the same minute as an earlier one gets a "-2" and so on: the way to know
+  // WHICH backup is ours is to count the rows before and wait for one more (waiting for "Working…" to disappear can pass before
+  // it has appeared, and then the photos would change while the backup is still running).
+  const namesBefore = await list.getByRole('rowheader').allInnerTexts();
+  await page.getByRole('button', { name: 'Back up now' }).click();
+  await expect(list.getByRole('rowheader')).toHaveCount(namesBefore.length + 1, { timeout: 120_000 });
   await expect(page.getByText('Working…')).toBeHidden({ timeout: 120_000 });
-  const first = list.getByRole('row').nth(1);
-  const name = (await first.getByRole('rowheader').innerText()).trim();
+  const namesAfter = (await list.getByRole('rowheader').allInnerTexts()).map((n) => n.trim());
+  const name = namesAfter.find((n) => !namesBefore.map((b) => b.trim()).includes(n)) ?? '';
   expect(name).toMatch(/^kinship-/);
 
   // Something happens after it: a person who is not in the backup.
