@@ -2854,6 +2854,38 @@ pre.code {
   padding: 0;
 }
 
+/* A grid cell: the tile, and beside it (a button cannot hold a button) the "Photo actions" button over its top-right corner. */
+.photo-grid > li {
+  position: relative;
+}
+
+.photo-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.photo-actions .icon-button {
+  box-shadow: var(--shadow);
+}
+
+/*
+ * Where the device can hover and the screen is wide, the button shows on hover and on keyboard focus (and while its menu is
+ * open); on touch screens and narrow screens it is always there, since nothing may depend on hovering.
+ */
+@media (hover: hover) and (min-width: 641px) {
+  .photo-actions {
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+
+  .photo-grid > li:hover .photo-actions,
+  .photo-grid > li:focus-within .photo-actions,
+  .photo-actions:has([aria-expanded='true']) {
+    opacity: 1;
+  }
+}
+
 .photo-tile {
   position: relative;
   display: block;

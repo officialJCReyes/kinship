@@ -60,7 +60,7 @@ describe('the Media page', () => {
       },
     });
     const grid = await screen.findByRole('list', { name: 'Media' });
-    const tiles = within(grid).getAllByRole('button');
+    const tiles = within(grid).getAllByRole('button', { name: /^Open photo/ });
     expect(tiles.map((b) => b.getAttribute('aria-label'))).toEqual([
       'Open photo of Ben Hale',
       'Open photo of Ben Hale, Walter Hale',
@@ -87,7 +87,9 @@ describe('the Media page', () => {
     await screen.findByRole('list', { name: 'Media' });
     fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
     await waitFor(() =>
-      expect(within(screen.getByRole('list', { name: 'Media' })).getAllByRole('button')).toHaveLength(2),
+      expect(
+        within(screen.getByRole('list', { name: 'Media' })).getAllByRole('button', { name: /^Open photo/ }),
+      ).toHaveLength(2),
     );
     expect(calls(fetchMock)).toContain('GET /api/media?cursor=a');
     expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
@@ -107,7 +109,9 @@ describe('the Media page', () => {
     fireEvent.click(await screen.findByRole('option', { name: /Ben Hale/ }));
     await waitFor(() => expect(calls(fetchMock)).toContain('GET /api/media?person=ben'));
     await waitFor(() =>
-      expect(within(screen.getByRole('list', { name: 'Media' })).getAllByRole('button')).toHaveLength(1),
+      expect(
+        within(screen.getByRole('list', { name: 'Media' })).getAllByRole('button', { name: /^Open photo/ }),
+      ).toHaveLength(1),
     );
     fireEvent.click(screen.getByRole('button', { name: 'Change' }));
     expect(await screen.findByRole('combobox', { name: 'Show photos of' })).toBeTruthy();

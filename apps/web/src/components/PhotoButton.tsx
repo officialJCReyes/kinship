@@ -38,3 +38,38 @@ export function PhotoButton({
     </button>
   );
 }
+
+/** Three outlined dots: "more actions", in the same line style. */
+export function MoreIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg className="line-icon" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="5" cy="12" r="2.2" />
+      <circle cx="12" cy="12" r="2.2" />
+      <circle cx="19" cy="12" r="2.2" />
+    </svg>
+  );
+}
+
+/** The "Photo actions" button on a thumbnail: the same icon button as the camera, with the "more" icon. */
+export function PhotoActionsButton({
+  label,
+  className,
+  ref,
+  ...button
+}: { label: string; ref?: Ref<HTMLButtonElement> } & Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'aria-label' | 'children'
+>) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={`button icon-button photo-actions-button${className ? ` ${className}` : ''}`}
+      aria-label={label}
+      title={label}
+      {...button}
+    >
+      <MoreIcon />
+    </button>
+  );
+}
