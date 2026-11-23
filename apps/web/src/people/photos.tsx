@@ -10,6 +10,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import * as api from '../api.js';
 import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
+import { PhotoButton } from '../components/PhotoButton.js';
 import { t } from '../i18n.js';
 import { formatDate, isValidDateText } from '../lib/dates.js';
 import { displayName } from '../lib/names.js';
@@ -74,66 +75,64 @@ export function usePhotoUpload(person: Person, { asProfile }: { asProfile: boole
   return { pick, pending: upload.isPending, problem, uploaded, clearUploaded: () => setUploaded(null) };
 }
 
-/** A hidden file input with a button in front of it, so a keyboard, a screen reader and a touch screen can all choose a file. */
-function FilePicker({
-  label,
-  busy,
-  onFile,
-  className,
-  children,
-}: {
-  label: string;
-  busy: boolean;
-  onFile: (file: File | undefined) => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  const input = useRef<HTMLInputElement>(null);
+/**
+ * A hidden file input that a button opens, so a keyboard, a screen reader and a touch screen can all choose a file. `open` opens
+ * the browser's file chooser; `input` must be rendered next to the button.
+ */
+export function useFilePicker(label: string, onFile: (file: File | undefined) => void) {
+  const ref = useRef<HTMLInputElement>(null);
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
     onFile(event.target.files?.[0]);
     // The same file can be chosen again after a failure.
     event.target.value = '';
   };
+  const input = (
+    <input
+      ref={ref}
+      type="file"
+      accept={PHOTO_ACCEPT}
+      aria-label={label}
+      className="sr-only"
+      tabIndex={-1}
+      onChange={onChange}
+    />
+  );
+  return { open: () => ref.current?.click(), input };
+}
+
+/** A text button that chooses a file (the Photos card's Upload). */
+function FilePicker({
+  label,
+  busy,
+  onFile,
+  children,
+}: {
+  label: string;
+  busy: boolean;
+  onFile: (file: File | undefined) => void;
+  children: React.ReactNode;
+}) {
+  const { open, input } = useFilePicker(label, onFile);
   return (
     <>
-      <button type="button" className={className ?? 'button'} disabled={busy} onClick={() => input.current?.click()}>
+      <button type="button" className="button" disabled={busy} onClick={open}>
         {children}
       </button>
-      <input
-        ref={input}
-        type="file"
-        accept={PHOTO_ACCEPT}
-        aria-label={label}
-        className="sr-only"
-        tabIndex={-1}
-        onChange={onChange}
-      />
+      {input}
     </>
   );
 }
 
-/** The round "change photo" button on the profile picture. */
+/** The camera button on the profile picture: chooses a file and makes it the profile photo. */
 export function AvatarUpload({ person, hasPhoto }: { person: Person; hasPhoto: boolean }) {
   const { pick, pending, problem, uploaded, clearUploaded } = usePhotoUpload(person, { asProfile: true });
   const label = t(hasPhoto ? 'photo.avatar.change' : 'photo.avatar.add');
+  const { open, input } = useFilePicker(label, pick);
   return (
     <>
-      <span className="avatar-upload" title={label}>
-        <FilePicker label={label} busy={pending} onFile={pick} className="avatar-upload-button">
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden="true"
-          >
-            <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
-            <circle cx="12" cy="13" r="3.5" />
-          </svg>
-          <span className="sr-only">{label}</span>
-        </FilePicker>
+      <span className="avatar-corner">
+        <PhotoButton label={label} disabled={pending} onClick={open} />
+        {input}
       </span>
       {problem ? <PhotoError message={problem} /> : null}
       {uploaded ? <TakenOnDialog uploaded={uploaded} onClose={clearUploaded} /> : null}
