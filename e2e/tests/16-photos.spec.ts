@@ -167,3 +167,70 @@ test('deleting a person says how many photos go with them, and removes the files
   expect(dbExec(`select count(*) from media_files`)).toBe('0');
   expect(storedFiles()).toHaveLength(before);
 });
+
+test('the camera on the avatar: upload a new profile photo, then choose another of their photos from the tree', async ({
+  adminPage: page,
+}) => {
+  test.setTimeout(120_000);
+  const family = surname('Hale');
+  const person = await createPerson(page.request, {
+    givenName: 'Mira',
+    surname: family,
+    gender: 'female',
+    birth: '1992',
+  });
+  const before = storedFiles().length;
+  await page.goto(`/people/${person.id}`);
+  await expect(page.getByRole('heading', { name: `Mira ${family}`, level: 1 })).toBeVisible();
+
+  // No photos yet: choosing is greyed out, with the reason.
+  // (The hidden file input next to it has the same name, and Chromium calls it a button too: find the camera by its class.)
+  const camera = page.locator('.profile-avatar .photo-button');
+  await expect(camera).toHaveAccessibleName('Add profile photo');
+  await camera.click();
+  const menu = page.getByRole('menu', { name: 'Add profile photo' });
+  await expect(menu.getByRole('menuitem', { name: /Choose from their photos/ })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await expect(menu).toContainText(`There are no photos of Mira ${family} yet.`);
+
+  // Upload a new photo: the same upload as the Photos card, then the date step; it becomes the profile photo.
+  const chooser = page.waitForEvent('filechooser');
+  await menu.getByRole('menuitem', { name: 'Upload a new photo' }).click();
+  await (await chooser).setFiles({ name: 'first.png', mimeType: 'image/png', buffer: makePng({ tint: 30 }) });
+  await page.getByRole('dialog', { name: 'Photo added' }).getByRole('button', { name: 'Leave it empty' }).click();
+  await expect(page.locator('.profile-avatar img')).toHaveJSProperty('naturalWidth', 192);
+  const first = await page.locator('.profile-avatar img').getAttribute('src');
+
+  // A second photo through the Photos card (which stays a gallery and does not change the profile photo).
+  await page
+    .getByLabel(CHOOSE)
+    .setInputFiles({ name: 'second.png', mimeType: 'image/png', buffer: makePng({ tint: 60 }) });
+  await page.getByRole('dialog', { name: 'Photo added' }).getByRole('button', { name: 'Leave it empty' }).click();
+  await expect(page.getByRole('list', { name: 'Photos' }).getByRole('listitem')).toHaveCount(2);
+  await expect(page.locator('.profile-avatar img')).toHaveAttribute('src', first ?? '');
+
+  // On the tree: the person panel's camera, Choose from their photos, the newest one. Panel and card change without a reload.
+  await page.goto(`/tree/${person.id}`);
+  const panel = page.getByRole('complementary', { name: 'Selected person' });
+  await expect(panel.locator('.photo-button')).toHaveAccessibleName('Change profile photo');
+  await panel.locator('.photo-button').click();
+  await page
+    .getByRole('menu', { name: 'Change profile photo' })
+    .getByRole('menuitem', { name: 'Choose from their photos' })
+    .click();
+  const picker = page.getByRole('dialog', { name: `Choose a profile photo for Mira ${family}` });
+  await expect(picker.getByRole('button', { name: 'Photo 2, the profile photo now' })).toBeVisible();
+  await picker.getByRole('button', { name: 'Use photo 1 as the profile photo' }).click();
+  await expect(picker).toBeHidden();
+  await expect(page.getByText('Profile photo changed.')).toBeVisible();
+  await expect(panel.locator('.profile-avatar img')).not.toHaveAttribute('src', first ?? '');
+  const now = await panel.locator('.profile-avatar img').getAttribute('src');
+  await expect(page.locator(`[data-node="${person.id}"] image`).first()).toHaveAttribute('href', now ?? '');
+
+  // Leave nothing behind for the journeys after this one.
+  const removed = await page.request.delete(`/api/people/${person.id}`, { headers: HEADERS });
+  expect(removed.status()).toBe(204);
+  expect(storedFiles()).toHaveLength(before);
+});

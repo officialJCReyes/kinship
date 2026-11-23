@@ -13,6 +13,7 @@ import { canEditUnion, isAdmin } from '../people/permissions.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
 import { useFamilyAround, usePersonDetail } from '../people/queries.js';
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
+import { ProfilePhotoControl } from '../people/ProfilePhotoControl.js';
 import { Avatar } from '../components/Avatar.js';
 import { initials, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
@@ -107,7 +108,10 @@ export function TreePanel({
         <>
           <div className="panel-id">
             {person.isPlaceholder ? null : (
-              <Avatar photoMediaId={person.photoMediaId} initials={initials(person)} size="lg" />
+              <div className="profile-avatar">
+                <Avatar photoMediaId={person.photoMediaId} initials={initials(person)} size="lg" />
+                <ProfilePhotoControl person={person} canEdit={d?.permissions.edit === true} />
+              </div>
             )}
             <h2 className="panel-name">{displayName(person)}</h2>
           </div>
