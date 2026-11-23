@@ -56,7 +56,7 @@ test('an admin adds adoptive parents in Add relative, with the year, and the pro
   const kinds = dialog.getByRole('group', { name: 'Type of parent-child link' });
   await expect(kinds.getByRole('radio', { name: 'Birth' })).toBeDisabled();
   await expect(kinds.getByRole('radio', { name: 'Adoptive' })).toBeChecked();
-  await dialog.getByLabel('Given name').fill('Joseph');
+  await dialog.getByLabel('Given (and middle) name').fill('Joseph');
   await dialog.getByLabel('Surname', { exact: true }).fill(adopters);
   await dialog.getByLabel('Gender').selectOption('male');
   await dialog.getByLabel('Date of the adoption (the year is enough)', { exact: true }).fill('1938');
@@ -67,7 +67,7 @@ test('an admin adds adoptive parents in Add relative, with the year, and the pro
   await page.getByRole('button', { name: 'Add mother' }).click();
   dialog = page.getByRole('dialog', { name: /^Add mother to/ });
   await expect(dialog.getByText(/a relationship with status Unknown will be created/)).toBeVisible();
-  await dialog.getByLabel('Given name').fill('Anna');
+  await dialog.getByLabel('Given (and middle) name').fill('Anna');
   await dialog.getByLabel('Surname', { exact: true }).fill(adopters);
   await dialog.getByLabel('Date of the adoption (the year is enough)', { exact: true }).fill('1938');
   await dialog.getByRole('button', { name: 'Save' }).click();
@@ -150,7 +150,7 @@ test('a Member adding a child gets no choice of link type, and the child is a bi
   await page.getByRole('button', { name: 'Add son' }).click();
   const dialog = page.getByRole('dialog', { name: /^Add son to/ });
   await expect(dialog.getByText('Type of parent-child link')).toHaveCount(0);
-  await dialog.getByLabel('Given name').fill('Milo');
+  await dialog.getByLabel('Given (and middle) name').fill('Milo');
   await dialog.getByLabel('Surname', { exact: true }).fill(adopters);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();

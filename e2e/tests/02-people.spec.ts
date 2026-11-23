@@ -10,7 +10,7 @@ test('add a person, find them in People, open the profile and edit the details',
   await page.goto('/people');
   await page.getByRole('button', { name: 'Add person' }).click();
   const dialog = page.getByRole('dialog', { name: 'Add person' });
-  await dialog.getByLabel('Given name').fill('Walter');
+  await dialog.getByLabel('Given (and middle) name').fill('Walter');
   await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Gender').selectOption('male');
   await dialog.getByLabel('Birth date', { exact: true }).fill('1930-03');
@@ -95,7 +95,7 @@ test('a parent who is too young is warned about, and the child is still saved', 
   await page.getByRole('button', { name: 'Add relative' }).click();
   await page.getByRole('button', { name: 'Add son' }).click();
   const dialog = page.getByRole('dialog', { name: `Add son to Pia ${family}` });
-  await dialog.getByLabel('Given name').fill('Tomas');
+  await dialog.getByLabel('Given (and middle) name').fill('Tomas');
   await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByLabel('Birth date', { exact: true }).fill('1958');
   await dialog.getByRole('button', { name: 'Save' }).click();
@@ -118,8 +118,8 @@ test('a dialog closes with Escape and gives focus back to the button that opened
   await page.keyboard.press('Enter');
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  // Focus moved into the dialog.
-  await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused();
+  // Focus moved into the dialog, on the first name field (backlog 13).
+  await expect(dialog.getByLabel('Given (and middle) name')).toBeFocused();
   // Tab never leaves it.
   for (let i = 0; i < 12; i += 1) {
     await page.keyboard.press('Tab');
@@ -139,7 +139,7 @@ test('a prefix, nickname, a particle in the surname and a suffix: shown by defau
   const dialog = page.getByRole('dialog', { name: 'Add person' });
   // Prefix and suffix are drop downs (backlog 12): a listed choice, and one typed under "Other…".
   await dialog.getByLabel('Prefix (optional)').selectOption('Dra.');
-  await dialog.getByLabel('Given name').fill('Beatriz');
+  await dialog.getByLabel('Given (and middle) name').fill('Beatriz');
   await dialog.getByLabel('Nickname (optional)').fill('Bea');
   await expect(dialog.getByLabel(/particle/i)).toHaveCount(0);
   await dialog.getByLabel('Surname', { exact: true }).fill(`de la ${family}`);
