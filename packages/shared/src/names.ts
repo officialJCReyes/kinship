@@ -117,3 +117,46 @@ export function displayName(person: NameParts, display: NameForm | Partial<NameD
     .filter(Boolean)
     .join(' ');
 }
+
+/**
+ * The prefixes offered in the name forms' Prefix list (Add relative, Edit details), in that order. The stored value is
+ * plain text: anything else is kept as typed under "Other…". Shown as written in every language, like a name.
+ */
+export const NAME_PREFIXES = [
+  'Mr.',
+  'Mrs.',
+  'Ms.',
+  'Miss',
+  'Mx.',
+  'Dr.',
+  'Dra.',
+  'Prof.',
+  'Rev.',
+  'Fr.',
+  'Sr.',
+  'Don',
+  'Doña',
+  'Sra.',
+  'Srta.',
+  'Lic.',
+  'Ing.',
+  'Hon.',
+  'Capt.',
+  'Col.',
+  'Sir',
+] as const;
+
+/** The suffixes offered in the Suffix list. As for prefixes, anything else is kept as typed under "Other…". */
+export const NAME_SUFFIXES = ['Jr.', 'Sr.', 'II', 'III', 'IV', 'V', 'MD', 'DDS', 'PhD', 'Esq.', 'RN', 'CPA'] as const;
+
+/**
+ * How a stored prefix or suffix shows in its list: none, one of the list's entries (an exact match, so nothing stored is
+ * ever rewritten), or "other" with the text in a box.
+ */
+export type AffixChoice = { kind: 'none' } | { kind: 'listed'; value: string } | { kind: 'other'; text: string };
+
+export function affixChoice(stored: string | null | undefined, list: readonly string[]): AffixChoice {
+  const value = (stored ?? '').trim();
+  if (value === '') return { kind: 'none' };
+  return list.includes(value) ? { kind: 'listed', value } : { kind: 'other', text: stored ?? '' };
+}

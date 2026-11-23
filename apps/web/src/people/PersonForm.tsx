@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { AFFIX_MAX_LENGTH, GENDERS, NAME_MAX_LENGTH } from '@kinship/shared';
+import { GENDERS, NAME_MAX_LENGTH, NAME_PREFIXES, NAME_SUFFIXES } from '@kinship/shared';
 import type { Gender, MessageKey, Person, PersonInput } from '@kinship/shared';
 import { DateInput } from '../components/DateInput.js';
 import { Field } from '../components/Field.js';
 import { SelectField } from '../components/SelectField.js';
 import { t } from '../i18n.js';
+import { AffixField } from './AffixField.js';
 import { draftFromDate, draftToInput, emptyDateDraft } from '../lib/dates.js';
 import type { DateDraft } from '../lib/dates.js';
 
@@ -108,14 +109,13 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
   return (
     <>
       <div className="grid2">
-        <Field
+        <AffixField
           label={t('person.namePrefix')}
+          otherLabel={t('person.namePrefixOther')}
           name="namePrefix"
-          autoComplete="off"
-          maxLength={AFFIX_MAX_LENGTH}
-          placeholder={t('person.namePrefixPlaceholder')}
+          list={NAME_PREFIXES}
           value={draft.namePrefix}
-          onChange={(event) => onChange({ ...draft, namePrefix: event.target.value })}
+          onChange={(namePrefix) => onChange({ ...draft, namePrefix })}
         />
         <Field
           label={t('person.givenName')}
@@ -151,14 +151,13 @@ export function PersonFields({ draft, onChange, showErrors, problems, showMarrie
           error={showErrors && problems.surname ? t('error.invalid_surname') : undefined}
           required
         />
-        <Field
+        <AffixField
           label={t('person.nameSuffix')}
+          otherLabel={t('person.nameSuffixOther')}
           name="nameSuffix"
-          autoComplete="off"
-          maxLength={AFFIX_MAX_LENGTH}
-          placeholder={t('person.nameSuffixPlaceholder')}
+          list={NAME_SUFFIXES}
           value={draft.nameSuffix}
-          onChange={(event) => onChange({ ...draft, nameSuffix: event.target.value })}
+          onChange={(nameSuffix) => onChange({ ...draft, nameSuffix })}
         />
       </div>
       <p className="muted field-help">{t('person.nameFieldsHelp')}</p>
