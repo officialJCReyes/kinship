@@ -180,7 +180,7 @@ describe('add relative: a partner’s surnames', () => {
     expect(screen.queryByLabelText('Married surname')).toBeNull();
     expect(screen.queryByLabelText('Married surname: Marcus Hale')).toBeNull();
     fireEvent.change(screen.getByLabelText('Relationship status'), { target: { value: 'married' } });
-    type('Given name', 'Nia');
+    type('Given (and middle) name', 'Nia');
     type('Surname', 'Okoro');
     type('Second surname', 'Eze');
     type('Married surname', 'Okoro Hale');

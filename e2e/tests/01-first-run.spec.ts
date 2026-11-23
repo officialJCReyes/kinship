@@ -28,7 +28,7 @@ async function fillAccount(page: import('@playwright/test').Page) {
 test('setup checks each step before it moves on, and asks for both of your names', async ({ page }) => {
   await fillAccount(page);
   // The names are prefilled from the account name; both are required.
-  await expect(page.getByLabel('Given name')).toHaveValue('Marcus');
+  await expect(page.getByLabel('Given (and middle) name')).toHaveValue('Marcus');
   await expect(page.getByLabel('Surname')).toHaveValue('Hale');
   await page.getByLabel('Surname').fill('');
   await page.getByRole('button', { name: 'Next' }).click();
@@ -64,7 +64,7 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
 
   // Partner: Priya, married, who took the surname Hale.
   await expect(page.getByRole('heading', { name: 'Add your spouse or partner' })).toBeVisible();
-  await page.getByLabel('Given name').fill('Priya');
+  await page.getByLabel('Given (and middle) name').fill('Priya');
   await page.getByLabel('Birth (maiden) surname').fill('Nair');
   await page.getByLabel('Married surname (optional)').fill('Hale');
   await page.getByLabel('Birth date (optional)', { exact: true }).fill('1962-03-14');
@@ -75,17 +75,17 @@ test('setup creates the Hale family at the end; then sign out, sign in and see t
   // Parents: Daniel and Elena, both living, married.
   await expect(page.getByRole('heading', { name: 'Add your parents' })).toBeVisible();
   const father = page.getByRole('group', { name: 'Father' });
-  await father.getByLabel('Given name').fill('Daniel');
+  await father.getByLabel('Given (and middle) name').fill('Daniel');
   await expect(father.getByLabel('Surname')).toHaveValue('Hale');
   const mother = page.getByRole('group', { name: 'Mother' });
-  await mother.getByLabel('Given name').fill('Elena');
+  await mother.getByLabel('Given (and middle) name').fill('Elena');
   await mother.getByLabel('Birth surname').fill('Ruiz');
   await expect(page.getByLabel('Their relationship')).toHaveValue('married');
   await page.getByRole('button', { name: 'Next' }).click();
 
   // Children: Leo, with Priya.
   await expect(page.getByRole('heading', { name: 'Add your children' })).toBeVisible();
-  await page.getByLabel('Given name').fill('Leo');
+  await page.getByLabel('Given (and middle) name').fill('Leo');
   await page.getByLabel('Birth date', { exact: true }).fill('2017-04-09');
   await page.getByLabel('Gender').selectOption('male');
   await expect(page.getByLabel('Other parent')).toHaveValue('partner');

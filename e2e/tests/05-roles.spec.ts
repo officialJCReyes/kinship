@@ -83,7 +83,7 @@ test('a Member may add children to themselves, and can do nothing else', async (
   // The database lets a Member add a child under themselves: this goes through the real row-level security.
   await page.getByRole('button', { name: 'Add daughter' }).click();
   const dialog = page.getByRole('dialog', { name: `Add daughter to ${member.name} ${family}` });
-  await dialog.getByLabel('Given name').fill('Ida');
+  await dialog.getByLabel('Given (and middle) name').fill('Ida');
   await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();

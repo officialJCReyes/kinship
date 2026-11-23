@@ -4,6 +4,7 @@
 // with "Upload a new photo" (the same upload as the Photos card, then made the profile photo) and "Choose from their photos" (a
 // picker of the photos that already show this person). Used wherever a large avatar is shown for a person who can be edited: the
 // profile header and the tree's person panel. The Photos card keeps its own Upload, and the viewer keeps "Set as profile photo".
+// "Remove profile photo" (backlog 8) only unsets the profile photo: the picture stays in the person's photos and on Media.
 import type { MediaListItem, Person } from '@kinship/shared';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -42,6 +43,7 @@ export function usePersonMedia(personId: string, enabled: boolean) {
 export function ProfilePhotoControl({ person, canEdit }: { person: Person; canEdit: boolean }) {
   const [opened, setOpened] = useState(false);
   const [choosing, setChoosing] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const photos = usePersonMedia(person.id, opened || choosing);
   const upload = usePhotoUpload(person, { asProfile: true });
   const label = t(person.photoMediaId ? 'photo.avatar.change' : 'photo.avatar.add');
@@ -75,6 +77,9 @@ export function ProfilePhotoControl({ person, canEdit }: { person: Person; canEd
               onSelect: () => setChoosing(true),
               disabledReason: chooseReason,
             },
+            ...(person.photoMediaId
+              ? [{ key: 'remove', label: t('photo.menu.removeProfile'), onSelect: () => setRemoving(true) }]
+              : []),
           ]}
         />
         {picker.input}
@@ -82,6 +87,7 @@ export function ProfilePhotoControl({ person, canEdit }: { person: Person; canEd
       <PhotoError message={upload.problem} />
       {upload.uploaded ? <TakenOnDialog uploaded={upload.uploaded} onClose={upload.clearUploaded} /> : null}
       {choosing ? <ChoosePhotoDialog person={person} photos={photos} onClose={() => setChoosing(false)} /> : null}
+      {removing ? <RemoveProfilePhotoDialog person={person} onClose={() => setRemoving(false)} /> : null}
     </>
   );
 }
@@ -160,6 +166,38 @@ function ChoosePhotoDialog({
       <PhotoError message={choose.isError ? photoErrorMessage(choose.error) : null} />
       <div className="actions">
         <ActionButton onClick={onClose}>{t('common.cancel')}</ActionButton>
+      </div>
+    </Dialog>
+  );
+}
+
+/** Asks first, then unsets the profile photo (PATCH {photoMediaId: null}). Nothing is deleted or unlinked. */
+function RemoveProfilePhotoDialog({ person, onClose }: { person: Person; onClose: () => void }) {
+  const refresh = useRefreshPeople();
+  const { notify } = useNotices();
+  const name = displayName(person);
+  const remove = useMutation({ mutationFn: () => api.updatePerson(person.id, { photoMediaId: null }) });
+  return (
+    <Dialog title={t('photo.removeProfile.title', { name })} onClose={onClose}>
+      <p>{t('photo.removeProfile.body', { name })}</p>
+      <PhotoError message={remove.isError ? photoErrorMessage(remove.error) : null} />
+      <div className="actions">
+        <ActionButton onClick={onClose}>{t('common.cancel')}</ActionButton>
+        <ActionButton
+          primary
+          disabled={remove.isPending}
+          onClick={() =>
+            remove.mutate(undefined, {
+              onSuccess: async () => {
+                await refresh();
+                notify('success', t('photo.notice.profileRemoved'));
+                onClose();
+              },
+            })
+          }
+        >
+          {t('photo.removeProfile.confirm')}
+        </ActionButton>
       </div>
     </Dialog>
   );
