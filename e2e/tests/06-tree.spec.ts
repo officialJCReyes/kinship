@@ -21,14 +21,20 @@ const person = (page: import('@playwright/test').Page, given: string, surnameTex
   page.getByRole('button', { name: new RegExp(`^${given} ${surnameText}`) });
 
 /**
- * Opens a chart and folds the legend away. A chart that is wider than 0.7 of the window opens centred on the home person (ADR 0027), and
- * the open legend, bottom left, can then sit on top of a card; how wide a chart is depends on the fonts of the machine, so no test relies on it.
+ * Opens a chart. The legend starts hidden (step 41), so it cannot sit on top of a card: a chart that is wider than 0.7 of the window
+ * opens centred on the home person (ADR 0027), and an open legend, bottom left, could cover one. Each test has a fresh browser, so
+ * no choice is remembered from another test; this checks the legend really is closed.
  */
 async function openChart(page: import('@playwright/test').Page, path: string) {
   await page.goto(path);
-  const legend = page.locator('details.legend[open] > summary');
   await expect(page.locator('.tree-canvas')).toBeVisible();
-  if ((await legend.count()) > 0) await legend.click();
+  await expect(page.locator('details.legend')).not.toHaveAttribute('open');
+}
+
+/** Opens the legend with its small Legend button. */
+async function openLegend(page: import('@playwright/test').Page) {
+  await page.locator('details.legend > summary').click();
+  await expect(page.locator('details.legend')).toHaveAttribute('open', '');
 }
 
 test('build a family: two partners, children, an in-law with parents', async ({ adminPage: page }) => {
@@ -165,6 +171,30 @@ test('the leaf flips to an in-law’s family and back', async ({ adminPage: page
   await expect(page).not.toHaveURL(/of=/);
 });
 
+test('the legend starts hidden and keeps the open or closed choice across people, the leaf and views', async ({
+  adminPage: page,
+}) => {
+  await openChart(page, `/tree/${daniel.id}`);
+  await expect(page.locator('details.legend > summary')).toBeVisible();
+  await openLegend(page);
+  // Another person's tree, a family view (the leaf) and another view: still open.
+  await page.goto(`/tree/${marcus.id}`);
+  await expect(person(page, 'Marcus')).toBeVisible();
+  await expect(page.locator('details.legend')).toHaveAttribute('open', '');
+  // A family view by its address (the web tests flip with the leaf itself; here the open legend could cover a leaf).
+  await page.goto(`/tree/${daniel.id}?of=${marcus.id}`);
+  await expect(page.getByText('Marcus’s family', { exact: true })).toBeVisible();
+  await expect(page.locator('details.legend')).toHaveAttribute('open', '');
+  await page.goto(`/tree/${marcus.id}?view=pedigree`);
+  await expect(page.locator('details.legend')).toHaveAttribute('open', '');
+  // Closed: it stays closed on the next person.
+  await page.locator('details.legend > summary').click();
+  await expect(page.locator('details.legend')).not.toHaveAttribute('open');
+  await page.goto(`/tree/${daniel.id}`);
+  await expect(person(page, 'Daniel')).toBeVisible();
+  await expect(page.locator('details.legend')).not.toHaveAttribute('open');
+});
+
 test('a brother’s or sister’s partner is in a family view, with a leaf for their parents', async ({
   adminPage: page,
 }) => {
@@ -181,6 +211,7 @@ test('a brother’s or sister’s partner is in a family view, with a leaf for t
   await expect(person(page, 'Carla')).toHaveCount(0);
   // The counter counts what is drawn, and the legend says where to find anyone else.
   await expect(page.locator('.tree-count')).toContainText(' of ');
+  await openLegend(page);
   await expect(page.getByText('Someone not on the chart?', { exact: false })).toBeVisible();
 });
 
@@ -386,8 +417,9 @@ test('aunts, uncles and cousins are hidden by default, the legend says so, and t
   const sister = await createChild(request, dan.id, { givenName: 'Sissy', surname: clan, gender: 'female' }, parents);
   await createChild(request, greta.id, { givenName: 'Nina', surname: clan, gender: 'female' });
   try {
-    // Hidden by default; the siblings stay. The legend says where the others went (it is open, so this one does not fold it away).
+    // Hidden by default; the siblings stay. The legend says where the others went.
     await page.goto(`/tree/${home.id}`);
+    await openLegend(page);
     await expect(person(page, 'Sissy', clan)).toBeVisible();
     await expect(person(page, 'Walter', clan)).toBeVisible();
     await expect(person(page, 'Greta', clan)).toHaveCount(0);
