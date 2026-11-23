@@ -145,7 +145,6 @@ export function RelationshipPage() {
           {t('finder.choose')}
         </p>
       )}
-      <p className="callout muted">{t('finder.method')}</p>
     </div>
   );
 }
