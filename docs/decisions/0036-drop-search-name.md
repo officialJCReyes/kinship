@@ -24,7 +24,7 @@ as the "expand" half of expand-then-contract, so that the previous release could
   `lock_timeout` is set, as for every other migration.
 - **Commit type `chore(api):`.** Nobody can see the change, so it gets no CHANGELOG line and does not move the version. The release
   manifest's `migration` flag comes from the file diff (`scripts/release-info.mjs`), not from the commit type, so it is still true.
-- **Who verified what nothing reads it:** a search of the whole repository and of `v0.2.1` (only type definitions, comments,
+- **How it was checked that nothing reads it:** a search of the whole repository and of `v0.2.1` (only type definitions, comments,
   tests and prose named it; `store.ts` searched `search_names` in both). The tests that named it now use `search_names`:
   `scale.test.ts` (the raw search plan), `roles.test.ts` (the app role cannot write a generated column; the old target would
   have failed with "column does not exist" and still passed the test's pattern), `contract.test.ts` (the column list).
