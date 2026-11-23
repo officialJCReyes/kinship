@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Photos on a profile (ADR 0034): the Photos card, the viewer (date taken, set as profile photo, remove, delete), the choice of a
-// file, and the profile picture's upload button. Every file goes to the API, which decides what it is and strips what it carries.
+// file. The camera on the avatar is ProfilePhotoControl.tsx, which uses the same upload. Every file goes to the API, which decides what it is and strips what it carries.
 import type { MediaInfo, Person, RelPerson } from '@kinship/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useId, useRef, useState } from 'react';
@@ -10,7 +10,6 @@ import type { ChangeEvent, FormEvent } from 'react';
 import * as api from '../api.js';
 import { ActionButton } from '../components/ActionButton.js';
 import { Dialog } from '../components/Dialog.js';
-import { PhotoButton } from '../components/PhotoButton.js';
 import { t } from '../i18n.js';
 import { formatDate, isValidDateText } from '../lib/dates.js';
 import { displayName } from '../lib/names.js';
@@ -25,7 +24,7 @@ export function usePersonPhotos(personId: string) {
   });
 }
 
-function PhotoError({ message }: { message: string | null }) {
+export function PhotoError({ message }: { message: string | null }) {
   return message ? (
     <div className="alert" role="alert">
       {message}
@@ -119,23 +118,6 @@ function FilePicker({
         {children}
       </button>
       {input}
-    </>
-  );
-}
-
-/** The camera button on the profile picture: chooses a file and makes it the profile photo. */
-export function AvatarUpload({ person, hasPhoto }: { person: Person; hasPhoto: boolean }) {
-  const { pick, pending, problem, uploaded, clearUploaded } = usePhotoUpload(person, { asProfile: true });
-  const label = t(hasPhoto ? 'photo.avatar.change' : 'photo.avatar.add');
-  const { open, input } = useFilePicker(label, pick);
-  return (
-    <>
-      <span className="avatar-corner">
-        <PhotoButton label={label} disabled={pending} onClick={open} />
-        {input}
-      </span>
-      {problem ? <PhotoError message={problem} /> : null}
-      {uploaded ? <TakenOnDialog uploaded={uploaded} onClose={clearUploaded} /> : null}
     </>
   );
 }

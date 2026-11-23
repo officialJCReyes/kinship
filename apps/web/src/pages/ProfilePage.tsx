@@ -44,7 +44,8 @@ import { useFamilyAround, usePersonDetail, useRefreshPeople } from '../people/qu
 import { DeletePersonDialog, DeleteUnionDialog, EditUnionDialog } from '../people/RelationshipDialogs.js';
 import { useMutation } from '@tanstack/react-query';
 import { initials } from '../tree/family.js';
-import { AvatarUpload, PhotosCard } from '../people/photos.js';
+import { PhotosCard } from '../people/photos.js';
+import { ProfilePhotoControl } from '../people/ProfilePhotoControl.js';
 
 type Open =
   | { kind: 'edit' }
@@ -186,9 +187,7 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                 initials={person.isPlaceholder ? '?' : initials(person)}
                 size="lg"
               />
-              {permissions.edit && !person.isPlaceholder ? (
-                <AvatarUpload person={person} hasPhoto={person.photoMediaId !== null} />
-              ) : null}
+              <ProfilePhotoControl person={person} canEdit={permissions.edit} />
             </div>
             <div>
               <h1>{displayName(person)}</h1>
