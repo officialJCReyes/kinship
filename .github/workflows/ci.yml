@@ -259,6 +259,13 @@ jobs:
         env:
           PREVIOUS_TAG: v0.2.1
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
+      # 0.3.0-rc.1 (schema 23) is the first release that stores photos. Its seed (seed-0.3.0-rc.1.sh, the 0.3.0 seed) uploads a photo
+      # with a file key that the upgrade keeps, so this pin keeps an upgrade with encrypted files tested once later releases are out.
+      - name: Upgrade 0.3.0-rc.1 in place (pinned), and restore its safety copy on an empty database
+        if: ${{ !cancelled() }}
+        env:
+          PREVIOUS_TAG: v0.3.0-rc.1
+        run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
 
   # Not a required check (yet). A real browser against the real web, api and Postgres containers.
   e2e:
