@@ -14,6 +14,21 @@
 #                     `gh release list` (needs the gh command and GH_TOKEN). ON_TAG=true makes it pick one older than the build.
 #   EXPECT_VERSION    the version the images under test must report (default: package.json of the checkout)
 #   UPGRADE_PORT      host port (default 18081); KEEP=1 leaves the stack running.
+#   REHEARSE          a seed version (0.3.0) to rehearse before that release is published: the "previous release" is then started
+#                     from THIS checkout's compose.yml and .env.example with local images (REHEARSE_IMAGE_TAG, default <image-tag>),
+#                     seeded with seed-<REHEARSE>.sh, and upgraded to <image-tag>. With the same images on both sides there is no
+#                     database change, so it proves the seed and everything after it, not a migration. From the repo root:
+#                       pnpm --filter @kinship/shared build     (the What's new check reads its built code)
+#                       docker build -f apps/api/Dockerfile -t ghcr.io/officialjcreyes/kinship-api:local .
+#                       docker build -f apps/web/Dockerfile -t ghcr.io/officialjcreyes/kinship-web:local .
+#                       REHEARSE=0.3.0 scripts/upgrade-test.sh local
+#
+# A seed may set, at its top level:
+#   SEED_FILE_KEY=1   the previous release stores photos: a FILE_ENCRYPTION_KEY is put in .env before it starts, and the same key
+#                     is kept for the upgraded stack (a second key would make every stored photo unreadable).
+#   SEED_PHOTOS=<n>   how many photos the seed leaves (default 0); the photo and file counts after the upgrade add it.
+# A previous release without a key (0.2.1 and older) is first upgraded the way UPGRADE.md allows: the new images with NO key. That
+# start must be healthy, migrate, report the key missing and still serve the tree; the key is added afterwards.
 #
 # What it does, in the order a person upgrading would:
 #   1. starts the previous release from ITS compose.yml and env example, with its own images from GHCR
@@ -97,7 +112,10 @@ digest() {
 # ---- which release to start from ---------------------------------------------------------------------------------------------
 current_version="${EXPECT_VERSION:-$(node -p "require('$repo/package.json').version")}"
 previous_tag="${PREVIOUS_TAG:-}"
-if [ -z "$previous_tag" ]; then
+rehearse="${REHEARSE:-}"
+if [ -n "$rehearse" ]; then
+  previous_tag="rehearsal-of-${rehearse}"
+elif [ -z "$previous_tag" ]; then
   step "Find the previous release"
   set +e
   previous_tag="$(gh release list --repo officialJCReyes/kinship --exclude-drafts --limit 100 --json tagName | CURRENT_VERSION="$current_version" ON_TAG="${ON_TAG:-false}" node "$repo/scripts/upgrade-test/previous-release.mjs")"
@@ -107,14 +125,30 @@ if [ -z "$previous_tag" ]; then
   [ "$found" = "0" ] || fail "could not work out the previous release"
 fi
 previous_version="${previous_tag#v}"
+# A rehearsal starts the images of this checkout, which report this checkout's version; the seed is the rehearsed one's.
+[ -z "$rehearse" ] || previous_version="$rehearse"
 echo "Upgrading from ${previous_tag} to ${current_version} (images tagged ${image_tag})"
 seed="$repo/scripts/upgrade-test/seed-${previous_version}.sh"
 [ -f "$seed" ] || fail "there is no seed for ${previous_version}: add scripts/upgrade-test/seed-${previous_version}.sh (copy the newest seed in scripts/upgrade-test/ and adjust it; the upgrade test starts every run from a published release, and needs one seed per release it can start from)"
 
+# The seed's functions and its SEED_* settings, read before anything starts (SEED_FILE_KEY changes how the stack starts).
+SEED_FILE_KEY=0
+SEED_PHOTOS=0
+# shellcheck disable=SC1090
+. "$seed"
+seed_file_key=""
+[ "$SEED_FILE_KEY" != "1" ] || seed_file_key="$(openssl rand -base64 32)"
+
 # ---- the previous release, as a user installed it ----------------------------------------------------------------------------
-step "Fetch ${previous_tag}'s own compose.yml and settings file from its release page"
 mkdir -p "$work/release"
-gh release download "$previous_tag" --repo officialJCReyes/kinship --dir "$work/release" --pattern 'compose.yml' --pattern '*env.example'
+if [ -n "$rehearse" ]; then
+  step "Rehearsal of ${rehearse}: this checkout's compose.yml and .env.example, local images ${REHEARSE_IMAGE_TAG:-$image_tag}"
+  cp "$repo/compose.yml" "$work/release/compose.yml"
+  cp "$repo/.env.example" "$work/release/env.example"
+else
+  step "Fetch ${previous_tag}'s own compose.yml and settings file from its release page"
+  gh release download "$previous_tag" --repo officialJCReyes/kinship --dir "$work/release" --pattern 'compose.yml' --pattern '*env.example'
+fi
 cp "$work/release/compose.yml" "$work/compose.yml"
 # env.example from 0.2.0 on; GitHub dropped the leading dot of .env.example before that (default.env.example).
 env_example=""
@@ -124,29 +158,45 @@ done
 [ -n "$env_example" ] || fail "the release has no settings file"
 cp "$env_example" "$work/.env"
 set_env() { sed -i.bak -e "s|^$1=.*|$1=$2|" "$work/.env"; rm -f "$work/.env.bak"; }
-set_env KINSHIP_VERSION "$previous_version"
+# The same, or a new line when the release's settings file has none.
+put_env() { if grep -q "^$1=" "$work/.env"; then set_env "$1" "$2"; else printf '%s=%s\n' "$1" "$2" >> "$work/.env"; fi; }
+if [ -n "$rehearse" ]; then set_env KINSHIP_VERSION "${REHEARSE_IMAGE_TAG:-$image_tag}"; else set_env KINSHIP_VERSION "$previous_version"; fi
 set_env KINSHIP_PORT "$port"
 set_env KINSHIP_BIND 127.0.0.1
 set_env PUBLIC_URL "$base"
 set_env DB_OWNER_PASSWORD "$owner_password"
 set_env DB_APP_PASSWORD "$app_password"
+# A settings file from 0.3.0 on carries the placeholder FILE_ENCRYPTION_KEY=change-me-files, which the api refuses: the seed's key,
+# or empty (photos off). An older file has no such line, and none is added.
+if [ -n "$seed_file_key" ]; then
+  put_env FILE_ENCRYPTION_KEY "$seed_file_key"
+elif grep -q '^FILE_ENCRYPTION_KEY=' "$work/.env"; then
+  set_env FILE_ENCRYPTION_KEY ""
+fi
 
 # The backups folder, made before anything starts: a release from 0.2.0-rc.1 on bind-mounts it, and Docker would otherwise create it
 # owned by root, which this script could neither change nor remove. World-writable, like the chown in UPGRADE.md, so the api (uid
 # 1000) can write to it and this script can remove what it wrote.
 mkdir -p "$work/data/backups" "$work/data/files"; chmod 777 "$work/data/backups" "$work/data/files"
 
-step "Start ${previous_tag} from its published images"
-compose pull -q
+if [ -n "$rehearse" ]; then
+  step "Start the rehearsed ${rehearse} from local images"
+else
+  step "Start ${previous_tag} from its published images"
+  compose pull -q
+fi
 compose up -d --wait --wait-timeout 240 || fail "the previous release did not become healthy"
 prev_version_json="$(curl -s "${base}/api/version")"
-expect "$previous_version" "$(echo "$prev_version_json" | json "['version']")" "the previous release's version"
+if [ -n "$rehearse" ]; then
+  # The local images report this checkout's version; What's new and the upgrade log compare against that one.
+  previous_version="$(echo "$prev_version_json" | json "['version']")"
+else
+  expect "$previous_version" "$(echo "$prev_version_json" | json "['version']")" "the previous release's version"
+fi
 previous_schema="$(echo "$prev_version_json" | json "['schema']")"
 echo "schema ${previous_schema}"
 
 step "Seed it with data through its own API"
-# shellcheck disable=SC1090
-. "$seed"
 seed_previous_release
 before_digest="$(digest)"
 echo "fingerprint of the data: ${before_digest}"
@@ -160,10 +210,33 @@ save_logs
 step "Upgrade: the new compose.yml, the backups folder, a passphrase, the new version"
 compose down >/dev/null
 cp "$repo/compose.yml" "$work/compose.yml"
-printf '\nBACKUP_PASSPHRASE=%s\nFILE_ENCRYPTION_KEY=%s\n' "$backup_passphrase" "$(openssl rand -base64 32)" >> "$work/.env"
+printf '\nBACKUP_PASSPHRASE=%s\n' "$backup_passphrase" >> "$work/.env"
 set_env KINSHIP_VERSION "$image_tag"
-compose up -d --wait --wait-timeout 600 || fail "the new build did not become healthy"
-save_logs
+if [ -n "$seed_file_key" ]; then
+  # The key the previous release's photos are sealed with stays: the same line, untouched.
+  file_key="$seed_file_key"
+  expect "$file_key" "$(grep '^FILE_ENCRYPTION_KEY=' "$work/.env" | tail -1 | cut -d= -f2-)" "the file key kept for the upgraded stack"
+  compose up -d --wait --wait-timeout 600 || fail "the new build did not become healthy"
+  save_logs
+else
+  # UPGRADE.md: from 0.2.1 it is an image update, and photos stay off until the key is set. So first exactly that, with no key.
+  put_env FILE_ENCRYPTION_KEY ""
+  compose up -d --wait --wait-timeout 600 || fail "the new build did not become healthy without a file key (an image-only update)"
+  save_logs
+  step "An image-only update (no file key): healthy, migrated, photos off, and the tree is still there"
+  nokey_jar="$work/nokey-cookies.txt"
+  rm -f "$nokey_jar"
+  expect 200 "$(login_status "$admin_email" "$admin_password" -c "$nokey_jar")" "the admin signing in to the upgraded build without a file key"
+  expect key_missing "$(curl -s -b "$nokey_jar" "${base}/api/admin/files" | json "['state']")" "the photo state without a key"
+  expect 200 "$(curl -s -o /dev/null -w '%{http_code}' -b "$nokey_jar" "${base}/api/people")" "the people list without a key"
+  expect "$(echo "$before_counts" | cut -d' ' -f1)" "$(sql 'select count(*) from people')" "people without a key"
+  rm -f "$nokey_jar"
+  step "Then the key, as UPGRADE.md says"
+  file_key="$(openssl rand -base64 32)"
+  set_env FILE_ENCRYPTION_KEY "$file_key"
+  compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start with the file key added"
+  save_logs
+fi
 
 step "The new build runs, and it migrated"
 version_json="$(curl -s "${base}/api/version")"
@@ -197,19 +270,22 @@ files_json="$(curl -s -b "$jar" "${base}/api/admin/files")"
 echo "$files_json"
 expect ready "$(echo "$files_json" | json "['state']")" "the photo state with the key and the folder in place"
 echo "$files_json" | python3 -c 'import json,re,sys; sys.exit(0 if re.fullmatch(r"[0-9a-f]{16}", json.load(sys.stdin)["keyId"] or "") else 1)' || fail "the key id is not 16 hex characters"
-expect 0 "$(echo "$files_json" | json "['photos']")" "photos in a database that has never had one"
+expect "$SEED_PHOTOS" "$(echo "$files_json" | json "['photos']")" "photos after the upgrade (the seed's)"
 expect 1 "$(sql "select count(*) from pg_proc where proname = 'kinship_media_exists'")" "migration 0021 left its start-up function"
 expect "t" "$(sql "select (obj_description('public'::regnamespace, 'pg_namespace') is null or obj_description('public'::regnamespace, 'pg_namespace') not like 'kinship-restore:%')")" "no restore marker before any restore"
-# The key is optional: take it away, and the api still starts, signs people in, and says why photos are off.
-file_key_line="$(grep '^FILE_ENCRYPTION_KEY=' "$work/.env" | tail -1 | cut -d= -f2-)"
-[ -n "$file_key_line" ] || fail "the test did not put a FILE_ENCRYPTION_KEY in .env"
-set_env FILE_ENCRYPTION_KEY ""
-compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start without a file key"
-expect key_missing "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state without a key"
-expect 200 "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" "${base}/api/people")" "the tree with photos off"
-set_env FILE_ENCRYPTION_KEY "$file_key_line"
-compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start with the file key back"
-expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state with the key back"
+expect "$file_key" "$(grep '^FILE_ENCRYPTION_KEY=' "$work/.env" | tail -1 | cut -d= -f2-)" "the file key in .env"
+if [ -n "$seed_file_key" ]; then
+  # The key is optional even with photos stored: take it away, and the api still starts, signs people in, says why photos are off,
+  # and refuses the stored photo rather than serving something broken. (Without a seed key the first start above proved it.)
+  set_env FILE_ENCRYPTION_KEY ""
+  compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start without a file key"
+  expect key_missing "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state without a key"
+  expect 200 "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" "${base}/api/people")" "the tree with photos off"
+  expect 503 "$(curl -s -o /dev/null -w '%{http_code}' -b "$jar" "${base}/api/media/${seed_photo_id}/avatar")" "a stored photo with no key"
+  set_env FILE_ENCRYPTION_KEY "$file_key"
+  compose up -d --force-recreate --wait --wait-timeout 600 api || fail "the api did not start with the file key back"
+  expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state with the key back"
+fi
 save_logs
 
 step "A photo uploaded after the upgrade is stored encrypted, served back, and carried by a backup"
@@ -228,13 +304,13 @@ upload_out="$(curl -s -w '\n%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "
 upload_code="${upload_out##*$'\n'}"; upload_body="${upload_out%$'\n'*}"
 expect 201 "$upload_code" "the upload after the upgrade ($upload_body)"
 photo_id="$(echo "$upload_body" | json "['photo']['id']")"
-expect 2 "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after one upload (full size and avatar)"
+expect "$(( (SEED_PHOTOS + 1) * 2 ))" "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after one more upload (full size and avatar of each photo)"
 # The files folder belongs to the api's user, so look inside the container.
 if compose exec -T api sh -c 'grep -rlE "IHDR|PNG" /var/lib/kinship/files/objects' | grep -q .; then fail "a stored photo file is not encrypted"; fi
 curl -s -b "$jar" -o "$work/avatar.png" -w '%{http_code} %{content_type}\n' "${base}/api/media/${photo_id}/avatar" | grep -q '^200 image/png$' || fail "the avatar was not served as a PNG"
 [ "$(head -c 8 "$work/avatar.png" | od -An -tx1 | tr -d ' \n')" = "89504e470d0a1a0a" ] || fail "the served avatar is not a PNG"
 avatar_sum="$(openssl dgst -sha256 "$work/avatar.png" | awk '{print $NF}')"
-expect 1 "$(echo "$(curl -s -b "$jar" "${base}/api/admin/files")" | json "['photos']")" "photos Admin counts"
+expect "$((SEED_PHOTOS + 1))" "$(echo "$(curl -s -b "$jar" "${base}/api/admin/files")" | json "['photos']")" "photos Admin counts"
 # A backup now carries the photo, and its test reads it back with the key.
 with_files="$(compose exec -T api kinship backup 2>&1 | sed -n 's/^Backup written: \([^ ]*\) .*/\1/p' | head -1)"
 echo "backup with photos: ${with_files}"
@@ -357,16 +433,16 @@ echo "$restore_out" >> "$logs"
 compose up -d --wait --wait-timeout 600 || fail "the stack restored from a backup with photos did not become healthy"
 rm -f "$jar"
 expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar")" "sign-in after restoring the backup with photos"
-expect 1 "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['photos']")" "photos after the restore"
+expect "$((SEED_PHOTOS + 1))" "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['photos']")" "photos after the restore"
 expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state after the restore"
-expect 2 "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after the restore"
+expect "$(( (SEED_PHOTOS + 1) * 2 ))" "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after the restore"
 curl -s -b "$jar" -o "$work/avatar-restored.png" "${base}/api/media/${photo_id}/avatar"
 expect "$avatar_sum" "$(openssl dgst -sha256 "$work/avatar-restored.png" | awk '{print $NF}')" "the avatar's bytes after the restore"
 
 # ---- secrets -----------------------------------------------------------------------------------------------------------------
 step "No secret appears in any log"
 save_logs
-leaked="$(grep -F -e "$admin_password" -e "$member_password" -e "$user_password" -e "$owner_password" -e "$app_password" -e "$backup_passphrase" "$logs" || true)"
+leaked="$(grep -F -e "$admin_password" -e "$member_password" -e "$user_password" -e "$owner_password" -e "$app_password" -e "$backup_passphrase" -e "$file_key" "$logs" || true)"
 [ -z "$leaked" ] || fail "a secret appears in the logs"
 
 printf '\nUPGRADE TEST PASSED (%s -> %s)\n' "$previous_tag" "$current_version"
