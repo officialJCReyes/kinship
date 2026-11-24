@@ -37,6 +37,7 @@ import { useNotices } from '../notices.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
 import { DeleteLabelDialog, LabelDialog } from '../people/LabelDialogs.js';
+import { LinkPartnerChildrenDialog } from '../people/LinkChildren.js';
 import { EditLinkDialog } from '../people/LinkDialogs.js';
 import { useSetLineage } from '../people/lineage.js';
 import { EditPersonDialog } from '../people/PersonDialogs.js';
@@ -54,6 +55,7 @@ type Open =
   | { kind: 'delete' }
   | { kind: 'editUnion'; union: UnionWithChildren }
   | { kind: 'deleteUnion'; union: UnionWithChildren }
+  | { kind: 'linkChildren'; union: UnionWithChildren; partnerId: string; childId: string }
   | { kind: 'removeParent'; parent: Person }
   | { kind: 'editLink'; linkKind: LinkKind }
   | { kind: 'addLabel' }
@@ -395,6 +397,24 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
                                   · {withText}
                                   {step}
                                 </span>
+                                {/* The repair (ADR 0039): a child of the partner alone may be this person's too. Admins only. */}
+                                {admin && !entry.otherParent && !person.isPlaceholder ? (
+                                  <>
+                                    {' '}
+                                    <ActionButton
+                                      small
+                                      aria-label={t('linkChildren.alsoChildLabel', {
+                                        child: displayName(entry.child),
+                                        name: displayName(person),
+                                      })}
+                                      onClick={() =>
+                                        setOpen({ kind: 'linkChildren', union, partnerId, childId: entry.child.id })
+                                      }
+                                    >
+                                      {t('linkChildren.alsoChild', { name: person.givenName })}
+                                    </ActionButton>
+                                  </>
+                                ) : null}
                               </li>
                             );
                           })}
@@ -508,6 +528,15 @@ function ProfileView({ detail, tree, me }: { detail: PersonDetail; tree: TreeRes
         </Section>
       ) : null}
 
+      {open?.kind === 'linkChildren' ? (
+        <LinkPartnerChildrenDialog
+          unionId={open.union.id}
+          partnerId={open.partnerId}
+          person={person}
+          childId={open.childId}
+          onClose={close}
+        />
+      ) : null}
       {open?.kind === 'addLabel' ? <LabelDialog person={person} onClose={close} /> : null}
       {open?.kind === 'editLabel' ? <LabelDialog person={person} existing={open.entry} onClose={close} /> : null}
       {open?.kind === 'deleteLabel' ? <DeleteLabelDialog person={person} entry={open.entry} onClose={close} /> : null}
