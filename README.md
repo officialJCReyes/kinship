@@ -9,7 +9,7 @@
 
 Self-hosted family tree for families: relationships, sources, photos, private health history and DNA results. Runs with Docker Compose (PostgreSQL, a TypeScript API, a React UI behind nginx). Licensed under AGPL-3.0-or-later.
 
-> **Status: 0.2 ("A tree you can trust") is published and is the first release with the data promise; 0.3 ("See the family") is next.** You can install it, set up with a seven-step wizard, invite people and link their accounts to people on the tree, add people and relationships (with birth and adoptive parents, names, step relatives and custom labels), and see them on a family tree chart you can pan and zoom. **From 0.2 upgrades keep your data** and backups are built in; the 0.1 alphas had no such promise. Photos, the other chart views, reports and email come later (see the release plan).
+> **Status: 0.3 ("See the family") is published; 0.4 ("Email, sign-in and notifications") is next.** You can install it, set up with a seven-step wizard, invite people and link their accounts to people on the tree, add people and relationships (with birth and adoptive parents, names, step relatives and custom labels), and see them on four charts you can pan and zoom (Family tree, Pedigree, Fan and Descendants). You can find how two people are related, search, and add profile photos, which are encrypted before they are stored. **From 0.2 upgrades keep your data**, and backups and Restore are built in; the 0.1 alphas had no such promise. Email and single sign-on, research records, health history and reports come later (see the release plan).
 
 <p align="center">
   <picture>

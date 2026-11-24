@@ -49,8 +49,11 @@ and because there is a breaking change since `v0.2.1` (the highest earlier tag, 
 
 ## Consequences
 - release-please's own run on `main` does not know about the candidate tag and is not affected by it.
-- **Known: release-please is stuck since 0.2.1.** Its pull request #117 still carries the label `autorelease: pending`, which only
-  release-please's own release step changes to `autorelease: tagged`; with `skip-github-release` that step never runs, so every run
-  ends with "There are untagged, merged release PRs outstanding - aborting" and no 0.3.0 pull request is opened. Changing the label
-  on #117 by hand to `autorelease: tagged` releases it; after each future stable release the same is needed (or a step in
-  `release.yml`). Left for JC to decide; it does not affect a hand-made candidate.
+- **The release pull request's label is changed by hand (resolved at 0.3.0).** A merged release pull request keeps the label
+  `autorelease: pending`, which only release-please's own release step changes to `autorelease: tagged`; with `skip-github-release`
+  that step never runs, so every later run ends with "There are untagged, merged release PRs outstanding - aborting". That kept
+  release-please stuck from 0.2.1 until 0.3.0: the `autorelease: tagged` label was created in the repository (it did not exist) and
+  set by hand on #117 (0.2.1) before the 0.3.0 run, and on #276 (0.3.0) after its merge. The same swap is needed after each stable
+  release, best once the tag's GitHub Release exists: without the pending label and without that release, a run finds no release
+  to stop at and could open a release pull request built from the whole history. A step in `release.yml` could do it; left for JC to
+  decide. It does not affect a hand-made candidate.
