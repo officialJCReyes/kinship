@@ -1556,6 +1556,42 @@ main.tree-main {
   stroke-width: 2;
 }
 
+/* The "+" on a card that opens Add relative (backlog 15): small and quiet, always visible (touch has no hover). The disc is
+   the card colour with an accent ring and an accent plus, so it reads on the card and on the chart background in every
+   scheme, light and dark (the contrast test checks --accent on --panel and on --bg). */
+.add-nub {
+  cursor: pointer;
+  outline: none;
+}
+
+.add-nub .hit {
+  fill: transparent;
+}
+
+.add-nub .disc {
+  fill: var(--panel);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.add-nub .plus {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.add-nub:hover .disc,
+.add-nub:focus-visible .disc {
+  fill: var(--accent-soft);
+}
+
+.add-nub:focus-visible .hit {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
 .tree-overlay {
   position: absolute;
   top: 10px;

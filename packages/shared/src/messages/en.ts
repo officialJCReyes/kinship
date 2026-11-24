@@ -1123,6 +1123,8 @@ export const en = {
   'nav.tree': 'Family tree',
   'tree.title': 'Family tree',
   'tree.chartLabel': 'Family tree chart',
+  // The "+" on a person's card (backlog 15).
+  'tree.node.addRelative': 'Add a relative to {name}',
   'tree.chartHelp':
     'Arrow keys move between people, Enter or Space selects, Shift+Enter selects and opens the side panel, plus and minus zoom, 0 fits the chart. Up from a person with a leaf moves to the leaf. Double-click a person to open the side panel.',
   'tree.choose.title': 'Choose who to start from',

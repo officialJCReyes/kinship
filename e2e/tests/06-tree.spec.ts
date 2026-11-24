@@ -123,6 +123,23 @@ test('a partner’s own child from before is drawn under her, and her ex-partner
   await expect(page.locator(`[data-union="${unions.carla}"]`)).toHaveCount(1);
 });
 
+test('the "+" on a card opens Add relative for that person, without selecting them or moving the chart', async ({
+  adminPage: page,
+}) => {
+  await openChart(page, `/tree/${daniel.id}`);
+  const plus = page.getByRole('button', { name: `Add a relative to Carla ${family}` });
+  await expect(plus).toBeVisible();
+  const view = page.locator('.tree-canvas svg > g').first();
+  const before = await view.getAttribute('transform');
+  await plus.click();
+  const dialog = page.getByRole('dialog', { name: `Add relative to Carla ${family}` });
+  await expect(dialog).toBeVisible();
+  await expect(person(page, 'Carla')).toHaveAttribute('aria-pressed', 'false');
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  expect(await view.getAttribute('transform')).toBe(before);
+});
+
 test('lines: solid for a marriage, dotted for a divorce, and a couple line opens its relationship', async ({
   adminPage: page,
 }) => {

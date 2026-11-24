@@ -84,6 +84,14 @@ const NAME_WIDTH = NODE_W - NAME_X - 10;
 const YEARS_LINE = 14;
 const YEARS_GAP = 3;
 
+/**
+ * The "+" nub (backlog 15): its centre is this far in from the card's right edge, on the bottom edge. Its disc is 20 px and
+ * its touch area 34 px across at zoom 1; both scale with the card (24 px of touch area at the Family tree's opening 0.7).
+ */
+const NUB_INSET = 28;
+const NUB_R = 10;
+const NUB_HIT = 17;
+
 /** Smaller than the name: the Descendants view lists partners under the dates, on up to two lines. */
 const NOTE_SIZE = 11;
 const NOTE_LINES = 2;
@@ -108,6 +116,8 @@ interface NodeProps {
   onSelect: (id: string, point?: ClickPoint) => void;
   onFocus: (id: string) => void;
   onLeaf: (leaf: Leaf) => void;
+  /** Draw the "+" that opens Add relative for this person (backlog 15); undefined when the account may not. */
+  onAdd: ((id: string) => void) | undefined;
 }
 
 const TreeNode = memo(function TreeNode({
@@ -123,6 +133,7 @@ const TreeNode = memo(function TreeNode({
   onSelect,
   onFocus,
   onLeaf,
+  onAdd,
 }: NodeProps) {
   const full = displayName(person);
   const label = nodeLabel(person);
@@ -223,6 +234,29 @@ const TreeNode = memo(function TreeNode({
           </g>
         </g>
       ) : null}
+      {onAdd && !simple ? (
+        // The "+" on the bottom edge, right of centre: a single parent's line to their children leaves the middle of the
+        // bottom edge, and a bracket couple's line too, so the middle is taken (backlog 15). It is a real button, focusable
+        // only while its card holds the chart's one tab stop, so a big chart has two tab stops, not hundreds.
+        <g
+          className="add-nub"
+          data-nopan
+          data-add={person.id}
+          role="button"
+          tabIndex={focusable ? 0 : -1}
+          aria-label={t('tree.node.addRelative', { name: full })}
+          transform={`translate(${NODE_W - NUB_INSET} ${height})`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onAdd(person.id);
+          }}
+        >
+          <title>{t('tree.node.addRelative', { name: full })}</title>
+          <circle className="hit" r={NUB_HIT} />
+          <circle className="disc" r={NUB_R} />
+          <path className="plus" d="M-4.5 0H4.5M0-4.5V4.5" />
+        </g>
+      ) : null}
       {otherLeaf?.family ? (
         <g
           className="leaf other"
@@ -291,6 +325,9 @@ export interface TreeCanvasProps {
   onSelect: (id: string, point?: ClickPoint) => void;
   /** Shift+Enter on a person: select them and open the side panel, as a double-click does (backlog 14). */
   onOpen?: (id: string) => void;
+  /** The people whose card gets the "+" that opens Add relative (backlog 15), and what it does. */
+  addable?: ReadonlySet<string>;
+  onAdd?: (id: string) => void;
   onLeaf: (leaf: Leaf) => void;
   onCouple: (unionId: string) => void;
   /** Scroll this person into view (no zoom change) when `n` changes: the chart's search chose someone already drawn. */
@@ -320,6 +357,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
     onLeaf,
     onCouple,
     view = 'family',
+    addable,
+    onAdd,
   } = props;
   const helpId = useId();
   const display = useDisplay();
@@ -387,6 +426,13 @@ export function TreeCanvas(props: TreeCanvasProps) {
   };
   const onKeyDown = (event: ReactKeyboardEvent<SVGSVGElement>) => {
     const target = event.target as Element;
+    const addEl = target.closest('[data-add]');
+    if (addEl && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      const addId = addEl.getAttribute('data-add');
+      if (addId && onAdd) onAdd(addId);
+      return;
+    }
     const leafEl = target.closest('[data-leaf]');
     const otherEl = target.closest('[data-leaf-other]');
     const nodeEl = target.closest('[data-node]');
@@ -492,6 +538,7 @@ export function TreeCanvas(props: TreeCanvasProps) {
             onSelect={onSelect}
             onFocus={onFocusNode}
             onLeaf={onLeaf}
+            onAdd={onAdd && addable?.has(node.id) ? onAdd : undefined}
           />
         );
       }),
@@ -510,6 +557,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
       onFocusNode,
       onLeaf,
       nodeHeight,
+      addable,
+      onAdd,
     ],
   );
   const couples = useMemo(
