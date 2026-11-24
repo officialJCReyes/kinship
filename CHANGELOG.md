@@ -2,6 +2,42 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-24
+
+**KinShip 0.3.0, "See the family".** New charts, a relationship finder, search, photos, account management and Restore from the app. **It changes the database (migrations 0017 to 0024) and some defaults: back up first and read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before updating from 0.2.1.** Photos need a file key and a `./data/files` folder. From a 0.3.0 release candidate it is an image update.
+
+### Breaking change
+
+- For scripts that use the API: the account setting `surnameChoice` is replaced by the name form (`nameForm`) and the prefix and suffix switches (`showPrefix`, `showSuffix`); a request that still sends it is refused.
+
+### Added
+
+- Pedigree, Fan and Descendants charts sit next to the Family tree, and you choose which one opens first in the gear panel.
+- The gear panel also holds the name settings and a † after the name of someone who has died.
+- Search works from the chart and the People page, with an "N of M" counter.
+- New Relationship finder: pick any two people and see how they are related, with cousin levels, half, step and in-law names, and a diagram of the path between them that shows the parents two relatives share.
+- A person can have a prefix, a suffix (both picked from a list) and a nickname. A particle such as de or van is typed as part of the surname.
+- Profile photos: add a photo from a profile or the person panel, choose it as the profile photo (also from the gallery or the Media page), and browse every photo on the new Media tab. Photos are encrypted before they are stored, need a file key and a `./data/files` folder (see UPGRADE.md), and are included in backups and restores.
+- You can remove a profile photo, double-click a person to open them, and use "+" to add a relative.
+- When you add a partner or a second parent, Add relative now asks which of the children already on the tree are theirs too, and a profile can link a partner's child to both parents.
+- Admins can change an account's role, disable an account (it is signed out at once and can be enabled again) and delete a disabled account. The last SuperAdmin can never be demoted, disabled or deleted.
+- SuperAdmins can restore a backup, photos included, from Admin, Backups, with a maintenance page while it runs; a safety copy is taken first.
+- Dates can be picked from a calendar, and each person chooses which day the week starts on in My settings.
+
+### Changed
+
+- Charts now hide aunts, uncles and cousins by default. Turn them back on in the new gear panel, where you can also choose how the mouse wheel works and which view opens first.
+- Married women's names now show as "Maiden name (Married name)" for every account. Choose another form in My settings, Names.
+- The Family tree also draws the partners of brothers and sisters, and opens centred on you when the whole family does not fit.
+- The name form starts with Given name and Surname, then second and married surname, then prefix, suffix and nickname; required fields are marked with an asterisk.
+- The tree legend starts hidden behind a small Legend button and stays the way you leave it.
+- The sign-in card is centred, with one logo and one line for a forgotten password.
+
+### Fixed
+
+- The backup download link no longer appears in the server logs.
+- Dropdown arrows stay inside their boxes.
+
 ## [0.3.0-rc.4] - 2026-11-24
 
 Fourth release candidate of 0.3.0. From rc.3 it is an image update with no database change; back up first as always. If you are on rc.1, rc.2 or 0.2.1, read UPGRADE.md first.
