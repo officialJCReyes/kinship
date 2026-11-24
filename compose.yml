@@ -15,7 +15,7 @@ name: kinship
 
 services:
   web:
-    image: ghcr.io/officialjcreyes/kinship-web:${KINSHIP_VERSION:-0.3.0-rc.3} # x-release-please-version
+    image: ghcr.io/officialjcreyes/kinship-web:${KINSHIP_VERSION:-0.3.0-rc.4} # x-release-please-version
     ports:
       # KINSHIP_BIND=127.0.0.1 keeps it off the network when your reverse proxy runs on this machine.
       - '${KINSHIP_BIND:-0.0.0.0}:${KINSHIP_PORT:-8080}:8080'
@@ -39,7 +39,7 @@ services:
     restart: unless-stopped
 
   api:
-    image: ghcr.io/officialjcreyes/kinship-api:${KINSHIP_VERSION:-0.3.0-rc.3} # x-release-please-version
+    image: ghcr.io/officialjcreyes/kinship-api:${KINSHIP_VERSION:-0.3.0-rc.4} # x-release-please-version
     env_file: .env
     environment:
       # Always the db service below, whatever .env says.

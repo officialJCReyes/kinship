@@ -2,6 +2,14 @@
 
 Notes for upgrading from one release to the next, newest first. Read the section for the version you are moving to. The release process requires a section here for any release with a breaking change.
 
+## 0.3.0-rc.4
+
+**From 0.3.0-rc.3 this is an image update with no database change** (migration 0024 is still the latest). Back up first as always (Admin → Backups), change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. No safety copy is written on this upgrade, because KinShip makes one only before a migration runs. **From 0.3.0-rc.1 or rc.2** read the 0.3.0-rc.3 notes below (the first start applies 0024 and writes `pre-upgrade-0023-to-0024.tar.enc`). **From 0.2.1** read the 0.3.0-rc.3 and 0.3.0-rc.2 notes below (the first start applies 0017 to 0024 and writes `pre-upgrade-0016-to-0024.tar.enc`).
+
+- **Children already on the tree can now get their second parent.** When an admin adds a partner, or a second parent to a child who has one, Add relative lists the children who hang from that one parent alone and asks "Are any of these also {name}'s children?". The ones ticked hang from both parents, each with the same kind of link (birth or adoptive). In Add partner they are all ticked when the person has no other relationship; otherwise nothing is ticked.
+- **Repairing a tree entered one parent at a time.** On a profile's relationship card, a partner's child marked "other parent not on the tree" has an **Also {name}'s child** action (admins only). It links that child, and any others you tick, to both parents. A child linked this way is no longer shown as a stepchild or a half-sibling. Nothing changes until you use it.
+- **API (admins only):** `POST /api/people/:id/partners` adds a partner (new or existing), the relationship and the children they share in one call; `POST /api/people/:id/parents` also takes a new `parent` and `linkChildren`; `GET /api/people/:id/linkable-children` and `POST /api/unions/:id/children` are new (ADR 0039). Existing calls behave as before.
+
 ## 0.3.0-rc.3
 
 **From 0.3.0-rc.1 or rc.2 this is an image update with one database change (migration 0024): back up first** (Admin → Backups), change `KINSHIP_VERSION`, then `docker compose pull && docker compose up -d`. **From 0.2.1** read the 0.3.0-rc.2 notes below as well: these notes change them, and the two are merged into one 0.3.0 section when 0.3.0 is released.

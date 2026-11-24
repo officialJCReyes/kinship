@@ -2,6 +2,22 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0-rc.4] - 2026-11-24
+
+Fourth release candidate of 0.3.0. From rc.3 it is an image update with no database change; back up first as always. If you are on rc.1, rc.2 or 0.2.1, read UPGRADE.md first.
+
+### Added
+
+- When you add a partner, Add relative asks which of the person's children are the partner's too. Every child is ticked when the person has no other relationship; otherwise none is. The ticked children hang from the couple, each with the same kind of link it had (birth or adoptive).
+- When you add a second parent to a child, Add relative also lists that child's brothers and sisters who have only the first parent, so the ones who share the new parent can be linked in the same step. None is ticked to start with.
+- On a profile, a partner's child marked "other parent not on the tree" has an "Also {name}'s child" button. It links that child to both parents, and you can tick the partner's other such children to link them in one go. This is how a tree entered one parent at a time is repaired.
+- All of this is for admins, and everything in one save is kept or nothing is: if one child cannot be linked, the form says which one and why. For developers: new admin-only API calls add a partner or a parent together with the children they share (ADR 0039).
+
+### Fixed
+
+- A child who was entered under one parent first, before the other parent was added, no longer shows as a stepchild of their own parent or a half-sibling of their full brothers and sisters once linked to both parents.
+- A slow automated chart test that sometimes ran out of time is fixed. Nothing changes in the app.
+
 ## [0.3.0-rc.3] - 2026-11-24
 
 Third release candidate of 0.3.0. From rc.1 or rc.2 it is an image update with one database change (migration 0024), so back up first; if you are on 0.2.1 read UPGRADE.md first.
