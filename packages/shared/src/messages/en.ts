@@ -1250,6 +1250,12 @@ export const en = {
   'linkChildren.newPartner': 'the new partner',
   'linkChildren.newParent': 'the new parent',
   'linkChildren.refused': '{name} could not be linked: {reason}',
+  'linkChildren.dialogTitle': 'Also {name}’s children',
+  'linkChildren.none':
+    'None of these children can be linked any more: each already has two parents, or the link would not be allowed.',
+  'linkChildren.alsoChild': 'Also {name}’s child',
+  'linkChildren.alsoChildLabel': '{child} is also {name}’s child',
+  'notice.childrenLinked': 'Saved. The children you ticked are now {name}’s too.',
   'link.typeHelp': 'An adoptive link adds a second family. Nothing about the birth family is changed or removed.',
   'link.unavailable.full': 'This person already has two parents of this kind.',
   'link.unavailable.none': 'This person has no parents of this kind recorded yet.',
