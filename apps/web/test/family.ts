@@ -396,6 +396,21 @@ export function haleRoutes(me: AuthUser, extra: Record<string, MockRoute> = {}):
     routes[`GET /api/people/${id}`] = { status: 200, body: detailFor(me, id) };
     routes[`GET /api/people/${id}/photos`] = { status: 200, body: { items: [] } };
   }
+  // GET /api/people/:id/linkable-children, by the API's rule (ADR 0039): the children who hang from this person alone,
+  // either kind, without the partner themselves or the excluded child. (The cycle and both-sets checks never apply here.)
+  routes['GET /api/people/*'] = (_init, path) => {
+    const url = new URL(path, 'http://x');
+    const match = /^\/api\/people\/([^/]+)\/linkable-children$/.exec(url.pathname);
+    if (!match) return 'network-error';
+    const id = decodeURIComponent(match[1]!);
+    const skip = [url.searchParams.get('partner'), url.searchParams.get('exclude')];
+    const children = (['birth', 'adoptive'] as const).flatMap((kind) =>
+      Object.entries(kind === 'birth' ? PARENTAGE : ADOPTIVE)
+        .filter(([child, row]) => row.parentId === id && !skip.includes(child))
+        .map(([child]) => ({ child: PEOPLE.find((p) => p.id === child)!, kind })),
+    );
+    return { status: 200, body: { children } };
+  };
   routes['GET /api/tree/*'] = (_init, path) => {
     const url = new URL(path, 'http://x');
     const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');

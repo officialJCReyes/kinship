@@ -167,7 +167,14 @@ describe('add relative: a partner who is deceased', () => {
     mockApi(
       haleRoutes(ADMIN, {
         '/api/people?q=len&limit=8': { status: 200, body: { items: [PEOPLE[9]], nextCursor: null } },
-        'POST /api/unions': { status: 201, body: { union: { id: 'new', status: 'widowed', statusAuto: true } } },
+        'POST /api/people/marcus/partners': {
+          status: 201,
+          body: {
+            person: PEOPLE[9],
+            union: { id: 'new', status: 'widowed', statusAuto: true, children: [] },
+            warnings: [],
+          },
+        },
       }),
     );
     renderApp('/people/marcus');

@@ -39,6 +39,9 @@ describe('the web API client and the shared route table', () => {
     await api.addParent('p1', { parentId: 'p2' });
     await api.removeParent('p1', 'p2');
     await api.updateParentLink('p1', 'adoptive', { link: { value: '1938' } });
+    await api.addPartner('p1', { partnerId: 'p2', union: { status: 'married' }, linkChildren: ['c1'] });
+    await api.fetchLinkableChildren('p1', { partner: 'p2', exclude: 'c1' });
+    await api.linkUnionChildren('u1', ['c1']);
     await api.createUnion({ partnerIds: ['a', 'b'], status: 'married' });
     await api.updateUnion('u1', { status: 'divorced' });
     await api.deleteUnion('u1');
@@ -49,7 +52,7 @@ describe('the web API client and the shared route table', () => {
     await api.revokeLink('l1').catch(() => undefined);
     await api.createSetPasswordLink('u1').catch(() => undefined);
 
-    expect(seen).toHaveLength(18);
+    expect(seen).toHaveLength(21);
     for (const call of seen) {
       expect(
         [...PEOPLE_ROUTES, ...ACCOUNT_ROUTES].some((route) => matches(route, call.method, call.path)),

@@ -165,8 +165,10 @@ describe('add relative: a partner’s surnames', () => {
     const created = { ...PEOPLE[9]!, id: 'newpartner', givenName: 'Nia', surname: 'Okoro' };
     const fetchMock = mockApi(
       haleRoutes(ADMIN, {
-        'POST /api/people': { status: 201, body: { person: created, warnings: [] } },
-        'POST /api/unions': { status: 201, body: { union: {} } },
+        'POST /api/people/marcus/partners': {
+          status: 201,
+          body: { person: created, union: { status: 'married', children: [] }, warnings: [] },
+        },
         'PATCH /api/people/marcus': { status: 200, body: { person: PEOPLE[5], warnings: [] } },
       }),
     );
@@ -187,11 +189,8 @@ describe('add relative: a partner’s surnames', () => {
     type('Married surname: Marcus Hale', 'Hale Okoro');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(bodyOf(fetchMock, 'POST /api/people')).toMatchObject({
-      givenName: 'Nia',
-      surname: 'Okoro',
-      secondSurname: 'Eze',
-      marriedSurname: 'Okoro Hale',
+    expect(bodyOf(fetchMock, 'POST /api/people/marcus/partners')).toMatchObject({
+      partner: { givenName: 'Nia', surname: 'Okoro', secondSurname: 'Eze', marriedSurname: 'Okoro Hale' },
     });
     expect(bodyOf(fetchMock, 'PATCH /api/people/marcus')).toEqual({ marriedSurname: 'Hale Okoro' });
   });
