@@ -1,4 +1,4 @@
-# KinShip: GEDCOM coverage and where each gap is closed (Nov 19, 2026)
+# KinShip: GEDCOM coverage and where each gap is closed (Nov 19, 2026; particle line updated Nov 24)
 
 Asked by JC on Nov 19: is anything from the GEDCOM standard missing? The release plan (0.7) only says "GEDCOM 5.5.1 import and export". This note lists what GEDCOM 5.5.1 and 7.0 carry that KinShip does not yet store, and the release that closes each gap. It was written from knowledge of the specifications, not re-checked against the published text; verify a tag before building on it. Companion to `kinship-release-and-deployment-plan.md` (sections 0.3, 0.5, 0.7 and 1.x).
 
@@ -8,8 +8,8 @@ Related decision (JC, Nov 19): name prefixes and suffixes are shown by default a
 
 ## 0.3.0 (in the same name migration as prefix and suffix)
 - **Nickname** (GEDCOM `NICK`), in Add person and Edit details, searchable.
-- **Surname particles** (de, de la, van, von; `SPFX`), so "de la Cruz" sorts and searches correctly. Matters for Hispanic names.
-- Both ride on the prefix and suffix migration, ADR and mockup update, so there is one name migration, not two. If the 0.3.0 phase 1 report finds they do not fit, they wait for 0.5.
+- **Surname particles (de, de la, van, von; `SPFX`): changed on Nov 23 (JC).** There is no separate particle field. A particle is just part of the surname ("de la Cruz" is one surname). It was built in rc.1 and rc.2 and folded into the surname by migration 0024 in step 43 (ADR 0038); the column is dropped in a later contract migration. Consequences: a surname starting with "de la" sorts under D and its initials start with D; search is unchanged. **Mapping for 0.7:** on import an `SPFX` is joined to the front of the surname (with a space); on export the whole surname goes in `SURN` and no `SPFX` is written.
+- Prefix, suffix and nickname rode on one name migration (0017), ADR and mockup update. Prefix and suffix are pre-populated drop-downs with an "Other..." choice since step 43 (the stored value is still plain text, so `NPFX` and `NSFX` map as before).
 
 ## 0.5 (research records; the data model is finished here)
 - **Alternate names** (pulled forward from 1.5 on Nov 19): several names per person, each typed (birth, married, also known as, religious, immigrant). Import from MyHeritage and Ancestry brings many of these. Date ranges for names stay in 1.5.
@@ -26,7 +26,7 @@ Related decision (JC, Nov 19): name prefixes and suffixes are shown by default a
 - **Restriction notices** (`RESN` privacy, confidential, locked): map to KinShip's privacy rules on import.
 - **`DEAT Y`** (deceased, date unknown): import and export it.
 - **Parser rules:** accept UTF-8, UTF-16 and ANSEL; join `CONC` and `CONT` lines; unknown vendor tags (`_MARNM`, `_UID`, `_PRIM`) go to the "skipped" list, never silently dropped; a comma-separated `SURN` maps to surname plus `secondSurname`; `HUSB` and `WIFE` are partner slots only, with no assumption about gender; KinShip "Not specified" exports as `U`.
-- Prefixes and suffixes map to `NPFX` and `NSFX`; `TITL` (nobility title) is a separate event and is not the same field.
+- Prefixes and suffixes map to `NPFX` and `NSFX`; `TITL` (nobility title) is a separate event and is not the same field. An imported `SPFX` is joined to the front of the surname (see 0.3.0 above).
 
 ## 1.x
 - GEDCOM 7.0 export and `.gdz` (zip with media; 5.5.1 only points to file paths). Import accepts both. Ancestry and MyHeritage still export 5.5.1.
