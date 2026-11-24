@@ -405,6 +405,31 @@ function cases(): Case[] {
       },
     },
     {
+      // ADR 0039: a partner with the children they share. Admins only (creating a relationship is admin-only in the
+      // unions policy), even with a child in the Member's line.
+      name: 'POST /api/people/:id/partners (with a child in the Member’s line)',
+      allowed: ADMINS,
+      prepare: async () => {
+        const child = await personCreatedBy(f.account.member.id, f.person.marcus);
+        const partner = await insertPersonRow(t.owner, 'Another', 'Partner');
+        const [lo, hi] = f.person.marcus < partner ? [f.person.marcus, partner] : [partner, f.person.marcus];
+        return {
+          request: {
+            method: 'POST',
+            url: `/api/people/${f.person.marcus}/partners`,
+            payload: { partnerId: partner, union: { status: 'partner' }, linkChildren: [child] },
+          },
+          sql: (u) =>
+            attempt(u, async (trx) => {
+              await trx
+                .insertInto('unions')
+                .values({ partner_a_id: lo, partner_b_id: hi, status: 'partner', created_by: u })
+                .execute();
+            }),
+        };
+      },
+    },
+    {
       // ADR 0039: admins only, even for a child in the Member's own line and a relationship the Member is in (moving a
       // child onto a relationship is an UPDATE of the link, which the person_parents policy keeps for admins).
       name: 'POST /api/unions/:id/children (a child in the Member’s line)',

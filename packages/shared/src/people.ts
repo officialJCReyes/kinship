@@ -314,6 +314,8 @@ export interface ChildResponse {
 export interface ParentageResponse {
   parentage: Parentage | null;
   warnings: ApiWarning[];
+  /** POST with `parent`: the parent it created. */
+  person?: Person;
 }
 /** Response of POST and PATCH /api/unions, and GET /api/unions/:id. */
 export interface UnionResponse {
@@ -361,8 +363,15 @@ export interface DeletePreview {
   photos: number;
 }
 
+/**
+ * Body of POST /api/people/:id/parents: an existing person (`parentId`) or a new one (`parent`), exactly one of the two.
+ * `linkChildren` (ADR 0039): when this child had one parent of that kind, the other children who hang from that parent alone
+ * and are also the new parent's; they move to the same relationship, each keeping its kind. All in one transaction.
+ */
 export interface AddParentRequest {
-  parentId: string;
+  parentId?: string;
+  parent?: PersonInput;
+  linkChildren?: string[];
   /** Birth by default. Adoptive is for admins only. */
   kind?: LinkKind;
   /** The date of the link (for an adoption, its year or decree date). Optional. */
@@ -378,6 +387,24 @@ export interface AddChildRequest {
   link?: PartialDateInput | null;
   /** A union that includes the person the child is added under. Omit to hang the child from that person alone. */
   unionId?: string;
+}
+
+/**
+ * Body of POST /api/people/:id/partners (ADR 0039): an existing person (`partnerId`) or a new one (`partner`), exactly one,
+ * the relationship's status and dates, and `linkChildren`: children who hang from this person alone and are also the
+ * partner's, to hang from the new relationship (each keeps its kind). All in one transaction.
+ */
+export interface AddPartnerRequest {
+  partnerId?: string;
+  partner?: PersonInput;
+  union: Omit<UnionInput, 'partnerIds'>;
+  linkChildren?: string[];
+}
+/** Response of POST /api/people/:id/partners: the partner (new or existing), the new relationship with its children. */
+export interface PartnerResponse {
+  person: Person;
+  union: UnionWithChildren;
+  warnings: ApiWarning[];
 }
 
 /** Body of POST /api/people/:id/siblings: a new brother or sister, with the parents they share with this person. */
@@ -464,6 +491,7 @@ export const PEOPLE_ROUTES = [
   { method: 'POST', path: '/api/people/:id/children', access: 'admin-or-own-line' },
   { method: 'POST', path: '/api/people/:id/siblings', access: 'admin' },
   { method: 'POST', path: '/api/people/:id/parents', access: 'admin' },
+  { method: 'POST', path: '/api/people/:id/partners', access: 'admin' },
   { method: 'DELETE', path: '/api/people/:id/parents/:parentId', access: 'admin' },
   { method: 'PATCH', path: '/api/people/:id/parents/:kind', access: 'admin' },
   { method: 'GET', path: '/api/people/:id/linkable-children', access: 'admin' },

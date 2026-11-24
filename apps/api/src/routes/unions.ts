@@ -87,6 +87,53 @@ async function isDuplicate(
   );
 }
 
+/**
+ * Creates a relationship between two people after the same checks as POST /api/unions: not the same person, both exist (a
+ * placeholder counts as existing here; callers that must not pair one with a real person check first), a known status, an
+ * end date only for an ended status, and no identical relationship already. Used by POST /api/unions and by
+ * POST /api/people/:id/partners (ADR 0039).
+ */
+export async function insertUnion(
+  trx: Trx,
+  createdBy: string,
+  first: string,
+  second: string,
+  input: Omit<UnionInput, 'partnerIds'>,
+): Promise<UnionRow> {
+  if (first === second) throw badRequest('partners_identical');
+  if (!isUuid(first) || !isUuid(second)) throw notFound('person_not_found');
+  const status = parseStatus(input.status);
+  const start = parseDateInput(input.start ?? null);
+  const end = parseDateInput(input.end ?? null);
+  if (end !== null && !hasEndDate(status)) throw badRequest('end_date_not_allowed');
+  if (!(await getPerson(trx, first)) || !(await getPerson(trx, second))) throw notFound('person_not_found');
+  const [a, b] = first < second ? [first, second] : [second, first];
+  if (await isDuplicate(trx, a, b, await storedStatus(trx, a, b, status), start))
+    throw conflict('duplicate_relationship');
+  return trx
+    .insertInto('unions')
+    .values({
+      partner_a_id: a,
+      partner_b_id: b,
+      status,
+      start_date: start?.value ?? null,
+      start_precision: start?.precision ?? 'exactly',
+      end_date: end?.value ?? null,
+      end_precision: end?.precision ?? 'exactly',
+      created_by: createdBy,
+    })
+    .returning(UNION_COLUMNS)
+    .executeTakeFirstOrThrow();
+}
+
+/** The JSON schema of a relationship's own fields (status and dates), for the routes that create one. */
+export const unionFieldsSchema = {
+  type: 'object',
+  required: ['status'],
+  additionalProperties: false,
+  properties: { status: { type: 'string', maxLength: 32 }, start: dateSchema, end: dateSchema },
+} as const;
+
 export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): void {
   app.post(
     '/api/unions',
@@ -111,30 +158,7 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
       const result = await withActor(request, async (trx, actor) => {
         if (!isAdmin(actor)) throw forbidden();
         const [first, second] = body.partnerIds;
-        if (first === second) throw badRequest('partners_identical');
-        if (!isUuid(first) || !isUuid(second)) throw notFound('person_not_found');
-        const status = parseStatus(body.status);
-        const start = parseDateInput(body.start ?? null);
-        const end = parseDateInput(body.end ?? null);
-        if (end !== null && !hasEndDate(status)) throw badRequest('end_date_not_allowed');
-        if (!(await getPerson(trx, first)) || !(await getPerson(trx, second))) throw notFound('person_not_found');
-        const [a, b] = first < second ? [first, second] : [second, first];
-        if (await isDuplicate(trx, a, b, await storedStatus(trx, a, b, status), start))
-          throw conflict('duplicate_relationship');
-        const row = await trx
-          .insertInto('unions')
-          .values({
-            partner_a_id: a,
-            partner_b_id: b,
-            status,
-            start_date: start?.value ?? null,
-            start_precision: start?.precision ?? 'exactly',
-            end_date: end?.value ?? null,
-            end_precision: end?.precision ?? 'exactly',
-            created_by: actor.id,
-          })
-          .returning(UNION_COLUMNS)
-          .executeTakeFirstOrThrow();
+        const row = await insertUnion(trx, actor.id, first, second, body);
         return respond(trx, row);
       });
       void reply.code(201);

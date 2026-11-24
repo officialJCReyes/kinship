@@ -54,10 +54,14 @@ web app shows it after saving, as it does for the other Add relative forms.
   child (the child a parent is being added to). Two indexed queries and one walk up from the partner.
 - `POST /api/unions/:id/children { childIds }` (1 to 50, unique): each child, who hangs from one partner of the relationship
   alone, hangs from the relationship instead. Used by the profile's "also their child" action.
-- `POST /api/people/:id/partners` (new, next pull request): a new or existing partner, the relationship, and
-  `linkChildren`, in one transaction.
-- `POST /api/people/:id/parents` (extended, next pull request): `parent` (a new person) as well as `parentId`, and
-  `linkChildren` (the child's brothers and sisters through the existing parent), in one transaction.
+- `POST /api/people/:id/partners { partnerId | partner, union: {status, start, end}, linkChildren }` (new): exactly one of
+  an existing person and a new one, the relationship (the same checks as `POST /api/unions`), and the children who hang
+  from `:id` alone that are the partner's too. Answers 201 with the partner, the relationship and its children, and the
+  warnings.
+- `POST /api/people/:id/parents { parentId | parent, kind, link, unionId, linkChildren }` (extended): `parent` creates the
+  new parent in the same transaction. `linkChildren` is allowed only when the child had one parent of that kind; those
+  children join the relationship the child joins (the one the two parents have, or a new Unknown one), each keeping its
+  kind. The answer carries `person` when a parent was created.
 
 ### Cost
 `GET /api/people/:id/linkable-children` on the 1,900-person scale family (`scale.test.ts`): a new partner 6.3 ms, an existing
@@ -67,4 +71,6 @@ partner from the youngest generation 11.1 ms (medians of seven, on the developme
 - The profile can repair a tree where a child was entered under one parent first.
 - The add-partner and add-parent forms stop using two requests with a compensating delete (`createThenLink`) for the cases
   they cover.
-- Replacing a placeholder ("Unknown mother") with a real person is a separate feature and not part of this decision.
+- A placeholder ("Unknown father" or "Unknown mother") as a partner or second parent of a real person is out of scope
+  (ADR 0019 unchanged; `POST /api/people/:id/partners` answers 404 for a placeholder on either side); replacing a
+  placeholder with a real person is #263.

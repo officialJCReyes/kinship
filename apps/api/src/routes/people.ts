@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { GENDERS, LINK_KINDS, PEOPLE_PAGE_DEFAULT, PEOPLE_PAGE_MAX, SEARCH_MAX_LENGTH } from '@kinship/shared';
+import {
+  GENDERS,
+  LINK_KINDS,
+  MAX_LINK_CHILDREN,
+  PEOPLE_PAGE_DEFAULT,
+  PEOPLE_PAGE_MAX,
+  SEARCH_MAX_LENGTH,
+} from '@kinship/shared';
 import type {
   AddChildRequest,
   AddParentRequest,
+  AddPartnerRequest,
   AddSiblingRequest,
+  ApiWarning,
+  PartnerResponse,
   SiblingResponse,
   LinkableChildrenResponse,
   LinkKind,
@@ -26,7 +36,7 @@ import { removeFiles } from './media.js';
 import { canAddChildUnder, canEditPerson, isAdmin } from '../people/actor.js';
 import type { Actor } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
-import { linkableChildren } from '../people/link-children.js';
+import { linkableChildren, linkChildrenToUnion } from '../people/link-children.js';
 import { withActor } from '../people/run.js';
 import { cleanName, cleanOptionalName } from '../people/names.js';
 import {
@@ -59,6 +69,7 @@ import {
 import type { PersonRow, PersonValues } from '../people/store.js';
 import type { FilesService } from '../files/state.js';
 import type { RouteLimit } from './shared.js';
+import { insertUnion, unionFieldsSchema } from './unions.js';
 
 type Trx = Transaction<Database>;
 
@@ -479,13 +490,14 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
         params: uuidParam('id'),
         body: {
           type: 'object',
-          required: ['parentId'],
           additionalProperties: false,
           properties: {
             parentId: { type: 'string', maxLength: 64 },
+            parent: personInputSchema,
             unionId: { type: 'string', maxLength: 64 },
             kind: kindSchema,
             link: dateSchema,
+            linkChildren: linkChildrenSchema,
           },
         },
       },
@@ -493,23 +505,38 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
     async (request, reply): Promise<ParentageResponse> => {
       const { id: childId } = request.params as { id: string };
       const body = request.body as AddParentRequest;
-      if (!isUuid(childId) || !isUuid(body.parentId)) throw notFound('person_not_found');
+      // Exactly one of an existing person and a new one.
+      if ((body.parentId === undefined) === (body.parent === undefined)) throw badRequest('invalid_request');
+      if (!isUuid(childId) || (body.parentId !== undefined && !isUuid(body.parentId)))
+        throw notFound('person_not_found');
+      // The child itself is always linked; listing it too changes nothing.
+      const linkChildren = (body.linkChildren ?? []).filter((c) => c !== childId);
+      if (linkChildren.some((c) => !isUuid(c))) throw notFound('person_not_found');
       const result = await run(request, async (trx, actor) => {
         if (!isAdmin(actor)) throw forbidden();
-        if (!(await getPerson(trx, childId)) || !(await getPerson(trx, body.parentId)))
-          throw notFound('person_not_found');
-        if (childId === body.parentId) throw badRequest('parent_is_self');
+        if (!(await getPerson(trx, childId))) throw notFound('person_not_found');
+        // A new parent is created first, in this same transaction: a refused link below takes them away again.
+        const created =
+          body.parent === undefined ? null : await insertPerson(trx, actor.id, parsePersonInput(body.parent));
+        const parentId = created?.id ?? (body.parentId as string);
+        if (!created && !(await getPerson(trx, parentId))) throw notFound('person_not_found');
+        if (childId === parentId) throw badRequest('parent_is_self');
 
         const kind: LinkKind = body.kind ?? 'birth';
         const link = parseDateInput(body.link ?? null);
         const existing = await getParentageRow(trx, childId, kind);
         let parentage: Parentage;
+        let linked: ApiWarning[] = [];
+        // Other children can only be linked when this child had one parent, whose relationship with the new parent they join.
+        if (linkChildren.length > 0 && !(existing && existing.parent_id !== null)) {
+          throw conflict('child_not_linkable', { childId: linkChildren[0] });
+        }
 
         if (!existing) {
           const row =
             body.unionId === undefined
-              ? { union_id: null, parent_id: body.parentId }
-              : { union_id: (await requireUnionWith(trx, body.unionId, body.parentId)).id, parent_id: null };
+              ? { union_id: null, parent_id: parentId }
+              : { union_id: (await requireUnionWith(trx, body.unionId, parentId)).id, parent_id: null };
           const values = {
             kind,
             ...row,
@@ -522,9 +549,11 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
             .execute();
           parentage = toParentage(values);
         } else if (existing.parent_id !== null) {
-          if (existing.parent_id === body.parentId) throw conflict('parent_already_linked');
+          if (existing.parent_id === parentId) throw conflict('parent_already_linked');
           // A second parent joins the set: the relationship the two already have, or a new one with status Unknown.
-          const union = await unionForNewParent(trx, actor, existing.parent_id, body.parentId, body.unionId);
+          const union = await unionForNewParent(trx, actor, existing.parent_id, parentId, body.unionId);
+          // The child's brothers and sisters through the existing parent who are also the new parent's (ADR 0039).
+          linked = await linkChildrenToUnion(trx, union, linkChildren, existing.parent_id);
           await trx
             .updateTable('person_parents')
             .set({ union_id: union.id, parent_id: null })
@@ -534,12 +563,65 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
           parentage = toParentage({ ...existing, union_id: union.id, parent_id: null });
         } else {
           const union = await getUnion(trx, existing.union_id as string);
-          if (union && (union.partner_a_id === body.parentId || union.partner_b_id === body.parentId)) {
+          if (union && (union.partner_a_id === parentId || union.partner_b_id === parentId)) {
             throw conflict('parent_already_linked');
           }
           throw conflict('too_many_parents');
         }
-        return { parentage, warnings: await parentAgeWarnings(trx, childId) };
+        const warnings = [...linked, ...(await parentAgeWarnings(trx, childId))];
+        return { parentage, warnings: uniqueWarnings(warnings), ...(created ? { person: toPerson(created) } : {}) };
+      });
+      void reply.code(201);
+      return result;
+    },
+  );
+
+  // --- add a partner, new or existing, with the children they share (admins; ADR 0039) ---
+  // One transaction: the partner (when new), the relationship, and the children who hang from this person alone and are
+  // the partner's too, moved onto the relationship with their kind kept. A refused child saves nothing.
+  app.post(
+    '/api/people/:id/partners',
+    {
+      config: limit,
+      schema: {
+        params: uuidParam('id'),
+        body: {
+          type: 'object',
+          required: ['union'],
+          additionalProperties: false,
+          properties: {
+            partnerId: { type: 'string', maxLength: 64 },
+            partner: personInputSchema,
+            union: unionFieldsSchema,
+            linkChildren: linkChildrenSchema,
+          },
+        },
+      },
+    },
+    async (request, reply): Promise<PartnerResponse> => {
+      const { id } = request.params as { id: string };
+      const body = request.body as AddPartnerRequest;
+      if ((body.partnerId === undefined) === (body.partner === undefined)) throw badRequest('invalid_request');
+      if (!isUuid(id) || (body.partnerId !== undefined && !isUuid(body.partnerId))) throw notFound('person_not_found');
+      const linkChildren = body.linkChildren ?? [];
+      if (linkChildren.some((c) => !isUuid(c))) throw notFound('person_not_found');
+      const result = await run(request, async (trx, actor) => {
+        if (!isAdmin(actor)) throw forbidden();
+        // A placeholder ("Unknown father") is never paired with a real person here, on either side (out of scope, #263).
+        const self = await getPerson(trx, id);
+        if (!self || self.is_placeholder) throw notFound('person_not_found');
+        let partner: PersonRow | undefined;
+        if (body.partner !== undefined) {
+          partner = await insertPerson(trx, actor.id, parsePersonInput(body.partner));
+        } else {
+          partner = await getPerson(trx, body.partnerId as string);
+          if (!partner || partner.is_placeholder) throw notFound('person_not_found');
+        }
+        const union = await insertUnion(trx, actor.id, id, partner.id, body.union);
+        const warnings = await linkChildrenToUnion(trx, union, linkChildren, id);
+        const [withKids] = await withChildren(trx, [union]);
+        if (!withKids) throw notFound('union_not_found');
+        return { person: toPerson(partner), union: withKids, warnings };
       });
       void reply.code(201);
       return result;
@@ -676,6 +758,25 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
       });
     },
   );
+}
+
+/** At most 50 distinct children, as POST /api/unions/:id/children. */
+const linkChildrenSchema = {
+  type: 'array',
+  maxItems: MAX_LINK_CHILDREN,
+  uniqueItems: true,
+  items: { type: 'string', maxLength: 64 },
+} as const;
+
+/** The same warning once, even when two links report it. */
+function uniqueWarnings(warnings: ApiWarning[]): ApiWarning[] {
+  const seen = new Set<string>();
+  return warnings.filter((w) => {
+    const key = `${w.code}|${w.childId}|${w.parentId}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** The parents in one set of links. */
