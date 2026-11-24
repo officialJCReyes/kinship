@@ -102,8 +102,10 @@ export const needsSetup: Record<string, MockRoute> = {
 };
 
 export function renderApp(path: string) {
-  // No retries and no caching between tests, so errors show up at once.
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  // No retries, so errors show up at once. Each test gets its own client, so nothing is cached between tests. Within a test the
+  // cache keeps what it loaded, as the app's does (5 minutes): with gcTime 0 a query the chart loads ahead of a flip was thrown
+  // away before the page subscribed to it, and the chart blanked for a moment while it loaded again (#156).
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   const view = render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
