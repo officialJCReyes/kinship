@@ -170,12 +170,16 @@ describe('it never sits on a line', () => {
       if (input === family) {
         expect(lines.some(([x0, y0]) => layout.nodes.some((n) => x0 === n.x && y0 === n.y + NODE_H))).toBe(true);
       }
+      // One assertion per layout, not one per card and line: the 600-person family has about a million pairs, and an
+      // expect() for each made this test take over 5 s on a busy CI runner.
+      const tooClose: string[] = [];
       for (const node of layout.nodes) {
         // The nub's centre: 28 px in from the right edge, on the bottom edge; its touch area is a 17 px radius.
         const nx = node.x - NODE_W / 2 + NODE_W - 28;
         const ny = node.y + NODE_H;
-        for (const segment of lines) expect(distance(segment, nx, ny), node.id).toBeGreaterThan(17);
+        if (lines.some((segment) => distance(segment, nx, ny) <= 17)) tooClose.push(node.id);
       }
+      expect(tooClose).toEqual([]);
     }
   });
 
