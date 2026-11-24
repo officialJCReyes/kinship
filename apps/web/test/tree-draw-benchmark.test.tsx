@@ -65,8 +65,7 @@ function draw(view: 'family') {
           onSelect={() => undefined}
           onLeaf={() => undefined}
           onCouple={() => undefined}
-          addable={withNub ? everyone : undefined}
-          onAdd={withNub ? () => undefined : undefined}
+          {...(withNub ? { addable: everyone, onAdd: () => undefined } : {})}
           view={view}
         />
       </Profiler>
