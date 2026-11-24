@@ -295,3 +295,240 @@ describe('invariant: linking never gives a child more than two parents in a set,
     expect(outcomes.get(409) ?? 0).toBeGreaterThan(0);
   });
 });
+
+const peopleNamed = async (given: string) =>
+  (await sql<{ n: number }>`select count(*)::int as n from people where given_name = ${given}`.execute(app.owner))
+    .rows[0]!.n;
+const unionsOf = async (a: string, b: string) => {
+  const [lo, hi] = a < b ? [a, b] : [b, a];
+  return (
+    await sql<{ id: string; status: string }>`
+      select id, status from unions where partner_a_id = ${lo} and partner_b_id = ${hi}`.execute(app.owner)
+  ).rows;
+};
+const saidBetween = async (a: string, b: string): Promise<string> => {
+  const body = (await send('GET', `/api/relationship?a=${a}&b=${b}`)).body as unknown as RelationshipResponse;
+  return body.name ? renderRelName(body.name, tr) : 'No relationship found';
+};
+const newPerson = (givenName: string, gender: 'male' | 'female') => ({ givenName, surname: 'Linkcase', gender });
+
+describe('POST /api/people/:id/partners', () => {
+  it('adds a new partner, the relationship and the shared children in one call, each child keeping its kind', async () => {
+    const p = await person('Paz', { gender: 'female' });
+    const birth = await person('Kidbirth');
+    const adopted = await person('Kidadopt');
+    const notTheirs = await person('Notheirs');
+    await linkChild(app.owner, birth, { parent: p });
+    await linkChild(app.owner, adopted, { parent: p }, 'adoptive');
+    await linkChild(app.owner, notTheirs, { parent: p });
+    const response = await send('POST', `/api/people/${p}/partners`, {
+      partner: newPerson('Newpartner', 'male'),
+      union: { status: 'married', start: { value: '1990' } },
+      linkChildren: [birth, adopted],
+    });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    const body = response.body as {
+      person: { id: string; givenName: string };
+      union: { id: string; status: string; children: Array<{ id: string; kind: string }> };
+    };
+    expect(body.person.givenName).toBe('Newpartner');
+    expect(body.union.status).toBe('married');
+    expect(body.union.children.map((c) => [c.id, c.kind]).sort()).toEqual(
+      [
+        [birth, 'birth'],
+        [adopted, 'adoptive'],
+      ].sort(),
+    );
+    // A child not ticked stays with Paz alone.
+    expect(await setOf(notTheirs)).toEqual({ union_id: null, parent_id: p });
+  });
+
+  it('with no children ticked behaves as before: only the relationship', async () => {
+    const p = await person('Pim');
+    const kid = await person('Pimkid');
+    await linkChild(app.owner, kid, { parent: p });
+    const q = await person('Quill');
+    const response = await send('POST', `/api/people/${p}/partners`, { partnerId: q, union: { status: 'partner' } });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    expect((await unionsOf(p, q)).map((u) => u.status)).toEqual(['partner']);
+    expect(await setOf(kid)).toEqual({ union_id: null, parent_id: p });
+  });
+
+  it('saves nothing (not even the new partner) when one child is refused', async () => {
+    const p = await person('Pol');
+    const ok = await person('Polkid');
+    const other = await person('Polother');
+    const taken = await person('Poltaken');
+    await linkChild(app.owner, ok, { parent: p });
+    await linkChild(app.owner, taken, { union: await insertUnionRow(app.owner, p, other, 'partner') });
+    const response = await send('POST', `/api/people/${p}/partners`, {
+      partner: newPerson('Rolledback', 'male'),
+      union: { status: 'married' },
+      linkChildren: [ok, taken],
+    });
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ error: 'child_not_linkable', childId: taken });
+    expect(await peopleNamed('Rolledback')).toBe(0);
+    expect(await setOf(ok)).toEqual({ union_id: null, parent_id: p });
+  });
+
+  it('refuses an existing partner the database would refuse for a child (a cycle), and saves nothing', async () => {
+    const p = await person('Pru');
+    const kid = await person('Prukid');
+    await linkChild(app.owner, kid, { parent: p });
+    const q = await person('Prugrandkid');
+    await linkChild(app.owner, q, { parent: kid });
+    const response = await send('POST', `/api/people/${p}/partners`, {
+      partnerId: q,
+      union: { status: 'partner' },
+      linkChildren: [kid],
+    });
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ error: 'would_create_cycle', childId: kid });
+    expect(await unionsOf(p, q)).toEqual([]);
+  });
+
+  it('asks for exactly one of partner and partnerId, and never pairs a placeholder with a real person', async () => {
+    const p = await person('Pen');
+    const q = await person('Pencil');
+    expect((await send('POST', `/api/people/${p}/partners`, { union: { status: 'partner' } })).status).toBe(400);
+    expect(
+      (
+        await send('POST', `/api/people/${p}/partners`, {
+          partnerId: q,
+          partner: newPerson('Both', 'male'),
+          union: { status: 'partner' },
+        })
+      ).status,
+    ).toBe(400);
+    const placeholder = (
+      await sql<{ id: string }>`
+        insert into people (given_name, surname, gender, is_placeholder) values ('', '', 'female', true) returning id`.execute(
+        app.owner,
+      )
+    ).rows[0]!.id;
+    expect(
+      (await send('POST', `/api/people/${p}/partners`, { partnerId: placeholder, union: { status: 'unknown' } }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await send('POST', `/api/people/${placeholder}/partners`, { partnerId: p, union: { status: 'unknown' } }))
+        .status,
+    ).toBe(404);
+  });
+
+  it('the stepsister case through Add partner: a full sister, and the mother’s daughter', async () => {
+    // The father is added first, then the sister under him alone, then the wife with both parents, then the mother.
+    const father = await person('Fred', { gender: 'male' });
+    const sister = await person('Sue', { gender: 'female' });
+    await linkChild(app.owner, sister, { parent: father });
+    const added = await send('POST', `/api/people/${father}/partners`, {
+      partner: newPerson('Mona', 'female'),
+      union: { status: 'married' },
+      linkChildren: [sister],
+    });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    const mother = (added.body as { person: { id: string } }).person.id;
+    const union = (added.body as { union: { id: string } }).union.id;
+    const wife = await person('Wren', { gender: 'female' });
+    await linkChild(app.owner, wife, { union });
+    expect(await saidBetween(wife, sister)).toBe('Sister');
+    expect(await saidBetween(mother, sister)).toBe('Daughter');
+    expect(await partnerChildIds2(mother)).toEqual([]);
+  });
+});
+
+const partnerChildIds2 = async (personId: string): Promise<string[]> =>
+  (
+    (await send('GET', `/api/people/${personId}`)).body as { partnerChildren: Array<{ child: { id: string } }> }
+  ).partnerChildren.map((entry) => entry.child.id);
+
+describe('POST /api/people/:id/parents with linkChildren', () => {
+  it('adds a new second parent and links the brothers and sisters ticked, each keeping its kind, on one Unknown relationship', async () => {
+    const f = await person('Ford', { gender: 'male' });
+    const c = await person('Cleo');
+    const s1 = await person('Sib1');
+    const s2 = await person('Sib2');
+    const s3 = await person('Sib3');
+    await linkChild(app.owner, c, { parent: f });
+    await linkChild(app.owner, s1, { parent: f });
+    await linkChild(app.owner, s2, { parent: f }, 'adoptive');
+    await linkChild(app.owner, s3, { parent: f });
+    const response = await send('POST', `/api/people/${c}/parents`, {
+      parent: newPerson('Newmum', 'female'),
+      linkChildren: [s1, s2],
+    });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    const mum = (response.body as { person: { id: string } }).person.id;
+    const unions = await unionsOf(f, mum);
+    expect(unions.map((u) => u.status)).toEqual(['unknown']);
+    expect(await setOf(c)).toEqual({ union_id: unions[0]!.id, parent_id: null });
+    expect(await setOf(s1)).toEqual({ union_id: unions[0]!.id, parent_id: null });
+    expect(await setOf(s2, 'adoptive')).toEqual({ union_id: unions[0]!.id, parent_id: null });
+    expect(await setOf(s3)).toEqual({ union_id: null, parent_id: f });
+  });
+
+  it('reuses the relationship an existing parent already has with the one on the tree', async () => {
+    const f = await person('Finn', { gender: 'male' });
+    const m = await person('Maeve', { gender: 'female' });
+    const union = await insertUnionRow(app.owner, f, m, 'married');
+    const c = await person('Cass');
+    const s = await person('Sky');
+    await linkChild(app.owner, c, { parent: f });
+    await linkChild(app.owner, s, { parent: f });
+    const response = await send('POST', `/api/people/${c}/parents`, { parentId: m, linkChildren: [s, c] });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    expect((await unionsOf(f, m)).map((u) => u.id)).toEqual([union]);
+    expect(await setOf(c)).toEqual({ union_id: union, parent_id: null });
+    expect(await setOf(s)).toEqual({ union_id: union, parent_id: null });
+  });
+
+  it('saves nothing (not the new parent, not the child’s link) when a sibling is refused', async () => {
+    const f = await person('Flo');
+    const c = await person('Cole');
+    const s = await person('Sam');
+    const elsewhere = await person('Elsewhere');
+    await linkChild(app.owner, c, { parent: f });
+    await linkChild(app.owner, s, { union: await insertUnionRow(app.owner, f, elsewhere, 'partner') });
+    const response = await send('POST', `/api/people/${c}/parents`, {
+      parent: newPerson('Gonemum', 'female'),
+      linkChildren: [s],
+    });
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({ error: 'child_not_linkable', childId: s });
+    expect(await peopleNamed('Gonemum')).toBe(0);
+    expect(await setOf(c)).toEqual({ union_id: null, parent_id: f });
+  });
+
+  it('links no other children when the child had no parent of that kind, and asks for exactly one parent', async () => {
+    const c = await person('Orphan');
+    const s = await person('Other');
+    expect(
+      (await send('POST', `/api/people/${c}/parents`, { parent: newPerson('First', 'male'), linkChildren: [s] }))
+        .status,
+    ).toBe(409);
+    expect(await peopleNamed('First')).toBe(0);
+    expect((await send('POST', `/api/people/${c}/parents`, {})).status).toBe(400);
+    // Without linkChildren the new-parent form works as the old two calls did, in one.
+    const response = await send('POST', `/api/people/${c}/parents`, { parent: newPerson('Firstdad', 'male') });
+    expect(response.status, JSON.stringify(response.body)).toBe(201);
+    expect(await setOf(c)).toEqual({
+      union_id: null,
+      parent_id: (response.body as { person: { id: string } }).person.id,
+    });
+  });
+});
+
+describe('placeholders stay out of it', () => {
+  it('two sisters through an unknown mother and father read Sister, not Stepsister, and a placeholder is never a result', async () => {
+    const wife = await person('Willa', { gender: 'female' });
+    const added = await send('POST', `/api/people/${wife}/siblings`, { sibling: newPerson('Sadie', 'female') });
+    expect(added.status, JSON.stringify(added.body)).toBe(201);
+    const body = added.body as { person: { id: string }; placeholders: Array<{ id: string }> };
+    expect(await saidBetween(wife, body.person.id)).toBe('Sister');
+    const mother = body.placeholders[1]!.id;
+    expect((await send('GET', `/api/relationship?a=${wife}&b=${mother}`)).status).toBe(404);
+    // An unknown parent has no one-parent children to offer, and is never offered as a partner's child.
+    expect(await linkable(mother)).toEqual([]);
+  });
+});
