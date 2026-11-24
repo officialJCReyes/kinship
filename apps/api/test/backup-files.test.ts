@@ -21,7 +21,7 @@ import { buildFamily } from './helpers/family.js';
 import { addTestPhoto, setUpFilesFolder } from './helpers/photos.js';
 import type { TestPhoto } from './helpers/photos.js';
 import { realMigrationsDir } from './helpers/migrations-dir.js';
-import { testConfig, testTools } from './helpers/pg-tools.js';
+import { sizeSlack, testConfig, testTools } from './helpers/pg-tools.js';
 
 const PASS = 'a long backup passphrase for tests';
 const CHEAP = { N: 2 ** 4, r: 8, p: 1 };
@@ -210,20 +210,22 @@ describe('free space', () => {
         ?.n,
     );
     const need = spaceNeeded(size, photos);
-    const tight: BackupContext = { ...ctx, freeBytes: () => need - 1 };
+    // Short even if the backup's own reading of the database comes out a little lower than this one (see sizeSlack).
+    const short = spaceNeeded(size - sizeSlack(size), photos) - 1;
+    const tight: BackupContext = { ...ctx, freeBytes: () => short };
     const failure = await createBackup(tight, { kind: 'manual', includeFiles: true }).catch(
       (e: unknown) => e as BackupError,
     );
     expect((failure as BackupError).kind).toBe('disk_space');
-    // The database grows by a few pages between measuring it here and the backup measuring it again (pg_database_size is not
-    // frozen; autovacuum and statistics write pages), which changes the last digits (#230). So the sum is checked against the
-    // size the message reports, and that size against this test's own read.
+    // The backup measures the database again, a moment after the read above, and the two readings can differ (pg_database_size
+    // counts a cache file Postgres rewrites at will, see sizeSlack; #230). So the sum is checked against the size the message
+    // reports, and that size against this test's own read.
     const message = (failure as BackupError).message;
     const reported = Number(/the database is (\d+) bytes/.exec(message)?.[1]);
-    expect(Math.abs(reported - size) / size).toBeLessThan(0.01);
+    expect(Math.abs(reported - size)).toBeLessThanOrEqual(sizeSlack(size));
     expect(message).toContain(`the photos are ${photos} bytes`);
     expect(message).toContain(`${spaceNeeded(reported, photos)} are needed`);
-    expect(message).toContain(`the folder has ${need - 1} free`);
+    expect(message).toContain(`the folder has ${short} free`);
     // For the same reason "enough" gets a 5 % margin: the rule being tested is the order of magnitude, not the last byte.
     await expect(
       createBackup({ ...ctx, freeBytes: () => Math.ceil(need * 1.05) }, { kind: 'manual', includeFiles: true }),

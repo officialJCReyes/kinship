@@ -68,3 +68,11 @@ export function testConfig(test: TestDatabase, dir: string, passphrase: string |
     files: { dir: `${dir}-files`, key: undefined },
   };
 }
+
+/**
+ * How far two pg_database_size readings of the same, idle database may be apart (#230). The size counts the relation cache file
+ * pg_internal.init (about 160 KB on Postgres 18), which Postgres deletes on a cache invalidation and the next new connection
+ * writes again, so one reading can have it and the next not; on a test database of about 10 MB that alone is 1.6 %. Allowed:
+ * 1 % of the size plus 256 KB.
+ */
+export const sizeSlack = (bytes: number): number => Math.ceil(bytes * 0.01) + 256 * 1024;
