@@ -1,6 +1,6 @@
 {
   "name": "@kinship/web",
-  "version": "0.3.0-rc.4",
+  "version": "0.3.0",
   "private": true,
   "description": "KinShip web app",
   "license": "AGPL-3.0-or-later",
