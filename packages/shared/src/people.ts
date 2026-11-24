@@ -320,6 +320,33 @@ export interface UnionResponse {
   union: UnionWithChildren;
 }
 
+/**
+ * A child who hangs from one parent alone (a set of `kind` with that parent only) and can be linked to a second parent
+ * (ADR 0039). Listed by GET /api/people/:id/linkable-children; the link keeps `kind`.
+ */
+export interface LinkableChild {
+  child: Person;
+  kind: LinkKind;
+}
+/** Response of GET /api/people/:id/linkable-children. Oldest first (unknown birth dates last). */
+export interface LinkableChildrenResponse {
+  children: LinkableChild[];
+}
+/** The most children one request may link. */
+export const MAX_LINK_CHILDREN = 50;
+/**
+ * Body of POST /api/unions/:id/children: children who hang from one partner of the relationship alone, to hang from the
+ * relationship instead (both partners become their parents, the kind of each link is kept). All or nothing.
+ */
+export interface LinkUnionChildrenRequest {
+  childIds: string[];
+}
+/** Response of POST /api/unions/:id/children: the relationship with its children, and any warnings for the links. */
+export interface LinkUnionChildrenResponse {
+  union: UnionWithChildren;
+  warnings: ApiWarning[];
+}
+
 /** Body of PATCH /api/people/:id/parents/:kind: the date of the link (null clears it). */
 export interface UpdateParentLinkRequest {
   link: PartialDateInput | null;
@@ -408,6 +435,7 @@ export const PEOPLE_ERROR_CODES = [
   'duplicate_label',
   'sibling_needs_parent',
   'placeholder_needs_name',
+  'child_not_linkable',
 ] as const;
 export type PeopleErrorCode = (typeof PEOPLE_ERROR_CODES)[number];
 
@@ -438,10 +466,12 @@ export const PEOPLE_ROUTES = [
   { method: 'POST', path: '/api/people/:id/parents', access: 'admin' },
   { method: 'DELETE', path: '/api/people/:id/parents/:parentId', access: 'admin' },
   { method: 'PATCH', path: '/api/people/:id/parents/:kind', access: 'admin' },
+  { method: 'GET', path: '/api/people/:id/linkable-children', access: 'admin' },
   { method: 'POST', path: '/api/unions', access: 'admin' },
   { method: 'GET', path: '/api/unions/:id', access: 'signed-in' },
   { method: 'PATCH', path: '/api/unions/:id', access: 'admin-or-own-union' },
   { method: 'DELETE', path: '/api/unions/:id', access: 'admin' },
+  { method: 'POST', path: '/api/unions/:id/children', access: 'admin' },
   { method: 'POST', path: '/api/labels', access: 'admin' },
   { method: 'PATCH', path: '/api/labels/:id', access: 'admin' },
   { method: 'DELETE', path: '/api/labels/:id', access: 'admin' },

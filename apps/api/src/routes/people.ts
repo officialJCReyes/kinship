@@ -5,6 +5,7 @@ import type {
   AddParentRequest,
   AddSiblingRequest,
   SiblingResponse,
+  LinkableChildrenResponse,
   LinkKind,
   UpdateParentLinkRequest,
   ChildResponse,
@@ -25,6 +26,7 @@ import { removeFiles } from './media.js';
 import { canAddChildUnder, canEditPerson, isAdmin } from '../people/actor.js';
 import type { Actor } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
+import { linkableChildren } from '../people/link-children.js';
 import { withActor } from '../people/run.js';
 import { cleanName, cleanOptionalName } from '../people/names.js';
 import {
@@ -541,6 +543,42 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
       });
       void reply.code(201);
       return result;
+    },
+  );
+
+  // --- children who could also be another person's (admins; ADR 0039) ----------------
+  // The children who hang from this person alone. With `partner` (an existing person who would become their second parent),
+  // the ones the database would refuse are left out; `exclude` leaves out a child the dialog links anyway.
+  app.get(
+    '/api/people/:id/linkable-children',
+    {
+      config: limit,
+      schema: {
+        params: uuidParam('id'),
+        querystring: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            partner: { type: 'string', maxLength: 64 },
+            exclude: { type: 'string', maxLength: 64 },
+          },
+        },
+      },
+    },
+    async (request): Promise<LinkableChildrenResponse> => {
+      const { id } = request.params as { id: string };
+      const query = request.query as { partner?: string; exclude?: string };
+      if (!isUuid(id)) throw notFound('person_not_found');
+      return run(request, async (trx, actor) => {
+        if (!isAdmin(actor)) throw forbidden();
+        if (!(await getPerson(trx, id))) throw notFound('person_not_found');
+        const partner = query.partner ?? null;
+        if (partner !== null && (!isUuid(partner) || !(await getPerson(trx, partner))))
+          throw notFound('person_not_found');
+        const exclude = query.exclude !== undefined && isUuid(query.exclude) ? [query.exclude] : [];
+        const found = await linkableChildren(trx, id, partner, exclude);
+        return { children: found.map(({ row, kind }) => ({ child: toPerson(row), kind })) };
+      });
     },
   );
 

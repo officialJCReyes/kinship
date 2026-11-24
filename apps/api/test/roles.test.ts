@@ -405,6 +405,47 @@ function cases(): Case[] {
       },
     },
     {
+      // ADR 0039: admins only, even for a child in the Member's own line and a relationship the Member is in (moving a
+      // child onto a relationship is an UPDATE of the link, which the person_parents policy keeps for admins).
+      name: 'POST /api/unions/:id/children (a child in the Member’s line)',
+      allowed: ADMINS,
+      prepare: async () => {
+        const child = await personCreatedBy(f.account.member.id, f.person.marcus);
+        return {
+          request: {
+            method: 'POST',
+            url: `/api/unions/${f.union.marcusPriya}/children`,
+            payload: { childIds: [child] },
+          },
+          sql: (u) =>
+            attempt(u, async (trx) =>
+              Number(
+                (
+                  await trx
+                    .updateTable('person_parents')
+                    .set({ union_id: f.union.marcusPriya, parent_id: null })
+                    .where('child_id', '=', child)
+                    .execute()
+                )[0]!.numUpdatedRows,
+              ),
+            ),
+        };
+      },
+    },
+    {
+      // Admins only in the API. The rows it reads are readable by every account (they are on every profile), so the
+      // database side of the rule is its admin check, which is what the API asks.
+      name: 'GET /api/people/:id/linkable-children',
+      allowed: ADMINS,
+      prepare: async () => ({
+        request: { method: 'GET', url: `/api/people/${f.person.beatriz}/linkable-children` },
+        sql: (u) =>
+          attempt(u, async (trx) =>
+            (await sql<{ ok: boolean }>`select public.kinship_is_admin() as ok`.execute(trx)).rows[0]!.ok ? 1 : 0,
+          ),
+      }),
+    },
+    {
       name: 'PATCH /api/unions/:id (a union the Member is in)',
       allowed: ADMINS_AND_MEMBER,
       prepare: async () => ({
