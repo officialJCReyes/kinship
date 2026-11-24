@@ -850,9 +850,15 @@ describe('what a restore refuses', () => {
     const short = { ...l.ctx, freeBytes: () => size * 2 - 1 };
     const failure = await restoreBackup(short, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('disk_space');
-    expect((failure as BackupError).message).toContain(`${size * 2} bytes are needed`);
-    expect((failure as BackupError).message).toContain(`${size * 2 - 1} are available`);
-    expect((failure as BackupError).message).not.toContain(l.dir);
+    // The restore measures the database again, a moment after the read above, and a few pages of growth in between (autovacuum,
+    // statistics) change the last digits (#230). So the sum is checked against the size the message reports, and that size
+    // against this test's own read.
+    const message = (failure as BackupError).message;
+    const reported = Number(/which is (\d+) bytes/.exec(message)?.[1]);
+    expect(Math.abs(reported - size) / size).toBeLessThan(0.01);
+    expect(message).toContain(`${reported * 2} bytes are needed`);
+    expect(message).toContain(`${size * 2 - 1} are available`);
+    expect(message).not.toContain(l.dir);
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
     await expect(
       restoreBackup({ ...l.ctx, freeBytes: () => size * 2 + 10_000_000 }, made.path, hooks()),

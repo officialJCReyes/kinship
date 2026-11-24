@@ -215,10 +215,16 @@ describe('free space', () => {
       (e: unknown) => e as BackupError,
     );
     expect((failure as BackupError).kind).toBe('disk_space');
-    expect((failure as BackupError).message).toContain(`the photos are ${photos} bytes`);
-    expect((failure as BackupError).message).toContain(`${need} are needed`);
     // The database grows by a few pages between measuring it here and the backup measuring it again (pg_database_size is not
-    // frozen), so "enough" gets a 5 % margin: the rule being tested is the order of magnitude, not the last byte.
+    // frozen; autovacuum and statistics write pages), which changes the last digits (#230). So the sum is checked against the
+    // size the message reports, and that size against this test's own read.
+    const message = (failure as BackupError).message;
+    const reported = Number(/the database is (\d+) bytes/.exec(message)?.[1]);
+    expect(Math.abs(reported - size) / size).toBeLessThan(0.01);
+    expect(message).toContain(`the photos are ${photos} bytes`);
+    expect(message).toContain(`${spaceNeeded(reported, photos)} are needed`);
+    expect(message).toContain(`the folder has ${need - 1} free`);
+    // For the same reason "enough" gets a 5 % margin: the rule being tested is the order of magnitude, not the last byte.
     await expect(
       createBackup({ ...ctx, freeBytes: () => Math.ceil(need * 1.05) }, { kind: 'manual', includeFiles: true }),
     ).resolves.toBeTruthy();
