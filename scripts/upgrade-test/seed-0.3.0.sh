@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Seeds a stack running KinShip 0.3.0 (sourced by scripts/upgrade-test.sh, which provides the helpers used here).
-# seed-0.3.0-rc.1.sh and seed-0.3.0-rc.2.sh source this file with SEED_PARTICLES=1 (see below); seed-0.3.0-rc.3.sh sources it
-# without, as rc.3 has migration 0024 and refuses the field.
+# seed-0.3.0-rc.1.sh and seed-0.3.0-rc.2.sh source this file with SEED_PARTICLES=1 (see below); seed-0.3.0-rc.3.sh and
+# seed-0.3.0-rc.4.sh source it without, as from rc.3 on there is migration 0024 and the API refuses the field.
 #
 # The 0.2.1 seed's family, and on top of it what 0.3.0 added, each through the API where 0.3.0 has a route for it:
 #   - names (migration 0017): a prefix, a suffix and a nickname, and Margaret's married surname;

@@ -1,6 +1,6 @@
 {
   "name": "@kinship/shared",
-  "version": "0.3.0-rc.3",
+  "version": "0.3.0-rc.4",
   "private": true,
   "description": "Types and translation keys shared by the KinShip API and web app",
   "license": "AGPL-3.0-or-later",
