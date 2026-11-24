@@ -287,6 +287,13 @@ jobs:
         env:
           PREVIOUS_TAG: v0.3.0-rc.4
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
+      # 0.3.0 (schema 24) is the stable release of "See the family". The first step above starts from it until the next release
+      # is published; this pin keeps the 0.3.0 upgrade, with a photo and a kept file key (seed-0.3.0.sh), tested after that.
+      - name: Upgrade 0.3.0 in place (pinned), and restore its safety copy on an empty database
+        if: ${{ !cancelled() }}
+        env:
+          PREVIOUS_TAG: v0.3.0
+        run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
 
   # A required check ("Protect main" ruleset). A real browser against the real web, api and Postgres containers.
   e2e:
