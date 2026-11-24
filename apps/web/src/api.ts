@@ -12,6 +12,10 @@ import type {
   ChangeRoleResponse,
   AddChildRequest,
   AddParentRequest,
+  AddPartnerRequest,
+  LinkableChildrenResponse,
+  LinkUnionChildrenResponse,
+  PartnerResponse,
   AddSiblingRequest,
   SiblingResponse,
   BackupSettings,
@@ -446,6 +450,38 @@ export async function addParent(childId: string, request: AddParentRequest): Pro
   const reply = await send('POST', path, request);
   if (!succeeded(reply)) fail(path, reply);
   return reply.body as ParentageResponse;
+}
+
+/** POST /api/people/:id/partners (ADR 0039): a partner, new or existing, the relationship and the children they share. */
+export async function addPartner(personId: string, request: AddPartnerRequest): Promise<PartnerResponse> {
+  const path = `/api/people/${encodeURIComponent(personId)}/partners`;
+  const reply = await send('POST', path, request);
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as PartnerResponse;
+}
+
+/** GET /api/people/:id/linkable-children: the children who hang from this person alone, for the Add relative checklists. */
+export async function fetchLinkableChildren(
+  personId: string,
+  options: { partner?: string | null; exclude?: string | null } = {},
+  signal?: AbortSignal,
+): Promise<LinkableChildrenResponse> {
+  const query = new URLSearchParams();
+  if (options.partner) query.set('partner', options.partner);
+  if (options.exclude) query.set('exclude', options.exclude);
+  const suffix = query.size > 0 ? `?${query.toString()}` : '';
+  const path = `/api/people/${encodeURIComponent(personId)}/linkable-children${suffix}`;
+  const reply = await send('GET', path, undefined, signal);
+  if (reply.status !== 200) fail(path, reply);
+  return reply.body as LinkableChildrenResponse;
+}
+
+/** POST /api/unions/:id/children: children who hang from one partner alone now hang from the relationship. */
+export async function linkUnionChildren(unionId: string, childIds: string[]): Promise<LinkUnionChildrenResponse> {
+  const path = `/api/unions/${encodeURIComponent(unionId)}/children`;
+  const reply = await send('POST', path, { childIds });
+  if (!succeeded(reply)) fail(path, reply);
+  return reply.body as LinkUnionChildrenResponse;
 }
 
 export async function removeParent(childId: string, parentId: string): Promise<ParentageResponse> {

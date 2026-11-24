@@ -3012,3 +3012,8 @@ pre.code {
   height: 56px;
   font-size: 20px;
 }
+
+/* Add relative: "Are any of these also ...'s children?" A long name wraps instead of widening the dialog. */
+fieldset.link-children label {
+  overflow-wrap: anywhere;
+}

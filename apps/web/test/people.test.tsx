@@ -452,7 +452,10 @@ describe('add relative', () => {
     const fetchMock = mockApi(
       haleRoutes(ADMIN, {
         '/api/people?q=len&limit=8': { status: 200, body: { items: [PEOPLE[9]], nextCursor: null } },
-        'POST /api/unions': { status: 201, body: { union: {} } },
+        'POST /api/people/marcus/partners': {
+          status: 201,
+          body: { person: PEOPLE[9], union: { status: 'engaged', children: [] }, warnings: [] },
+        },
       }),
     );
     renderApp('/people/marcus');
@@ -466,12 +469,12 @@ describe('add relative', () => {
     type('Marriage or start date', '2026-06');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(bodyOf(fetchMock, 'POST /api/unions')).toEqual({
-      status: 'engaged',
-      start: { value: '2026-06', precision: 'exactly' },
-      end: null,
-      partnerIds: ['lena', 'marcus'],
+    // One call (ADR 0039); Marcus has no children of his own alone, so nothing else is asked or sent.
+    expect(bodyOf(fetchMock, 'POST /api/people/marcus/partners')).toEqual({
+      partnerId: 'lena',
+      union: { status: 'engaged', start: { value: '2026-06', precision: 'exactly' }, end: null },
     });
+    expect(calls(fetchMock)).not.toContain('POST /api/unions');
   });
 
   it('adds a sister with one call, and the server decides which parents she shares', async () => {

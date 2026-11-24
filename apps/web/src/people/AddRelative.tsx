@@ -27,7 +27,8 @@ import { errorMessage, warningTexts } from '../lib/errors.js';
 import { statusName } from '../lib/labels.js';
 import { lifespan, parentIdsOf, peopleById } from '../lib/people.js';
 import { useNotices } from '../notices.js';
-import { CreatedButNotLinked, createThenLink, newPartnerLink, sortedPair } from './relatives.js';
+import { CreatedButNotLinked, createThenLink } from './relatives.js';
+import { LinkChildrenField, refusedChildName, useLinkableChildren } from './LinkChildren.js';
 import type { Added } from './relatives.js';
 import { isAdmin } from './permissions.js';
 import { checkPersonDraft, emptyPersonDraft, PersonFields } from './PersonForm.js';
@@ -210,6 +211,8 @@ function RelativeForm({
   // The other parent of a new child: a relationship id, or '' for "not on the tree".
   const [otherParent, setOtherParent] = useState(detail.unions[0]?.id ?? '');
   const [chosenUnion, setChosenUnion] = useState('');
+  // Children who hang from this person alone and are the new partner's too (ADR 0039).
+  const [linkChildren, setLinkChildren] = useState<string[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -228,6 +231,13 @@ function RelativeForm({
     singleParentId !== null &&
     (!useExisting || (existing !== null && existingDetail.isSuccess && sharedUnions.length === 0));
   const needsUnionChoice = useExisting && sharedUnions.length > 1;
+
+  // Add partner: this person's one-parent children, once the partner is known (a new person, or the one picked).
+  const partnerChoiceId = useExisting ? (existing?.id ?? null) : null;
+  const partnerListFor = isPartner && admin && (!useExisting || existing !== null) ? person.id : null;
+  const partnerLinkable = useLinkableChildren(partnerListFor, partnerChoiceId);
+  const typedName = draft.givenName.trim();
+  const newOtherName = (fallback: string) => (useExisting && existing ? displayName(existing) : typedName || fallback);
 
   // What the server stored for a new partner relationship (it can differ from what was asked).
   const saved = useRef<UnionStatus | null>(null);
@@ -276,22 +286,16 @@ function RelativeForm({
           await api.updatePerson(person.id, { marriedSurname: next || null });
         }
       };
-      if (useExisting) {
-        if (!existing) return null;
-        const created = await api.createUnion({ ...link, partnerIds: sortedPair(person.id, existing.id) });
-        saved.current = created.union.status;
-        await saveOwnSurname();
-        return { person: existing, warnings: [] };
-      }
-      if (!input) return null;
-      const added = await createThenLink(
-        input,
-        newPartnerLink(person.id, link, (status) => {
-          saved.current = status;
-        }),
-      );
+      if (useExisting ? !existing : !input) return null;
+      // One call, one transaction: the partner (when new), the relationship and the ticked children (ADR 0039).
+      const result = await api.addPartner(person.id, {
+        ...(useExisting ? { partnerId: (existing as Person).id } : { partner: input! }),
+        union: link,
+        ...(linkChildren.length > 0 ? { linkChildren } : {}),
+      });
+      saved.current = result.union.status;
       await saveOwnSurname();
-      return added;
+      return { person: result.person, warnings: result.warnings };
     }
     // A brother or sister: one call, one transaction. The server adds unknown parents when there are none.
     if (!input || linkInput === undefined) return null;
@@ -422,6 +426,17 @@ function RelativeForm({
       ) : null}
 
       {isPartner ? <UnionFields draft={union} onChange={setUnion} showErrors={submitted} /> : null}
+      {partnerListFor ? (
+        <LinkChildrenField
+          parentId={partnerListFor}
+          partnerId={partnerChoiceId}
+          otherName={newOtherName(t('linkChildren.newPartner'))}
+          // Every child ticked when this person has no other relationship (they are most likely the partner's too).
+          preselectAll={detail.unions.length === 0}
+          value={linkChildren}
+          onChange={setLinkChildren}
+        />
+      ) : null}
       {isPartner && detail.permissions.edit ? (
         <MarriedSurnames
           status={union.status}
@@ -462,6 +477,13 @@ function RelativeForm({
           <Link to={`/people/${error.person.id}`} onClick={onDone}>
             {t('addRelative.openProfile')}
           </Link>
+        </div>
+      ) : error && refusedChildName(error, partnerLinkable.data) ? (
+        <div className="alert" role="alert">
+          {t('linkChildren.refused', {
+            name: refusedChildName(error, partnerLinkable.data) as string,
+            reason: errorMessage(error),
+          })}
         </div>
       ) : error ? (
         <div className="alert" role="alert">
