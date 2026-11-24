@@ -273,6 +273,13 @@ jobs:
         env:
           PREVIOUS_TAG: v0.3.0-rc.2
         run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
+      # 0.3.0-rc.3 (schema 24: migration 0024 folds the surname particle into the surname) is the third 0.3.0 release candidate.
+      # Its seed (seed-0.3.0-rc.3.sh, the 0.3.0 seed) stores no particle, since rc.3's API refuses one; rc.1 and rc.2 test the fold.
+      - name: Upgrade 0.3.0-rc.3 in place (pinned), and restore its safety copy on an empty database
+        if: ${{ !cancelled() }}
+        env:
+          PREVIOUS_TAG: v0.3.0-rc.3
+        run: ./scripts/upgrade-test.sh upgrade "${{ github.sha }}"
 
   # A required check ("Protect main" ruleset). A real browser against the real web, api and Postgres containers.
   e2e:
