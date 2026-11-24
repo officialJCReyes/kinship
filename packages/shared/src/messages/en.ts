@@ -1124,7 +1124,7 @@ export const en = {
   'tree.title': 'Family tree',
   'tree.chartLabel': 'Family tree chart',
   'tree.chartHelp':
-    'Arrow keys move between people, Enter or Space selects, plus and minus zoom, 0 fits the chart. Up from a person with a leaf moves to the leaf.',
+    'Arrow keys move between people, Enter or Space selects, Shift+Enter selects and opens the side panel, plus and minus zoom, 0 fits the chart. Up from a person with a leaf moves to the leaf. Double-click a person to open the side panel.',
   'tree.choose.title': 'Choose who to start from',
   'tree.choose.body': 'Your account is not linked to a person yet. Pick the person the chart should start from.',
   'tree.choose.label': 'Starting person',
@@ -1220,7 +1220,7 @@ export const en = {
   'tree.descendants.below.many': '{n} children below',
   'tree.fan.chartLabel': 'Fan chart',
   'tree.fan.help':
-    'Arrow keys move between people: up to the father, down towards the person in the middle, left and right around the ring. Enter or Space makes the person the middle of the chart, plus and minus zoom, 0 fits the chart.',
+    'Arrow keys move between people: up to the father, down towards the person in the middle, left and right around the ring. Enter or Space makes the person the middle of the chart, Shift+Enter also opens the side panel, plus and minus zoom, 0 fits the chart. Double-click a person to open the side panel.',
   'tree.fan.fatherSide': 'father’s side',
   'tree.fan.motherSide': 'mother’s side',
   'tree.legend.fatherSide': 'Father’s side',

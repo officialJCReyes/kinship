@@ -12,6 +12,8 @@ import { nodeLabel } from './family.js';
 import { ringName } from './fanLayout.js';
 import type { FanLayout, FanText, FanWedge } from './fanLayout.js';
 import { Legend } from './Legend.js';
+import { pointOf } from './doubleActivate.js';
+import type { ClickPoint } from './doubleActivate.js';
 import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
 import type { WheelMode } from './viewport.js';
 import { ZoomControls } from './ZoomControls.js';
@@ -61,14 +63,17 @@ export interface FanCanvasProps {
   layout: FanLayout;
   people: ReadonlyMap<string, Person>;
   selectedId: string;
-  onSelect: (id: string) => void;
+  /** A click on a person (with where it was, so the page can tell a double-click) or Enter or Space (with none). */
+  onSelect: (id: string, point?: ClickPoint) => void;
+  /** Shift+Enter on a person: select and open the side panel (backlog 14). */
+  onOpen?: (id: string) => void;
   topLeft?: ReactNode;
   topRight?: ReactNode;
   /** What a plain mouse wheel does (the account's setting). */
   wheel?: WheelMode;
 }
 
-export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRight, wheel }: FanCanvasProps) {
+export function FanCanvas({ layout, people, selectedId, onSelect, onOpen, topLeft, topRight, wheel }: FanCanvasProps) {
   const display = useDisplay();
   const helpId = useId();
   const { wrap, svg, viewport, fit, zoomBy, showRect, pointerHandlers } = useChartViewport({
@@ -107,7 +112,8 @@ export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRi
     if (!id) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      onSelect(id);
+      if (event.key === 'Enter' && event.shiftKey && onOpen) onOpen(id);
+      else onSelect(id);
     } else if (
       event.key === 'ArrowLeft' ||
       event.key === 'ArrowRight' ||
@@ -158,7 +164,7 @@ export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRi
                       tabIndex={wedge.id === focusableId ? 0 : -1}
                       aria-label={labelFor(wedge.id, wedge)}
                       aria-pressed={wedge.id === selectedId}
-                      onClick={() => onSelect(wedge.id!)}
+                      onClick={(event) => onSelect(wedge.id!, pointOf(event))}
                       onFocus={() => setFocusId(wedge.id!)}
                     >
                       <title>{displayNameOf(people.get(wedge.id))}</title>
@@ -177,7 +183,7 @@ export function FanCanvas({ layout, people, selectedId, onSelect, topLeft, topRi
               tabIndex={layout.centre.id === focusableId ? 0 : -1}
               aria-label={labelFor(layout.centre.id)}
               aria-pressed={layout.centre.id === selectedId}
-              onClick={() => onSelect(layout.centre!.id)}
+              onClick={(event) => onSelect(layout.centre!.id, pointOf(event))}
               onFocus={() => setFocusId(layout.centre!.id)}
             >
               <title>{displayNameOf(people.get(layout.centre.id))}</title>

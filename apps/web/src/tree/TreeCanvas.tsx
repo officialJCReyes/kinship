@@ -18,6 +18,8 @@ import { ZoomControls } from './ZoomControls.js';
 import type { TreeViewName } from './treeView.js';
 import type { WheelMode } from './viewport.js';
 import { useChartViewport, ZOOM_STEP } from './useChartViewport.js';
+import { pointOf } from './doubleActivate.js';
+import type { ClickPoint } from './doubleActivate.js';
 
 /** Solid line for people who are together, dotted for a relationship that ended or is not a marriage. */
 export const SOLID_STATUSES: readonly UnionStatus[] = ['married', 'engaged', 'partner', 'widowed'];
@@ -102,7 +104,8 @@ interface NodeProps {
   mark: boolean;
   /** Changes with the account's name choices, so a card is drawn again when one of them does (the cards are memoized). */
   names: string;
-  onSelect: (id: string) => void;
+  /** A click (with where it was, for a double-click) or Enter or Space (with none). */
+  onSelect: (id: string, point?: ClickPoint) => void;
   onFocus: (id: string) => void;
   onLeaf: (leaf: Leaf) => void;
 }
@@ -152,7 +155,7 @@ const TreeNode = memo(function TreeNode({
         tabIndex={focusable ? 0 : -1}
         aria-label={label}
         aria-pressed={selected}
-        onClick={() => onSelect(person.id)}
+        onClick={(event) => onSelect(person.id, pointOf(event))}
         onFocus={() => onFocus(person.id)}
       >
         <title>{full}</title>
@@ -284,7 +287,10 @@ export interface TreeCanvasProps {
   parents: ReadonlyMap<string, string[]>;
   children: ReadonlyMap<string, string[]>;
   canEditUnion: (unionId: string) => boolean;
-  onSelect: (id: string) => void;
+  /** A click on a person (with where it was, so the page can tell a double-click) or Enter or Space (with none). */
+  onSelect: (id: string, point?: ClickPoint) => void;
+  /** Shift+Enter on a person: select them and open the side panel, as a double-click does (backlog 14). */
+  onOpen?: (id: string) => void;
   onLeaf: (leaf: Leaf) => void;
   onCouple: (unionId: string) => void;
   /** Scroll this person into view (no zoom change) when `n` changes: the chart's search chose someone already drawn. */
@@ -401,6 +407,8 @@ export function TreeCanvas(props: TreeCanvasProps) {
       if (onAnyLeaf) {
         const leaf = (leafEl ? leaves : otherLeaves).get(id);
         if (leaf) onLeaf(leaf);
+      } else if (event.key === 'Enter' && event.shiftKey && props.onOpen) {
+        props.onOpen(id);
       } else {
         onSelect(id);
       }

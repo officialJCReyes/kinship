@@ -15,6 +15,8 @@ import { ancestorsQuery, chartQuery, descendantsQuery, familyQuery } from '../pe
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 
 import type { Leaf } from './family.js';
+import { isSecondClick } from './doubleActivate.js';
+import type { ChartClick, ClickPoint } from './doubleActivate.js';
 import { prefersReducedMotion } from './motion.js';
 import { recallRoot, rememberRoot } from './remember.js';
 import { FanCanvas } from './FanCanvas.js';
@@ -115,6 +117,11 @@ export function TreePage() {
   const chartFamily = chart?.view === 'family';
 
   const selectedId = chartFamily ? (sel ?? focalId) : focalId;
+  // Read by Shift+Enter's handler without making it (and so every card) change with each selection.
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
   /** The chart rooted on a person, in the view the address names. */
   const rootUrl = useCallback(
     (personId: string, keep?: string) => {
@@ -134,6 +141,38 @@ export function TreePage() {
       });
     },
     [chartFamily, navigate, rootUrl, setParams],
+  );
+
+  // A double-click (or double-tap) on a person, or Shift+Enter, opens the side panel even when it is collapsed, without
+  // changing the remembered collapse choice (backlog 14), as choosing someone in the search does. The first click has already
+  // selected (or, outside the Family tree, re-rooted on) that person, so the second only opens the panel. It is told from a
+  // single click by time and place (doubleActivate.ts), and it always opens the FIRST click's person: after a re-root another
+  // card may be under the pointer.
+  const [opened, setOpened] = useState(0);
+  const lastClick = useRef<ChartClick | null>(null);
+  const activate = useCallback(
+    (personId: string, point?: ClickPoint) => {
+      const at = performance.now();
+      const first = lastClick.current;
+      // In the Family tree nothing moves, so a double-click is on one person; in the other views the first click re-rooted
+      // the chart, so the second may land on whoever is drawn there now.
+      if (isSecondClick(first, at, point) && (!chartFamily || first.id === personId)) {
+        lastClick.current = null;
+        setOpened((n) => n + 1);
+        return;
+      }
+      lastClick.current = point ? { id: personId, at, ...point } : null;
+      select(personId);
+    },
+    [select, chartFamily],
+  );
+  const openPanel = useCallback(
+    (personId: string) => {
+      lastClick.current = null;
+      if (personId !== selectedIdRef.current) select(personId);
+      setOpened((n) => n + 1);
+    },
+    [select],
   );
 
   // A person chosen in the chart's search. In the Family tree someone drawn is selected and brought into view (no change
@@ -292,7 +331,7 @@ export function TreePage() {
         me={me}
         otherFamily={chart.otherLeaves.get(selectedId)}
         onOpenOther={openLeaf}
-        expandSignal={found?.n ?? 0}
+        expandSignal={(found?.n ?? 0) + opened}
       />
       <div className={`tree-stage${flip ? ` flip-${flip}` : ''}`}>
         {chart.fan ? (
@@ -301,7 +340,8 @@ export function TreePage() {
             layout={chart.fan}
             people={people}
             selectedId={selectedId}
-            onSelect={select}
+            onSelect={activate}
+            onOpen={openPanel}
             topLeft={topLeft}
             topRight={topRight}
             wheel={me.treeWheel}
@@ -318,7 +358,8 @@ export function TreePage() {
             parents={chart.parents}
             children={chart.children}
             canEditUnion={canEdit}
-            onSelect={select}
+            onSelect={activate}
+            onOpen={openPanel}
             onLeaf={openLeaf}
             onCouple={openUnion}
             revealRequest={found}
