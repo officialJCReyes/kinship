@@ -27,7 +27,7 @@ import { buildFamily } from './helpers/family.js';
 import { createTestDatabase } from './helpers/db.js';
 import type { TestDatabase } from './helpers/db.js';
 import { realMigrationsDir, removeMigrationsFrom, tempMigrationsDir } from './helpers/migrations-dir.js';
-import { testConfig, testTools } from './helpers/pg-tools.js';
+import { sizeSlack, testConfig, testTools } from './helpers/pg-tools.js';
 
 /** The newest migration number. Never write the last number into a test: a later migration moves it. */
 const LATEST = readdirSync(realMigrationsDir).filter((n) => /^\d{4}_.*\.sql$/.test(n)).length;
@@ -847,12 +847,20 @@ describe('what a restore refuses', () => {
         ?.n,
     );
     const before = await state(l.test.owner, l.test.config.appUser);
-    const short = { ...l.ctx, freeBytes: () => size * 2 - 1 };
+    // Short even if the restore's own reading of the database comes out a little lower than this one (see sizeSlack).
+    const available = (size - sizeSlack(size)) * 2 - 1;
+    const short = { ...l.ctx, freeBytes: () => available };
     const failure = await restoreBackup(short, made.path, hooks()).catch((e: unknown) => e as BackupError);
     expect((failure as BackupError).kind).toBe('disk_space');
-    expect((failure as BackupError).message).toContain(`${size * 2} bytes are needed`);
-    expect((failure as BackupError).message).toContain(`${size * 2 - 1} are available`);
-    expect((failure as BackupError).message).not.toContain(l.dir);
+    // The restore measures the database again, a moment after the read above, and the two readings can differ (pg_database_size
+    // counts a cache file Postgres rewrites at will, see sizeSlack; #230). So the sum is checked against the size the message
+    // reports, and that size against this test's own read.
+    const message = (failure as BackupError).message;
+    const reported = Number(/which is (\d+) bytes/.exec(message)?.[1]);
+    expect(Math.abs(reported - size)).toBeLessThanOrEqual(sizeSlack(size));
+    expect(message).toContain(`${reported * 2} bytes are needed`);
+    expect(message).toContain(`${available} are available`);
+    expect(message).not.toContain(l.dir);
     expect(await state(l.test.owner, l.test.config.appUser)).toEqual(before);
     await expect(
       restoreBackup({ ...l.ctx, freeBytes: () => size * 2 + 10_000_000 }, made.path, hooks()),
