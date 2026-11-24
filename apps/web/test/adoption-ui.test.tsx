@@ -112,9 +112,12 @@ describe('Add relative and the type of link', () => {
       haleRoutes(ADMIN, {
         'POST /api/people/ben/parents': {
           status: 201,
-          body: { parentage: { unionId: null, parentId: 'x', kind: 'adoptive', link: null }, warnings: [] },
+          body: {
+            parentage: { unionId: null, parentId: 'x', kind: 'adoptive', link: null },
+            warnings: [],
+            person: { ...PEOPLE[3]!, id: 'newmom' },
+          },
         },
-        'POST /api/people': { status: 201, body: { person: { ...PEOPLE[3]!, id: 'newmom' }, warnings: [] } },
       }),
     );
     renderApp('/people/ben');
@@ -133,8 +136,9 @@ describe('Add relative and the type of link', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(calls(fetchMock)).toContain('POST /api/people/ben/parents'));
     const call = fetchMock.mock.calls.find(([input]) => String(input) === '/api/people/ben/parents');
-    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
-      parentId: 'newmom',
+    // The new parent goes in the same call (ADR 0039).
+    expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+      parent: { givenName: 'Mina', surname: 'Hale' },
       kind: 'adoptive',
       link: { value: '2001', precision: 'exactly' },
     });

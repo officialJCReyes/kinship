@@ -2,6 +2,7 @@
 import { displayName } from '../lib/names.js';
 import { LINK_KINDS } from '@kinship/shared';
 import type {
+  ApiWarning,
   AuthUser,
   Gender,
   LinkKind,
@@ -13,7 +14,6 @@ import type {
 } from '@kinship/shared';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router';
 import * as api from '../api.js';
 import { ActionButton } from '../components/ActionButton.js';
 import { DateInput } from '../components/DateInput.js';
@@ -27,9 +27,7 @@ import { errorMessage, warningTexts } from '../lib/errors.js';
 import { statusName } from '../lib/labels.js';
 import { lifespan, parentIdsOf, peopleById } from '../lib/people.js';
 import { useNotices } from '../notices.js';
-import { CreatedButNotLinked, createThenLink } from './relatives.js';
 import { LinkChildrenField, refusedChildName, useLinkableChildren } from './LinkChildren.js';
-import type { Added } from './relatives.js';
 import { isAdmin } from './permissions.js';
 import { checkPersonDraft, emptyPersonDraft, PersonFields } from './PersonForm.js';
 import type { PersonDraft } from './PersonForm.js';
@@ -162,6 +160,12 @@ export function AddRelativeDialog({ detail, tree, me, onClose }: Context & { onC
 
 type Mode = 'new' | 'existing';
 
+/** The relative a save added (or picked), and the warnings the server returned. */
+interface Added {
+  person: Person;
+  warnings: ApiWarning[];
+}
+
 function RelativeForm({
   kind,
   detail,
@@ -227,6 +231,10 @@ function RelativeForm({
   const sharedUnions = (existingDetail.data?.unions ?? []).filter(
     (candidate) => singleParentId !== null && candidate.partnerIds.includes(singleParentId),
   );
+  // Add parent to a child with one parent of that kind: that parent's other one-parent children, the child's brothers and
+  // sisters through them, may be the new parent's too (ADR 0039). The child itself is always linked.
+  const parentListFor = isParent && admin && (!useExisting || existing !== null) ? singleParentId : null;
+  const parentLinkable = useLinkableChildren(parentListFor, useExisting ? (existing?.id ?? null) : null, person.id);
   const willCreateUnknown =
     singleParentId !== null &&
     (!useExisting || (existing !== null && existingDetail.isSuccess && sharedUnions.length === 0));
@@ -237,6 +245,8 @@ function RelativeForm({
   const partnerListFor = isPartner && admin && (!useExisting || existing !== null) ? person.id : null;
   const partnerLinkable = useLinkableChildren(partnerListFor, partnerChoiceId);
   const typedName = draft.givenName.trim();
+  // The children the form offered, to name one the server refused.
+  const refusable = [...(partnerLinkable.data ?? []), ...(parentLinkable.data ?? [])];
   const newOtherName = (fallback: string) => (useExisting && existing ? displayName(existing) : typedName || fallback);
 
   // What the server stored for a new partner relationship (it can differ from what was asked).
@@ -254,28 +264,17 @@ function RelativeForm({
       return { person: result.person, warnings: result.warnings };
     }
     if (isParent) {
-      if (useExisting) {
-        if (!existing || (needsUnionChoice && !chosenUnion) || linkInput === undefined) return null;
-        const result = await api.addParent(person.id, {
-          parentId: existing.id,
-          kind: chosenKind,
-          ...(linkInput ? { link: linkInput } : {}),
-          ...(chosenUnion ? { unionId: chosenUnion } : {}),
-        });
-        return { person: existing, warnings: result.warnings };
-      }
-      if (!input || linkInput === undefined) return null;
-      return createThenLink(
-        input,
-        async (parent) =>
-          (
-            await api.addParent(person.id, {
-              parentId: parent.id,
-              kind: chosenKind,
-              ...(linkInput ? { link: linkInput } : {}),
-            })
-          ).warnings,
-      );
+      if (useExisting ? !existing || (needsUnionChoice && !chosenUnion) : !input) return null;
+      if (linkInput === undefined) return null;
+      // One call, one transaction: the parent (when new), the link, and the brothers and sisters ticked (ADR 0039).
+      const result = await api.addParent(person.id, {
+        ...(useExisting ? { parentId: (existing as Person).id } : { parent: input! }),
+        kind: chosenKind,
+        ...(linkInput ? { link: linkInput } : {}),
+        ...(chosenUnion ? { unionId: chosenUnion } : {}),
+        ...(linkChildren.length > 0 && parentListFor ? { linkChildren } : {}),
+      });
+      return { person: result.person ?? (existing as Person), warnings: result.warnings };
     }
     if (isPartner) {
       if (!unionChecked.ok) return null;
@@ -462,6 +461,18 @@ function RelativeForm({
         </SelectField>
       ) : null}
 
+      {parentListFor ? (
+        <LinkChildrenField
+          parentId={parentListFor}
+          partnerId={useExisting ? (existing?.id ?? null) : null}
+          exclude={person.id}
+          otherName={newOtherName(t('linkChildren.newParent'))}
+          preselectAll={false}
+          value={linkChildren}
+          onChange={setLinkChildren}
+        />
+      ) : null}
+
       {willCreateUnknown ? (
         <p className="notice info" role="note">
           {t('addRelative.unknownNote')}
@@ -471,17 +482,10 @@ function RelativeForm({
         <p className="muted">{t('addRelative.usesExisting')}</p>
       ) : null}
 
-      {error instanceof CreatedButNotLinked ? (
-        <div className="alert" role="alert">
-          {t('addRelative.notLinked', { name: displayName(error.person) })}{' '}
-          <Link to={`/people/${error.person.id}`} onClick={onDone}>
-            {t('addRelative.openProfile')}
-          </Link>
-        </div>
-      ) : error && refusedChildName(error, partnerLinkable.data) ? (
+      {error && refusedChildName(error, refusable) ? (
         <div className="alert" role="alert">
           {t('linkChildren.refused', {
-            name: refusedChildName(error, partnerLinkable.data) as string,
+            name: refusedChildName(error, refusable) as string,
             reason: errorMessage(error),
           })}
         </div>
