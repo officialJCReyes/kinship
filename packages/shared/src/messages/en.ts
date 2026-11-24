@@ -647,6 +647,8 @@ export const en = {
   'error.sibling_needs_parent':
     'This person has no parents of that kind recorded, so a brother or sister cannot be added that way.',
   'error.placeholder_needs_name': 'Give this person a given name and a surname to make them an ordinary person.',
+  'error.child_not_linkable':
+    'One of the children chosen no longer hangs from that parent alone, so they cannot be linked this way. Nothing was saved.',
   'error.union_ambiguous': 'These two people have more than one relationship. Choose which one the child belongs to.',
   'error.union_parent_mismatch': 'That relationship does not include the parent you chose.',
   'error.parent_not_found': 'That person is not a parent of this child.',

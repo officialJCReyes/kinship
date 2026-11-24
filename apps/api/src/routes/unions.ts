@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
-import type { UnionInput, UnionPatch, UnionResponse, UnionStatus } from '@kinship/shared';
+import { MAX_LINK_CHILDREN, UNION_END_STATUSES, UNION_STATUSES } from '@kinship/shared';
+import type {
+  LinkUnionChildrenRequest,
+  LinkUnionChildrenResponse,
+  UnionInput,
+  UnionPatch,
+  UnionResponse,
+  UnionStatus,
+} from '@kinship/shared';
 import type { FastifyInstance } from 'fastify';
 import { sql } from 'kysely';
 import type { Transaction } from 'kysely';
@@ -8,6 +15,7 @@ import type { Database } from '../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../errors.js';
 import { canEditUnion, isAdmin } from '../people/actor.js';
 import { parseDateInput } from '../people/dates.js';
+import { linkChildrenToUnion } from '../people/link-children.js';
 import { withActor } from '../people/run.js';
 import {
   UNION_COLUMNS,
@@ -216,6 +224,46 @@ export function registerUnionRoutes(app: FastifyInstance, limit: RouteLimit): vo
           await sql`select set_config(${STATUS_BY_HAND_SETTING}, 'off', true)`.execute(trx);
         if (!row) throw forbidden();
         return respond(trx, row);
+      });
+    },
+  );
+
+  // --- link children who hang from one partner alone to the relationship (admins; ADR 0039) ---
+  app.post(
+    '/api/unions/:id/children',
+    {
+      config: limit,
+      schema: {
+        params: idParams,
+        body: {
+          type: 'object',
+          required: ['childIds'],
+          additionalProperties: false,
+          properties: {
+            childIds: {
+              type: 'array',
+              minItems: 1,
+              maxItems: MAX_LINK_CHILDREN,
+              uniqueItems: true,
+              items: { type: 'string', maxLength: 64 },
+            },
+          },
+        },
+      },
+    },
+    async (request): Promise<LinkUnionChildrenResponse> => {
+      const { id } = request.params as { id: string };
+      const body = request.body as LinkUnionChildrenRequest;
+      if (!isUuid(id)) throw notFound('union_not_found');
+      return withActor(request, async (trx, actor) => {
+        if (!isAdmin(actor)) throw forbidden();
+        const union = await getUnion(trx, id);
+        if (!union) throw notFound('union_not_found');
+        for (const childId of body.childIds) {
+          if (!isUuid(childId) || !(await getPerson(trx, childId))) throw notFound('person_not_found');
+        }
+        const warnings = await linkChildrenToUnion(trx, union, body.childIds);
+        return { ...(await respond(trx, union)), warnings };
       });
     },
   );

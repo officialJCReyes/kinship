@@ -3,7 +3,7 @@
 // 2,000 people: the tree call and the name search stay fast. The family is generated (fictional
 // names like "Given17 Surname4"); generations of couples, three children each.
 import { sql } from 'kysely';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, onTestFinished } from 'vitest';
 import { createTestApp, insertUser, login, cookieHeader, CSRF } from './helpers/app.js';
 import { countPeople } from '../src/people/store.js';
 import { withUserTransaction } from '../src/request-context.js';
@@ -132,6 +132,48 @@ describe('about 2,000 people', () => {
       );
       expect(median).toBeLessThan(250);
       expect(bytes).toBeLessThan(40_000);
+    }
+  });
+
+  it('lists the children who could also be a partner’s quickly (ADR 0039: the add-partner and add-parent checklists)', async () => {
+    // Five children of the focal person alone, and as the partner someone from the youngest generation, so the walk up
+    // from the partner (the cycle check) is the longest this family has.
+    const youngest = (
+      await sql<{ id: string }>`
+        select p.id from people p join person_parents pp on pp.child_id = p.id order by p.birth_date desc, p.id limit 1`.execute(
+        t.owner,
+      )
+    ).rows[0]!.id;
+    const added: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const r = await sql<{ id: string }>`
+        insert into people (given_name, surname) values (${'Single' + i}, 'Child') returning id`.execute(t.owner);
+      added.push(r.rows[0]!.id);
+      await sql`insert into person_parents (child_id, parent_id) values (${r.rows[0]!.id}, ${focal})`.execute(t.owner);
+    }
+    // The other tests count everyone: take the five out again however this one ends.
+    onTestFinished(async () => {
+      await sql`delete from people where id = any(${added}::uuid[])`.execute(t.owner);
+    });
+    for (const [name, query] of [
+      ['a new partner', ''],
+      ['an existing partner from the youngest generation', `?partner=${youngest}`],
+    ] as const) {
+      const times: number[] = [];
+      let count = 0;
+      for (let i = 0; i < 7; i++) {
+        const started = performance.now();
+        const response = await get(`/api/people/${focal}/linkable-children${query}`);
+        times.push(performance.now() - started);
+        expect(response.statusCode).toBe(200);
+        count = (response.json() as { children: unknown[] }).children.length;
+      }
+      times.sort((a, b) => a - b);
+      console.log(
+        `GET /api/people/:id/linkable-children, ${name}, ${total} people: ${count} children, median ${times[3]!.toFixed(1)} ms (best ${times[0]!.toFixed(1)} ms)`,
+      );
+      expect(count).toBe(5);
+      expect(times[3]!).toBeLessThan(250);
     }
   });
 
