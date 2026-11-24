@@ -1116,8 +1116,6 @@ export const en = {
   'addRelative.unknownNote':
     'These two parents are not linked yet, so a relationship with status Unknown will be created for them. You can change it later.',
   'addRelative.usesExisting': 'They already have a relationship, and the child will hang from it.',
-  'addRelative.notLinked': '{name} was created but could not be linked to this person, and could not be removed again.',
-  'addRelative.openProfile': 'Open their profile',
   'picker.placeholder': 'Type a name',
   'picker.change': 'Change',
   'picker.none': 'Nobody found.',

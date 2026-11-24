@@ -128,3 +128,106 @@ describe('Add partner: are any of these also their children?', () => {
     expect(calls(fetchMock).some((c) => c.includes('linkable-children'))).toBe(false);
   });
 });
+
+describe('Add parent: are any of these brothers and sisters also their children?', () => {
+  // Ben hangs from Daniel alone. Two more children of Daniel's alone, for these cases (the server's list is mocked).
+  const siblings = {
+    status: 200,
+    body: {
+      children: [
+        { child: person('sofia'), kind: 'birth' },
+        { child: person('carla'), kind: 'adoptive' },
+      ],
+    },
+  };
+
+  async function openAddMother() {
+    renderApp('/people/ben');
+    await screen.findByRole('heading', { name: 'Ben Hale' });
+    click('Add relative');
+    click('Add mother');
+  }
+
+  it('lists the existing parent’s other children alone, ticks none, and sends the ticked ones with the new parent', async () => {
+    const fetchMock = mockApi(
+      haleRoutes(ADMIN, {
+        'GET /api/people/daniel/linkable-children?exclude=ben': siblings,
+        'POST /api/people/ben/parents': {
+          status: 201,
+          body: { parentage: { unionId: 'new', parentId: null }, warnings: [], person: person('elena') },
+        },
+      }),
+    );
+    await openAddMother();
+    const group = await screen.findByRole('group', { name: 'Are any of these also the new parent’s children?' });
+    const boxes = within(group).getAllByRole('checkbox') as HTMLInputElement[];
+    expect(boxes.map((b) => b.checked)).toEqual([false, false]);
+    expect(within(group).getByText(/adopted/)).toBeTruthy();
+    type('Given (and middle) name', 'Mina');
+    type('Surname', 'Hale');
+    fireEvent.click(within(group).getByRole('checkbox', { name: /Sofia Hale/ }));
+    click('Save');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).toMatchObject({
+      parent: { givenName: 'Mina', surname: 'Hale' },
+      kind: 'birth',
+      linkChildren: ['sofia'],
+    });
+    expect(calls(fetchMock).filter((c) => c.startsWith('POST'))).toEqual(['POST /api/people/ben/parents']);
+  });
+
+  it('asks again for an existing parent picked by name', async () => {
+    const fetchMock = mockApi(
+      haleRoutes(ADMIN, {
+        '/api/people?q=nor&limit=8': { status: 200, body: { items: [person('nora')], nextCursor: null } },
+        'GET /api/people/daniel/linkable-children?partner=nora&exclude=ben': siblings,
+        'POST /api/people/ben/parents': {
+          status: 201,
+          body: { parentage: { unionId: 'x', parentId: null }, warnings: [] },
+        },
+      }),
+    );
+    await openAddMother();
+    fireEvent.click(screen.getByLabelText('Someone already on the tree'));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Find them by name' }), { target: { value: 'nor' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Nora Okafor/ }));
+    const group = await screen.findByRole('group', { name: 'Are any of these also Nora Okafor’s children?' });
+    fireEvent.click(within(group).getByRole('checkbox', { name: /Carla Nair/ }));
+    click('Save');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).toMatchObject({
+      parentId: 'nora',
+      linkChildren: ['carla'],
+    });
+  });
+
+  it('names a refused brother or sister and saves nothing', async () => {
+    mockApi(
+      haleRoutes(ADMIN, {
+        'GET /api/people/daniel/linkable-children?exclude=ben': siblings,
+        'POST /api/people/ben/parents': {
+          status: 409,
+          body: { error: 'same_person_both_kinds', childId: 'carla' },
+        },
+      }),
+    );
+    await openAddMother();
+    const group = await screen.findByRole('group', { name: /Are any of these also/ });
+    fireEvent.click(within(group).getByRole('checkbox', { name: /Carla Nair/ }));
+    type('Given (and middle) name', 'Mina');
+    type('Surname', 'Hale');
+    click('Save');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toMatch(/^Carla Nair could not be linked: That person is already a parent of this child/);
+  });
+
+  it('asks nothing for a person with no parent yet', async () => {
+    const fetchMock = mockApi(haleRoutes(ADMIN));
+    renderApp('/people/walter');
+    await screen.findByRole('heading', { name: 'Walter Hale' });
+    click('Add relative');
+    click('Add father');
+    expect(screen.queryByTestId('link-children')).toBeNull();
+    expect(calls(fetchMock).some((c) => c.includes('linkable-children'))).toBe(false);
+  });
+});

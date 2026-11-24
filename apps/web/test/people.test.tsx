@@ -377,14 +377,13 @@ describe('add relative', () => {
     });
   });
 
-  it('creates a parent, links them, and says an Unknown relationship will be created', async () => {
+  it('creates a parent and links them in one call, and says an Unknown relationship will be created', async () => {
     const mother = { ...PEOPLE[3]!, id: 'newmom', givenName: 'Mina', surname: 'Hale' };
     const fetchMock = mockApi(
       haleRoutes(ADMIN, {
-        'POST /api/people': { status: 201, body: { person: mother, warnings: [] } },
         'POST /api/people/ben/parents': {
           status: 201,
-          body: { parentage: { unionId: 'new', parentId: null }, warnings: [] },
+          body: { parentage: { unionId: 'new', parentId: null }, warnings: [], person: mother },
         },
       }),
     );
@@ -397,19 +396,19 @@ describe('add relative', () => {
     type('Surname', 'Hale');
     click('Save');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(calls(fetchMock).filter((c) => c.startsWith('POST'))).toEqual([
-      'POST /api/people',
-      'POST /api/people/ben/parents',
-    ]);
-    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).toEqual({ parentId: 'newmom', kind: 'birth' });
+    expect(calls(fetchMock).filter((c) => c.startsWith('POST'))).toEqual(['POST /api/people/ben/parents']);
+    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).toMatchObject({
+      parent: { givenName: 'Mina', surname: 'Hale', gender: 'female' },
+      kind: 'birth',
+    });
+    expect(bodyOf(fetchMock, 'POST /api/people/ben/parents')).not.toHaveProperty('linkChildren');
+    expect(await screen.findByText('Mina Hale was added to the tree.')).toBeTruthy();
   });
 
-  it('removes the person it just created when linking fails', async () => {
+  it('shows the error of a refused save, creates nobody, and keeps the dialog open', async () => {
     const fetchMock = mockApi(
       haleRoutes(ADMIN, {
-        'POST /api/people': { status: 201, body: { person: { ...PEOPLE[3]!, id: 'newmom' }, warnings: [] } },
         'POST /api/people/ben/parents': { status: 409, body: { error: 'too_many_parents' } },
-        'DELETE /api/people/newmom': { status: 204 },
       }),
     );
     renderApp('/people/ben');
@@ -420,32 +419,10 @@ describe('add relative', () => {
     type('Surname', 'Hale');
     click('Save');
     expect(await screen.findByText('A person can have at most two parents.')).toBeTruthy();
-    expect(calls(fetchMock)).toContain('DELETE /api/people/newmom');
-    expect(screen.queryByText(/could not be removed again/)).toBeNull();
-  });
-
-  it('says a person was created but not linked when the cleanup fails too, with a link to them', async () => {
-    mockApi(
-      haleRoutes(ADMIN, {
-        'POST /api/people': {
-          status: 201,
-          body: { person: { ...PEOPLE[3]!, id: 'newmom', givenName: 'Mina', surname: 'Hale' }, warnings: [] },
-        },
-        'POST /api/people/ben/parents': { status: 500, body: { error: 'internal_error' } },
-        'DELETE /api/people/newmom': { status: 500, body: { error: 'internal_error' } },
-      }),
-    );
-    renderApp('/people/ben');
-    await screen.findByRole('heading', { name: 'Ben Hale' });
-    click('Add relative');
-    click('Add mother');
-    type('Given (and middle) name', 'Mina');
-    type('Surname', 'Hale');
-    click('Save');
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Mina Hale was created but could not be linked');
-    const link = within(alert).getByRole('link', { name: 'Open their profile' });
-    expect(link.getAttribute('href')).toBe('/people/newmom');
+    expect(calls(fetchMock).filter((c) => c.startsWith('POST') || c.startsWith('DELETE'))).toEqual([
+      'POST /api/people/ben/parents',
+    ]);
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('adds a partner who is already on the tree, chosen by name, with a status', async () => {
