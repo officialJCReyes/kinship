@@ -76,7 +76,7 @@ describe('step 4, Partner', () => {
 
   it('needs both names once one is typed, and says so per field', async () => {
     await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     next();
     expect(await screen.findByText('Enter a surname (up to 100 characters).')).toBeTruthy();
     await waitFor(() => expect(document.activeElement).toBe(field('Birth (maiden) surname')));
@@ -85,7 +85,7 @@ describe('step 4, Partner', () => {
 
   it('says at once that Widowed needs Deceased, and does not move on until it is fixed', async () => {
     await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     choose('Relationship', 'widowed');
     expect(
@@ -101,7 +101,7 @@ describe('step 4, Partner', () => {
 
   it('says Married and deceased is recorded as Widowed', async () => {
     await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     expect(screen.queryByText(/recorded as Widowed/)).toBeNull();
     choose('Living or deceased', 'deceased');
@@ -111,7 +111,7 @@ describe('step 4, Partner', () => {
   it('has an optional birth date, and leaving it empty never blocks the step or adds a date to the request', async () => {
     const fetchMock = await toPartner();
     expect(field('Birth date (optional)').value).toBe('');
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     next();
     await heading('Add your parents');
@@ -133,7 +133,7 @@ describe('step 4, Partner', () => {
       ['1950', 'before', { value: '1950', precision: 'before' }],
     ] as const) {
       const fetchMock = await toPartner();
-      type('Given name', 'Priya');
+      type('Given (and middle) name', 'Priya');
       type('Birth (maiden) surname', 'Nair');
       type('Birth date (optional)', text);
       choose('How sure: Birth date (optional)', precision);
@@ -154,7 +154,7 @@ describe('step 4, Partner', () => {
 
   it('says what a typed date means in the account’s date format, and Review shows it', async () => {
     await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     type('Birth date (optional)', '1962-03-14');
     expect(screen.getByText('Reads as: Mar 14, 1962')).toBeTruthy();
@@ -171,7 +171,7 @@ describe('step 4, Partner', () => {
 
   it('refuses a date that is not a date, next to the field, and does not move on', async () => {
     await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     type('Birth date (optional)', '1962-02-31');
     next();
@@ -196,7 +196,7 @@ describe('step 4, Partner', () => {
     await toYou({ 'POST /api/setup': { status: 400, body: { error: 'invalid_date', field: 'family.partner.birth' } } });
     next();
     await heading('Add your spouse or partner');
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     type('Birth date (optional)', '1962');
     next();
@@ -214,18 +214,18 @@ describe('step 4, Partner', () => {
 
   it('Back keeps what was typed, and Skip clears it silently', async () => {
     await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     next();
     await heading('Add your parents');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await heading('Add your spouse or partner');
-    expect(field('Given name').value).toBe('Priya');
+    expect(field('Given (and middle) name').value).toBe('Priya');
     skip();
     await heading('Add your parents');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await heading('Add your spouse or partner');
-    expect(field('Given name').value).toBe('');
+    expect(field('Given (and middle) name').value).toBe('');
   });
 });
 
@@ -241,9 +241,9 @@ describe('step 5, Parents', () => {
 
   it('shows "Their relationship" only when both parents are entered, defaulting to Married', async () => {
     await toParents();
-    fireEvent.change(inGroup('Father').getByLabelText('Given name'), { target: { value: 'Daniel' } });
+    fireEvent.change(inGroup('Father').getByLabelText('Given (and middle) name'), { target: { value: 'Daniel' } });
     expect(screen.queryByLabelText('Their relationship')).toBeNull();
-    fireEvent.change(inGroup('Mother').getByLabelText('Given name'), { target: { value: 'Elena' } });
+    fireEvent.change(inGroup('Mother').getByLabelText('Given (and middle) name'), { target: { value: 'Elena' } });
     fireEvent.change(inGroup('Mother').getByLabelText('Birth surname'), { target: { value: 'Ruiz' } });
     expect(field('Their relationship').value).toBe('married');
     choose('Their relationship', 'widowed');
@@ -257,7 +257,7 @@ describe('step 5, Parents', () => {
 
   it('a parent with a given name needs a surname, per field', async () => {
     await toParents();
-    fireEvent.change(inGroup('Mother').getByLabelText('Given name'), { target: { value: 'Elena' } });
+    fireEvent.change(inGroup('Mother').getByLabelText('Given (and middle) name'), { target: { value: 'Elena' } });
     next();
     expect(await screen.findByText('Enter a surname (up to 100 characters).')).toBeTruthy();
     await waitFor(() => expect(document.activeElement).toBe(inGroup('Mother').getByLabelText('Birth surname')));
@@ -275,19 +275,23 @@ describe('step 6, Children', () => {
 
   it('adds and removes rows, and keeps what is typed in the others', async () => {
     await toChildren();
-    fireEvent.change(screen.getByLabelText('Given name'), { target: { value: 'Leo' } });
+    fireEvent.change(screen.getByLabelText('Given (and middle) name'), { target: { value: 'Leo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add another child' }));
     expect(screen.getAllByRole('group', { name: /^Child \d$/ })).toHaveLength(2);
-    await waitFor(() => expect(document.activeElement).toBe(inGroup('Child 2').getByLabelText('Given name')));
-    fireEvent.change(inGroup('Child 2').getByLabelText('Given name'), { target: { value: 'Mia' } });
+    await waitFor(() =>
+      expect(document.activeElement).toBe(inGroup('Child 2').getByLabelText('Given (and middle) name')),
+    );
+    fireEvent.change(inGroup('Child 2').getByLabelText('Given (and middle) name'), { target: { value: 'Mia' } });
     fireEvent.click(screen.getByRole('button', { name: 'Remove child 1' }));
     const rows = screen.getAllByRole('group', { name: /^Child \d$/ });
     expect(rows).toHaveLength(1);
-    expect((within(rows[0] as HTMLElement).getByLabelText('Given name') as HTMLInputElement).value).toBe('Mia');
+    expect((within(rows[0] as HTMLElement).getByLabelText('Given (and middle) name') as HTMLInputElement).value).toBe(
+      'Mia',
+    );
     // Removing the last row leaves one empty row, never none.
     fireEvent.click(screen.getByRole('button', { name: 'Remove child 1' }));
     expect(screen.getAllByRole('group', { name: /^Child \d$/ })).toHaveLength(1);
-    expect((screen.getByLabelText('Given name') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('Given (and middle) name') as HTMLInputElement).value).toBe('');
   });
 
   it('stops at 30 children', async () => {
@@ -302,7 +306,7 @@ describe('step 6, Children', () => {
     await toChildren();
     fireEvent.click(screen.getByRole('button', { name: 'Add another child' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add another child' }));
-    fireEvent.change(inGroup('Child 1').getByLabelText('Given name'), { target: { value: 'Leo' } });
+    fireEvent.change(inGroup('Child 1').getByLabelText('Given (and middle) name'), { target: { value: 'Leo' } });
     // The second row is left empty; the third has a bad birth date and no name.
     fireEvent.change(inGroup('Child 3').getByLabelText('Birth date'), { target: { value: '2019-13' } });
     next();
@@ -310,12 +314,14 @@ describe('step 6, Children', () => {
     expect(inGroup('Child 3').getByText('Enter a given name (up to 100 characters).')).toBeTruthy();
     expect(inGroup('Child 2').queryByText(/Enter a/)).toBeNull();
     expect(inGroup('Child 1').queryByText(/Enter a/)).toBeNull();
-    await waitFor(() => expect(document.activeElement).toBe(inGroup('Child 3').getByLabelText('Given name')));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(inGroup('Child 3').getByLabelText('Given (and middle) name')),
+    );
   });
 
   it('with a partner, offers the partner (default) or "Not on the tree" for each child, and sends it', async () => {
     const fetchMock = await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     next();
     await heading('Add your parents');
@@ -328,9 +334,9 @@ describe('step 6, Children', () => {
         .map((o) => o.textContent),
     ).toEqual(['Priya Nair', 'Not on the tree']);
     expect(field('Other parent').value).toBe('partner');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     fireEvent.click(screen.getByRole('button', { name: 'Add another child' }));
-    fireEvent.change(inGroup('Child 2').getByLabelText('Given name'), { target: { value: 'Mia' } });
+    fireEvent.change(inGroup('Child 2').getByLabelText('Given (and middle) name'), { target: { value: 'Mia' } });
     fireEvent.change(inGroup('Child 2').getByLabelText('Other parent'), { target: { value: 'none' } });
     next();
     await heading('Check your tree');
@@ -345,13 +351,13 @@ describe('step 6, Children', () => {
 
   it('turns a child of the partner into "not on the tree" when the partner is skipped afterwards', async () => {
     const fetchMock = await toPartner();
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     next();
     await heading('Add your parents');
     skip();
     await heading('Add your children');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await heading('Add your parents');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
@@ -391,7 +397,7 @@ describe('warnings are soft', () => {
 
   it('warns, inline and on Review, when a child is less than 12 years younger than you, and still goes on', async () => {
     const fetchMock = await withYouBorn('2000');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     type('Birth date', '2006');
     expect(
       screen.getByText('Marcus Hale is only 6 years older than Leo Hale. Check the birth years. You can still go on.'),
@@ -406,7 +412,7 @@ describe('warnings are soft', () => {
 
   it('counts a child born before you', async () => {
     await withYouBorn('2000');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     type('Birth date', '1990');
     expect(
       screen.getByText('Leo Hale is born before Marcus Hale. Check the birth years. You can still go on.'),
@@ -415,14 +421,14 @@ describe('warnings are soft', () => {
 
   it('is quiet at exactly 12 years', async () => {
     await withYouBorn('2000');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     type('Birth date', '2012');
     expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('notes two people with the same name and birth date, and does not block', async () => {
     await withYouBorn('2000');
-    type('Given name', 'Marcus');
+    type('Given (and middle) name', 'Marcus');
     type('Birth date', '2000');
     expect(
       screen.getByText(
@@ -442,19 +448,19 @@ describe('Review shows the whole family in words', () => {
     choose('Gender', 'male');
     next();
     await heading('Add your spouse or partner');
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     type('Married surname (optional)', 'Hale');
     choose('Gender', 'female');
     next();
     await heading('Add your parents');
-    fireEvent.change(inGroup('Father').getByLabelText('Given name'), { target: { value: 'Daniel' } });
+    fireEvent.change(inGroup('Father').getByLabelText('Given (and middle) name'), { target: { value: 'Daniel' } });
     fireEvent.change(inGroup('Father').getByLabelText('Status'), { target: { value: 'deceased' } });
-    fireEvent.change(inGroup('Mother').getByLabelText('Given name'), { target: { value: 'Elena' } });
+    fireEvent.change(inGroup('Mother').getByLabelText('Given (and middle) name'), { target: { value: 'Elena' } });
     fireEvent.change(inGroup('Mother').getByLabelText('Birth surname'), { target: { value: 'Ruiz' } });
     next();
     await heading('Add your children');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     type('Birth date', '2017-04-09');
     choose('Gender', 'male');
     next();
@@ -491,7 +497,7 @@ describe('Review shows the whole family in words', () => {
     await fullFamily();
     fireEvent.click(screen.getByRole('button', { name: 'Change Parents' }));
     await heading('Add your parents');
-    expect(inGroup('Father').getByLabelText('Given name')).toBeTruthy();
+    expect(inGroup('Father').getByLabelText('Given (and middle) name')).toBeTruthy();
   });
 
   it('has no update-check paragraph, and the invite line instead of Authentik', async () => {
@@ -548,15 +554,15 @@ describe('what the server says about the family, mapped to its step and field', 
     await toYou({ 'POST /api/setup': { status: 400, body: answer } });
     next();
     await heading('Add your spouse or partner');
-    type('Given name', 'Priya');
+    type('Given (and middle) name', 'Priya');
     type('Birth (maiden) surname', 'Nair');
     next();
     await heading('Add your parents');
     skip();
     await heading('Add your children');
-    type('Given name', 'Leo');
+    type('Given (and middle) name', 'Leo');
     fireEvent.click(screen.getByRole('button', { name: 'Add another child' }));
-    fireEvent.change(inGroup('Child 2').getByLabelText('Given name'), { target: { value: 'Mia' } });
+    fireEvent.change(inGroup('Child 2').getByLabelText('Given (and middle) name'), { target: { value: 'Mia' } });
     next();
     await heading('Check your tree');
     create();
@@ -569,7 +575,7 @@ describe('what the server says about the family, mapped to its step and field', 
     const birth = inGroup('Child 2').getByLabelText('Birth date');
     expect(birth.getAttribute('aria-invalid')).toBe('true');
     await waitFor(() => expect(document.activeElement).toBe(birth));
-    expect((inGroup('Child 1').getByLabelText('Given name') as HTMLInputElement).value).toBe('Leo');
+    expect((inGroup('Child 1').getByLabelText('Given (and middle) name') as HTMLInputElement).value).toBe('Leo');
     expect(progress()).toBe('Step 6 of 7 · Children');
   });
 
@@ -577,7 +583,7 @@ describe('what the server says about the family, mapped to its step and field', 
     await review({ error: 'widowed_needs_deceased', field: 'family.partner.deceased' });
     await heading('Add your spouse or partner');
     expect(screen.getByText(/Widowed needs someone who has died/)).toBeTruthy();
-    expect(field('Given name').value).toBe('Priya');
+    expect(field('Given (and middle) name').value).toBe('Priya');
   });
 
   it('family.parents.status: back to the parents step', async () => {

@@ -229,6 +229,22 @@ test('the camera on the avatar: upload a new profile photo, then choose another 
   const now = await panel.locator('.profile-avatar img').getAttribute('src');
   await expect(page.locator(`[data-node="${person.id}"] image`).first()).toHaveAttribute('href', now ?? '');
 
+  // Remove profile photo (backlog 8): asks first, then the avatar and the card go back to initials; both photos stay hers.
+  await panel.locator('.photo-button').click();
+  await page
+    .getByRole('menu', { name: 'Change profile photo' })
+    .getByRole('menuitem', { name: 'Remove profile photo' })
+    .click();
+  const confirm = page.getByRole('dialog', { name: `Remove Mira ${family}’s profile photo?` });
+  await confirm.getByRole('button', { name: 'Remove profile photo' }).click();
+  await expect(confirm).toBeHidden();
+  await expect(page.getByText('Profile photo removed. The photo is still in their photos.')).toBeVisible();
+  await expect(panel.locator('.profile-avatar img')).toHaveCount(0);
+  await expect(panel.locator('.photo-button')).toHaveAccessibleName('Add profile photo');
+  await expect(page.locator(`[data-node="${person.id}"] image`)).toHaveCount(0);
+  const kept = await page.request.get(`/api/people/${person.id}/photos`);
+  expect(((await kept.json()) as { items: unknown[] }).items).toHaveLength(2);
+
   // Leave nothing behind for the journeys after this one.
   const removed = await page.request.delete(`/api/people/${person.id}`, { headers: HEADERS });
   expect(removed.status()).toBe(204);

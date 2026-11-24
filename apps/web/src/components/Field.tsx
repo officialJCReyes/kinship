@@ -6,17 +6,31 @@ interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string;
   help?: ReactNode;
   error?: string | undefined;
+  /**
+   * Show an asterisk after the label of a `required` field (the name forms, backlog 13). It is outside the label and hidden
+   * from assistive technology: the input's `required` is what a screen reader announces, and the accessible name stays the label.
+   */
+  markRequired?: boolean;
 }
 
 /** A labelled input with optional help text and an error message, wired up for screen readers. */
-export function Field({ label, help, error, ...input }: FieldProps) {
+export function Field({ label, help, error, markRequired, ...input }: FieldProps) {
   const id = useId();
   const helpId = `${id}-help`;
   const errorId = `${id}-error`;
   const describedBy = [help ? helpId : '', error ? errorId : ''].filter(Boolean).join(' ') || undefined;
   return (
     <div className="field">
-      <label htmlFor={id}>{label}</label>
+      {markRequired && input.required ? (
+        <div className="field-label">
+          <label htmlFor={id}>{label}</label>
+          <span className="required-mark" aria-hidden="true">
+            *
+          </span>
+        </div>
+      ) : (
+        <label htmlFor={id}>{label}</label>
+      )}
       <input id={id} aria-invalid={error ? true : undefined} aria-describedby={describedBy} {...input} />
       {help ? (
         <div id={helpId} className="muted field-help">

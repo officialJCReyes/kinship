@@ -17,7 +17,8 @@ interface DialogProps {
 
 /**
  * A modal dialog: focus moves in and stays in (Tab wraps), Escape closes it, and focus goes back to
- * whatever opened it. Clicking the dim area outside also closes it.
+ * whatever opened it. Clicking the dim area outside also closes it. Focus starts on an element marked
+ * `data-autofocus` (the name forms' Given name), else on the first focusable one.
  */
 export function Dialog({ title, onClose, children, full }: DialogProps) {
   const titleId = useId();
@@ -26,7 +27,8 @@ export function Dialog({ title, onClose, children, full }: DialogProps) {
 
   useEffect(() => {
     opener.current = document.activeElement;
-    const first = box.current?.querySelector<HTMLElement>(FOCUSABLE);
+    const first =
+      box.current?.querySelector<HTMLElement>('[data-autofocus]') ?? box.current?.querySelector<HTMLElement>(FOCUSABLE);
     (first ?? box.current)?.focus();
     return () => {
       if (opener.current instanceof HTMLElement) opener.current.focus();

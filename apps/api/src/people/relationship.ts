@@ -102,6 +102,9 @@ export async function relationshipBetween(
   for (const id of [
     ...(facts.blood ? [...facts.blood.ancestors, ...facts.blood.lineA, ...facts.blood.lineB] : []),
     ...(facts.chain?.people ?? []),
+    // The shared ancestors and the lines of each blood link in a chain (backlog 9): the same kind of people a blood result
+    // already names, read in this transaction under row-level security like everyone else here.
+    ...(facts.chain?.hops ?? []).flatMap((hop) => (hop ? [...hop.ancestors, ...hop.lineA, ...hop.lineB] : [])),
   ]) {
     named.add(id);
   }

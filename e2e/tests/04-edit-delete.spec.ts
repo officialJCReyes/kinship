@@ -143,7 +143,7 @@ test('a brother can be added to someone with no parents: unknown parents appear,
   await brother.click();
   const dialog = page.getByRole('dialog', { name: `Add brother to Lone ${family}` });
   await expect(dialog.getByTestId('placeholder-note')).toBeVisible();
-  await dialog.getByLabel('Given name').fill('Brandon');
+  await dialog.getByLabel('Given (and middle) name').fill('Brandon');
   await dialog.getByLabel('Surname', { exact: true }).fill(family);
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
@@ -167,7 +167,7 @@ test('a brother can be added to someone with no parents: unknown parents appear,
   await father.click();
   await page.getByRole('button', { name: 'Add details', exact: true }).click();
   const edit = page.getByRole('dialog', { name: 'Add details: Unknown father' });
-  await edit.getByLabel('Given name').fill('Joseph');
+  await edit.getByLabel('Given (and middle) name').fill('Joseph');
   await edit.getByLabel('Surname', { exact: true }).fill(family);
   await edit.getByRole('button', { name: 'Save' }).click();
   await expect(edit).toBeHidden();

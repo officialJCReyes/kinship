@@ -210,6 +210,78 @@ describe('Choose from their photos', () => {
   });
 });
 
+describe('Remove profile photo (backlog 8)', () => {
+  const media = { 'GET /api/media?person=ben': { status: 200, body: { items: [ITEM('p2')], nextCursor: null } } };
+
+  it('is offered only while there is a profile photo', async () => {
+    await openProfile(benRoutes(ADMIN, null, media));
+    const items = () =>
+      within(screen.getByRole('menu'))
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent);
+    openMenu('Add profile photo');
+    expect(items()).not.toContain('Remove profile photo');
+    cleanup();
+    vi.unstubAllGlobals();
+    await openProfile(benRoutes(ADMIN, 'p2', media));
+    openMenu('Change profile photo');
+    expect(items()).toContain('Remove profile photo');
+  });
+
+  it('asks first; Cancel sends nothing', async () => {
+    const fetchMock = await openProfile(benRoutes(ADMIN, 'p2', media));
+    fireEvent.click(within(openMenu('Change profile photo')).getByRole('menuitem', { name: 'Remove profile photo' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Remove Ben Hale’s profile photo?' });
+    expect(dialog.textContent).toContain('The photo stays in Ben Hale’s photos and on the Media page.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(calls(fetchMock)).not.toContain('PATCH /api/people/ben');
+  });
+
+  it('unsets only the profile photo with PATCH {photoMediaId: null}; the avatar goes back to initials, nothing is deleted', async () => {
+    let photo: string | null = 'p2';
+    const detail = detailFor(ADMIN, 'ben');
+    const fetchMock = await openProfile({
+      ...benRoutes(ADMIN, 'p2', media),
+      'GET /api/people/ben': () => ({
+        status: 200,
+        body: { ...detail, person: { ...detail.person, photoMediaId: photo } },
+      }),
+      'PATCH /api/people/ben': () => {
+        photo = null;
+        return { status: 200, body: { person: { ...detail.person, photoMediaId: null }, warnings: [] } };
+      },
+    });
+    expect(document.querySelector('.profile-avatar img')).not.toBeNull();
+    fireEvent.click(within(openMenu('Change profile photo')).getByRole('menuitem', { name: 'Remove profile photo' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Remove profile photo' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const patch = [...fetchMock.mock.calls].find(
+      ([input, init]) => String(input) === '/api/people/ben' && init?.method === 'PATCH',
+    );
+    expect(JSON.parse(String(patch![1]!.body))).toEqual({ photoMediaId: null });
+    expect(await screen.findByText('Profile photo removed. The photo is still in their photos.')).toBeTruthy();
+    await waitFor(() => expect(document.querySelector('.profile-avatar img')).toBeNull());
+    expect(camera('Add profile photo')).toBeTruthy();
+    // Not unlinked from the person and not deleted.
+    expect(calls(fetchMock).some((c) => c.startsWith('DELETE '))).toBe(false);
+  });
+
+  it('is on the tree’s person panel too, and a User never sees it', async () => {
+    mockApi(benRoutes(ADMIN, 'p2', media));
+    renderApp('/tree/ben');
+    const panel = await screen.findByRole('complementary', { name: 'Selected person' });
+    const button = await within(panel).findByRole('button', { name: 'Change profile photo' });
+    fireEvent.click(button);
+    expect(within(screen.getByRole('menu')).getByRole('menuitem', { name: 'Remove profile photo' })).toBeTruthy();
+    cleanup();
+    vi.unstubAllGlobals();
+    await openProfile(benRoutes(READER, 'p2', media));
+    expect(screen.queryByRole('button', { name: /profile photo$/ })).toBeNull();
+  });
+});
+
 describe('where the camera is, and who sees it', () => {
   it('is on the tree’s person panel, on the large avatar', async () => {
     mockApi(benRoutes(ADMIN));
