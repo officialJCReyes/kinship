@@ -2,6 +2,27 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.0-rc.3] - 2026-11-24
+
+Third release candidate of 0.3.0. From rc.1 or rc.2 it is an image update with one database change (migration 0024), so back up first; if you are on 0.2.1 read UPGRADE.md first.
+
+### Added
+
+- Remove profile photo: the camera menu on a person's picture, on the profile and in the tree's person panel, can unset the profile photo after asking. The photo itself stays in the person's Photos and on the Media page.
+- Double-click or double-tap a person on the chart to open the side panel, even when you have collapsed it; Shift+Enter does the same from the keyboard.
+- A "+" on the bottom edge of each card in the Family tree, Pedigree and Descendants charts opens Add relative for that person. It is shown on the people the side panel would offer Add relative for.
+
+### Changed
+
+- The Relationship finder draws the path as a diagram, with each person's photo or initials and years. When two people are linked through brothers, sisters or cousins, the parents they share are drawn above that link, so an in-law or step relationship shows who connects them; the path in words lists those shared parents too. The paragraph explaining how the answer is worked out is gone.
+- A surname particle (de, de la, van) is now simply part of the surname. The separate "Surname particle" field is gone, and the upgrade moves each stored particle to the front of its surname ("de la Cruz"). Initials and sorting use the surname as written.
+- Prefix and suffix are chosen from a list (Dr., Mrs., Jr., III and others), with "Other…" for anything else. A prefix or suffix typed before that is not in the list is kept as it was.
+- The name form starts with Given (and middle) name and Surname, then second and married surname, then prefix, suffix and nickname. Required fields are marked with an asterisk, and the form opens with the cursor in Given name.
+
+### Fixed
+
+- Automated tests that failed now and then (two chart tests, and the backup and restore free-space checks) are fixed. Nothing changes in the app.
+
 ## [0.3.0-rc.2] - 2026-11-23
 
 Second release candidate of 0.3.0. If you are on rc.1 this is an image update only; if you are on 0.2.1 read UPGRADE.md first.

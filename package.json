@@ -1,6 +1,6 @@
 {
   "name": "kinship",
-  "version": "0.3.0-rc.2",
+  "version": "0.3.0-rc.3",
   "private": true,
   "description": "Self-hosted family tree: relationships, sources, photos, private health history and DNA results.",
   "license": "AGPL-3.0-or-later",
