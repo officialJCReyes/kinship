@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Journey 3: Add relative as an admin. One family is built step by step through the screens, so the
 // tests run in order and share it.
-import { createPerson } from '../support/api.js';
+import { createChild, createPerson } from '../support/api.js';
 import type { Made } from '../support/api.js';
 import { surname } from '../support/data.js';
 import { expect, test } from '../support/fixtures.js';
@@ -110,4 +110,50 @@ test('add a sibling, and tell full siblings from half-siblings', async ({ adminP
   const half = page.getByRole('list', { name: 'Half-siblings' });
   await expect(half.getByRole('link', { name: new RegExp(`${named('Carla')}.*Half-sister`) })).toBeVisible();
   await expect(full.getByText(named('Carla'))).toHaveCount(0);
+});
+
+test('children entered under one parent first are linked to the second parent (ADR 0039)', async ({
+  adminPage: page,
+}) => {
+  // The stepsister case: a father, his daughter added under him alone, then the mother added as his partner.
+  const kin = surname('Hale');
+  const as = (given: string) => `${given} ${kin}`;
+  const frank = await createPerson(page.request, { givenName: 'Frank', surname: kin, gender: 'male', birth: '1950' });
+  await createChild(page.request, frank.id, { givenName: 'Sue', surname: kin, gender: 'female' });
+  await page.goto(`/people/${frank.id}`);
+  await page.getByRole('button', { name: 'Add relative' }).click();
+  await page.getByRole('button', { name: /^Add partner/ }).click();
+  const dialog = page.getByRole('dialog', { name: `Add partner to ${as('Frank')}` });
+  await dialog.getByLabel('Given (and middle) name').fill('Mona');
+  await dialog.getByLabel('Surname', { exact: true }).fill(kin);
+  await dialog.getByLabel('Gender').selectOption('female');
+  await dialog.getByLabel('Relationship status').selectOption('married');
+  // Frank has no other relationship, so his daughter is ticked already.
+  const list = dialog.getByRole('group', { name: 'Are any of these also Mona’s children?' });
+  await expect(list.getByRole('checkbox', { name: new RegExp(as('Sue')) })).toBeChecked();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(dialog).toBeHidden();
+  const card = page.getByRole('article', { name: `Relationship with ${as('Mona')}` });
+  await expect(card.getByRole('link', { name: new RegExp(`${as('Sue')}.*Daughter`) })).toBeVisible();
+
+  // A second daughter, again under Frank alone, is linked later from Mona's profile.
+  await createChild(page.request, frank.id, { givenName: 'Tess', surname: kin, gender: 'female' });
+  await card.getByRole('link', { name: as('Mona') }).click();
+  await expect(page.getByRole('heading', { name: as('Mona'), level: 1 })).toBeVisible();
+  await page.getByRole('button', { name: `${as('Tess')} is also ${as('Mona')}’s child` }).click();
+  const repair = page.getByRole('dialog', { name: `Also ${as('Mona')}’s children` });
+  await expect(repair.getByRole('checkbox', { name: new RegExp(as('Tess')) })).toBeChecked();
+  await repair.getByRole('button', { name: 'Save' }).click();
+  await expect(repair).toBeHidden();
+  const monaCard = page.getByRole('article', { name: `Relationship with ${as('Frank')}` });
+  await expect(monaCard.getByRole('link', { name: new RegExp(`${as('Tess')}.*Daughter`) })).toBeVisible();
+  await expect(page.getByRole('button', { name: /is also .*’s child/ })).toHaveCount(0);
+
+  // Sue and Tess are full sisters now, and neither has a step title.
+  await page.goto(`/people/${frank.id}`);
+  await card.getByRole('link', { name: new RegExp(`${as('Sue')}.*Daughter`) }).click();
+  await expect(page.getByRole('heading', { name: as('Sue'), level: 1 })).toBeVisible();
+  const full = page.getByRole('list', { name: 'Full siblings' });
+  await expect(full.getByRole('link', { name: new RegExp(`${as('Tess')}.*Sister`) })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Step relatives' })).toHaveCount(0);
 });
