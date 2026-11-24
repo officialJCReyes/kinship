@@ -1443,6 +1443,9 @@ export const en = {
   'finder.path.title': 'The path in words',
   'finder.path.relation': '{relation} of {names}',
   'finder.path.shared': 'shared ancestor',
+  'finder.path.sharedMany': 'shared ancestors',
+  // The list under a step of the path that goes through shared ancestors (backlog 9), for a screen reader.
+  'finder.path.via': 'How {first} and {second} are related',
   'finder.removed.title': 'What “{name}” means',
   'finder.removed.intro':
     'Two numbers describe a cousin. The cousin number says how far back the shared ancestor is. “Removed” says how many generations apart the two people are.',

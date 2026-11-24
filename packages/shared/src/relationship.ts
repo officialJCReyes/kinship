@@ -295,12 +295,24 @@ export interface BloodDetail {
   lineB: string[];
 }
 
+/**
+ * How one link of a chain goes through a closest shared ancestor (backlog 9): the same facts as a blood result, from
+ * `people[i]` (the "A" side) to `people[i + 1]` (the "B" side). `lineA` ends with `people[i]` and `lineB` with
+ * `people[i + 1]`; a side that is the ancestor itself has an empty line (`dA` or `dB` 0, and it is in `ancestors`).
+ */
+export type HopDetail = Omit<BloodDetail, 'adoption'>;
+
 /** An in-law, step or partner result drawn as people with a labelled link between each pair. */
 export interface ChainDetail {
   /** The first and second person, with whoever joins them between. */
   people: string[];
   /** `links[i]` says what `people[i + 1]` is to `people[i]`. */
   links: RelName[];
+  /**
+   * `hops[i]` is how `people[i]` and `people[i + 1]` are related by blood (parent, child, sibling, cousin, aunt, ...), with
+   * the shared ancestors and each side's line down to them; null for a marriage, a step-sibling or a former partner.
+   */
+  hops: Array<HopDetail | null>;
 }
 
 export interface RelationshipFacts {
@@ -531,6 +543,7 @@ interface Chained {
   stepTitle: boolean;
   people: string[];
   links: RelName[];
+  hops: Array<HopDetail | null>;
   /** Smaller is closer; used to choose between several ways to reach the same result. */
   cost: number;
   /** Order of the shapes: the first that fits wins, as in the mockup. */
@@ -540,6 +553,16 @@ interface Chained {
 function realPerson(ctx: Context, id: string): boolean {
   return ctx.graph.has(id) && !ctx.graph.person(id).isPlaceholder;
 }
+
+/** The facts of a blood relationship as a chain hop draws them. */
+const hopOf = (found: Blood): HopDetail => ({
+  dA: found.dA,
+  dB: found.dB,
+  half: found.half,
+  ancestors: found.ancestors,
+  lineA: found.lineA,
+  lineB: found.lineB,
+});
 
 /** B is a blood relative of A's spouse. */
 function ofSpouse(ctx: Context, a: string, b: string): Chained[] {
@@ -572,6 +595,7 @@ function ofSpouse(ctx: Context, a: string, b: string): Chained[] {
       stepTitle,
       people: [a, spouse, b],
       links: [unionName(ctx, spouse, status), bloodNameFor(ctx, found, b)],
+      hops: [null, hopOf(found)],
       cost: found.dA + found.dB,
       shape: 0,
     });
@@ -606,6 +630,7 @@ function spouseOfRelative(ctx: Context, a: string, b: string): Chained[] {
       stepTitle,
       people: [a, spouse, b],
       links: [bloodNameFor(ctx, found, spouse), unionName(ctx, b, status)],
+      hops: [hopOf(found), null],
       cost: found.dA + found.dB,
       shape: 1,
     });
@@ -655,6 +680,12 @@ function stepSibling(ctx: Context, a: string, b: string): Chained[] {
           unionName(ctx, entry.spouse, spouseStatus),
           word('child', ctx.graph.person(b).gender),
         ],
+        // Up to the parent and down from the step-parent: direct lines, drawn as vertical links.
+        hops: [
+          { dA: 1, dB: 0, half: false, ancestors: [entry.parent], lineA: [a], lineB: [] },
+          null,
+          { dA: 0, dB: 1, half: false, ancestors: [entry.spouse], lineA: [], lineB: [b] },
+        ],
         cost: 2,
         shape: 2,
       } satisfies Chained;
@@ -676,6 +707,7 @@ function bloodOfStepSibling(ctx: Context, a: string, b: string): Chained[] {
       stepTitle: false,
       people: [a, entry.sibling, b],
       links: [first, second],
+      hops: [null, hopOf(found)],
       cost: 2 + found.dA + found.dB,
       shape: 3,
     });
@@ -700,6 +732,7 @@ function stepSiblingOfRelative(ctx: Context, a: string, b: string): Chained[] {
       stepTitle: false,
       people: [a, relative, b],
       links: [first, second],
+      hops: [hopOf(found), null],
       cost: 2 + found.dA + found.dB,
       shape: 4,
     });
@@ -729,6 +762,7 @@ function formerPartner(ctx: Context, a: string, b: string): Chained[] {
       stepTitle: false,
       people: [a, relative, b],
       links: [owner, label],
+      hops: [hopOf(found), null],
       cost: found.dA + found.dB,
       shape: 5,
     });
@@ -787,7 +821,7 @@ function findIn(graph: RelGraph, a: string, b: string, view: LineageView): Relat
       ...NONE,
       kind: 'partner',
       name,
-      chain: { people: [a, b], links: [name] },
+      chain: { people: [a, b], links: [name], hops: [null] },
     };
   }
   const via = chosen([
@@ -804,7 +838,7 @@ function findIn(graph: RelGraph, a: string, b: string, view: LineageView): Relat
       kind: via.shape === 5 ? 'former' : via.kind,
       name: via.name,
       stepTitle: via.stepTitle,
-      chain: { people: via.people, links: via.links },
+      chain: { people: via.people, links: via.links, hops: via.hops },
     };
   }
   const tooDistant = ancestorsOf(ctx, a).truncated || ancestorsOf(ctx, b).truncated;

@@ -8,7 +8,7 @@ import { t } from '../i18n.js';
 import { displayName } from '../lib/names.js';
 import { usePersonDetail } from '../people/queries.js';
 import { PathDiagram, PathText } from '../relationship/PathDiagram.js';
-import { relationText } from '../relationship/path.js';
+import { coupleOrder, relationText } from '../relationship/path.js';
 import { useExamplePairs, useRelationship } from '../relationship/queries.js';
 import { customLines } from '../relationship/labels.js';
 import { generationNote, isRemovedCousin, RemovedPanel } from '../relationship/RemovedPanel.js';
@@ -23,10 +23,12 @@ function Result({ result }: { result: RelationshipResponse }) {
   const custom = customLines(result);
   const headline = custom.headline ?? (result.name ? renderRelName(result.name, t) : t('finder.none'));
   const note = generationNote(result);
-  const ancestors = (result.blood?.ancestors ?? []).flatMap((id) => {
-    const person = result.people[id];
-    return person ? [displayName(person)] : [];
-  });
+  const ancestors = coupleOrder(result.blood?.ancestors ?? [], (id) => result.people[id]?.gender ?? null).flatMap(
+    (id) => {
+      const person = result.people[id];
+      return person ? [displayName(person)] : [];
+    },
+  );
   const also = result.also.map((name) => relationText(name));
   return (
     <div className={isRemovedCousin(result) ? 'finder-grid' : undefined}>

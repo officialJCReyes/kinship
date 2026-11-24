@@ -165,6 +165,54 @@ test('the relationship finder calls Elena Carla’s stepmother and Priya’s oth
   expect(page.url()).toContain(`b=${sofia.id}`);
 });
 
+test('an in-law: the finder draws the shared parents above the two sisters, and says it in words (backlog 9)', async () => {
+  const page = admin;
+  // New people only, so the rest of this story is unchanged: Hugo and Lena's daughters Ivy and Mara; Ivy married Owen.
+  const george = surname('George');
+  const hugo = await createPerson(page.request, { givenName: 'Hugo', surname: george, gender: 'male', birth: '1960' });
+  const lena = await createPerson(page.request, {
+    givenName: 'Lena',
+    surname: george,
+    gender: 'female',
+    birth: '1962',
+  });
+  const parents = await createUnion(page.request, hugo.id, lena.id, 'married', '1985');
+  const ivy = await createChild(
+    page.request,
+    hugo.id,
+    { givenName: 'Ivy', surname: george, gender: 'female' },
+    parents,
+  );
+  const mara = await createChild(
+    page.request,
+    hugo.id,
+    { givenName: 'Mara', surname: george, gender: 'female' },
+    parents,
+  );
+  const owen = await createPerson(page.request, { givenName: 'Owen', surname: hale, gender: 'male', birth: '1984' });
+  await createUnion(page.request, owen.id, ivy.id, 'married', '2010');
+
+  await page.goto(`/relationship?a=${owen.id}&b=${mara.id}`);
+  await expect(page.getByRole('status').filter({ hasText: 'Sister-in-law' })).toBeVisible();
+  // The drawing: Owen, Ivy and Mara, with Hugo and Lena above the two sisters.
+  const drawing = page.locator('.rdiagram svg');
+  for (const name of [`Owen ${hale}`, `Ivy ${george}`, `Mara ${george}`, `Hugo ${george}`, `Lena ${george}`]) {
+    await expect(drawing.locator('.rcard title', { hasText: name })).toHaveCount(1);
+  }
+  await expect(drawing.locator('.rcard.hl')).toHaveCount(2);
+  // The words: under Mara's step, her and Ivy's parents, father first.
+  const via = page.getByRole('list', { name: `How Ivy ${george} and Mara ${george} are related` });
+  await expect(via).toContainText(
+    `Hugo ${george} and Lena ${george} · parents of Ivy ${george} and Mara ${george} (shared ancestors)`,
+  );
+  // At phone width the page never scrolls sideways: the drawing scrolls inside its own box.
+  await page.setViewportSize({ width: 360, height: 800 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  const box = await page.locator('.rdiagram').evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }));
+  expect(box.scroll).toBeGreaterThan(box.client);
+  await page.setViewportSize({ width: 1280, height: 720 });
+});
+
 test('a custom label between the step pair replaces the derived title on both profiles', async () => {
   const page = admin;
   await page.goto(`/people/${carla.id}`);

@@ -46,6 +46,7 @@ function answer(path: string, viewer: LineageView = ADMIN.lineageView): { status
     b,
     ...(facts.blood ? [...facts.blood.ancestors, ...facts.blood.lineA, ...facts.blood.lineB] : []),
     ...(facts.chain?.people ?? []),
+    ...(facts.chain?.hops ?? []).flatMap((hop) => (hop ? [...hop.ancestors, ...hop.lineA, ...hop.lineB] : [])),
   ]);
   const people: RelationshipResponse['people'] = {};
   for (const key of named) {
@@ -190,6 +191,68 @@ describe('the relationship finder page', () => {
     const path = screen.getAllByRole('listitem').map((li) => li.textContent);
     expect(path.some((text) => text?.includes('mother of Marcus Hale'))).toBe(true);
     expect(path.some((text) => text?.includes('husband of '))).toBe(true);
+  });
+
+  describe('shared ancestors of a link in a chain (backlog 9)', () => {
+    it('draws the wife’s parents above her and her brother, and says the same in words, as a list under the step', async () => {
+      mockApi(routes());
+      renderApp('/relationship?a=marcus&b=arjun');
+      expect(await screen.findByText('Brother-in-law')).toBeTruthy();
+      // The drawing: an SVG with a card for each of the five, hidden from assistive technology.
+      const drawing = document.querySelector('.rdiagram')!;
+      expect(drawing.getAttribute('aria-hidden')).toBe('true');
+      expect(drawing.querySelector('svg')).not.toBeNull();
+      expect(Array.from(drawing.querySelectorAll('.rcard title')).map((n) => n.textContent)).toEqual(
+        expect.arrayContaining(['Marcus Hale', 'Priya Nair', 'Arjun Nair', 'Raj Nair', 'Meera Iyer']),
+      );
+      expect(drawing.querySelectorAll('.rcard.hl')).toHaveLength(2);
+      // The words: Priya is Marcus's wife, Arjun her brother, and under that step, their parents.
+      const path = screen.getByRole('list', { name: '' }).parentElement!;
+      const via = within(path).getByRole('list', { name: 'How Priya Nair and Arjun Nair are related' });
+      const items = within(via).getAllByRole('listitem');
+      expect(items.map((li) => li.textContent)).toEqual([
+        'Raj Nair and Meera Iyer · parents of Priya Nair and Arjun Nair (shared ancestors)',
+      ]);
+      expect(
+        within(items[0]!)
+          .getAllByRole('link')
+          .map((a) => a.textContent),
+      ).toEqual(['Raj Nair', 'Meera Iyer']);
+    });
+
+    it('lists the people between, top-down, for a link through grandparents', async () => {
+      mockApi(routes());
+      renderApp('/relationship?a=marcus&b=anthony');
+      expect(await screen.findByText('Aunt’s ex-husband')).toBeTruthy();
+      const via = screen.getByRole('list', { name: 'How Marcus Hale and Carla Hale are related' });
+      expect(
+        within(via)
+          .getAllByRole('listitem')
+          .map((li) => li.textContent),
+      ).toEqual([
+        'Daniel Hale · father of Marcus Hale',
+        expect.stringMatching(
+          /^Walter Hale( Sr\.)? and Rosa Mendez · parents of Daniel Hale and Carla Hale \(shared ancestors\)$/,
+        ),
+      ]);
+    });
+
+    it('adds nothing under a direct line or a marriage', async () => {
+      mockApi(routes());
+      renderApp('/relationship?a=marcus&b=raj');
+      expect(await screen.findByText('Father-in-law')).toBeTruthy();
+      expect(document.querySelector('.finder-path-via')).toBeNull();
+    });
+
+    it('shrinks to fit down to 0.7, then scrolls inside its own box', async () => {
+      mockApi(routes());
+      renderApp('/relationship?a=marcus&b=tomas');
+      expect(await screen.findByText('Stepbrother')).toBeTruthy();
+      const svg = document.querySelector<SVGSVGElement>('.rdiagram svg')!;
+      const width = Number(svg.getAttribute('width'));
+      expect(svg.style.maxWidth).toBe('100%');
+      expect(svg.style.minWidth).toBe(`${Math.round(width * 0.7)}px`);
+    });
   });
 
   it('never shows a nickname', async () => {

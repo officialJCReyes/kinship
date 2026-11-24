@@ -354,10 +354,26 @@ describe('ancestorCount at scale', () => {
         id: string;
       }>`insert into people (given_name, surname) values ('Loner', 'Alone') returning id`.execute(t.owner)
     ).rows[0]!.id;
+    // A spouse for one of the second cousins: the longest in-law answer, a chain whose blood link carries its shared ancestors
+    // and both lines down (backlog 9).
+    const spouse = (
+      await sql<{
+        id: string;
+      }>`insert into people (given_name, surname) values ('Spouse', 'Married-In') returning id`.execute(t.owner)
+    ).rows[0]!.id;
+    const [lo, hi] = spouse < cousinA ? [spouse, cousinA] : [cousinA, spouse];
+    const marriage = (
+      await sql<{
+        id: string;
+      }>`insert into unions (partner_a_id, partner_b_id, status) values (${lo}, ${hi}, 'married') returning id`.execute(
+        t.owner,
+      )
+    ).rows[0]!.id;
     for (const [name, a, b, expected] of [
       ['second cousins', cousinA, cousinB, 'blood'],
       ['an ancestor and a descendant', root, cousinA, 'blood'],
       ['two people with no common family', cousinA, otherFamily, 'none'],
+      ['a spouse’s second cousin', spouse, cousinB, 'inlaw'],
     ] as const) {
       const times: number[] = [];
       let bytes = 0;
@@ -380,6 +396,7 @@ describe('ancestorCount at scale', () => {
       expect(median).toBeLessThan(250);
       expect(bytes).toBeLessThan(5_000);
     }
-    await sql`delete from people where id = ${otherFamily}`.execute(t.owner);
+    await sql`delete from unions where id = ${marriage}`.execute(t.owner);
+    await sql`delete from people where id in (${otherFamily}, ${spouse})`.execute(t.owner);
   });
 });
