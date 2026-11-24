@@ -2,7 +2,6 @@
 (function () {
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.vtab'));
   var panels = document.querySelectorAll('[data-p]');
-  var soon = document.getElementById('vsoon');
   if (!tabs.length) return;
   var current = 0;
   var stopped = false;
@@ -13,7 +12,6 @@
     var b = tabs[i];
     tabs.forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
     panels.forEach(function (x) { x.hidden = x.getAttribute('data-p') !== b.dataset.v; });
-    soon.hidden = b.dataset.v === 'tree';
   }
 
   // A visitor who clicks a tab takes over: the automatic tour stops for good.
