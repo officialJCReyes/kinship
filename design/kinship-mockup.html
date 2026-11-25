@@ -145,6 +145,15 @@ select{padding-right:4px}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .btn.sm{padding:3px 8px;font-size:12px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
+/* Person panel (step 49): relationship line, born and died lines, research link, round icon buttons */
+.pfacts{display:flex;flex-direction:column;gap:3px;margin-top:4px;font-size:13px;line-height:1.45}
+.prel{font-weight:600;color:var(--accent)}
+.pfacts .num b{font-weight:600;color:var(--ink)}
+.ibtns{display:flex;gap:12px;align-items:center}
+.ibtn{text-decoration:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--ink);display:grid;place-items:center;padding:0;cursor:pointer}
+.ibtn:hover{border-color:var(--accent);color:var(--accent)}
+.ibtn svg{width:19px;height:19px}
+.ibtn[disabled]{opacity:.45;cursor:not-allowed}
 .pill{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 .pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.crit{background:var(--crit-soft);color:var(--crit)} .pill.gray{background:var(--line);color:var(--muted)}
 .tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto}
@@ -341,7 +350,7 @@ const LOGO_D='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcv
 const logo=h=>`<img class="lgl" src="${LOGO_L}" alt="KinShip" style="height:${h}px;width:auto"><img class="lgd" src="${LOGO_D}" alt="" aria-hidden="true" style="height:${h}px;width:auto">`;
 /* ---------- Sample data (fictional family) ---------- */
 const P = {
-  walter:{n:'Walter Hale',given:'Walter',sur:'Hale',suf:'Sr.',b:1931,d:2009,bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Male',gen:1,cx:760,par:['joseph','anna'],link:null},
+  walter:{n:'Walter Hale',given:'Walter',sur:'Hale',suf:'Sr.',b:1931,d:2009,dd:'2009-05-14',bp:'Yonkers, NY',dp:'Yonkers, NY',g:'Male',gen:1,cx:760,par:['joseph','anna'],link:null},
   rosa:{n:'Rosa Mendez Hale',given:'Rosa',sur:'Mendez Hale',maiden:'Mendez',married:'Mendez Hale',b:1934,d:null,bp:'Santiago, Dominican Republic',g:'Female',gen:1,cx:960,par:[],shared:false},
   daniel:{n:'Daniel Hale',given:'Daniel',sur:'Hale',nick:'Danny',b:1958,d:null,bp:'Yonkers, NY',g:'Male',gen:2,cx:800,par:['walter','rosa'],sw:['marcus']},
   elena:{n:'Elena Ruiz Hale',given:'Elena',sur:'Ruiz Hale',maiden:'Ruiz',married:'Ruiz Hale',b:1960,d:null,bp:'San Juan, Puerto Rico',g:'Female',gen:2,cx:560,par:[],shared:false},
@@ -488,9 +497,9 @@ const MEDIA=[
  {id:9,t:'Leo, first birthday',k:'photo',p:['leo'],y:2018,by:'Priya Nair'},
  {id:10,t:'Sofia, graduation day',k:'photo',p:['sofia'],y:2011,by:'Daniel Hale'}
 ];
-const BD={ines:'08-23',lucas:'02-11',paul:'04-05',elise:'09-30',beatriz:'05-02',raymond:'09-18',anthony:'01-30',gabriel:'12-11',tomas:'06-14',naomi:'03-03',rosa:'03-14',daniel:'11-20',elena:'12-02',carla:'02-09',sofia:'11-16',marcus:'07-31',priya:'01-22'};
+const BD={walter:'04-12',ines:'08-23',lucas:'02-11',paul:'04-05',elise:'09-30',beatriz:'05-02',raymond:'09-18',anthony:'01-30',gabriel:'12-11',tomas:'06-14',naomi:'03-03',rosa:'03-14',daniel:'11-20',elena:'12-02',carla:'02-09',sofia:'11-16',marcus:'07-31',priya:'01-22'};
 const AUD={marcus:[{w:'Sep 2, 2026',b:'You',t:'Added condition: High cholesterol (since 2021)'},{w:'Aug 14, 2026',b:'You',t:'Set blood type to A+'}],daniel:[],walter:[],rosa:[],elena:[],carla:[],sofia:[]};
-let S={nm:'mm',npre:true,nsuf:true,em:{t:'invite',v:'linked',w:'desktop',f:'html',note:true},df:'mdy',view:'home',last:{},ra:'marcus',rb:'naomi',rdet:'basic',rep:{type:'life',who:'walter',med:true,ev:true,src:true,bk:{med:false,ev:false,src:true}},sel:'marcus',role:'superadmin',tab:{dna:'overview',profile:'facts',admin:'users',tl:'timeline'},medP:'marcus',dnaP:'marcus',dnaUpWho:null,medEdit:false,uid:null,ci:0,ti:0,panel:true,menu:false,mf:{k:'all',p:'',q:''},mid:null,editIdx:null,bell:false,sys:{storage:'local',mail:'resend'},ns:{bd:'all',lead:'1d',email:true,inapp:true,anniv:false,remember:true,mededit:true,digest:false},pseudo:false,place:null,tv:'family',gn:{pedigree:4,fan:4,desc:5},refit:false,fit:null,fkey:'',k:.49,x:8,y:115,modal:null};
+let S={nm:'mm',npre:true,nsuf:true,em:{t:'invite',v:'linked',w:'desktop',f:'html',note:true},df:'mdy',view:'home',last:{},ra:'marcus',rb:'naomi',rdet:'basic',rep:{type:'life',who:'walter',med:true,ev:true,src:true,bk:{med:false,ev:false,src:true}},sel:'marcus',role:'superadmin',tab:{dna:'overview',profile:'facts',admin:'users',tl:'timeline'},medP:'marcus',dnaP:'marcus',dnaUpWho:null,medEdit:false,uid:null,ci:0,ti:0,panel:true,menu:false,pmore:false,mf:{k:'all',p:'',q:''},mid:null,editIdx:null,bell:false,sys:{storage:'local',mail:'resend'},ns:{bd:'all',lead:'1d',email:true,inapp:true,anniv:false,remember:true,mededit:true,digest:false},pseudo:false,place:null,tv:'family',gn:{pedigree:4,fan:4,desc:5},refit:false,fit:null,fkey:'',k:.49,x:8,y:115,modal:null};
 
 /* ---------- Helpers ---------- */
 const $=s=>document.querySelector(s);
@@ -838,13 +847,46 @@ function unionCards(id){
       ${later.length?`<div>Since then</div><div>${later.join(' ')}</div>`:''}</div>
       <div class="row" style="margin-top:8px"><button class="btn sm" data-union="${u.i}" ${canEditU(u)?'':'disabled'}>Edit relationship</button></div></div>`}).join('')}</div></div>`;
 }
+/* Person panel helpers (step 49). Ages: exact when both dates are complete, otherwise ~NN. */
+function ageIn(bs,es){const b=parseD(bs),e=parseD(es);if(!b||!b.y||!e||!e.y)return '';
+  let n=e.y-b.y;const exact=b.m&&b.d&&e.m&&e.d;
+  if(exact&&(e.m<b.m||(e.m===b.m&&e.d<b.d)))n--;
+  return n<0||n>130?'':(exact?String(n):'~'+n)}
+function todayISO(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function researchUrl(id){const p=P[id],by=String(bISO(id)).slice(0,4),dy=p.d?String(dISO(id)).slice(0,4):'';
+  const q=['count=20'];if(+by)q.push('q.birthLikeDate.from='+by);if(+dy)q.push('q.deathLikeDate.from='+dy);
+  q.push('q.givenName='+encodeURIComponent(p.given),'q.surname='+encodeURIComponent(p.maiden||p.sur));
+  return 'https://www.familysearch.org/en/search/record/results?'+q.join('&')}
+function panelFacts(id){const p=P[id];let rel='';
+  if(p.self)rel='This is you';else{const r=relate('marcus',id);if(r&&r.kind!=='none'&&r.label)rel='Your '+r.label.charAt(0).toLowerCase()+r.label.slice(1)}
+  const b=bISO(id),bd=fISO(b),ba=p.d?'':ageIn(b,todayISO()),
+    de=p.d?dISO(id):'',dd=p.d?fISO(de):'',da=p.d?ageIn(b,de):'';
+  const born=(bd||p.bp)?`<div class="num"><b>Born</b> ${esc(bd||'')}${ba?` (age ${ba})`:''}${bd&&p.bp?' · ':''}${esc(p.bp||'')}</div>`:'';
+  const died=p.d&&(dd||p.dp)?`<div class="num"><b>Died</b> ${esc(dd||'')}${da?` (at age ${da})`:''}${dd&&p.dp?' · ':''}${esc(p.dp||'')}</div>`:'';
+  return `<div class="pfacts">${rel?`<div class="prel">${esc(rel)}</div>`:''}${born}${died}</div>`}
+const ICON_BTN={
+  family:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="2.3"/><circle cx="5.5" cy="19" r="2.3"/><circle cx="18.5" cy="19" r="2.3"/><path d="M12 7.3v4M12 11.3H5.5v5.4M12 11.3h6.5v5.4"/></svg>',
+  more:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5.5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18.5" cy="12" r="1.8"/></svg>',
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/></svg>',
+  profile:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.6-1.6 1.8-2.4 3.2-2.4s2.6.8 3.2 2.4M14.5 10h4M14.5 13.5h3"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1-4L16.5 4.5a2 2 0 013 3L8 19l-4 1z"/><path d="M14.5 6.5l3 3"/></svg>',
+  add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="9.5" cy="8.5" r="3.5"/><path d="M3 20c.8-3.6 3.2-5.5 6.5-5.5S15.2 16.4 16 20M18 6v6M15 9h6"/></svg>'};
+function panelMore(id){
+  const adm=isAdmin(),ed=canEdit(),med=canSeeMed(id);
+  const it=(attrs,label,icon,dis,danger)=>`<button class="mi" role="menuitem" ${attrs}${dis?' disabled':''}${danger?' style="color:var(--crit)"':''}>${icon}<span>${label}</span></button>`;
+  const g=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const I={med:g('<path d="M12 21s-8-5-8-11a4.5 4.5 0 018-2.7A4.5 4.5 0 0120 10c0 6-8 11-8 11z"/><path d="M12 9v5M9.5 11.5h5"/>'),link:g('<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3A4 4 0 0011 18.700l1-1"/>'),story:g('<path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3V4zM8 8h7M8 12h7"/>'),event:g('<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'),src:g('<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/>'),photo:g('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.2"/>'),merge:g('<path d="M6 4v5a4 4 0 004 4h4a4 4 0 014 4v3M6 4L3 7M6 4l3 3M18 20l-3-3M18 20l3-3"/>'),del:g('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>')};
+  return `<div class="pmorewrap menu-anchor" style="position:relative"><button class="ibtn" data-act="pmore" aria-haspopup="menu" aria-expanded="${S.pmore}" aria-label="More actions" title="More">${ICON_BTN.more}</button>${S.pmore?`<div class="card menu pmenu" role="menu" aria-label="More actions" style="width:236px">
+    ${med?it(`data-pt="${id}:medical"`,'Medical history',I.med):''}${it('data-act="plink"','Copy link to this person',I.link)}<hr>
+    ${it('data-modal="story"','Add a story',I.story,!ed)}${it('data-modal="event"','Add an event',I.event,!ed)}${it('data-modal="source"','Add a source',I.src,!canCite(id))}${it('data-modal="upload"','Change photo',I.photo,!ed)}
+    ${adm?`<hr>${it('data-act="pmerge"','Merge duplicate…',I.merge)}${it('data-act="pdel"','Delete person…',I.del,false,true)}`:''}</div>`:''}</div>`}
 function sidebar(p){
   const id=S.sel,rows=relList(id);
-  return `<div class="row" style="flex-wrap:nowrap">${avUp(id,'lg')}<div><h1 style="font-size:22px">${esc(dname(id))}</h1><div class="muted num">${fullSpan(id)}${p.bp?' · '+esc(p.bp):''}</div>
-    <div class="row" style="gap:6px;margin-top:6px">${p.d?'<span class="pill gray">Deceased</span>':'<span class="pill ok">Living</span>'}${P[id].self?'<span class="pill">You</span>':''}${canSeeMed(id)?'<span class="pill ok">Medical visible</span>':'<span class="pill warn">Medical restricted</span>'}</div></div></div>
-    <div class="row"><button class="btn primary" data-go-p="${id}">${t('open_profile')}</button><button class="btn" data-modal="add" ${canEdit()?'':'disabled title="You can only edit your own profile"'}>${t('add_relative')}</button></div>
-    <div><h3>Relationships</h3><div class="stack" style="gap:0;margin-top:6px">${rows.map(([l,x,custom])=>`<button class="btn" style="border:0;border-bottom:1px solid var(--line);border-radius:0;text-align:left;display:flex;justify-content:space-between;gap:8px" data-p="${x}"><span>${esc(P[x].n)}</span><span class="pill ${custom?'warn':'gray'}">${l}${custom?' (custom)':''}</span></button>`).join('')||'<div class="muted">No relationships recorded.</div>'}</div></div>
-    <div class="callout" style="font-size:12px">Custom labels like Godmother override the derived title (Aunt), so non-standard roles stay on record.</div>`;
+  const dis=canEdit()?'':' disabled';const why=canEdit()?'':'You can only edit your own profile';
+  return `<div class="row" style="flex-wrap:nowrap;align-items:flex-start">${avUp(id,'lg')}<div><h1 style="font-size:22px">${esc(dname(id))}</h1>${panelFacts(id)}
+    <div class="row" style="gap:6px;margin-top:8px">${p.d?'<span class="pill gray">Deceased</span>':'<span class="pill ok">Living</span>'}${canSeeMed(id)?'<span class="pill ok">Medical visible</span>':'<span class="pill warn">Medical restricted</span>'}</div></div></div>
+    <div class="ibtns" role="group" aria-label="Actions for ${esc(dname(id))}"><button class="ibtn" data-go-p="${id}" aria-label="${t('open_profile')}" title="${t('open_profile')}">${ICON_BTN.profile}</button><button class="ibtn" data-modal="person" aria-label="Edit details" title="${why||'Edit details'}"${dis}>${ICON_BTN.edit}</button><button class="ibtn" data-modal="add" aria-label="${t('add_relative')}" title="${why||t('add_relative')}"${dis}>${ICON_BTN.add}</button><a class="ibtn" href="${researchUrl(id)}" target="_blank" rel="noopener noreferrer" aria-label="Research this person on FamilySearch (opens in a new tab)" title="Research this person on FamilySearch">${ICON_BTN.search}</a><button class="ibtn" data-focus="${id}" aria-label="View family" title="View ${esc(P[id].given)}’s family">${ICON_BTN.family}</button>${panelMore(id)}</div>
+    <div><h3>Relationships</h3><div class="stack" style="gap:0;margin-top:6px">${rows.map(([l,x,custom])=>`<button class="btn" style="border:0;border-bottom:1px solid var(--line);border-radius:0;text-align:left;display:flex;justify-content:space-between;gap:8px" data-p="${x}"><span>${esc(P[x].n)}</span><span class="pill ${custom?'warn':'gray'}">${l}${custom?' (custom)':''}</span></button>`).join('')||'<div class="muted">No relationships recorded.</div>'}</div></div>`;
 }
 function cites(ids){return (ids||[]).map(s=>`<a class="cite" href="#profile" data-src="${s}">${s.replace('s','')}</a>`).join('')}
 function vProfile(){
@@ -2604,7 +2646,7 @@ function render(keepScroll){
   if(v==='tree')initCanvas();
   if(v==='import')initImport();
 }
-function go(v){S.view=v;{const g=groupOf(v);if(g&&GROUPS[g])S.last[g]=v}S.menu=false;S.bell=false;try{history.replaceState(null,'','#'+v)}catch(e){location.hash=v}render()}
+function go(v){S.view=v;{const g=groupOf(v);if(g&&GROUPS[g])S.last[g]=v}S.menu=false;S.pmore=false;S.bell=false;try{history.replaceState(null,'','#'+v)}catch(e){location.hash=v}render()}
 window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(VIEWS[h]&&h!==S.view){S.view=h;render()}});
 
 document.addEventListener('click',e=>{
@@ -2612,6 +2654,8 @@ document.addEventListener('click',e=>{
   const a=e.target.closest('[data-focus],[data-ppick],[data-tpick],[data-union],[data-mk],[data-mv],[data-pick],[data-medgo],[data-editcond],[data-go],[data-go-p],[data-p],[data-tab],[data-med],[data-place],[data-modal],[data-close],[data-act],[data-copy],[data-src],[data-z],[data-em],[data-tv],[data-tvmenu],[data-gn],[data-dnap],[data-nav],[data-pt]');
   let dirty=false;
   if(S.menu&&!e.target.closest('.menuwrap')){S.menu=false;dirty=true}
+  if(S.pmore&&!e.target.closest('.pmorewrap')){S.pmore=false;dirty=true}
+  if(S.pmore&&e.target.closest('.pmenu .mi')){S.pmore=false;dirty=true}
   if(S.pp&&!e.target.closest('.pp'))ppHide();
   if(S.bell&&!e.target.closest('.belwrap')){S.bell=false;dirty=true}
   if(!a){if(S.modal&&!e.target.closest('.combo,#cl,#cn'))hideList();if(S.modal&&!e.target.closest('#ctl,#ct'))hideType();if(dirty)render(true);return}
@@ -2640,6 +2684,10 @@ document.addEventListener('click',e=>{
   if(a.dataset.act==='rprint'){try{window.print()}catch(x){toast('Print opens the browser print dialog in the real app.')}return}
   if(a.dataset.act==='rexp'){toast('Export is built in the real app (mockup).');return}
   if(a.dataset.act==='menu'){S.menu=!S.menu;S.bell=false;render(true);return}
+  if(a.dataset.act==='pmore'){S.pmore=!S.pmore;render(true);return}
+  if(a.dataset.act==='plink'){toast('Link copied (mockup).');render(true);return}
+  if(a.dataset.act==='pmerge'){S.tab.admin='dups';go('admin');return}
+  if(a.dataset.act==='pdel'){toast('Delete asks you to type the name to confirm (mockup).');render(true);return}
   if(a.dataset.act==='panel'){S.panel=!S.panel;S.menu=false;render(true);return}
   if(a.dataset.mk){S.mf.k=a.dataset.mk;render(true);return}
   if(a.dataset.mv){S.mid=+a.dataset.mv;S.modal='mediaview';render(true);return}
