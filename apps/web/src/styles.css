@@ -3048,6 +3048,11 @@ pre.code {
   overflow-wrap: anywhere;
 }
 
+.panel-rel {
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .panel-fact b {
   font-weight: 600;
 }

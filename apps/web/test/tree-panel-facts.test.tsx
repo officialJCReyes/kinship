@@ -47,7 +47,7 @@ describe('the Born and Died lines', () => {
 });
 
 describe('the icon actions', () => {
-  it('are three round buttons in a named group, with the old names and hidden icons', async () => {
+  it('are round buttons in a named group, with the old names and hidden icons', async () => {
     const panel = await panelFor(ADMIN, 'walter');
     const group = within(panel).getByRole('group', { name: 'Actions for Walter Hale' });
     const actions = Array.from(group.querySelectorAll('a, button'));
@@ -55,6 +55,7 @@ describe('the icon actions', () => {
       'Open profile',
       'Edit details',
       'Add relative',
+      'Research this person on FamilySearch (opens in a new tab)',
     ]);
     for (const action of actions) {
       expect(action.classList.contains('round')).toBe(true);
