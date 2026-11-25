@@ -91,8 +91,9 @@ assert_seed_after_upgrade() {
   # got four empty name fields, and Margaret's married surname is still there and searchable.
   expect "maiden_married maiden_married maiden" "$(sql "select string_agg(name_form, ' ' order by case role when 'superadmin' then 1 when 'member' then 2 else 3 end) from users")" "the name form of the SuperAdmin, the Member and the Visiting User"
   expect "3" "$(sql 'select count(*) from users where show_prefix and show_suffix')" "accounts that show prefixes and suffixes"
-  expect "birth" "$(sql "select surname_choice from users where email = '$user_email'")" "the old surname choice, kept for the contract step"
-  expect "0" "$(sql 'select count(*) from people where name_prefix is not null or name_suffix is not null or nickname is not null or surname_particle is not null')" "people with a prefix, suffix, nickname or particle"
+  expect "0" "$(sql "select count(*) from information_schema.columns where table_schema = 'public' and ((table_name = 'users' and column_name = 'surname_choice') or (table_name = 'people' and column_name = 'surname_particle'))")" "the old surname choice and particle columns (dropped by 0025)"
+  expect "0" "$(sql 'select count(*) from people where name_prefix is not null or name_suffix is not null or nickname is not null')" "people with a prefix, suffix or nickname"
+  expect "0" "$(sql 'select count(*) from people_surname_particle_leftover')" "rows in the leftover table (0025)"
   expect "Ames Hale" "$(sql "select married_surname from people where given_name = 'Margaret'")" "Margaret's married surname"
 
   # Migration 0018 (the chart's own settings): every account, the existing ones too, takes the defaults. Aunts, uncles and cousins
