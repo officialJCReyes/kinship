@@ -5,8 +5,10 @@ import type { AuthUser, Person, UnionWithChildren } from '@kinship/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ActionButton } from '../components/ActionButton.js';
+import { IconButton, IconLink } from '../components/IconButton.js';
+import { AddPersonIcon, PencilIcon, ProfileIcon } from '../components/icons.js';
 import { t } from '../i18n.js';
-import { lifespan, peopleById } from '../lib/people.js';
+import { peopleById } from '../lib/people.js';
 import { customLabelPrefix, statusName, unionLabel } from '../lib/labels.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
@@ -17,11 +19,23 @@ import { ProfilePhotoControl } from '../people/ProfilePhotoControl.js';
 import { Avatar } from '../components/Avatar.js';
 import { initials, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
+import { bornLine, diedLine } from './panelFacts.js';
+import type { FactLine } from './panelFacts.js';
 import { recallPanelCollapsed, rememberPanelCollapsed } from './remember.js';
 
 /** The surname part of the name shown differs from the birth surname (a married surname is in use). Not on the card. */
 export function birthSurnameShown(person: Person): boolean {
   return getDisplay().nameForm === 'married' && displaySurname(person) !== displaySurname(person, 'maiden');
+}
+
+/** "Born Aug 26, 1994 (age 32)": the label in bold, the rest as text that wraps (long places are never cut off). */
+function Fact({ line, className }: { line: FactLine | null; className: string }) {
+  if (!line) return null;
+  return (
+    <div className={`panel-fact ${className}`}>
+      <b>{line.label}</b> {line.text}
+    </div>
+  );
 }
 
 type Open = { kind: 'edit' } | { kind: 'add' } | { kind: 'union'; union: UnionWithChildren } | null;
@@ -113,7 +127,16 @@ export function TreePanel({
                 <ProfilePhotoControl person={person} canEdit={d?.permissions.edit === true} />
               </div>
             )}
-            <h2 className="panel-name">{displayName(person)}</h2>
+            <div className="panel-id-text">
+              <h2 className="panel-name">{displayName(person)}</h2>
+              {person.isPlaceholder ? null : (
+                // Places come with the Places fields (0.5); until then the lines carry dates and ages only.
+                <div className="panel-facts">
+                  <Fact line={bornLine(person, new Date())} className="panel-born" />
+                  <Fact line={diedLine(person)} className="panel-died" />
+                </div>
+              )}
+            </div>
           </div>
           {birthSurnameShown(person) ? (
             <div className="muted panel-birth-surname">
@@ -124,7 +147,6 @@ export function TreePanel({
             <p className="muted">{t('person.placeholderNote')}</p>
           ) : (
             <>
-              <div className="muted">{lifespan(person)}</div>
               <div className="pills">
                 <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
                   {person.deceased ? t('person.deceased') : t('person.living')}
@@ -133,25 +155,27 @@ export function TreePanel({
               </div>
             </>
           )}
-          <div className="panel-actions">
-            <Link className="button" to={`/people/${person.id}`}>
-              {t('tree.panel.openProfile')}
-            </Link>
-            <ActionButton
+          <div
+            className="panel-actions"
+            role="group"
+            aria-label={t('tree.panel.actions', { name: displayName(person) })}
+          >
+            <IconLink label={t('tree.panel.openProfile')} icon={<ProfileIcon />} to={`/people/${person.id}`} />
+            <IconButton
+              label={person.isPlaceholder ? t('person.addDetails') : t('profile.edit')}
+              icon={<PencilIcon />}
               disabledReason={!d ? undefined : d.permissions.edit ? undefined : blocked}
               onClick={() => setOpen({ kind: 'edit' })}
               disabled={!d}
-            >
-              {person.isPlaceholder ? t('person.addDetails') : t('profile.edit')}
-            </ActionButton>
+            />
             {person.isPlaceholder ? null : (
-              <ActionButton
+              <IconButton
+                label={t('profile.addRelative')}
+                icon={<AddPersonIcon />}
                 disabledReason={!d ? undefined : admin || d.permissions.addChild ? undefined : blocked}
                 onClick={() => setOpen({ kind: 'add' })}
                 disabled={!d || !around.data}
-              >
-                {t('profile.addRelative')}
-              </ActionButton>
+              />
             )}
           </div>
           {otherFamily?.family && onOpenOther ? (
