@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { CSSProperties, KeyboardEvent } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
+import { TipBubble } from './TipBubble.js';
 
 /**
  * A small "i" button with a tooltip, for explanations that should not sit on the page as text.
@@ -13,46 +13,14 @@ import { createPortal } from 'react-dom';
  *   - It must be placed OUTSIDE a <label>, or the label's text (and clicks on it) would include the button.
  */
 export function InfoTip({ id, label, text }: { id: string; label: string; text: string }) {
-  const button = useRef<HTMLButtonElement>(null);
-  const bubble = useRef<HTMLSpanElement>(null);
+  const [button, setButton] = useState<HTMLButtonElement | null>(null);
   const pinned = useRef(false);
   const [open, setOpen] = useState(false);
-  const [place, setPlace] = useState<CSSProperties>({ visibility: 'hidden' });
 
   const close = useCallback(() => {
     pinned.current = false;
     setOpen(false);
   }, []);
-
-  const reposition = useCallback(() => {
-    if (!button.current || !bubble.current) return;
-    const anchor = button.current.getBoundingClientRect();
-    const size = bubble.current.getBoundingClientRect();
-    const margin = 8;
-    const left = Math.min(
-      Math.max(margin, anchor.left + anchor.width / 2 - size.width / 2),
-      window.innerWidth - size.width - margin,
-    );
-    const below = anchor.bottom + 6;
-    const top =
-      below + size.height > window.innerHeight - margin ? Math.max(margin, anchor.top - 6 - size.height) : below;
-    setPlace({ top, left, visibility: 'visible' });
-  }, []);
-
-  // Placed before the browser paints, so the bubble never shows at its previous spot.
-  useLayoutEffect(() => {
-    if (open) reposition();
-  }, [open, reposition]);
-
-  useEffect(() => {
-    if (!open) return;
-    window.addEventListener('resize', reposition);
-    window.addEventListener('scroll', reposition, true);
-    return () => {
-      window.removeEventListener('resize', reposition);
-      window.removeEventListener('scroll', reposition, true);
-    };
-  }, [open, reposition]);
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && open) {
@@ -64,7 +32,7 @@ export function InfoTip({ id, label, text }: { id: string; label: string; text: 
   return (
     <span className="infotip" onMouseEnter={() => setOpen(true)} onMouseLeave={() => !pinned.current && setOpen(false)}>
       <button
-        ref={button}
+        ref={setButton}
         type="button"
         className="infotip-button"
         aria-label={label}
@@ -86,14 +54,7 @@ export function InfoTip({ id, label, text }: { id: string; label: string; text: 
       <span id={id} className="sr-only">
         {text}
       </span>
-      {open
-        ? createPortal(
-            <span ref={bubble} className="infotip-bubble" style={place} aria-hidden="true">
-              {text}
-            </span>,
-            document.body,
-          )
-        : null}
+      {open ? <TipBubble anchor={button}>{text}</TipBubble> : null}
     </span>
   );
 }
