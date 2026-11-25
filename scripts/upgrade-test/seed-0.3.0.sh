@@ -17,6 +17,10 @@
 # field: Rosa Cruz with "de la" (folded to "de la Cruz") and Hugo with "de" and the surname "de Vries" (left as it is, not
 # doubled). Without it (the final 0.3.0, whose API refuses the field) the seed is unchanged.
 #
+# Every variant also leaves one particle that is too long to fold, written by hand in SQL (no 0.3.0 API writes one): Otto, with
+# "von" and a 98-character surname (3 + 1 + 98 = 102 characters, over the 100-character limit). 0024 leaves it and names it in
+# a NOTICE; 0025 keeps it in people_surname_particle_leftover, names Otto's id (never his name) in a NOTICE and drops the column.
+#
 # The photo needs a file key in the 0.3.0 stack: SEED_FILE_KEY=1 makes upgrade-test.sh put one in .env before that stack
 # starts, and keep it for the upgraded one. SEED_PHOTOS is how many photos the seed leaves (the script counts files with it).
 #
@@ -30,6 +34,7 @@ SEED_PHOTOS=1
 SEED_PARTICLES="${SEED_PARTICLES:-0}"
 
 seed_disabled_email="former@example.com"
+seed_long_surname="$(printf '%098d' 0 | tr 0 L)"
 seed_disabled_password="upgrade-former-$(rand 6)"
 
 seed_previous_release() {
@@ -55,6 +60,9 @@ seed_previous_release() {
   lone="$(new_person '{"givenName":"Lone","surname":"Hale","gender":"female","birth":{"value":"1990-05-05"}}')"
   twin="$(api_post "/api/people/$lone/siblings" '{"sibling":{"givenName":"Twin","surname":"Hale","gender":"male","birth":{"value":"1992-07-07"}}}' | json "['person']['id']")"
   vera="$(new_person '{"givenName":"Vera","surname":"Hale","gender":"female","birth":{"value":"1960-01-01"}}')"
+  otto="$(new_person "$(printf '{"givenName":"Otto","surname":"%s","gender":"male","birth":{"value":"1940-02-02"}}' "$seed_long_surname")")"
+  sql "update people set surname_particle = 'von' where id = '$otto'" >/dev/null
+  expect "von|$seed_long_surname" "$(sql "select surname_particle || '|' || surname from people where id = '$otto'")" "Otto's over-long particle before the upgrade"
   if [ "$SEED_PARTICLES" = "1" ]; then
     rosa_cruz="$(new_person '{"givenName":"Rosa","surname":"Cruz","surnameParticle":"de la","gender":"female","birth":{"value":"1966-03-03"}}')"
     hugo="$(new_person '{"givenName":"Hugo","surname":"de Vries","surnameParticle":"de","gender":"male","birth":{"value":"1970-10-10"}}')"
@@ -129,8 +137,8 @@ seed_patch_me() { # <jar> <json>
 # Counts and values that must be the same after the upgrade (the digest in the main script covers the 0.1 columns of every row;
 # these cover what 0.3.0 added, and say what a human would look for if it fails).
 assert_seed_after_upgrade() {
-  local real=9
-  [ "$SEED_PARTICLES" = "1" ] && real=11
+  local real=10
+  [ "$SEED_PARTICLES" = "1" ] && real=12
   expect 2 "$(sql 'select count(*) from people where is_placeholder')" "placeholder people after the upgrade"
   expect "$((real + 2))" "$(sql 'select count(*) from people')" "people after the upgrade ($real real, two placeholders)"
   expect 3 "$(sql 'select count(*) from unions')" "relationships after the upgrade"
@@ -147,8 +155,16 @@ assert_seed_after_upgrade() {
   expect "Tom" "$(sql "select nickname from people where given_name = 'Thomas'")" "Thomas's nickname"
   expect "Ames Hale" "$(sql "select married_surname from people where id = '$margaret'")" "Margaret's married surname"
   expect 0 "$(sql "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'people' and column_name = 'search_name'")" "the old people.search_name column (dropped by 0023)"
-  # 0024 folded every particle into its surname; none was too long to fold (it would be named in a NOTICE and kept).
-  expect 0 "$(sql 'select count(*) from people where surname_particle is not null')" "people with a surname particle left after 0024"
+  # 0024 folded every particle that fits into its surname; 0025 kept Otto's, which does not, aside and dropped the column
+  # (ADR 0038). The NOTICE names his id and never his name.
+  expect 0 "$(sql "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'people' and column_name = 'surname_particle'")" "the people.surname_particle column (dropped by 0025)"
+  expect 0 "$(sql "select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'surname_choice'")" "the users.surname_choice column (dropped by 0025)"
+  expect "$otto|von|$seed_long_surname" "$(sql "select string_agg(person_id || '|' || surname_particle || '|' || surname, ',') from people_surname_particle_leftover")" "the leftover table (0025)"
+  expect "$seed_long_surname" "$(sql "select surname from people where id = '$otto'")" "Otto's surname, unchanged"
+  local notice
+  notice="$({ cat "$logs"; compose logs --no-color api 2>/dev/null; } | grep -F 'database notice: 0025:' | tail -1)"
+  case "$notice" in *"$otto"*) ;; *) fail "no 0025 NOTICE naming Otto's id in the api log" ;; esac
+  case "$notice" in *LLLLLLLLLL*|*von*) fail "the 0025 NOTICE shows a name: $notice" ;; esac
   if [ "$SEED_PARTICLES" = "1" ]; then
     expect "de la Cruz" "$(sql "select surname from people where id = '$rosa_cruz'")" "Rosa's surname, folded by 0024"
     expect "de Vries" "$(sql "select surname from people where id = '$hugo'")" "Hugo's surname, not doubled by 0024"

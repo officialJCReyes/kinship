@@ -108,6 +108,24 @@ function wrapper(script: string, real?: string): string {
   return path;
 }
 
+const surnameOf = async (owner: UntypedDb, id: string) =>
+  (await sql<{ surname: string }>`select surname from people where id = ${id}`.execute(owner)).rows[0]!.surname;
+const hasParticleColumn = async (owner: UntypedDb) =>
+  (
+    await sql`select 1 from information_schema.columns
+      where table_schema = 'public' and table_name = 'people' and column_name = 'surname_particle'`.execute(owner)
+  ).rows.length === 1;
+const leftoverRows = async (owner: UntypedDb) =>
+  (
+    await sql<{
+      person_id: string;
+      surname_particle: string;
+      surname: string;
+    }>`select person_id, surname_particle, surname from people_surname_particle_leftover order by person_id`.execute(
+      owner,
+    )
+  ).rows;
+
 describe('restoring a backup over a live database', () => {
   it('puts everything back, signs everyone out, cancels open links, and keeps a safety copy', async () => {
     const l = await live();
@@ -761,47 +779,53 @@ describe('a restore and the last-SuperAdmin triggers on users (ADR 0029, ADR 003
     expect(column.rows).toHaveLength(1);
   }, 150_000);
 
-  it('a backup from 0.3.0-rc.1 or rc.2 (schema 23) with surname particles gives the same names as the fold (0024, ADR 0038)', async () => {
+  it('a backup from 0.3.0-rc.1 or rc.2 (schema 23) with surname particles gives the same names as the fold (0024, 0025, ADR 0038)', async () => {
     const older = await tempMigrationsDir(true);
     cleanups.push(() => older.remove());
     await removeMigrationsFrom(older.dir, 24);
     const l = await live({ migrationsDir: older.dir });
     // What the release candidates stored: the particle apart from the bare surname.
     await sql`update people set surname_particle = 'de la' where id = ${l.family.person.rosa}`.execute(l.test.owner);
-    const rosaBefore = (
-      await sql<{ surname: string }>`select surname from people where id = ${l.family.person.rosa}`.execute(
-        l.test.owner,
-      )
-    ).rows[0]!.surname;
+    const rosaBefore = await surnameOf(l.test.owner, l.family.person.rosa);
     const made = await createBackup(l.ctx, { kind: 'manual' });
     expect(made.manifest.schema).toBe(23);
 
-    // The installation moves to this build: the fold runs at start-up.
+    // The installation moves to this build: the fold and the drop run at start-up.
     await cp(realMigrationsDir, older.dir, { recursive: true });
     await runMigrations(l.test.owner, { dir: older.dir, appRole: l.test.config.appUser });
-    const folded = (
-      await sql<{
-        surname: string;
-        surname_particle: string | null;
-      }>`select surname, surname_particle from people where id = ${l.family.person.rosa}`.execute(l.test.owner)
-    ).rows[0];
-    expect(folded).toEqual({ surname: `de la ${rosaBefore}`, surname_particle: null });
+    const folded = await surnameOf(l.test.owner, l.family.person.rosa);
+    expect(folded).toBe(`de la ${rosaBefore}`);
+    expect(await hasParticleColumn(l.test.owner)).toBe(false);
 
-    // Restoring the rc archive replays the particle apart, then 0024 folds it again: the same name either way.
+    // Restoring the rc archive replays the particle apart, then 0024 folds it and 0025 drops the column: the same name.
     const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
     const report = await restoreBackup(newImage, made.path, hooks());
-    expect(report.migrationsApplied).toEqual(['0024_fold_surname_particle']);
-    const restored = (
-      await sql<{
-        surname: string;
-        surname_particle: string | null;
-      }>`select surname, surname_particle from people where id = ${l.family.person.rosa}`.execute(l.test.owner)
-    ).rows[0];
-    expect(restored).toEqual(folded);
-    const left = await sql<{
-      n: string;
-    }>`select count(*)::text as n from people where surname_particle is not null`.execute(l.test.owner);
-    expect(left.rows[0]?.n).toBe('0');
+    expect(report.migrationsApplied).toEqual(['0024_fold_surname_particle', '0025_drop_surname_particle']);
+    expect(await surnameOf(l.test.owner, l.family.person.rosa)).toBe(folded);
+    expect(await hasParticleColumn(l.test.owner)).toBe(false);
+    expect(await leftoverRows(l.test.owner)).toEqual([]);
+  }, 150_000);
+
+  it('a backup from 0.3.0 (schema 24) comes back without the particle column, an over-long particle kept aside (0025)', async () => {
+    const older = await tempMigrationsDir(true);
+    cleanups.push(() => older.remove());
+    await removeMigrationsFrom(older.dir, 25);
+    const l = await live({ migrationsDir: older.dir });
+    // 0.3.0 never writes a particle; one written by hand that is too long to fold (3 + 1 + 98 characters).
+    await sql`update people set surname = ${'L'.repeat(98)}, surname_particle = 'von' where id = ${l.family.person.rosa}`.execute(
+      l.test.owner,
+    );
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    expect(made.manifest.schema).toBe(24);
+
+    const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
+    const report = await restoreBackup(newImage, made.path, hooks());
+    expect(report.migrationsApplied).toEqual(['0025_drop_surname_particle']);
+    expect(await hasParticleColumn(l.test.owner)).toBe(false);
+    expect(await surnameOf(l.test.owner, l.family.person.rosa)).toBe('L'.repeat(98));
+    expect(await leftoverRows(l.test.owner)).toEqual([
+      { person_id: l.family.person.rosa, surname_particle: 'von', surname: 'L'.repeat(98) },
+    ]);
   }, 150_000);
 
   it('the restore never edits users: no DELETE, UPDATE, TRUNCATE or DISABLE TRIGGER, and the triggers come after the data', async () => {

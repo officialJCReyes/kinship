@@ -142,20 +142,19 @@ describe('prefix, suffix and nickname (ADR 0024; the particle folded into the su
   it('is enforced by the database too: the app role may write the columns, the CHECKs refuse bad text', async () => {
     const me = f.account.familyadmin.id;
     await withUserTransaction(t.db, me, (trx) =>
-      sql`update people set name_prefix = 'Sir', surname_particle = 'de' where id = ${f.person.walter}`.execute(trx),
+      sql`update people set name_prefix = 'Sir' where id = ${f.person.walter}`.execute(trx),
     );
     for (const bad of [
       sql`update people set name_prefix = ' Sir' where id = ${f.person.walter}`,
       sql`update people set name_suffix = '' where id = ${f.person.walter}`,
       sql`update people set nickname = ${'x'.repeat(101)} where id = ${f.person.walter}`,
-      sql`update people set surname_particle = ${'x'.repeat(31)} where id = ${f.person.walter}`,
     ]) {
       await expect(withUserTransaction(t.db, me, (trx) => bad.execute(trx))).rejects.toThrow(/check constraint/);
     }
   });
 
-  it('a placeholder cannot carry a prefix, suffix, nickname or particle', async () => {
-    for (const column of ['name_prefix', 'name_suffix', 'nickname', 'surname_particle']) {
+  it('a placeholder cannot carry a prefix, suffix or nickname', async () => {
+    for (const column of ['name_prefix', 'name_suffix', 'nickname']) {
       await expect(
         sql`insert into people (given_name, surname, gender, is_placeholder, ${sql.id(column)})
             values ('', '', 'male', true, 'x')`.execute(t.owner),
