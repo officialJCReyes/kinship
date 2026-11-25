@@ -75,8 +75,6 @@ export interface Database {
     color_scheme: Generated<'forest' | 'sand' | 'slate' | 'graphite'>;
     theme: Generated<'device' | 'light' | 'dark'>;
     date_format: Generated<'mdy' | 'dmy' | 'dmy2' | 'long' | 'iso' | 'us' | 'eu'>;
-    /** Replaced by name_form (0017); kept for now (expand, then contract) and no longer read. */
-    surname_choice: Generated<'married' | 'birth'>;
     /** How a married woman's name is shown, and whether prefixes and suffixes show (0017). */
     name_form: Generated<'maiden_married' | 'married_born' | 'married' | 'maiden'>;
     show_prefix: Generated<boolean>;
@@ -114,8 +112,6 @@ export interface Database {
     name_prefix: string | null;
     name_suffix: string | null;
     nickname: string | null;
-    /** Unread and unwritten since 0024, which folded it into `surname` (ADR 0038); dropped by a later migration. */
-    surname_particle: string | null;
     gender: 'male' | 'female' | 'other' | null;
     /** As typed: YYYY, YYYY-MM or YYYY-MM-DD. The generated *_from and *_to columns exist but are only used in SQL. */
     birth_date: string | null;
