@@ -5,7 +5,7 @@
 - Amends: [0024 Prefix, suffix, nickname, surname particle, and how a married woman's name is shown](0024-names.md) (the
   particle), [0037 How a release candidate is made](0037-pre-releases.md) (the wording "an rc seed is a wrapper")
 - Builds on: [0035 Restore with photos](0035-restore-with-photos.md) (an older backup is migrated after it is restored)
-- Migration: `0024_fold_surname_particle.sql`. Data only.
+- Migration: `0024_fold_surname_particle.sql`. Data only. The contract, `0025_drop_surname_particle.sql`, is in the addendum at the end.
 
 ## Context
 
@@ -78,3 +78,31 @@ On **export**, the whole surname goes in `SURN` and no `SPFX` is written.
   grants (a contract migration), after dealing with any row the NOTICE named.
 - `design/` docs that describe the particle (the requirements doc, the tree settings and search doc, the GEDCOM coverage
   doc, the handoff's names bullet, the release plan, the mockup) are stale on this point; they are corrected in the Project.
+
+## Addendum (0.4.0, step 50): the column is dropped in migration 0025
+
+The contract half, `0025_drop_surname_particle.sql`, also drops `users.surname_choice` (#220; unread since 0017). In order:
+
+1. **0024's fold again** for any row that still has a particle, so 0025 is safe from any starting point (from rc.1 or rc.2,
+   0024 and 0025 run in the same start-up).
+2. **The leftover table.** A row still too long to fold (particle, a space and the surname over 100 characters) is copied
+   into `people_surname_particle_leftover` (`person_id`, `surname_particle`, `surname`, `kept_at`) before the drop, so
+   nothing is truncated or lost. The NOTICE (`0025: ...`) names the person ids only, never a surname or a particle. The
+   table is created on every install, even when empty; the app role has no privilege on it and the app never reads it. It
+   travels in backups like any other table.
+3. **`search_names`** gets the same formula without the particle (`SET EXPRESSION`, which rewrites the table under a lock;
+   fine at a family tree's size). Its value is **identical for every row except leftover rows**, whose particle leaves the
+   search text (it is kept in the leftover table).
+4. **The placeholder CHECK** is made again without the particle, before the drop (PostgreSQL would otherwise drop the
+   whole constraint with the column).
+5. **The drop** of both columns; their own CHECKs and column grants go with them. `complete_setup_family` needed no
+   change: its current version (0020) names neither column.
+
+`FORCE ROW LEVEL SECURITY` on `people` is lifted and put back as in 0024 (tested under an owner that is not a superuser).
+
+**What an admin does with a leftover row:** shorten that person's surname in the app (Edit details), typing the particle
+in, then delete the row (`DELETE FROM people_surname_particle_leftover WHERE person_id = '<id>'`, as the owner). **The table
+can be emptied once the surname is shortened**; an empty table is harmless and stays. UPGRADE.md has the commands.
+
+The upgrade test seeds one such row by SQL on the previous release and checks the leftover table, the NOTICE and the dropped
+columns; `migration-0025.test.ts` and `backup-restore.test.ts` cover the rest (schema 23 and 24 archives).

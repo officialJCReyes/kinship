@@ -2,6 +2,36 @@
 
 Notes for upgrading from one release to the next, newest first. Read the section for the version you are moving to. The release process requires a section here for any release with a breaking change.
 
+## Unreleased (will become 0.4.0)
+
+### Database: migration 0025 removes the surname particle and the old surname choice
+
+Migration 0025 drops two columns that nothing has read since 0.3.0: `people.surname_particle` (0.3.0's migration 0024 folded every particle into the surname, "de" + "la Cruz" became "de la Cruz") and `users.surname_choice` (replaced by the name form in 0.3.0). Names, search and settings look the same as before. It is quick for a family tree; the search text is rebuilt in place.
+
+**Only if a name was too long to fold.** A particle, a space and the surname together may hold at most 100 characters. 0024 left any person over that limit as it was and named them in its log. 0025 folds any particle that fits, then copies what is still left (the person's id, the particle and the surname) into a table of its own, `people_surname_particle_leftover`, before it drops the column, and names those people's ids (never their names) in the api log. Nothing is cut short or lost. Only the database owner can read that table; the app never does.
+
+Before you upgrade, you can see whether this concerns you (the `kinship` owner is the database superuser, so row-level security does not hide rows from it):
+
+```
+docker compose logs api | grep '0024:'
+docker compose exec db psql -U kinship -d kinship -c "SELECT id, surname_particle, surname FROM people WHERE surname_particle IS NOT NULL;"
+```
+
+After the upgrade:
+
+```
+docker compose logs api | grep '0025:'
+docker compose exec db psql -U kinship -d kinship -c "SELECT * FROM people_surname_particle_leftover;"
+```
+
+An empty result means nothing was kept aside. For each row that is there, open that person in KinShip (Edit details), type a surname of at most 100 characters that includes the particle, save, and then remove the row:
+
+```
+docker compose exec db psql -U kinship -d kinship -c "DELETE FROM people_surname_particle_leftover WHERE person_id = '<id>';"
+```
+
+The empty table stays and does no harm. To go back to 0.3.0, restore the safety copy the first start of 0.4.0 makes (`pre-upgrade-0024-to-0025.tar.enc` from 0.3.0); it still holds both columns.
+
 ## 0.3.0
 
 **0.3.0 changes the database and some settings. Back up first** (Admin → Backups), then find your starting version below.
