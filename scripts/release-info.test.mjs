@@ -20,6 +20,7 @@ import {
   parseVersion,
   prepare,
   previousTag,
+  releasePrLabel,
 } from './release-info.mjs';
 
 const SHA = 'abcdef0123456789abcdef0123456789abcdef01';
@@ -628,4 +629,76 @@ test('preview: a pull request with the section present passes, with no warning a
   const { result, logged } = previewNotes({ event: 'pull_request', tags: ['v0.2.0'], upgrade: true });
   assert.equal(result.manifest.upgradeNotes, 'Do this.');
   assert.equal(logged.filter((line) => line.startsWith('::warning::')).length, 0);
+});
+
+// --- after a stable release: the release pull request's label (ADR 0037, #228) ---
+
+const TAGGED_SHA = 'f051a43000000000000000000000000000000000';
+const pull = (number, { sha = TAGGED_SHA, merged = true, labels = ['autorelease: pending'] } = {}) => ({
+  number,
+  merged_at: merged ? '2026-11-24T12:00:00Z' : null,
+  merge_commit_sha: sha,
+  labels: labels.map((name) => ({ name })),
+});
+
+test('release pull request: a stable tag swaps the label on the merged pending pull request of the tagged commit', () => {
+  assert.deepEqual(releasePrLabel({ tag: 'v0.3.0', sha: TAGGED_SHA, pulls: [pull(276)] }), {
+    action: 'swap',
+    number: 276,
+  });
+  // A re-run after a stop between the two label calls (both labels) finishes the swap.
+  assert.deepEqual(
+    releasePrLabel({
+      tag: 'v0.4.0',
+      sha: TAGGED_SHA,
+      pulls: [pull(300, { labels: ['autorelease: pending', 'autorelease: tagged'] })],
+    }),
+    { action: 'swap', number: 300 },
+  );
+});
+
+test('release pull request: a candidate tag is skipped, whatever the pull requests', () => {
+  for (const tag of ['v0.4.0-rc.1', 'v1.0.0-rc.12', 'v0.4.0-alpha.1']) {
+    const result = releasePrLabel({ tag, sha: TAGGED_SHA, pulls: [pull(276)] });
+    assert.equal(result.action, 'skip', tag);
+    assert.match(result.reason, /pre-release/);
+  }
+});
+
+test('release pull request: nothing to change when no merged pending pull request has the tagged commit as its merge commit', () => {
+  const cases = {
+    'no pull request (a release made by hand)': [],
+    'another commit': [pull(276, { sha: 'b'.repeat(40) })],
+    'not merged': [pull(276, { merged: false })],
+    'no release-please label': [pull(276, { labels: ['dependencies'] })],
+  };
+  for (const [name, pulls] of Object.entries(cases)) {
+    const result = releasePrLabel({ tag: 'v0.4.0', sha: TAGGED_SHA, pulls });
+    assert.equal(result.action, 'none', name);
+    assert.match(result.reason, /No merged pull request labelled "autorelease: pending"/, name);
+  }
+});
+
+test('release pull request: one already labelled tagged is left alone (a re-run)', () => {
+  assert.deepEqual(
+    releasePrLabel({ tag: 'v0.4.0', sha: TAGGED_SHA, pulls: [pull(300, { labels: ['autorelease: tagged'] })] }),
+    { action: 'done', number: 300 },
+  );
+});
+
+test('release pull request: picks the release pull request among others, and refuses two candidates', () => {
+  const others = [pull(298, { labels: [] }), pull(299, { sha: 'c'.repeat(40) })];
+  assert.deepEqual(releasePrLabel({ tag: 'v0.4.0', sha: TAGGED_SHA, pulls: [...others, pull(300)] }), {
+    action: 'swap',
+    number: 300,
+  });
+  assert.throws(
+    () => releasePrLabel({ tag: 'v0.4.0', sha: TAGGED_SHA, pulls: [pull(300), pull(301)] }),
+    /More than one merged pull request labelled "autorelease: pending".*#300, #301/,
+  );
+});
+
+test('release pull request: a bad tag is an error, not a silent skip', () => {
+  assert.throws(() => releasePrLabel({ tag: '0.4.0', sha: TAGGED_SHA, pulls: [] }), /must start with "v"/);
+  assert.throws(() => releasePrLabel({ tag: '', sha: TAGGED_SHA, pulls: [] }), /must start with "v"/);
 });

@@ -415,6 +415,40 @@ export function buildNotes({ version, prerelease, read, git, tags, event }) {
 
 // ---- command line ---------------------------------------------------------------------------
 
+/** release-please's labels on its release pull request (ADR 0017, ADR 0037). */
+export const PENDING_LABEL = 'autorelease: pending';
+export const TAGGED_LABEL = 'autorelease: tagged';
+
+/**
+ * After a stable release: which pull request gets its label changed from "autorelease: pending" to "autorelease: tagged"
+ * (release-please does it only in its own release step, which skip-github-release turns off; ADR 0037).
+ * `pulls` is GitHub's list of pull requests for the tagged commit (repos/{repo}/commits/{sha}/pulls). The release pull
+ * request is the merged one labelled pending whose merge commit is the tagged commit.
+ * Returns { action: 'swap' | 'done', number } or { action: 'skip' | 'none', reason }; two candidates are an error.
+ */
+export function releasePrLabel({ tag, sha, pulls }) {
+  if (parseTag(tag).pre !== null) {
+    return { action: 'skip', reason: `${tag} is a pre-release, which has no release pull request` };
+  }
+  const labels = (pull) => (pull.labels ?? []).map((label) => (typeof label === 'string' ? label : label.name));
+  const merged = pulls.filter((pull) => pull.merged_at && pull.merge_commit_sha === sha);
+  const pending = merged.filter((pull) => labels(pull).includes(PENDING_LABEL));
+  if (pending.length > 1) {
+    throw new Error(
+      `More than one merged pull request labelled "${PENDING_LABEL}" has ${sha} as its merge commit: ${pending
+        .map((pull) => `#${pull.number}`)
+        .join(', ')}`,
+    );
+  }
+  if (pending.length === 1) return { action: 'swap', number: pending[0].number };
+  const tagged = merged.find((pull) => labels(pull).includes(TAGGED_LABEL));
+  if (tagged) return { action: 'done', number: tagged.number };
+  return {
+    action: 'none',
+    reason: `No merged pull request labelled "${PENDING_LABEL}" has ${sha} as its merge commit (a release made by hand?)`,
+  };
+}
+
 const gitIn = (args) => execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const readFromRepo = (file) => readFileSync(file, 'utf8');
 const listTags = () => gitIn(['tag', '--list', 'v*']).split('\n').filter(Boolean);
@@ -456,11 +490,25 @@ function main() {
         `Flags: migration=${manifest.migration} breaking=${manifest.breaking} security=${manifest.security}; notes ${manifest.notes.length} characters`,
       );
       console.log(`Wrote ${join(arg, 'release-notes.md')} and ${join(arg, 'release-manifest.json')}`);
+    } else if (command === 'release-pr' && arg) {
+      const result = releasePrLabel({
+        tag: process.env.TAG ?? '',
+        sha: process.env.SHA ?? '',
+        pulls: JSON.parse(readFromRepo(arg)),
+      });
+      setOutput('action', result.action);
+      setOutput('number', result.number ?? '');
+      if (result.action === 'swap')
+        console.log(`#${result.number} gets "${TAGGED_LABEL}" instead of "${PENDING_LABEL}"`);
+      else if (result.action === 'done') console.log(`#${result.number} is already labelled "${TAGGED_LABEL}"`);
+      else console.log(`::notice::${result.reason}; no label changed`);
     } else if (command === 'validate' && arg) {
       validateManifest(JSON.parse(readFromRepo(arg)));
       console.log(`${arg} is a valid release manifest`);
     } else {
-      console.error('Usage: release-info.mjs prepare | notes <output-dir> | validate <manifest.json>');
+      console.error(
+        'Usage: release-info.mjs prepare | notes <output-dir> | validate <manifest.json> | release-pr <pulls.json>',
+      );
       process.exitCode = 2;
     }
   } catch (error) {
