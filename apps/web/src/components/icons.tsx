@@ -50,3 +50,26 @@ export function SearchIcon() {
     </svg>
   );
 }
+
+/** Three people joined by lines: View family. */
+export function FamilyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...lines} aria-hidden="true" focusable="false">
+      <circle cx="12" cy="5" r="2.3" />
+      <circle cx="5.5" cy="19" r="2.3" />
+      <circle cx="18.5" cy="19" r="2.3" />
+      <path d="M12 7.3v4M12 11.3H5.5v5.4M12 11.3h6.5v5.4" />
+    </svg>
+  );
+}
+
+/** Three dots: More actions. */
+export function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+      <circle cx="5.5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="18.5" cy="12" r="1.8" />
+    </svg>
+  );
+}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useId, useState } from 'react';
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, KeyboardEvent, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, KeyboardEvent, ReactNode, Ref } from 'react';
 import { Link } from 'react-router';
 import { TipBubble } from './TipBubble.js';
 
@@ -63,9 +63,27 @@ interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 
   /** When set, the action is unavailable and this says why (read as the description, shown in the bubble). */
   disabledReason?: string | undefined;
   danger?: boolean;
+  /** For a menu button (RowMenu's trigger), which needs the element too. */
+  ref?: Ref<HTMLButtonElement> | undefined;
 }
 
-export function IconButton({ label, icon, disabledReason, danger, className, onClick, ...rest }: IconButtonProps) {
+/** Hands the element to a ref of either kind. */
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
+  if (typeof ref === 'function') ref(value);
+  else if (ref) ref.current = value;
+}
+
+export function IconButton({
+  label,
+  icon,
+  disabledReason,
+  danger,
+  className,
+  onClick,
+  onKeyDown,
+  ref: outerRef,
+  ...rest
+}: IconButtonProps) {
   const { ref, anchor, open, handlers, show } = useTip<HTMLButtonElement>();
   const reasonId = useId();
   const classes = ['button', 'icon-button', 'round', danger ? 'danger' : '', className ?? ''].filter(Boolean).join(' ');
@@ -75,7 +93,14 @@ export function IconButton({ label, icon, disabledReason, danger, className, onC
       <button
         {...rest}
         {...handlers}
-        ref={ref}
+        ref={(element) => {
+          ref(element);
+          assignRef(outerRef, element);
+        }}
+        onKeyDown={(event) => {
+          handlers.onKeyDown(event);
+          onKeyDown?.(event);
+        }}
         type="button"
         aria-label={label}
         className={unavailable ? `${classes} is-disabled` : classes}

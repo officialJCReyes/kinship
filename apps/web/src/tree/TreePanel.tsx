@@ -3,10 +3,10 @@ import { getDisplay } from '../lib/display.js';
 import { displayName, displaySurname } from '../lib/names.js';
 import type { AuthUser, Person, UnionWithChildren } from '@kinship/shared';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { ActionButton } from '../components/ActionButton.js';
 import { IconButton, IconLink } from '../components/IconButton.js';
-import { AddPersonIcon, PencilIcon, ProfileIcon, SearchIcon } from '../components/icons.js';
+import { AddPersonIcon, FamilyIcon, PencilIcon, ProfileIcon, SearchIcon } from '../components/icons.js';
 import { t } from '../i18n.js';
 import { peopleById } from '../lib/people.js';
 import { researchLink } from '../lib/research.js';
@@ -20,6 +20,7 @@ import { ProfilePhotoControl } from '../people/ProfilePhotoControl.js';
 import { Avatar } from '../components/Avatar.js';
 import { initials, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
+import { PanelMore } from './PanelMore.js';
 import { PanelRelationship } from './PanelRelationship.js';
 import { bornLine, diedLine } from './panelFacts.js';
 import type { FactLine } from './panelFacts.js';
@@ -49,6 +50,7 @@ export function TreePanel({
   me,
   otherFamily,
   onOpenOther,
+  onViewFamily,
   expandSignal,
 }: {
   personId: string;
@@ -57,6 +59,8 @@ export function TreePanel({
   /** The selected person's other family (birth or adoptive), if they have one: the keyboard path to the second leaf. */
   otherFamily?: Leaf | undefined;
   onOpenOther?: (leaf: Leaf) => void;
+  /** The View family button: the person's leaf target, or a flip to their family (TreePage decides). */
+  onViewFamily?: (personId: string) => void;
   /** Changes when the panel should open (the search chose someone); the viewer's remembered choice is left alone. */
   expandSignal?: number;
 }) {
@@ -68,6 +72,7 @@ export function TreePanel({
     setCollapsed(false);
   }
   const [open, setOpen] = useState<Open>(null);
+  const navigate = useNavigate();
   const detail = usePersonDetail(personId);
   const around = useFamilyAround(personId);
   const person = detail.data?.person ?? fallback;
@@ -189,6 +194,23 @@ export function TreePanel({
                 rel="noopener noreferrer"
               />
             ) : null}
+            {onViewFamily && !person.isPlaceholder ? (
+              <IconButton
+                label={t('tree.panel.viewFamily', { name: person.givenName.trim() || displayName(person) })}
+                icon={<FamilyIcon />}
+                onClick={() => onViewFamily(person.id)}
+              />
+            ) : null}
+            <PanelMore
+              person={person}
+              me={me}
+              canEdit={d ? d.permissions.edit : null}
+              editBlocked={blocked}
+              onDeleted={() =>
+                // Stay on the tree, centred on your own person; with no person of your own, the People page.
+                void navigate(me.personId && me.personId !== person.id ? `/tree/${me.personId}` : '/people')
+              }
+            />
           </div>
           {otherFamily?.family && onOpenOther ? (
             <button

@@ -140,7 +140,16 @@ export function DeleteUnionDialog({
 }
 
 /** Delete a person. A person with relationships or children is refused with 409; the counts are shown to confirm. */
-export function DeletePersonDialog({ person, onClose }: { person: Person; onClose: () => void }) {
+export function DeletePersonDialog({
+  person,
+  onClose,
+  onDeleted,
+}: {
+  person: Person;
+  onClose: () => void;
+  /** Where to go once the person is gone (the tree stays on the tree); the People page when not given. */
+  onDeleted?: () => void;
+}) {
   const refresh = useRefreshPeople();
   const { notify } = useNotices();
   const navigate = useNavigate();
@@ -156,7 +165,8 @@ export function DeletePersonDialog({ person, onClose }: { person: Person; onClos
         await refresh();
         notify('success', t('notice.deleted', { name: displayName(person) }));
         onClose();
-        void navigate('/people');
+        if (onDeleted) onDeleted();
+        else void navigate('/people');
       },
       onError: (error) => {
         if (error instanceof api.ApiError && error.status === 409 && error.code === 'confirm_required') {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent, ReactNode, Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../i18n.js';
@@ -11,6 +11,8 @@ export interface RowMenuItem {
   /** When set the item is unavailable: it stays in the menu, is announced as disabled, and shows this reason. */
   disabledReason?: string | undefined;
   danger?: boolean | undefined;
+  /** Draws a separator line above the item (for example before a destructive group). */
+  divider?: boolean | undefined;
 }
 
 /**
@@ -165,26 +167,28 @@ export function RowMenu({
               {items.map((item) => {
                 const reasonId = `${menuId}-${item.key}`;
                 return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    role="menuitem"
-                    className={`menu-item${item.danger ? ' danger-text' : ''}${item.disabledReason ? ' unavailable' : ''}`}
-                    aria-disabled={item.disabledReason ? true : undefined}
-                    aria-describedby={item.disabledReason ? reasonId : undefined}
-                    onClick={() => {
-                      if (item.disabledReason) return;
-                      close(false);
-                      item.onSelect();
-                    }}
-                  >
-                    {item.label}
-                    {item.disabledReason ? (
-                      <span id={reasonId} className="menu-reason muted small-text">
-                        {item.disabledReason}
-                      </span>
-                    ) : null}
-                  </button>
+                  <Fragment key={item.key}>
+                    {item.divider ? <hr /> : null}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={`menu-item${item.danger ? ' danger-text' : ''}${item.disabledReason ? ' unavailable' : ''}`}
+                      aria-disabled={item.disabledReason ? true : undefined}
+                      aria-describedby={item.disabledReason ? reasonId : undefined}
+                      onClick={() => {
+                        if (item.disabledReason) return;
+                        close(false);
+                        item.onSelect();
+                      }}
+                    >
+                      {item.label}
+                      {item.disabledReason ? (
+                        <span id={reasonId} className="menu-reason muted small-text">
+                          {item.disabledReason}
+                        </span>
+                      ) : null}
+                    </button>
+                  </Fragment>
                 );
               })}
             </div>,
