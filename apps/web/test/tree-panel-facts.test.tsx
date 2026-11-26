@@ -56,6 +56,8 @@ describe('the icon actions', () => {
       'Edit details',
       'Add relative',
       'Research this person on FamilySearch (opens in a new tab)',
+      'View Walter’s family',
+      'More actions',
     ]);
     for (const action of actions) {
       expect(action.classList.contains('round')).toBe(true);

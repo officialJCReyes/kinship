@@ -141,6 +141,8 @@ describe('the research link', () => {
       'Edit details',
       'Add relative',
       'Research this person on FamilySearch (opens in a new tab)',
+      'View Walter’s family',
+      'More actions',
     ]);
   });
 

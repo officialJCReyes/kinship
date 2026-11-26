@@ -181,3 +181,11 @@ export function initials(person: Pick<Person, 'givenName' | 'surname' | 'secondS
   const last = Array.from(surname)[0] ?? '';
   return `${first}${last}`.toUpperCase();
 }
+
+/**
+ * What the panel's View family button opens for a person: the same as clicking their leaf when they are one (re-root, flip
+ * back, or flip to their family), otherwise a flip to their own family view (?of=).
+ */
+export function viewFamilyLeaf(personId: string, leaves: ReadonlyMap<string, Leaf>): Leaf {
+  return leaves.get(personId) ?? { personId, count: null, target: { kind: 'family', personId } };
+}

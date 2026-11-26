@@ -23,6 +23,7 @@ import {
 import { EditUnionDialog } from '../people/RelationshipDialogs.js';
 
 import type { Leaf } from './family.js';
+import { viewFamilyLeaf } from './family.js';
 import { isSecondClick } from './doubleActivate.js';
 import type { ChartClick, ClickPoint } from './doubleActivate.js';
 import { prefersReducedMotion } from './motion.js';
@@ -354,6 +355,7 @@ export function TreePage() {
         me={me}
         otherFamily={chart.otherLeaves.get(selectedId)}
         onOpenOther={openLeaf}
+        onViewFamily={(personId) => openLeaf(viewFamilyLeaf(personId, chart.leaves))}
         expandSignal={(found?.n ?? 0) + opened}
       />
       <div className={`tree-stage${flip ? ` flip-${flip}` : ''}`}>
