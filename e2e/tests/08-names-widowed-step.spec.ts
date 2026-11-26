@@ -252,3 +252,64 @@ test('the finder shows the custom label as the headline instead of Stepmother, a
   await page.goto(`/relationship?a=${carla.id}&b=${daniel.id}`);
   await expect(page.getByRole('status').filter({ hasText: 'Father' })).toBeVisible();
 });
+
+test('at phone width an open dialog stays inside the window, and its buttons are reachable (#221)', async () => {
+  const page = admin;
+  await page.setViewportSize({ width: 360, height: 800 });
+  try {
+    await page.goto(`/people/${carla.id}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    // Everything wider than the window, outermost first: printed to the log so a failure says what overflows.
+    const overflow = () =>
+      page.evaluate(() => {
+        const width = window.innerWidth;
+        const describe = (el: Element) =>
+          `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${el.classList.length ? `.${[...el.classList].join('.')}` : ''}`;
+        const wide = [...document.querySelectorAll('body *')]
+          .map((el) => ({ el, box: el.getBoundingClientRect() }))
+          .filter(({ box }) => box.width > 0 && (box.right > width + 0.5 || box.left < -0.5))
+          .filter(({ el }, _, all) => !all.some((other) => other.el !== el && other.el.contains(el)))
+          .slice(0, 25)
+          .map(({ el, box }) => ({
+            element: describe(el),
+            parent: el.parentElement ? describe(el.parentElement) : '',
+            left: Math.round(box.left),
+            right: Math.round(box.right),
+            width: Math.round(box.width),
+            inDialog: !!el.closest('[role="dialog"]'),
+          }));
+        return { innerWidth: width, scrollWidth: document.documentElement.scrollWidth, wide };
+      });
+    const before = await overflow();
+    console.log(`#221 before the dialog: ${JSON.stringify(before)}`);
+
+    await page.getByRole('button', { name: 'Other relationship' }).click();
+    const dialog = page.getByRole('dialog', { name: /^Other relationship for/ });
+    await expect(dialog).toBeVisible();
+    const open = await overflow();
+    console.log(`#221 with the dialog open: ${JSON.stringify(open)}`);
+    const sizes = await dialog.evaluate((el) => ({
+      dialog: el.getBoundingClientRect().toJSON(),
+      buttons: [...el.querySelectorAll('button')].map((b) => ({
+        name: b.textContent?.trim(),
+        ...b.getBoundingClientRect().toJSON(),
+      })),
+    }));
+    console.log(`#221 dialog and button boxes: ${JSON.stringify(sizes)}`);
+
+    // No sideways scroll, the dialog inside the window, every button inside it and at least 36 px tall.
+    expect(open.scrollWidth, JSON.stringify(open)).toBeLessThanOrEqual(open.innerWidth);
+    expect(sizes.dialog.left).toBeGreaterThanOrEqual(0);
+    expect(sizes.dialog.right).toBeLessThanOrEqual(open.innerWidth);
+    for (const button of sizes.buttons) {
+      expect(button.left, button.name).toBeGreaterThanOrEqual(sizes.dialog.left);
+      expect(button.right, button.name).toBeLessThanOrEqual(sizes.dialog.right);
+      expect(button.height, button.name).toBeGreaterThanOrEqual(36);
+    }
+    await expect(dialog.getByRole('button', { name: 'Close' })).toBeInViewport();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+});
