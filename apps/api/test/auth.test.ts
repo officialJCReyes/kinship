@@ -40,6 +40,17 @@ async function withUser(overrides: Parameters<typeof createTestApp>[0] = {}) {
   return { ...t, userId };
 }
 
+/** A sign-in from a given client address. */
+function loginFrom(app: TestApp['app'], ip: string, email: string, password = PASSWORD) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: { email, password },
+    headers: { 'x-kinship-request': '1' },
+    remoteAddress: ip,
+  });
+}
+
 describe('POST /api/auth/login', () => {
   it('signs in with the right email and password, and sets a safe session cookie', async () => {
     const t = await withUser();
@@ -371,6 +382,13 @@ describe('sign-in rate limiting', () => {
     const ghost = await login(t.app, 'ghost@example.com', 'wrong wrong wrong');
     expect(ghost.statusCode).toBe(429);
     expect(ghost.json()).toMatchObject({ error: 'rate_limited' }); // same as for the real account
+  });
+
+  it('lets the owner in from a quiet address while another address fails for their account (#227)', async () => {
+    const t = await withUser();
+    for (let i = 0; i < 10; i++)
+      expect((await loginFrom(t.app, '203.0.113.9', 'marcus@example.com', 'wrong wrong wrong')).statusCode).toBe(401);
+    expect((await loginFrom(t.app, '198.51.100.4', 'marcus@example.com')).statusCode).toBe(200);
   });
 
   it('limits one address across many accounts', async () => {
