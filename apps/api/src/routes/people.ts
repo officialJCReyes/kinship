@@ -514,12 +514,18 @@ export function registerPeopleRoutes(app: FastifyInstance, limit: RouteLimit, fi
       if (linkChildren.some((c) => !isUuid(c))) throw notFound('person_not_found');
       const result = await run(request, async (trx, actor) => {
         if (!isAdmin(actor)) throw forbidden();
-        if (!(await getPerson(trx, childId))) throw notFound('person_not_found');
+        // A placeholder (an "Unknown" parent, ADR 0019) is neither side of a link here, as in the partners route: it is
+        // "not found" before anything is written. Filling one in is editing it, which makes it a real person.
+        const child = await getPerson(trx, childId);
+        if (!child || child.is_placeholder) throw notFound('person_not_found');
         // A new parent is created first, in this same transaction: a refused link below takes them away again.
         const created =
           body.parent === undefined ? null : await insertPerson(trx, actor.id, parsePersonInput(body.parent));
         const parentId = created?.id ?? (body.parentId as string);
-        if (!created && !(await getPerson(trx, parentId))) throw notFound('person_not_found');
+        if (!created) {
+          const parent = await getPerson(trx, parentId);
+          if (!parent || parent.is_placeholder) throw notFound('person_not_found');
+        }
         if (childId === parentId) throw badRequest('parent_is_self');
 
         const kind: LinkKind = body.kind ?? 'birth';

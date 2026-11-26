@@ -114,6 +114,86 @@ describe('adding a brother or sister to someone with no parents', () => {
   });
 });
 
+describe('a placeholder is never either side of POST /api/people/:id/parents (#271)', () => {
+  const parentRows = async (child: string) =>
+    (await sql<{ n: number }>`select count(*)::int as n from person_parents where child_id = ${child}`.execute(t.owner))
+      .rows[0]!.n;
+  const people = async () =>
+    (await sql<{ n: number }>`select count(*)::int as n from people`.execute(t.owner)).rows[0]!.n;
+  const unions = async () =>
+    (await sql<{ n: number }>`select count(*)::int as n from unions`.execute(t.owner)).rows[0]!.n;
+  const pair = async () => {
+    const lone = await insertPersonRow(t.owner, 'Nora', 'Hale', {});
+    const made = await as('superadmin', 'POST', `/api/people/${lone}/siblings`, sibling('Iris'));
+    const ids = made.body.placeholders as Json[];
+    return {
+      father: (ids.find((x) => x.gender === 'male') as Json).id as string,
+      mother: (ids.find((x) => x.gender === 'female') as Json).id as string,
+    };
+  };
+  const expectNotFound = (res: { status: number; body: Json }) => {
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('person_not_found');
+  };
+
+  it('refuses a placeholder as the parent of someone with no parents, and writes nothing', async () => {
+    const { father } = await pair();
+    const child = await insertPersonRow(t.owner, 'Owen', 'Hale', {});
+    expectNotFound(await as('superadmin', 'POST', `/api/people/${child}/parents`, { parentId: father }));
+    expect(await parentRows(child)).toBe(0);
+  });
+
+  it('refuses a placeholder as the second parent beside a real one, and makes no relationship', async () => {
+    const { mother } = await pair();
+    const parent = await insertPersonRow(t.owner, 'Paul', 'Hale', { gender: 'male' });
+    const child = await insertPersonRow(t.owner, 'Owen', 'Hale', {});
+    await linkChild(t.owner, child, { parent });
+    const before = await unions();
+    expectNotFound(await as('superadmin', 'POST', `/api/people/${child}/parents`, { parentId: mother }));
+    expect(await unions()).toBe(before);
+    expect((await as('superadmin', 'GET', `/api/people/${child}`)).body.parents.birth).toMatchObject({
+      parentId: parent,
+      unionId: null,
+    });
+  });
+
+  it('refuses a placeholder given with the placeholder pair’s relationship', async () => {
+    const { father } = await pair();
+    const union = (
+      await sql<{
+        id: string;
+      }>`select id from unions where partner_a_id = ${father} or partner_b_id = ${father}`.execute(t.owner)
+    ).rows[0]!.id;
+    const child = await insertPersonRow(t.owner, 'Owen', 'Hale', {});
+    expectNotFound(
+      await as('superadmin', 'POST', `/api/people/${child}/parents`, { parentId: father, unionId: union }),
+    );
+    expect(await parentRows(child)).toBe(0);
+  });
+
+  it('refuses a placeholder as the child (extends the issue, like the partners route), and creates no new parent', async () => {
+    const { father } = await pair();
+    const parent = await insertPersonRow(t.owner, 'Paul', 'Hale', { gender: 'male' });
+    expectNotFound(await as('superadmin', 'POST', `/api/people/${father}/parents`, { parentId: parent }));
+    const before = await people();
+    expectNotFound(
+      await as('superadmin', 'POST', `/api/people/${father}/parents`, {
+        parent: { givenName: 'Ezra', surname: 'Hale' },
+      }),
+    );
+    expect(await people()).toBe(before);
+    expect(await parentRows(father)).toBe(0);
+  });
+
+  it('still links a real parent to a real child', async () => {
+    const parent = await insertPersonRow(t.owner, 'Paul', 'Hale', { gender: 'male' });
+    const child = await insertPersonRow(t.owner, 'Owen', 'Hale', {});
+    const res = await as('superadmin', 'POST', `/api/people/${child}/parents`, { parentId: parent });
+    expect(res.status).toBeLessThan(300);
+    expect(await parentRows(child)).toBe(1);
+  });
+});
+
 describe('placeholders are not people for lists, search and counts', () => {
   it('are not in the people list or search, but are in the tree', async () => {
     const lone = await insertPersonRow(t.owner, 'Tomas', 'Hale', {});
