@@ -6,9 +6,10 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import { ActionButton } from '../components/ActionButton.js';
 import { IconButton, IconLink } from '../components/IconButton.js';
-import { AddPersonIcon, PencilIcon, ProfileIcon } from '../components/icons.js';
+import { AddPersonIcon, PencilIcon, ProfileIcon, SearchIcon } from '../components/icons.js';
 import { t } from '../i18n.js';
 import { peopleById } from '../lib/people.js';
+import { researchLink } from '../lib/research.js';
 import { customLabelPrefix, statusName, unionLabel } from '../lib/labels.js';
 import { AddRelativeDialog } from '../people/AddRelative.js';
 import { canEditUnion, isAdmin } from '../people/permissions.js';
@@ -19,6 +20,7 @@ import { ProfilePhotoControl } from '../people/ProfilePhotoControl.js';
 import { Avatar } from '../components/Avatar.js';
 import { initials, otherLeafLabel } from './family.js';
 import type { Leaf } from './family.js';
+import { PanelRelationship } from './PanelRelationship.js';
 import { bornLine, diedLine } from './panelFacts.js';
 import type { FactLine } from './panelFacts.js';
 import { recallPanelCollapsed, rememberPanelCollapsed } from './remember.js';
@@ -98,6 +100,7 @@ export function TreePanel({
   const admin = isAdmin(me);
   const blocked = me.role === 'member' ? t('permission.memberOwnProfile') : t('permission.userReadOnly');
   const d = detail.data;
+  const research = person ? researchLink(person, new Date()) : null;
   const names = peopleById(around.data);
   const nameOf = (id: string) => {
     const found = names.get(id);
@@ -132,6 +135,7 @@ export function TreePanel({
               {person.isPlaceholder ? null : (
                 // Places come with the Places fields (0.5); until then the lines carry dates and ages only.
                 <div className="panel-facts">
+                  <PanelRelationship person={person} mePersonId={me.personId} />
                   <Fact line={bornLine(person, new Date())} className="panel-born" />
                   <Fact line={diedLine(person)} className="panel-died" />
                 </div>
@@ -151,7 +155,6 @@ export function TreePanel({
                 <span className={`pill ${person.deceased ? 'gray' : 'ok'}`}>
                   {person.deceased ? t('person.deceased') : t('person.living')}
                 </span>
-                {me.personId === person.id ? <span className="pill">{t('person.you')}</span> : null}
               </div>
             </>
           )}
@@ -177,6 +180,15 @@ export function TreePanel({
                 disabled={!d || !around.data}
               />
             )}
+            {research ? (
+              <IconLink
+                label={t('tree.panel.research')}
+                icon={<SearchIcon />}
+                href={research}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+            ) : null}
           </div>
           {otherFamily?.family && onOpenOther ? (
             <button

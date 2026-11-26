@@ -40,3 +40,13 @@ export function AddPersonIcon() {
     </svg>
   );
 }
+
+/** A magnifier: Research (an outbound search). */
+export function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" {...lines} strokeWidth={1.8} aria-hidden="true" focusable="false">
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5.5 5.5" />
+    </svg>
+  );
+}
