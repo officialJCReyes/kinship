@@ -32,7 +32,7 @@ import type { RestoreService } from '../backup/restore-service.js';
 import { readBackupSettings, writeBackupSettings } from '../backup/settings.js';
 import { readState } from '../backup/state.js';
 import { ApiError } from '../errors.js';
-import { retrySeconds, sleep } from './shared.js';
+import { passwordGuards, retrySeconds, sleep } from './shared.js';
 import type { RouteDeps, RouteLimit } from './shared.js';
 
 /** What the routes need from the running api: the scheduler (which owns "one at a time") and the backups folder. */
@@ -74,7 +74,7 @@ export function registerBackupRoutes(
   service: BackupService | undefined,
   now: () => number = () => Date.now(),
 ): void {
-  const { db, limiters, failureDelayMs } = deps;
+  const { db, limiters, failureDelayMs, pause } = deps;
   const tickets = new Map<string, Ticket>();
   // Everything here is SuperAdmin only, and nothing here is ever cached.
   app.addHook('onRequest', async (request) => {
@@ -95,19 +95,20 @@ export function registerBackupRoutes(
     user: { id: string; email: string },
     password: string,
   ): Promise<Refusal | null> => {
-    const wait = Math.max(limiters.passwordIp.retryAfterMs(request.ip), limiters.passwordAccount.retryAfterMs(user.id));
-    if (wait > 0) {
-      const seconds = retrySeconds(wait);
+    const guards = passwordGuards(limiters, request, user.id);
+    const verdict = guards.check();
+    if (verdict.action === 'block') {
+      const seconds = retrySeconds(verdict.retryAfterMs);
       return { status: 429, retryAfter: seconds, body: { error: 'rate_limited', retryAfterSeconds: seconds } };
     }
+    if (verdict.action === 'delay') await pause(verdict.ms);
     const login = await findLogin(db, user.email);
     if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, password))) {
-      limiters.passwordIp.recordFailure(request.ip);
-      limiters.passwordAccount.recordFailure(user.id);
+      guards.recordFailure();
       await sleep(failureDelayMs);
       return { status: 400, body: { error: 'invalid_current_password' } };
     }
-    limiters.passwordAccount.reset(user.id);
+    guards.reset(limiters.passwordSession);
     return null;
   };
   const refuse = (reply: FastifyReply, refusal: Refusal): FastifyReply => {

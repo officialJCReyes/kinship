@@ -23,7 +23,7 @@ import {
 import { GuardSet } from '../auth/limiter.js';
 import { generateSessionToken, hashToken } from '../auth/tokens.js';
 import { withUserTransaction } from '../request-context.js';
-import { isValidEmail, normalizeEmail, retrySeconds, sleep } from './shared.js';
+import { isValidEmail, normalizeEmail, passwordGuards, retrySeconds, sleep } from './shared.js';
 import type { RouteDeps } from './shared.js';
 
 export const SESSION_COOKIE = 'kinship_session';
@@ -160,12 +160,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
       void reply.header('Cache-Control', 'no-store');
       const body = request.body as ChangePasswordRequest;
 
-      const wait = Math.max(
-        limiters.passwordIp.retryAfterMs(request.ip),
-        limiters.passwordAccount.retryAfterMs(user.id),
-      );
-      if (wait > 0) {
-        const seconds = retrySeconds(wait);
+      const guards = passwordGuards(limiters, request, user.id);
+      const verdict = guards.check();
+      if (verdict.action === 'block') {
+        const seconds = retrySeconds(verdict.retryAfterMs);
         return reply
           .code(429)
           .header('Retry-After', String(seconds))
@@ -175,14 +173,15 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
         return reply.code(400).send({ error: 'password_too_short', minLength: MIN_PASSWORD_LENGTH });
       }
 
+      if (verdict.action === 'delay') await pause(verdict.ms);
+
       const login = await findLogin(db, user.email);
       if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, body.currentPassword))) {
-        limiters.passwordIp.recordFailure(request.ip);
-        limiters.passwordAccount.recordFailure(user.id);
+        guards.recordFailure();
         await sleep(failureDelayMs);
         return reply.code(400).send({ error: 'invalid_current_password' });
       }
-      limiters.passwordAccount.reset(user.id);
+      guards.reset(limiters.passwordSession);
 
       const newToken = generateSessionToken();
       const newTokenHash = hashToken(newToken);

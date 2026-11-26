@@ -348,7 +348,7 @@ describe('downloading', () => {
     ).toBe(400);
   }, 60_000);
 
-  it('a wrong password is refused, counted, and after ten of them even the right one waits', async () => {
+  it('a wrong password is refused, counted, and after ten of them that session waits, even with the right one', async () => {
     const cookie = await signIn();
     const name = await archiveName(cookie);
     for (let i = 0; i < 10; i++) {
@@ -358,5 +358,8 @@ describe('downloading', () => {
     expect(locked.statusCode).toBe(429);
     expect(locked.json()).toMatchObject({ error: 'rate_limited' });
     expect(Number(locked.headers['retry-after'])).toBeGreaterThan(0);
+    // Another session of the same account is not refused: the account only slows down (ADR 0042).
+    const other = await signIn();
+    expect((await ticketFor(other, name)).statusCode).toBe(200);
   }, 120_000);
 });

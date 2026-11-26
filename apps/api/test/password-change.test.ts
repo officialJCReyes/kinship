@@ -174,7 +174,7 @@ describe('changing your own password', () => {
 });
 
 describe('limits', () => {
-  it('stops guessing the current password: 10 wrong answers lock the account out of this form, correct or not', async () => {
+  it('stops guessing the current password: 10 wrong answers lock that session out of this form, correct or not', async () => {
     const { email } = await account();
     const cookie = cookieHeader(await login(t.app, email));
     for (let i = 0; i < 10; i += 1) {
@@ -184,6 +184,32 @@ describe('limits', () => {
     expect(blocked.statusCode).toBe(429);
     expect(blocked.headers['retry-after']).toBeDefined();
     expect((await login(t.app, email, PASSWORD)).statusCode).toBe(200); // nothing changed
+  });
+
+  it('does not let a stolen session’s guesses stop the owner’s own session from changing the password (ADR 0042)', async () => {
+    const waits: number[] = [];
+    const own = await createTestApp({ pause: async (ms) => void waits.push(ms) });
+    try {
+      await insertUser(own.owner, { email: 'stolen@hale.example' });
+      const thief = cookieHeader(await login(own.app, 'stolen@hale.example'));
+      const owner = cookieHeader(await login(own.app, 'stolen@hale.example'));
+      const changeAs = (cookie: string, currentPassword: string) =>
+        own.app.inject({
+          method: 'POST',
+          url: '/api/auth/password',
+          headers: { ...CSRF, cookie },
+          payload: { currentPassword, newPassword: NEW },
+          remoteAddress: cookie === thief ? '203.0.113.9' : '198.51.100.4',
+        });
+      for (let i = 0; i < 10; i += 1) expect((await changeAs(thief, `wrong guess ${i}`)).statusCode).toBe(400);
+      expect((await changeAs(thief, PASSWORD)).statusCode).toBe(429); // the stolen session is blocked
+      expect(waits).toEqual([]);
+      expect((await changeAs(owner, PASSWORD)).statusCode).toBe(204); // the owner's session is slowed down, not refused
+      expect(waits).toEqual([1_000]);
+      expect((await own.app.inject({ url: '/api/auth/me', headers: { cookie: thief } })).statusCode).toBe(401);
+    } finally {
+      await own.close();
+    }
   });
 
   it('limits per address too, across accounts', async () => {

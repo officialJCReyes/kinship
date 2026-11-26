@@ -97,13 +97,16 @@ export interface Limiters {
   /** Links (invitations, set-password links) that did not work, per IP address and from anywhere. */
   linkIp: FailureLimiter;
   linkGlobal: FailureLimiter;
-  /** Wrong current passwords when changing a password, per account and per IP address. */
+  /** Wrong passwords typed by a signed-in person (password change, backup download ticket, restore): per session, blocks. */
+  passwordSession: FailureLimiter;
+  /** The same, per account: slows down, never blocks (ADR 0042). */
   passwordAccount: FailureLimiter;
+  /** The same, per IP address across accounts: blocks. */
   passwordIp: FailureLimiter;
 }
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
-/** The per-account slow-down (ADR 0042): 1 s once the account has 10 recent failures, doubling, at most 10 s. */
+/** The slow-down curve of the delay limiters (ADR 0042): 1 s once past the limit, doubling, at most 10 s. */
 export const ACCOUNT_DELAY = { firstMs: 1_000, maxMs: 10_000 } as const;
 /** Pair and account keys multiply, so their limiters remember more keys than the others. */
 const PAIR_KEYS = 20_000;
@@ -150,8 +153,21 @@ export function buildApp(options: AppOptions): FastifyInstance {
     setupIp: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
     setupGlobal: new FailureLimiter({ maxFailures: 30, windowMs: FIFTEEN_MINUTES, ...clock }),
     linkIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
-    linkGlobal: new FailureLimiter({ maxFailures: 200, windowMs: FIFTEEN_MINUTES, ...clock }),
-    passwordAccount: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
+    linkGlobal: new FailureLimiter({
+      maxFailures: 200,
+      windowMs: FIFTEEN_MINUTES,
+      mode: 'delay',
+      delay: ACCOUNT_DELAY,
+      ...clock,
+    }),
+    passwordSession: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
+    passwordAccount: new FailureLimiter({
+      maxFailures: 10,
+      windowMs: FIFTEEN_MINUTES,
+      mode: 'delay',
+      delay: ACCOUNT_DELAY,
+      ...clock,
+    }),
     passwordIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
   };
 
