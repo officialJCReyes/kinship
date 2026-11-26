@@ -44,6 +44,8 @@ export async function createTestApp(
     logLevel: 'silent',
     sessions: { idleSeconds: 3600, maxSeconds: 86_400 },
     failureDelayMs: 0,
+    // The per-account slow-down (ADR 0042) is not waited out in tests; tests that check it record the wait.
+    pause: () => Promise.resolve(),
     // The failure limiters are what most tests exercise; the plain request cap has its own tests.
     loginRequestsPerMinute: 10_000,
     apiRequestsPerMinute: 100_000,

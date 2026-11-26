@@ -9,6 +9,8 @@ export interface RouteDeps {
   sessions: { idleSeconds: number; maxSeconds: number };
   limiters: Limiters;
   failureDelayMs: number;
+  /** Waits out a delay limiter's verdict (sleep, or a recorder in tests). */
+  pause: (ms: number) => Promise<void>;
   /** Per-address request cap for the routes that check credentials (see @fastify/rate-limit). */
   requestLimit: { max: number; timeWindow: string };
 }

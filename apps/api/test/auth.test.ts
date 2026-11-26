@@ -325,7 +325,7 @@ describe('GET /api/auth/me and sessions', () => {
 
   it('uses the forwarded address for rate limits only when the proxy is trusted', async () => {
     const trusting = await withUser({ trustProxy: true });
-    for (let i = 0; i < 20; i++)
+    for (let i = 0; i < 30; i++)
       await login(trusting.app, `nobody${i}@example.com`, 'x', { 'x-forwarded-for': '203.0.113.7' });
     const blocked = await login(trusting.app, 'marcus@example.com', PASSWORD, { 'x-forwarded-for': '203.0.113.7' });
     expect(blocked.statusCode).toBe(429);
@@ -333,7 +333,7 @@ describe('GET /api/auth/me and sessions', () => {
     expect(elsewhere.statusCode).toBe(200);
 
     const notTrusting = await withUser();
-    for (let i = 0; i < 20; i++)
+    for (let i = 0; i < 30; i++)
       await login(notTrusting.app, `nobody${i}@example.com`, 'x', { 'x-forwarded-for': `203.0.113.${i}` });
     // Different forwarded addresses do not help an attacker: they all count as the real one.
     expect((await login(notTrusting.app, 'marcus@example.com')).statusCode).toBe(429);
@@ -368,11 +368,11 @@ describe('POST /api/auth/logout', () => {
 });
 
 describe('sign-in rate limiting', () => {
-  it('locks an account after 10 failures, and says the same for unknown emails', async () => {
+  it('blocks an address and account pair after 10 failures, even the right password, and says the same for unknown emails', async () => {
     const t = await withUser();
     for (let i = 0; i < 10; i++)
       expect((await login(t.app, 'marcus@example.com', 'wrong wrong wrong')).statusCode).toBe(401);
-    const blocked = await login(t.app, 'marcus@example.com'); // even the right password
+    const blocked = await login(t.app, 'marcus@example.com'); // even the right password, from the same address
     expect(blocked.statusCode).toBe(429);
     expect(blocked.json()).toMatchObject({ error: 'rate_limited' });
     expect(Number(blocked.headers['retry-after'])).toBeGreaterThan(0);
@@ -384,16 +384,92 @@ describe('sign-in rate limiting', () => {
     expect(ghost.json()).toMatchObject({ error: 'rate_limited' }); // same as for the real account
   });
 
-  it('lets the owner in from a quiet address while another address fails for their account (#227)', async () => {
-    const t = await withUser();
-    for (let i = 0; i < 10; i++)
-      expect((await loginFrom(t.app, '203.0.113.9', 'marcus@example.com', 'wrong wrong wrong')).statusCode).toBe(401);
-    expect((await loginFrom(t.app, '198.51.100.4', 'marcus@example.com')).statusCode).toBe(200);
+  it('refuses a blocked pair without checking the password, the same for a known and an unknown email', async () => {
+    let now = Date.parse('2026-11-26T12:00:00Z');
+    const t = await withUser({ now: () => now });
+    for (const email of ['marcus@example.com', 'ghost@example.com'])
+      for (let i = 0; i < 10; i++) await loginFrom(t.app, '203.0.113.9', email, 'wrong wrong wrong');
+    now += 60_000;
+    const checks = vi.mocked(passwordModule.verifyPassword);
+    checks.mockClear();
+    const known = await loginFrom(t.app, '203.0.113.9', 'marcus@example.com');
+    const unknown = await loginFrom(t.app, '203.0.113.9', 'ghost@example.com');
+    expect(checks).not.toHaveBeenCalled(); // a blocked pair costs no argon2 check
+    expect(known.statusCode).toBe(429);
+    expect(unknown.statusCode).toBe(known.statusCode);
+    expect(unknown.body).toBe(known.body);
+    expect(unknown.headers['retry-after']).toBe(known.headers['retry-after']);
+    expect(unknown.headers['content-type']).toBe(known.headers['content-type']);
   });
 
-  it('limits one address across many accounts', async () => {
+  it('lets the owner in from a quiet address while another address fails for their account (#227)', async () => {
+    const waits: number[] = [];
+    const t = await withUser({ pause: async (ms) => void waits.push(ms) });
+    for (let i = 0; i < 10; i++)
+      expect((await loginFrom(t.app, '203.0.113.9', 'marcus@example.com', 'wrong wrong wrong')).statusCode).toBe(401);
+    expect(waits).toEqual([]); // up to 10 failures an account is not slowed down
+    expect((await loginFrom(t.app, '198.51.100.4', 'marcus@example.com')).statusCode).toBe(200);
+    expect(waits).toEqual([1_000]); // the 11th attempt waits 1 s first, and is still let in
+    // The attacker's own address stays blocked for that account.
+    expect((await loginFrom(t.app, '203.0.113.9', 'marcus@example.com')).statusCode).toBe(429);
+  });
+
+  it('with many attacking addresses, slows the owner down by at most 10 seconds but never refuses them', async () => {
+    const waits: number[] = [];
+    const t = await withUser({ pause: async (ms) => void waits.push(ms) });
+    for (let a = 0; a < 6; a++)
+      for (let i = 0; i < 10; i++)
+        await loginFrom(t.app, `203.0.113.${a + 1}`, 'marcus@example.com', 'wrong wrong wrong');
+    // Each attacking address got 10 guesses, then its pair is blocked.
+    expect((await loginFrom(t.app, '203.0.113.1', 'marcus@example.com', 'wrong wrong wrong')).statusCode).toBe(429);
+    expect(Math.max(...waits)).toBe(10_000);
+    waits.length = 0;
+    expect((await loginFrom(t.app, '198.51.100.4', 'marcus@example.com')).statusCode).toBe(200);
+    expect(waits).toEqual([10_000]);
+  });
+
+  it('slows down a known and an unknown email the same way, before the password is checked', async () => {
+    const checks = vi.mocked(passwordModule.verifyPassword);
+    // Each wait, with how many password checks had run when it started.
+    const waits: { ms: number; checksBefore: number }[] = [];
+    const t = await withUser({ pause: async (ms) => void waits.push({ ms, checksBefore: checks.mock.calls.length }) });
+    checks.mockClear();
+    const answers = new Set<string>();
+    for (const email of ['marcus@example.com', 'ghost@example.com']) {
+      for (let i = 0; i < 12; i++) {
+        const response = await loginFrom(t.app, `203.0.113.${i + 1}`, email, 'wrong wrong wrong');
+        answers.add(`${response.statusCode} ${response.body}`);
+      }
+    }
+    expect(answers).toEqual(new Set(['401 {"error":"invalid_credentials"}'])); // all the same answer
+    // The 11th and 12th attempt for each email wait 1 s, then 2 s, before their own password check.
+    expect(waits).toEqual([
+      { ms: 1_000, checksBefore: 10 },
+      { ms: 2_000, checksBefore: 11 },
+      { ms: 1_000, checksBefore: 22 },
+      { ms: 2_000, checksBefore: 23 },
+    ]);
+    expect(checks).toHaveBeenCalledTimes(24); // every attempt that was not blocked was checked
+  });
+
+  it('starts the pair again after a success, but keeps the account count', async () => {
+    const waits: number[] = [];
+    const t = await withUser({ pause: async (ms) => void waits.push(ms) });
+    for (let i = 0; i < 9; i++) await loginFrom(t.app, '203.0.113.9', 'marcus@example.com', 'wrong wrong wrong');
+    expect((await loginFrom(t.app, '203.0.113.9', 'marcus@example.com')).statusCode).toBe(200);
+    // The pair starts again: 9 more failures are still answered 401, not 429.
+    for (let i = 0; i < 9; i++)
+      expect((await loginFrom(t.app, '203.0.113.9', 'marcus@example.com', 'wrong wrong wrong')).statusCode).toBe(401);
+    // But the account has 18 recent failures, so the attempts past the 10th were slowed down.
+    expect(waits.length).toBeGreaterThan(0);
+    expect(Math.max(...waits)).toBe(10_000);
+  });
+
+  it('limits one address across many accounts after 30 failures', async () => {
     const t = await withUser();
-    for (let i = 0; i < 20; i++) await login(t.app, `someone${i}@example.com`, 'wrong wrong wrong');
+    for (let i = 0; i < 29; i++) await login(t.app, `someone${i}@example.com`, 'wrong wrong wrong');
+    expect((await login(t.app, 'marcus@example.com')).statusCode).toBe(200); // a household's typos do not lock it out
+    await login(t.app, 'someone29@example.com', 'wrong wrong wrong');
     const blocked = await login(t.app, 'marcus@example.com');
     expect(blocked.statusCode).toBe(429);
   });

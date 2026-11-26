@@ -70,7 +70,7 @@ const ticketKey = (ticket: string) => createHash('sha256').update(ticket).digest
 export function registerBackupRoutes(
   app: FastifyInstance,
   limit: RouteLimit,
-  deps: Pick<RouteDeps, 'db' | 'limiters' | 'failureDelayMs'>,
+  deps: Pick<RouteDeps, 'db' | 'limiters' | 'failureDelayMs' | 'pause'>,
   service: BackupService | undefined,
   now: () => number = () => Date.now(),
 ): void {
