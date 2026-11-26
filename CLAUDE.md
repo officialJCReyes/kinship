@@ -10,7 +10,7 @@ KinShip is a self-hosted family tree app. Public repo `officialJCReyes/kinship`,
 ## Stack (decided)
 - PostgreSQL 18 (official image), TypeScript API on Node, React UI built with Vite, nginx (unprivileged, Alpine) as the `web` container.
 - Three compose services: `web` (only published port, 8080, proxies /api), `api`, `db`. Same version tag for web and api.
-- Proposed picks, confirm with JC before locking in: Fastify, Kysely with plain `.sql` migrations, own SVG tree drawing (no diagram library), Vitest, Playwright.
+- Decided picks (ADRs 0001 and 0002): Fastify, Kysely with plain `.sql` migrations, own SVG tree drawing (no diagram library), Vitest, Playwright.
 - Monorepo: apps/web, apps/api, packages/ (shared types, translation keys), docs/, design/.
 
 ## Hard rules
