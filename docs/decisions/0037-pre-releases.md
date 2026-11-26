@@ -55,5 +55,12 @@ and because there is a breaking change since `v0.2.1` (the highest earlier tag, 
   release-please stuck from 0.2.1 until 0.3.0: the `autorelease: tagged` label was created in the repository (it did not exist) and
   set by hand on #117 (0.2.1) before the 0.3.0 run, and on #276 (0.3.0) after its merge. The same swap is needed after each stable
   release, best once the tag's GitHub Release exists: without the pending label and without that release, a run finds no release
-  to stop at and could open a release pull request built from the whole history. A step in `release.yml` could do it; left for JC to
-  decide. It does not affect a hand-made candidate.
+  to stop at and could open a release pull request built from the whole history. It does not affect a hand-made candidate.
+- **From 0.4.0 the swap is a step in `release.yml` (#228).** After "Create the release", in the "Create the GitHub Release" job and
+  for a stable tag only, "Find the release pull request" asks GitHub for the pull requests of the tagged commit and picks the
+  merged one labelled `autorelease: pending` whose merge commit is that commit (`releasePrLabel` in `scripts/release-info.mjs`,
+  unit-tested). "Mark the release pull request tagged" then adds `autorelease: tagged` and removes `autorelease: pending`, in that
+  order, so a stop in between leaves both labels and never neither. No match (a release made by hand) logs a notice and changes
+  nothing; one already tagged is left alone; two candidates fail the step. The job gains `pull-requests: write` for the labels.
+  A failure there shows the run red with the release already published; re-running the job is safe. A candidate tag skips both
+  steps.

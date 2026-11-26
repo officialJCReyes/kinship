@@ -267,6 +267,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write # create the release and upload its files
+      pull-requests: write # swap the release pull request's label after a stable release (ADR 0037)
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       TAG: ${{ needs.prepare.outputs.tag }}
@@ -297,3 +298,26 @@ jobs:
             gh release create "$TAG" release-files/compose.yml release-files/env.example release-files/release-manifest.json \
               --verify-tag --title "KinShip ${TAG#v}" --notes-file release-files/release-notes.md "${flags[@]}"
           fi
+      # release-please changes "autorelease: pending" to "autorelease: tagged" only in its own release step, which
+      # skip-github-release turns off (ADR 0017); without the swap its next run stops at "untagged, merged release PRs
+      # outstanding" (ADR 0037). Stable tags only: a candidate is prepared by hand and has no release pull request. It runs
+      # once the GitHub Release exists. A failure here leaves the release in place and is safe to re-run.
+      - name: Find the release pull request
+        id: release-pr
+        if: ${{ needs.prepare.outputs.prerelease == 'false' }}
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-list -n 1 "$TAG")
+          export SHA
+          gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" > release-pulls.json
+          node scripts/release-info.mjs release-pr release-pulls.json
+      - name: Mark the release pull request tagged
+        if: ${{ steps.release-pr.outputs.action == 'swap' }}
+        env:
+          NUMBER: ${{ steps.release-pr.outputs.number }}
+        run: |
+          set -euo pipefail
+          # Tagged first, then pending away: a stop in between leaves both labels (a re-run finishes it), never neither.
+          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels" -f 'labels[]=autorelease: tagged' > /dev/null
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/$NUMBER/labels/autorelease:%20pending" > /dev/null
+          echo "#$NUMBER is now labelled \"autorelease: tagged\""
