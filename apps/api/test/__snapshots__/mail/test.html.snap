@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+<title>KinShip test email</title></head>
+<body style="margin:0;padding:0;background-color:#F6F4EC;">
+<span style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;color:#F6F4EC;">If you can read this, email works.</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F6F4EC" style="width:100%;background-color:#F6F4EC;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="width:100%;max-width:560px;background-color:#FFFFFF;border:1px solid #D9E0DB;border-radius:12px;">
+<tr><td bgcolor="#1E4D4A" style="padding:18px 28px;background-color:#1E4D4A;border-radius:12px 12px 0 0;">
+<img src="https://tree.hale.example/email/logo.png" width="81" height="30" alt="KinShip" style="display:block;width:81px;height:30px;border:0;outline:none;text-decoration:none;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:600;color:#FFFFFF;">
+</td></tr>
+<tr><td style="padding:28px 28px 10px 28px;">
+<h1 style="margin:0 0 14px 0;font-family:Georgia,'Times New Roman',Times,serif;font-size:25px;line-height:31px;font-weight:600;color:#17231F;">Email works</h1><p style="margin:0 0 16px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#17231F;">Hello Marcus Hale,</p><p style="margin:0 0 16px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#17231F;">This is a test email from KinShip at https://tree.hale.example. If you can read it, email works: invitations and password resets can be sent by email.</p><p style="margin:0 0 16px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#17231F;">You asked for it on the Storage &amp; email page in Admin. It was sent through Resend.</p><p style="margin:0 0 16px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#17231F;">There is nothing to do. You can delete this email.</p>
+</td></tr></table>
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;">
+<tr><td align="center" style="padding:16px 8px 0 8px;">
+<p style="margin:0 0 8px 0;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#5B6A65;text-align:center;">Sent by KinShip (https://tree.hale.example).</p>
+</td></tr></table>
+</td></tr></table>
+</body></html>

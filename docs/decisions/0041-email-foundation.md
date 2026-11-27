@@ -7,7 +7,8 @@
   [0014 Backups and owner access](0014-backup-and-owner-access.md), [0035 Restore with photos](0035-restore-with-photos.md),
   [0042 Sign-in limits](0042-sign-in-limits.md)
 - Later in 0.4.0: step 54 (invitations, reset requests and the "password changed" notice by email) and step 57
-  (notifications) send through what this ADR builds; 53b adds the templates and their editor, 53c the Deployment page.
+  (notifications) send through what this ADR builds; 53b adds the templates and their editor (the api in 53b-api, the Emails
+  tab in 53b-web), 53c the Deployment page.
 
 ## Context
 
@@ -132,6 +133,113 @@ is the family's own text and **is** backed up. A pre-0026 archive restores and t
 Email text is not UI text: emails are rendered by the api, and later per recipient. The built-in wording lives with the
 templates in `apps/api/src/mail/` (English only, like the app at launch). The page around it uses translation keys as usual.
 53b adds the templates, the editor and the rules for admin-edited text.
+
+### Templates (53b)
+**One source, two parts.** An email is a list of nodes: heading, paragraph, card (initials circle, title, detail), quote
+(someone's own words and who wrote them), button, small print and list. `layout.ts` prints them once as HTML and once as plain
+text, so the two parts always say the same thing. `render.ts` fills a template, and `templates/*.ts` holds one file per
+template.
+
+**The look** follows `design/kinship-email-templates.md`:
+- one 560 px column on the cream page (#F6F4EC), a white card with a thin border (#D9E0DB);
+- a deep teal header (#1E4D4A) with the logo, Georgia headings, a system sans body, text #17231F, muted #5B6A65;
+- one teal button.
+
+It is built for the strictest clients (Outlook on Windows draws with Word):
+- tables for all layout, every style inline;
+- no `<style>`, no `class`, explicit `width` and `bgcolor`;
+- light theme only (`color-scheme: light`).
+
+**Images and links:**
+- The only image is the logo, `PUBLIC_URL/email/logo.png`, with alt text. It is the reversed (teal-background) logo from the
+  brand kit, scaled to 258 × 96, and served by the web container without sign-in. There is no tracking pixel.
+- A test checks the file is in `apps/web/public/`, and an e2e step checks the built web image serves it as `image/png`.
+- Every button address must start with `PUBLIC_URL`, or rendering throws. Links come only from the caller (step 54 builds them),
+  never from text.
+
+**What ships in 0.4:**
+
+| Template | Editable fields (besides subject and preview) | Fixed in code |
+|---|---|---|
+| `invitation` | heading, intro, extra "worth knowing" items, footer | the note, the person card, the role sentence, **Accept invitation**, the expiry and full link, the two privacy lines |
+| `password_reset` | heading, intro, "good to know" items, footer | **Choose a new password**, the expiry and full link, "a new request cancels it", "KinShip never emails your password" |
+| `password_changed` | heading, body, "if this was not you" (may be reworded, never emptied) | the family-admin line, the security-notice footer, and **Secure my account** |
+| `test` | nothing: fixed text | everything |
+
+- **"Secure my account"** in `password_changed` is drawn only when the caller passes a link. Step 54 decides whether that
+  route exists; until it does, the email tells the reader to ask a family admin. It never promises a link "coming later".
+- **Step 57's templates are reserved:** `birthday_today`, `birthday_tomorrow`, `birthday_week`, `weekly_digest` and
+  `medical_edit`. They are listed as "Next", have no content, and answer 404 when opened. DNA-added is not in 0.4.
+- **Wording:** sections 1 and 3 of the templates doc, with these changes:
+  - the invitation link is the caller's `link`, and how long it works is the caller's `expires` ("7 days", "1 hour");
+  - the reset email never says whether an address has an account (step 54 sends it only to an account that can use it).
+
+**Placeholders.** A placeholder is `{name}`, and each field allows its own short list:
+
+| Template | Placeholders |
+|---|---|
+| `invitation` | `inviter`, `tree`, `role`, `expires` |
+| `password_reset` | `name`, `email`, `tree`, `expires` |
+| `password_changed` | `name`, `tree`, `when` |
+
+- No placeholder can carry health, DNA or a birth date, and the person and the note are code, not placeholders.
+- Filling in is one pass: a value that contains `{tree}` is printed as written.
+- **Literal braces** (left open by 53a): braces are for placeholders only. There is no way to write a literal `{` or `}`, and
+  the editor's help text says so. Family text has no use for them, and an escape such as `{{` would be one more rule to learn.
+
+**Admin text is always text.** It is escaped, a blank line starts a paragraph, and a single line break is kept. No HTML from
+an admin ever reaches an email. The subject and preview become header-safe: line breaks and control characters turn into
+spaces, and they are cut at 200 characters.
+
+**Checks on a draft.** A failed check answers 400 `invalid_template` with every problem listed (`field`, `problem`, and
+`placeholder` or `max`):
+- an unknown placeholder;
+- a stray brace;
+- a subject or preview over 150 characters, or with a line break (a heading also stays on one line);
+- a block over 1,000 characters;
+- an empty subject, heading or security-notice text;
+- an unknown field.
+
+**Storage.**
+- Only the fields that differ from the default are stored, so a default improved in a later release still reaches every family
+  that did not change it.
+- The subject goes in `mail_template_overrides.subject`, and every other field (the preview included) goes in `blocks`.
+- Saving the defaults removes the row.
+- **Reset to default** is `DELETE …/:id` for the whole template, or `?field=<key>` for one field.
+- The fixed test email answers 409 `mail_template_fixed` to an edit, and its stored overrides would be ignored anyway.
+
+**Routes** (SuperAdmin only, `no-store`, 403 for everyone else):
+
+| Route | What it does |
+|---|---|
+| `GET /api/admin/mail/templates` | The list: id, editable, reserved, overridden. The web app names each template from its own translation keys, so the api sends no display name. |
+| `GET /api/admin/mail/templates/:id` | The fields: key, kind, required, limit, allowed placeholders, default. Also the current overrides. |
+| `PUT /api/admin/mail/templates/:id` | Saves `{ fields }`. |
+| `DELETE /api/admin/mail/templates/:id` | Reset to default. |
+| `POST /api/admin/mail/templates/:id/preview` | Renders a draft (or, with no body, the saved text) and returns `{ subject, html, text }`. |
+| `POST /api/admin/mail/templates/:id/test` | Sends a test of the saved text. |
+
+- **The preview** uses the Hale sample and a link on `PUBLIC_URL` with the token `SAMPLE-not-a-real-link`. It saves nothing,
+  queues nothing and creates no invitation or reset.
+- **The test** sends the saved text with the same sample, "Test: " in front of the subject, to the signed-in SuperAdmin's own
+  address only. A body is refused, as on `POST /api/admin/mail/test`, and the two routes share one set of limits.
+  - It is queued as template `test`, so it shows as "the last test" on Storage & email and never looks like a real
+    invitation in the outbox.
+  - With mail not set up it answers 409 `mail_not_configured`. Editing and previews still work.
+
+**Queueing a templated email (for step 54).**
+- `enqueueTemplate(trx, mail, publicUrl, { template, to, toUserId, params, expiresAt })` reads the overrides in the caller's
+  transaction (any signed-in user may read them), renders, and queues through `mail.enqueue`.
+- `params` is typed per template:
+  - invitation: `inviter`, `tree`, `person`, `role`, `expires`, `link`, `note`;
+  - reset: `name`, `email`, `tree`, `expires`, `link`;
+  - changed: `name`, `tree`, `when`, `secureLink`.
+- `mail.enqueue` from 53a is unchanged. It still takes a finished message, for callers that render their own.
+
+**Privacy.** A test renders every template with Hale fixtures whose health, DNA and under-18 values are unique markers, and fails
+if a marker appears. It also fails on a short list of words: diagnosis, medication, condition, haplogroup, centimorgan, ethnicity,
+genetic, DNA, health and match. The one listed exception is the invitation's two fixed privacy lines, which say that health and
+DNA stay private.
 
 ## Consequences
 - An install with no mail settings runs as before. The two new tables exist and stay empty.

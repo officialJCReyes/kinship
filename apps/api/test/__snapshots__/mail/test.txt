@@ -1,0 +1,14 @@
+Subject: KinShip test email
+
+EMAIL WORKS
+
+Hello Marcus Hale,
+
+This is a test email from KinShip at https://tree.hale.example. If you can read it, email works: invitations and password resets can be sent by email.
+
+You asked for it on the Storage & email page in Admin. It was sent through Resend.
+
+There is nothing to do. You can delete this email.
+
+--
+Sent by KinShip (https://tree.hale.example).
