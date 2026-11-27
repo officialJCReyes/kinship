@@ -107,6 +107,8 @@ Email is optional. Without it KinShip works as before: invitation and set-passwo
 
 Then open **Admin → Storage & email** (SuperAdmin only). It shows what KinShip read (a key or a password only as "set"), how many emails are waiting or failed, the last failure with a hint about the usual causes, and **Send test to me**, which sends a test to your own address.
 
+Every email shows the KinShip logo, loaded from `PUBLIC_URL/email/logo.png` (the web container serves it without sign-in; it is the only image in an email, and there is no tracking pixel). While `PUBLIC_URL` is `localhost`, mail apps such as Gmail cannot load it and show the word "KinShip" instead. That is harmless.
+
 ## Inviting people
 
 Sign in as a SuperAdmin or Family Admin, open the account menu (your name, top right) and choose **Admin**, then **Invite user**. Enter their email address, choose a role, and optionally a person on the tree who has no account yet. KinShip makes a link to copy and send yourself (it sends no email). The link works once, lasts 7 days and is shown only once; if you lose it, make a new one (that cancels the old). Whoever opens it chooses a password and is signed in. An account linked to nobody can be linked later under **Admin → Users → Link to a person**.

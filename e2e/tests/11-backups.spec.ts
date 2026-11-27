@@ -154,6 +154,13 @@ test('Storage & email shows Photos and files and that email is not set up, with 
   }
 });
 
+test('the logo every email shows is served by the web image without sign-in', async ({ request }) => {
+  const logo = await request.get('/email/logo.png');
+  expect(logo.status()).toBe(200);
+  expect(logo.headers()['content-type']).toBe('image/png');
+  expect((await logo.body()).subarray(1, 4).toString('latin1')).toBe('PNG');
+});
+
 test('a Member cannot see or use any of it', async ({ page, adminApi }) => {
   const member = await createAccount(adminApi, {
     email: `bea-${uniq()}@hale.example`,
@@ -165,7 +172,14 @@ test('a Member cannot see or use any of it', async ({ page, adminApi }) => {
     await page.goto(path);
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   }
-  for (const path of ['/api/admin/backups', '/api/admin/backups/settings', '/api/admin/mail', '/api/admin/files']) {
+  for (const path of [
+    '/api/admin/backups',
+    '/api/admin/backups/settings',
+    '/api/admin/mail',
+    '/api/admin/files',
+    '/api/admin/mail/templates',
+    '/api/admin/mail/templates/invitation',
+  ]) {
     expect((await page.request.get(path)).status(), path).toBe(403);
   }
   const started = await page.request.post('/api/admin/backups', { headers: { 'X-KinShip-Request': '1' } });

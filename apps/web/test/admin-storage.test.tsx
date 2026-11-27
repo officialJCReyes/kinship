@@ -405,14 +405,16 @@ describe('Admin > Storage & email: Send test to me', () => {
 });
 
 describe('the mail client and the shared route table', () => {
-  it('calls only the routes in MAIL_ROUTES, with the CSRF header on the test and no body', async () => {
+  it('calls only the status and test routes in MAIL_ROUTES, with the CSRF header on the test and no body', async () => {
     const fetchMock = mockApi({
       'GET /api/admin/mail': { status: 200, body: off() },
       'POST /api/admin/mail/test': { status: 202, body: { id: 'x' } },
     });
     await api.fetchMailStatus();
     await api.sendTestMail();
-    expect(calls(fetchMock)).toEqual(MAIL_ROUTES.map((r) => `${r.method} ${r.path}`));
+    expect(calls(fetchMock)).toEqual(
+      MAIL_ROUTES.filter((r) => !r.path.includes('/templates')).map((r) => `${r.method} ${r.path}`),
+    );
     const init = fetchMock.mock.calls[1]?.[1];
     expect((init?.headers as Record<string, string>)['X-KinShip-Request']).toBe('1');
     expect(init?.body).toBeUndefined();
