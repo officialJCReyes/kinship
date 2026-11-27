@@ -28,6 +28,9 @@ import type {
   FilesStatus,
   MailStatus,
   MailTestStarted,
+  MailPreview,
+  MailTemplateDetail,
+  MailTemplateSummary,
   DownloadTicket,
   MaintenanceStatus,
   RestoreCheck,
@@ -212,7 +215,6 @@ export async function fetchFilesStatus(signal?: AbortSignal): Promise<FilesStatu
   return reply.body as FilesStatus;
 }
 
-/** Starts a backup in the background (202). The page then polls fetchBackups. */
 /** Admin → Storage & email: how email is set up and what the outbox holds (SuperAdmin only; never a secret). */
 export async function fetchMailStatus(signal?: AbortSignal): Promise<MailStatus> {
   const reply = await send('GET', '/api/admin/mail', undefined, signal);
@@ -227,6 +229,55 @@ export async function sendTestMail(): Promise<MailTestStarted> {
   return reply.body as MailTestStarted;
 }
 
+const templatePath = (id: string) => `/api/admin/mail/templates/${encodeURIComponent(id)}`;
+
+/** Admin → Emails: every template, the reserved ("Next") ones last. */
+export async function fetchMailTemplates(signal?: AbortSignal): Promise<MailTemplateSummary[]> {
+  const reply = await send('GET', '/api/admin/mail/templates', undefined, signal);
+  if (reply.status !== 200 || !Array.isArray(reply.body)) fail('/api/admin/mail/templates', reply);
+  return reply.body as MailTemplateSummary[];
+}
+
+/** One template: its fields with their defaults and placeholders, and what the family changed. */
+export async function fetchMailTemplate(id: string, signal?: AbortSignal): Promise<MailTemplateDetail> {
+  const reply = await send('GET', templatePath(id), undefined, signal);
+  if (reply.status !== 200) fail(templatePath(id), reply);
+  return reply.body as MailTemplateDetail;
+}
+
+/** Saves the whole draft (the server keeps only what differs from the defaults). 400 invalid_template lists the problems. */
+export async function saveMailTemplate(id: string, fields: Record<string, string>): Promise<MailTemplateDetail> {
+  const reply = await send('PUT', templatePath(id), { fields });
+  if (reply.status !== 200) fail(templatePath(id), reply);
+  return reply.body as MailTemplateDetail;
+}
+
+/** Reset to default: every field of the template goes back to KinShip's text. */
+export async function resetMailTemplate(id: string): Promise<MailTemplateDetail> {
+  const reply = await send('DELETE', templatePath(id));
+  if (reply.status !== 200) fail(templatePath(id), reply);
+  return reply.body as MailTemplateDetail;
+}
+
+/** The draft rendered with the Hale sample and a link that goes nowhere. Nothing is saved or sent. */
+export async function previewMailTemplate(
+  id: string,
+  fields: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<MailPreview> {
+  const reply = await send('POST', `${templatePath(id)}/preview`, { fields }, signal);
+  if (reply.status !== 200) fail(`${templatePath(id)}/preview`, reply);
+  return reply.body as MailPreview;
+}
+
+/** "Send test to me" for one template: the saved text, to the signed-in SuperAdmin. The request names no recipient. */
+export async function sendTemplateTest(id: string): Promise<MailTestStarted> {
+  const reply = await send('POST', `${templatePath(id)}/test`);
+  if (reply.status !== 202) fail(`${templatePath(id)}/test`, reply);
+  return reply.body as MailTestStarted;
+}
+
+/** Starts a backup in the background (202). The page then polls fetchBackups. */
 export async function startBackup(): Promise<void> {
   const reply = await send('POST', '/api/admin/backups');
   if (reply.status !== 202) fail('/api/admin/backups', reply);

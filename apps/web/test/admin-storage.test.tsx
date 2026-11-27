@@ -96,7 +96,7 @@ const tick = async (ms: number) => {
 };
 
 describe('Admin > Storage & email: the page and who sees it', () => {
-  it('is a SuperAdmin tab, in the mockup order, with the page title and the Photos and files card', async () => {
+  it('is a SuperAdmin tab, with the page title and the Photos and files card', async () => {
     open({ status: 200, body: off() });
     expect(await screen.findByRole('heading', { name: 'Storage & email', level: 1 })).toBeTruthy();
     const tabs = screen.getByRole('navigation', { name: 'Admin sections' });
@@ -104,7 +104,7 @@ describe('Admin > Storage & email: the page and who sees it', () => {
       within(tabs)
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Users', 'Storage & email', 'Backups', 'Updates']);
+    ).toEqual(['Users', 'Storage & email', 'Emails', 'Backups', 'Updates']);
     const photos = await screen.findByRole('region', { name: 'Photos and files' });
     expect(within(photos).getByText(/Photos are on/)).toBeTruthy();
     expect(within(photos).getByText('0123456789abcdef')).toBeTruthy();

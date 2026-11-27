@@ -9,8 +9,8 @@ import { NotFoundPage } from './NotFoundPage.js';
 
 /**
  * Everything under /admin. A Member or a User gets the not-found page (the API refuses them anyway), so the address does
- * not even say that an admin area exists. The tabs are Users, Storage & email and Backups (SuperAdmin only), and Updates (a Family Admin sees only a note there),
- * in the mockup's order.
+ * not even say that an admin area exists. The tabs are Users; Storage & email, Emails and Backups (SuperAdmin only); and
+ * Updates (a Family Admin sees only a note there). Emails comes right after Storage & email (prompt 12; the mockup puts it later).
  */
 export function AdminLayout() {
   const session = useSession(false);
@@ -23,6 +23,7 @@ export function AdminLayout() {
         {session.data?.user.role === 'superadmin' ? (
           <>
             <NavLink to="/admin/storage">{t('admin.tab.storage')}</NavLink>
+            <NavLink to="/admin/emails">{t('admin.tab.emails')}</NavLink>
             <NavLink to="/admin/backups">{t('admin.tab.backups')}</NavLink>
           </>
         ) : null}

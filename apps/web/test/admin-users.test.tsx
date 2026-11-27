@@ -103,7 +103,7 @@ describe('the Admin entry and its page', () => {
       within(tabs)
         .getAllByRole('link')
         .map((a) => a.textContent),
-    ).toEqual(['Users', 'Storage & email', 'Backups', 'Updates']); // the mockup's order. Storage & email and Backups are the
+    ).toEqual(['Users', 'Storage & email', 'Emails', 'Backups', 'Updates']); // Storage & email, Emails and Backups are the
     // SuperAdmin's alone; Updates shows a Family Admin a note
     fireEvent.click(screen.getByRole('button', { name: 'Account menu' }));
     expect(screen.getByRole('menuitem', { name: 'Admin' }).getAttribute('href')).toBe('/admin');
