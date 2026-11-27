@@ -2,6 +2,25 @@
 
 All notable changes to KinShip are recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.0](https://github.com/officialJCReyes/kinship/compare/v0.3.0...v0.4.0) (2026-11-27)
+
+
+### Features
+
+* **api:** email templates with admin-edited text, previews and test sends (step 53b-api) ([#295](https://github.com/officialJCReyes/kinship/issues/295)) ([8f0eaa1](https://github.com/officialJCReyes/kinship/commit/8f0eaa11baf87413756cc4a8727b1db485496825))
+* **api:** send email through Resend or SMTP from an outbox (step 53a) ([#293](https://github.com/officialJCReyes/kinship/issues/293)) ([0efbc48](https://github.com/officialJCReyes/kinship/commit/0efbc488aea94530c9540bdd745dc48514cfe6b2))
+* **web:** Admin &gt; Storage & email shows email status and sends a test (step 53a-web) ([#294](https://github.com/officialJCReyes/kinship/issues/294)) ([eb50950](https://github.com/officialJCReyes/kinship/commit/eb50950639b8591e8d7b58cb467515554cd20a2c))
+* **web:** person panel says who someone is to you and links to FamilySearch ([#285](https://github.com/officialJCReyes/kinship/issues/285)) ([6c36b03](https://github.com/officialJCReyes/kinship/commit/6c36b033b213872d4675345746544f706bc3b325))
+* **web:** person panel shows born and died lines with ages, and icon actions ([#283](https://github.com/officialJCReyes/kinship/issues/283)) ([fc1faff](https://github.com/officialJCReyes/kinship/commit/fc1faffee8ffd7414fe0466ecb7ee75983da124d))
+* **web:** person panel View family button and More menu ([#286](https://github.com/officialJCReyes/kinship/issues/286)) ([8050430](https://github.com/officialJCReyes/kinship/commit/8050430242a266db556249949914f035743407c3))
+
+
+### Bug Fixes
+
+* **api:** refuse a placeholder as a parent in POST /api/people/:id/parents ([#287](https://github.com/officialJCReyes/kinship/issues/287)) ([fab86d4](https://github.com/officialJCReyes/kinship/commit/fab86d429b1b0effe94bb4c4a38aa728e69f8764))
+* **api:** sign-in counts failures per account and address, and slows an attacked account instead of locking it ([#227](https://github.com/officialJCReyes/kinship/issues/227)) ([#291](https://github.com/officialJCReyes/kinship/issues/291)) ([0309e9f](https://github.com/officialJCReyes/kinship/commit/0309e9ff7ff2adc4f53273eeb96086a19c1e7ad3))
+* **web:** keep dialogs inside a 360 px window, with 36 px close buttons ([#288](https://github.com/officialJCReyes/kinship/issues/288)) ([f80a0a4](https://github.com/officialJCReyes/kinship/commit/f80a0a496e476646ae4ee308b53adb978922a724))
+
 ## [0.3.0] - 2026-11-24
 
 **KinShip 0.3.0, "See the family".** New charts, a relationship finder, search, photos, account management and Restore from the app. **It changes the database (migrations 0017 to 0024) and some defaults: back up first and read [UPGRADE.md](https://github.com/officialJCReyes/kinship/blob/main/UPGRADE.md) before updating from 0.2.1.** Photos need a file key and a `./data/files` folder. From a 0.3.0 release candidate it is an image update.
