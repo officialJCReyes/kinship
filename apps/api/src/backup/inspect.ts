@@ -60,11 +60,26 @@ export async function listTables(db: QueryExecutorProvider): Promise<string[]> {
   return result.rows.map((row) => row.relname);
 }
 
+/**
+ * Tables a backup carries without their rows (the table itself is in the dump): the email outbox (ADR 0041). Restoring old
+ * queued mail could send stale or duplicate messages, and a queued body can hold a one-time link. They count as empty.
+ */
+export const TABLES_WITHOUT_DATA = ['mail_outbox'] as const;
+
+/** pg_dump's flags that leave those rows out. A name that matches no table (an older schema) is not an error. */
+export const DUMP_EXCLUDE_ARGS = TABLES_WITHOUT_DATA.map((table) => `--exclude-table-data=public.${table}`);
+
+const EMPTY_DIGEST = 'd41d8cd98f00b204e9800998ecf8427e';
+
 /** Row counts and digests of every table. Run inside the transaction whose snapshot the dump uses. */
 export async function tableStats(db: QueryExecutorProvider): Promise<Record<string, TableStats>> {
   await sql`set local time zone 'UTC'`.execute(db);
   const stats: Record<string, TableStats> = {};
   for (const table of await listTables(db)) {
+    if ((TABLES_WITHOUT_DATA as readonly string[]).includes(table)) {
+      stats[table] = { rows: 0, digest: EMPTY_DIGEST };
+      continue;
+    }
     const result = await sql<{ n: string; digest: string }>`
       select count(*)::text as n, md5(coalesce(string_agg(t::text, E'\n' order by t::text), '')) as digest
         from ${sql.table(`public.${table}`)} t`.execute(db);

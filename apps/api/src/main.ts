@@ -20,6 +20,7 @@ import { readRestoreMarker } from './files/restore-marker.js';
 import { reconcileFiles } from './backup/restore-files.js';
 import { mediaRowsExist, storedKeyIds } from './media/store.js';
 import { createSweeperJob } from './media/sweeper.js';
+import { createMailService } from './mail/outbox.js';
 
 function log(message: string): void {
   console.log(JSON.stringify({ level: 'info', time: Date.now(), msg: message }));
@@ -30,6 +31,16 @@ async function main(): Promise<void> {
   scrubSecretsFromEnv();
   const version = readVersion(config.gitCommit, config.buildDate);
   log(`KinShip API ${version.version} (${version.commit}, built ${version.buildDate}) starting`);
+
+  if (config.mail.provider === 'smtp' && config.mail.smtp.security === 'none') {
+    console.log(
+      JSON.stringify({
+        level: 'warn',
+        time: Date.now(),
+        msg: 'SMTP_SECURE=none: email goes to the SMTP server without encryption. Use this only for a relay on a network you trust.',
+      }),
+    );
+  }
 
   const backupProblem = passphraseProblem(config.backup.passphrase);
   if (backupProblem !== null) {
@@ -140,6 +151,14 @@ async function main(): Promise<void> {
       log: backupCtx.log,
     }),
   );
+  // Email (ADR 0041): the outbox is sent by a job in this runner, and right away when something is queued (kick).
+  const mail = createMailService({ config: config.mail, db: config.db, log: backupCtx.log });
+  jobs.register(mail.job);
+  log(
+    config.mail.provider === 'off'
+      ? 'email is not set up (no MAIL_PROVIDER, RESEND_API_KEY or SMTP_HOST); KinShip works as before, without sending email'
+      : `email is set up: ${config.mail.provider === 'resend' ? 'Resend' : 'SMTP'}, from ${config.mail.from}`,
+  );
   jobs.start();
 
   // In-app restore (ADR 0031): the maintenance gate, and the service that pauses everything, replaces the database and exits so
@@ -152,11 +171,13 @@ async function main(): Promise<void> {
     scheduler,
     async pause() {
       jobs.pause();
+      mail.pause();
       stopCleanup();
       return jobs.idle(30_000);
     },
     resume() {
       jobs.resume();
+      mail.resume();
       stopCleanup = scheduleSessionCleanup(db, log);
     },
     closePool: () => db.destroy(),
@@ -175,6 +196,8 @@ async function main(): Promise<void> {
     maintenance,
     backups: { scheduler, dir: config.backup.dir, restore },
     files,
+    mail,
+    publicUrl: config.publicUrl,
     updates: { checker, docs: loadBundledDocs() },
     sessions: { idleSeconds: config.sessionIdleSeconds, maxSeconds: config.sessionMaxSeconds },
   });
@@ -186,6 +209,7 @@ async function main(): Promise<void> {
     jobs.stop();
     stopCleanup();
     await app.close();
+    await mail.close();
     await db.destroy();
     process.exit(0);
   };

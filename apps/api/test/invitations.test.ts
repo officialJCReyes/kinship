@@ -51,11 +51,13 @@ const parse = (response: { statusCode: number; body: string }) => ({
 
 describe('routes and messages', () => {
   it('registers exactly the account routes the shared package lists', () => {
-    // The backup and files routes (also under /api/admin) have their own tables and checks in contract.test.ts.
+    // The backup, files and mail routes (also under /api/admin) have their own tables and checks in contract.test.ts.
     const mine = registered
       .filter(
         (r) =>
-          /^\w+ \/api\/(admin|links)\//.test(r) && !/\/api\/admin\/(backups|files)/.test(r) && !r.startsWith('HEAD '),
+          /^\w+ \/api\/(admin|links)\//.test(r) &&
+          !/\/api\/admin\/(backups|files|mail)/.test(r) &&
+          !r.startsWith('HEAD '),
       )
       .sort();
     const declared = ACCOUNT_ROUTES.filter((r) => /^\/api\/(admin|links)\//.test(r.path))

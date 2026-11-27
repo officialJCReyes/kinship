@@ -66,6 +66,7 @@ export function testConfig(test: TestDatabase, dir: string, passphrase: string |
     db: test.config,
     backup: { enabled: true, dir, passphrase, skipSafetyCopy: false },
     files: { dir: `${dir}-files`, key: undefined },
+    mail: { provider: 'off' },
   };
 }
 

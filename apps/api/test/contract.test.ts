@@ -11,6 +11,9 @@ import {
   BACKUP_ERROR_CODES,
   BACKUP_ROUTES,
   FILES_ROUTES,
+  MAIL_ERROR_CODES,
+  MAIL_HINTS,
+  MAIL_ROUTES,
   MEDIA_ERROR_CODES,
   en,
   PEOPLE_ERROR_CODES,
@@ -57,6 +60,11 @@ describe('routes', () => {
     expect(mine).toEqual(FILES_ROUTES.map((r) => `${r.method} ${r.path}`).sort());
   });
 
+  it('registers exactly the mail admin routes the shared package lists', () => {
+    const mine = registered.filter((r) => /^\w+ \/api\/admin\/mail/.test(r) && !r.startsWith('HEAD ')).sort();
+    expect(mine).toEqual(MAIL_ROUTES.map((r) => `${r.method} ${r.path}`).sort());
+  });
+
   it('lists every route once', () => {
     const keys = PEOPLE_ROUTES.map((r) => `${r.method} ${r.path}`);
     expect(new Set(keys).size).toBe(keys.length);
@@ -68,6 +76,8 @@ describe('error codes and messages', () => {
     for (const code of PEOPLE_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
     for (const code of BACKUP_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
     for (const code of MEDIA_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
+    for (const code of MAIL_ERROR_CODES) expect(en, code).toHaveProperty(`error.${code}`);
+    for (const hint of MAIL_HINTS) expect(en, hint).toHaveProperty(`mail.hint.${hint}`);
     for (const code of WARNING_CODES) expect(en, code).toHaveProperty(`warning.${code}`);
   });
 

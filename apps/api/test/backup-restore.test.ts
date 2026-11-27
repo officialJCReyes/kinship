@@ -31,6 +31,12 @@ import { sizeSlack, testConfig, testTools } from './helpers/pg-tools.js';
 
 /** The newest migration number. Never write the last number into a test: a later migration moves it. */
 const LATEST = readdirSync(realMigrationsDir).filter((n) => /^\d{4}_.*\.sql$/.test(n)).length;
+/** The names of the migrations after `n`, in order (what a restore of a schema-n archive applies). */
+const migrationsAfter = (n: number) =>
+  readdirSync(realMigrationsDir)
+    .filter((name) => /^\d{4}_.*\.sql$/.test(name) && Number(name.slice(0, 4)) > n)
+    .sort()
+    .map((name) => name.replace(/\.sql$/, ''));
 
 const PASS = 'a long backup passphrase for tests';
 const CHEAP = { N: 2 ** 4, r: 8, p: 1 };
@@ -573,6 +579,72 @@ describe('restoring onto a brand-new, empty Postgres (disaster recovery)', () =>
   }, 120_000);
 });
 
+describe('email (0026, ADR 0041)', () => {
+  const outboxRows = async (owner: UntypedDb) =>
+    Number((await sql<{ n: string }>`select count(*)::text as n from mail_outbox`.execute(owner)).rows[0]?.n);
+  const queue = (owner: UntypedDb, to: string) =>
+    sql`insert into mail_outbox (template, to_address, subject, body_text)
+        values ('password_reset', ${to}, 'Reset your KinShip password', 'https://tree.hale.example/reset#a-real-token')`.execute(
+      owner,
+    );
+
+  it('a backup carries the template overrides but not the outbox rows, and a restore brings back an empty outbox', async () => {
+    const l = await live();
+    await queue(l.test.owner, 'sofia@hale.example');
+    await sql`insert into mail_template_overrides (template, subject, blocks)
+              values ('invitation', 'Join the Hale tree', '{"intro": "Welcome, cousin."}'::jsonb)`.execute(
+      l.test.owner,
+    );
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    expect(made.manifest.tables['mail_outbox']).toEqual({ rows: 0, digest: 'd41d8cd98f00b204e9800998ecf8427e' });
+    expect(made.manifest.tables['mail_template_overrides']?.rows).toBe(1);
+
+    // A message queued after the backup; the restore must not bring back the first one, nor keep this one.
+    await queue(l.test.owner, 'daniel@hale.example');
+    const report = await restoreBackup(l.ctx, made.path, hooks());
+    expect(report.cancelled).toBe(false);
+    expect(await outboxRows(l.test.owner)).toBe(0);
+    const overrides = await sql`select template, subject, blocks from mail_template_overrides`.execute(l.test.owner);
+    expect(overrides.rows).toEqual([
+      { template: 'invitation', subject: 'Join the Hale tree', blocks: { intro: 'Welcome, cousin.' } },
+    ]);
+
+    // The archive's dump holds no outbox row: the reset link never reached the backup.
+    const opened = await openArchive(made.path, PASS, testTools(), l.dir);
+    try {
+      const parts: Buffer[] = [];
+      await opened.extract('database.dump', new Writable({ write: (c: Buffer, _e, cb) => (parts.push(c), cb()) }));
+      const listed = await run(testTools().pgRestore, ['--data-only', '-f', '-'], {
+        env: { PATH: process.env['PATH'] ?? '' },
+        stdin: Readable.from([Buffer.concat(parts)]),
+      });
+      const text = listed.stdout.toString('utf8');
+      expect(text).toContain('mail_template_overrides');
+      expect(text).not.toContain('a-real-token');
+      expect(text).not.toContain('sofia@hale.example');
+    } finally {
+      opened.cleanup();
+    }
+  }, 150_000);
+
+  it('a backup from 0.3.x (schema 25) restores and gains the empty email tables', async () => {
+    const older = await tempMigrationsDir(true);
+    cleanups.push(() => older.remove());
+    await removeMigrationsFrom(older.dir, 26);
+    const l = await live({ migrationsDir: older.dir });
+    const made = await createBackup(l.ctx, { kind: 'manual' });
+    expect(made.manifest.schema).toBe(25);
+    expect(made.manifest.tables['mail_outbox']).toBeUndefined();
+
+    const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
+    const report = await restoreBackup(newImage, made.path, hooks());
+    expect(report.migrationsApplied).toEqual(migrationsAfter(25));
+    expect(report.migrationsApplied[0]).toBe('0026_mail_outbox_and_templates');
+    expect(await outboxRows(l.test.owner)).toBe(0);
+    expect((await sql`select * from mail_template_overrides`.execute(l.test.owner)).rows).toEqual([]);
+  }, 150_000);
+});
+
 describe('the restore command line', () => {
   const output = (config: BackupContext['config'], tools: Tools, ask?: string | null) => {
     const out: string[] = [];
@@ -800,7 +872,8 @@ describe('a restore and the last-SuperAdmin triggers on users (ADR 0029, ADR 003
     // Restoring the rc archive replays the particle apart, then 0024 folds it and 0025 drops the column: the same name.
     const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
     const report = await restoreBackup(newImage, made.path, hooks());
-    expect(report.migrationsApplied).toEqual(['0024_fold_surname_particle', '0025_drop_surname_particle']);
+    expect(report.migrationsApplied).toEqual(migrationsAfter(23));
+    expect(report.migrationsApplied.slice(0, 2)).toEqual(['0024_fold_surname_particle', '0025_drop_surname_particle']);
     expect(await surnameOf(l.test.owner, l.family.person.rosa)).toBe(folded);
     expect(await hasParticleColumn(l.test.owner)).toBe(false);
     expect(await leftoverRows(l.test.owner)).toEqual([]);
@@ -820,7 +893,8 @@ describe('a restore and the last-SuperAdmin triggers on users (ADR 0029, ADR 003
 
     const newImage: BackupContext = { ...l.ctx, config: { ...l.ctx.config, migrationsDir: realMigrationsDir } };
     const report = await restoreBackup(newImage, made.path, hooks());
-    expect(report.migrationsApplied).toEqual(['0025_drop_surname_particle']);
+    expect(report.migrationsApplied).toEqual(migrationsAfter(24));
+    expect(report.migrationsApplied[0]).toBe('0025_drop_surname_particle');
     expect(await hasParticleColumn(l.test.owner)).toBe(false);
     expect(await surnameOf(l.test.owner, l.family.person.rosa)).toBe('L'.repeat(98));
     expect(await leftoverRows(l.test.owner)).toEqual([

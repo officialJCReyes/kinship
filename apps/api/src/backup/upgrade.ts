@@ -31,7 +31,7 @@ import {
 import type { Log } from './archive.js';
 import { passphraseProblem } from './crypto.js';
 import { BackupError } from './errors.js';
-import { ownerReadsEverything } from './inspect.js';
+import { DUMP_EXCLUDE_ARGS, ownerReadsEverything } from './inspect.js';
 import { KEEP_SAFETY_COPIES } from './retention.js';
 import { readSafetyCopySetting } from './settings.js';
 import { clean, ownerLogin, pgEnv, run, ToolError } from './tools.js';
@@ -102,7 +102,7 @@ async function writePlainCopy(ctx: UpgradeContext, name: string): Promise<void> 
   try {
     const gzip = createGzip();
     const written = pipeline(gzip, createWriteStream(temp, { flags: 'wx', mode: 0o600 }));
-    const result = await run(tools.pgDump, ['--format=plain', '--no-owner'], {
+    const result = await run(tools.pgDump, ['--format=plain', '--no-owner', ...DUMP_EXCLUDE_ARGS], {
       env: pgEnv(ownerLogin(config.db)),
       stdout: gzip,
       secrets: [config.db.ownerPassword],

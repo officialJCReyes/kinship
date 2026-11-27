@@ -31,7 +31,7 @@ import { collectFiles, parseFilesIndex, storedFilesBytes } from './files.js';
 import type { CollectedFiles, FilesIndex } from './files.js';
 import { LEAD_LENGTH, readPreamble } from './format.js';
 import type { ArchiveHeader, KdfParams } from './format.js';
-import { assertOwnerReadsEverything, fingerprint, tableStats } from './inspect.js';
+import { assertOwnerReadsEverything, DUMP_EXCLUDE_ARGS, fingerprint, tableStats } from './inspect.js';
 import { parseManifest } from './manifest.js';
 import type { BackupKind, Manifest } from './manifest.js';
 import { clean, ownerLogin, pgEnv, run, runChecked, ToolError } from './tools.js';
@@ -298,11 +298,15 @@ export async function createBackup(ctx: BackupContext, options: CreateOptions): 
             fingerprint: print,
           };
           dump = new HashingFile(join(work, 'database.dump'));
-          const result = await run(tools.pgDump, ['-Fc', '--no-owner', `--snapshot=${snapshot}`], {
-            env,
-            stdout: dump,
-            secrets,
-          });
+          const result = await run(
+            tools.pgDump,
+            ['-Fc', '--no-owner', `--snapshot=${snapshot}`, ...DUMP_EXCLUDE_ARGS],
+            {
+              env,
+              stdout: dump,
+              secrets,
+            },
+          );
           await new Promise<void>((resolve) =>
             dump.writableFinished ? resolve() : dump.once('finish', () => resolve()),
           );
