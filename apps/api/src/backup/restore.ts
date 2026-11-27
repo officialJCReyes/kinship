@@ -122,6 +122,7 @@ END`)};`,
     out.push(
       `DO ${dollar(`BEGIN
   IF pg_catalog.to_regclass('public.sessions') IS NOT NULL THEN DELETE FROM public.sessions; END IF;
+  IF pg_catalog.to_regclass('public.mail_outbox') IS NOT NULL THEN DELETE FROM public.mail_outbox; END IF;
   IF pg_catalog.to_regclass('public.account_links') IS NOT NULL THEN
     UPDATE public.account_links SET revoked_at = pg_catalog.now() WHERE accepted_at IS NULL AND revoked_at IS NULL;
   END IF;
