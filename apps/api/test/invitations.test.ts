@@ -615,6 +615,31 @@ describe('limits on the public routes', () => {
     }
   });
 
+  it('only slows links down when bad links come from everywhere, so real links keep working (ADR 0042)', async () => {
+    const waits: number[] = [];
+    const flooded = await createTestApp({ pause: async (ms) => void waits.push(ms) });
+    try {
+      const from = (address: string, token: string) =>
+        flooded.app.inject({
+          method: 'POST',
+          url: '/api/links/lookup',
+          headers: { 'x-kinship-request': '1' },
+          payload: { token },
+          remoteAddress: address,
+        });
+      // 200 bad links from 20 addresses, 10 each (under the per-address limit of 20).
+      for (let a = 0; a < 20; a += 1)
+        for (let i = 0; i < 10; i += 1)
+          expect((await from(`203.0.113.${a + 1}`, `nope-${a}-${i}`)).statusCode).toBe(404);
+      expect(waits).toEqual([]);
+      // A new address is answered, not refused, after a short wait.
+      expect((await from('198.51.100.4', 'mine')).statusCode).toBe(404);
+      expect(waits).toEqual([1_000]);
+    } finally {
+      await flooded.close();
+    }
+  });
+
   it('has a plain per-address request cap, like sign-in', async () => {
     const capped = await createTestApp({ loginRequestsPerMinute: 3 });
     try {

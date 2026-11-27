@@ -20,9 +20,10 @@ import {
   needsRehash,
   verifyPassword,
 } from '../auth/passwords.js';
+import { GuardSet } from '../auth/limiter.js';
 import { generateSessionToken, hashToken } from '../auth/tokens.js';
 import { withUserTransaction } from '../request-context.js';
-import { isValidEmail, normalizeEmail, retrySeconds, sleep } from './shared.js';
+import { isValidEmail, normalizeEmail, passwordGuards, retrySeconds, sleep } from './shared.js';
 import type { RouteDeps } from './shared.js';
 
 export const SESSION_COOKIE = 'kinship_session';
@@ -56,7 +57,7 @@ export async function startSession(
 }
 
 export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void {
-  const { db, limiters, failureDelayMs, requestLimit } = deps;
+  const { db, limiters, failureDelayMs, pause, requestLimit } = deps;
 
   app.post(
     '/api/auth/login',
@@ -79,14 +80,24 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
       const email = normalizeEmail(body.email);
       const ipKey = request.ip;
 
-      const wait = Math.max(limiters.loginIp.retryAfterMs(ipKey), limiters.loginAccount.retryAfterMs(email));
-      if (wait > 0) {
-        const seconds = retrySeconds(wait);
+      // ADR 0042: a pair (this address and this account) and the address block; the account only slows down, so
+      // failures from elsewhere never refuse the owner's correct password from a quiet address. The keys use the
+      // normalised email whether or not an account exists, and nothing here reads the database.
+      const guards = new GuardSet([
+        { limiter: limiters.loginPair, key: `${ipKey}\n${email}` },
+        { limiter: limiters.loginIp, key: ipKey },
+        { limiter: limiters.loginAccount, key: email },
+      ]);
+      const verdict = guards.check();
+      if (verdict.action === 'block') {
+        const seconds = retrySeconds(verdict.retryAfterMs);
         return reply
           .code(429)
           .header('Retry-After', String(seconds))
           .send({ error: 'rate_limited', retryAfterSeconds: seconds });
       }
+      // Before the password is checked, so the wait is the same for a right and a wrong one.
+      if (verdict.action === 'delay') await pause(verdict.ms);
 
       // Unknown email and wrong password must look and take the same: verify against a dummy hash when
       // there is no account, and give the same answer for both.
@@ -94,13 +105,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
       const passwordOk = await verifyPassword(login?.passwordHash ?? (await getDummyHash()), body.password);
 
       if (!login || !passwordOk) {
-        limiters.loginIp.recordFailure(ipKey);
-        limiters.loginAccount.recordFailure(email);
+        guards.recordFailure();
         await sleep(failureDelayMs);
         return reply.code(401).send({ error: 'invalid_credentials' });
       }
 
-      limiters.loginAccount.reset(email);
+      // Only this pair starts again: the account's count keeps slowing down attackers elsewhere until it leaves the window.
+      guards.reset(limiters.loginPair);
       if (needsRehash(login.passwordHash)) {
         await updatePasswordHash(db, login.userId, await hashPassword(body.password));
       }
@@ -149,12 +160,10 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
       void reply.header('Cache-Control', 'no-store');
       const body = request.body as ChangePasswordRequest;
 
-      const wait = Math.max(
-        limiters.passwordIp.retryAfterMs(request.ip),
-        limiters.passwordAccount.retryAfterMs(user.id),
-      );
-      if (wait > 0) {
-        const seconds = retrySeconds(wait);
+      const guards = passwordGuards(limiters, request, user.id);
+      const verdict = guards.check();
+      if (verdict.action === 'block') {
+        const seconds = retrySeconds(verdict.retryAfterMs);
         return reply
           .code(429)
           .header('Retry-After', String(seconds))
@@ -164,14 +173,15 @@ export function registerAuthRoutes(app: FastifyInstance, deps: RouteDeps): void 
         return reply.code(400).send({ error: 'password_too_short', minLength: MIN_PASSWORD_LENGTH });
       }
 
+      if (verdict.action === 'delay') await pause(verdict.ms);
+
       const login = await findLogin(db, user.email);
       if (!login || login.userId !== user.id || !(await verifyPassword(login.passwordHash, body.currentPassword))) {
-        limiters.passwordIp.recordFailure(request.ip);
-        limiters.passwordAccount.recordFailure(user.id);
+        guards.recordFailure();
         await sleep(failureDelayMs);
         return reply.code(400).send({ error: 'invalid_current_password' });
       }
-      limiters.passwordAccount.reset(user.id);
+      guards.reset(limiters.passwordSession);
 
       const newToken = generateSessionToken();
       const newTokenHash = hashToken(newToken);

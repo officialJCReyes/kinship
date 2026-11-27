@@ -21,6 +21,7 @@ import { registerAuthRoutes, SESSION_COOKIE, setSessionCookie } from './routes/a
 import { registerLabelRoutes } from './routes/labels.js';
 import { registerLinkRoutes } from './routes/links.js';
 import { registerPeopleRoutes } from './routes/people.js';
+import { sleep } from './routes/shared.js';
 import type { RouteLimit } from './routes/shared.js';
 import type { Maintenance } from './maintenance.js';
 import { registerBackupRoutes } from './routes/backups.js';
@@ -68,6 +69,8 @@ export interface AppOptions {
   trustProxy?: TrustProxy;
   /** Pause after a failed sign-in or setup attempt, in milliseconds. */
   failureDelayMs?: number;
+  /** How an attempt waits out a delay limiter (tests record the wait instead of sleeping). */
+  pause?: (ms: number) => Promise<void>;
   /** Clock for the failure limiters (tests). */
   now?: () => number;
   /** Most requests per minute and IP address to sign-in and setup, successful or not. */
@@ -81,9 +84,11 @@ export interface AppOptions {
 }
 
 export interface Limiters {
-  /** Failed sign-ins per IP address. */
+  /** Failed sign-ins per address and account (normalised email) pair: blocks (ADR 0042). */
+  loginPair: FailureLimiter;
+  /** Failed sign-ins per IP address, across accounts: blocks. */
   loginIp: FailureLimiter;
-  /** Failed sign-ins per account (email), whether or not the account exists. */
+  /** Failed sign-ins per account (email), whether or not the account exists: slows down, never blocks (ADR 0042). */
   loginAccount: FailureLimiter;
   /** Failed setup attempts per IP address. */
   setupIp: FailureLimiter;
@@ -92,12 +97,19 @@ export interface Limiters {
   /** Links (invitations, set-password links) that did not work, per IP address and from anywhere. */
   linkIp: FailureLimiter;
   linkGlobal: FailureLimiter;
-  /** Wrong current passwords when changing a password, per account and per IP address. */
+  /** Wrong passwords typed by a signed-in person (password change, backup download ticket, restore): per session, blocks. */
+  passwordSession: FailureLimiter;
+  /** The same, per account: slows down, never blocks (ADR 0042). */
   passwordAccount: FailureLimiter;
+  /** The same, per IP address across accounts: blocks. */
   passwordIp: FailureLimiter;
 }
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
+/** The slow-down curve of the delay limiters (ADR 0042): 1 s once past the limit, doubling, at most 10 s. */
+export const ACCOUNT_DELAY = { firstMs: 1_000, maxMs: 10_000 } as const;
+/** Pair and account keys multiply, so their limiters remember more keys than the others. */
+const PAIR_KEYS = 20_000;
 
 export function buildApp(options: AppOptions): FastifyInstance {
   const {
@@ -107,6 +119,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     logStream,
     sessions,
     failureDelayMs = 300,
+    pause = sleep,
     loginRequestsPerMinute = 30,
     apiRequestsPerMinute = 600,
     photoUploadsPer10Minutes = 20,
@@ -127,13 +140,34 @@ export function buildApp(options: AppOptions): FastifyInstance {
 
   const clock = options.now ? { now: options.now } : {};
   const limiters: Limiters = {
-    loginIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
-    loginAccount: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
+    loginPair: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, maxKeys: PAIR_KEYS, ...clock }),
+    loginIp: new FailureLimiter({ maxFailures: 30, windowMs: FIFTEEN_MINUTES, ...clock }),
+    loginAccount: new FailureLimiter({
+      maxFailures: 10,
+      windowMs: FIFTEEN_MINUTES,
+      mode: 'delay',
+      delay: ACCOUNT_DELAY,
+      maxKeys: PAIR_KEYS,
+      ...clock,
+    }),
     setupIp: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
     setupGlobal: new FailureLimiter({ maxFailures: 30, windowMs: FIFTEEN_MINUTES, ...clock }),
     linkIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
-    linkGlobal: new FailureLimiter({ maxFailures: 200, windowMs: FIFTEEN_MINUTES, ...clock }),
-    passwordAccount: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
+    linkGlobal: new FailureLimiter({
+      maxFailures: 200,
+      windowMs: FIFTEEN_MINUTES,
+      mode: 'delay',
+      delay: ACCOUNT_DELAY,
+      ...clock,
+    }),
+    passwordSession: new FailureLimiter({ maxFailures: 10, windowMs: FIFTEEN_MINUTES, ...clock }),
+    passwordAccount: new FailureLimiter({
+      maxFailures: 10,
+      windowMs: FIFTEEN_MINUTES,
+      mode: 'delay',
+      delay: ACCOUNT_DELAY,
+      ...clock,
+    }),
     passwordIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
   };
 
@@ -280,12 +314,12 @@ export function buildApp(options: AppOptions): FastifyInstance {
   // Registered after the rate-limit plugin, so the routes below can use its per-route settings.
   const requestLimit = { max: loginRequestsPerMinute, timeWindow: '1 minute' };
   void app.register(async (routes) => {
-    registerSetupRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
-    registerAuthRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
+    registerSetupRoutes(routes, { db, sessions, limiters, failureDelayMs, pause, requestLimit });
+    registerAuthRoutes(routes, { db, sessions, limiters, failureDelayMs, pause, requestLimit });
   });
   // Own scope: the links routes set their own hooks (never cached).
   void app.register(async (routes) => {
-    registerLinkRoutes(routes, { db, sessions, limiters, failureDelayMs, requestLimit });
+    registerLinkRoutes(routes, { db, sessions, limiters, failureDelayMs, pause, requestLimit });
   });
 
   // People, relationships and the tree: everything here needs a signed-in account.
@@ -305,7 +339,7 @@ export function buildApp(options: AppOptions): FastifyInstance {
     void routes.register(async (admin) => registerAdminRoutes(admin, limit));
     // Own scope: SuperAdmin only, never cached.
     void routes.register(async (backups) =>
-      registerBackupRoutes(backups, limit, { db, limiters, failureDelayMs }, options.backups),
+      registerBackupRoutes(backups, limit, { db, limiters, failureDelayMs, pause }, options.backups),
     );
     // Own scope: SuperAdmin only, never cached.
     void routes.register(async (files) => registerFilesAdminRoutes(files, limit, options.files));

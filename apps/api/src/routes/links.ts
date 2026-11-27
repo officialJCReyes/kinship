@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { AcceptLinkRequest, LinkLookup, LinkLookupRequest } from '@kinship/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { GuardSet } from '../auth/limiter.js';
 import { acceptInvitation, acceptReset, lookupLink } from '../auth/links.js';
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from '../auth/passwords.js';
 import { hashToken } from '../auth/tokens.js';
@@ -18,16 +19,25 @@ const tokenSchema = { type: 'string', minLength: 1, maxLength: 256 };
  * the identical 404 { error: 'invalid_link' } after one indexed lookup. The token is checked before any password is hashed.
  */
 export function registerLinkRoutes(app: FastifyInstance, deps: RouteDeps): void {
-  const { db, limiters, failureDelayMs, requestLimit } = deps;
+  const { db, limiters, failureDelayMs, pause, requestLimit } = deps;
 
   app.addHook('onSend', async (_request, reply) => {
     void reply.header('Cache-Control', 'no-store');
   });
 
-  const tooMany = (request: FastifyRequest, reply: FastifyReply) => {
-    const wait = Math.max(limiters.linkIp.retryAfterMs(request.ip), limiters.linkGlobal.retryAfterMs(GLOBAL_KEY));
-    if (wait <= 0) return undefined;
-    const seconds = retrySeconds(wait);
+  const guardsFor = (request: FastifyRequest) =>
+    new GuardSet([
+      { limiter: limiters.linkIp, key: request.ip },
+      { limiter: limiters.linkGlobal, key: GLOBAL_KEY },
+    ]);
+
+  // The address blocks; bad links from everywhere only slow every link down (ADR 0042), so a flood of them cannot stop
+  // the family's real invitations and set-password links from working.
+  const tooMany = async (request: FastifyRequest, reply: FastifyReply) => {
+    const verdict = guardsFor(request).check();
+    if (verdict.action === 'delay') await pause(verdict.ms);
+    if (verdict.action !== 'block') return undefined;
+    const seconds = retrySeconds(verdict.retryAfterMs);
     return reply
       .code(429)
       .header('Retry-After', String(seconds))
@@ -36,8 +46,7 @@ export function registerLinkRoutes(app: FastifyInstance, deps: RouteDeps): void 
 
   /** The one answer for any link that does not work. It counts as a failure and costs a short pause. */
   const invalidLink = async (request: FastifyRequest, reply: FastifyReply) => {
-    limiters.linkIp.recordFailure(request.ip);
-    limiters.linkGlobal.recordFailure(GLOBAL_KEY);
+    guardsFor(request).recordFailure();
     await sleep(failureDelayMs);
     return reply.code(404).send({ error: 'invalid_link' });
   };
@@ -51,7 +60,7 @@ export function registerLinkRoutes(app: FastifyInstance, deps: RouteDeps): void 
       },
     },
     async (request, reply) => {
-      const limited = tooMany(request, reply);
+      const limited = await tooMany(request, reply);
       if (limited) return limited;
       const { token } = request.body as LinkLookupRequest;
       const link = await lookupLink(db, hashToken(token.trim()));
@@ -96,7 +105,7 @@ export function registerLinkRoutes(app: FastifyInstance, deps: RouteDeps): void 
       },
     },
     async (request, reply) => {
-      const limited = tooMany(request, reply);
+      const limited = await tooMany(request, reply);
       if (limited) return limited;
       const body = request.body as AcceptLinkRequest;
       const tokenHash = hashToken(body.token.trim());
