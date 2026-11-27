@@ -150,8 +150,8 @@ describe('built for the strictest clients (Outlook-style checks)', () => {
           href,
         ).toBe(true);
       }
-      const addresses = [...`${html}\n${mail.text}`.matchAll(/https?:\/\/[^\s"<>)]+/g)].map((m) => m[0]);
-      for (const address of addresses) expect(address.startsWith(URL_BASE), address).toBe(true);
+      const addresses = [...`${html}\n${mail.text}`.matchAll(/https?:\/\/[^\s"<>)]*[^\s"<>).,;:]/g)].map((m) => m[0]);
+      for (const address of addresses) expect(new URL(address).origin, address).toBe(URL_BASE);
       expect(html).not.toMatch(/background(-image)?:\s*url|<img[^>]+(width|height)="1"/i);
     });
 
