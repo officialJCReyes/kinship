@@ -157,6 +157,8 @@ describe('Admin > Storage & email: the Email card', () => {
     open({ status: 200, body: off() });
     const email = await card();
     expect(fact(email, 'Provider').textContent).toMatch(/^Not set up/);
+    // Its own element, so a reader (and Playwright's exact text match) finds the words on their own.
+    expect(within(fact(email, 'Provider')).getByText('Not set up', { exact: true })).toBeTruthy();
     const link = within(email).getByRole('link', { name: 'How to set up email (INSTALL.md)' });
     expect(link.getAttribute('href')).toBe(MAIL_SETUP_URL);
     expect(MAIL_SETUP_URL).toBe('https://github.com/officialJCReyes/kinship/blob/main/INSTALL.md#sending-email');

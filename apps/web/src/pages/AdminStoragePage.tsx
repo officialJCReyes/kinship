@@ -122,7 +122,7 @@ function MailCard({ status, onWaiting }: { status: MailStatus; onWaiting: (waiti
       <dl className="facts">
         <dt>{t('mail.provider')}</dt>
         <dd>
-          {configured ? <span className="pill ok">{providerText(status)}</span> : providerText(status)}
+          {configured ? <span className="pill ok">{providerText(status)}</span> : <span>{providerText(status)}</span>}
           {configured ? null : (
             <>
               <span className="muted small block">{t('mail.offNote')}</span>
