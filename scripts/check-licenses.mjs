@@ -22,6 +22,8 @@ export const ALLOWED = new Set([
   'BlueOak-1.0.0',
   'Python-2.0',
   'CC0-1.0',
+  // MIT without the attribution clause (nodemailer uses it); as permissive as MIT and compatible with the AGPL.
+  'MIT-0',
 ]);
 
 /**
