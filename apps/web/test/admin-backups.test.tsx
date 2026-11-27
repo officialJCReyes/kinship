@@ -585,27 +585,15 @@ describe('Admin > Backups > Include uploaded files', () => {
   });
 });
 
-describe('Admin > Backups > Photos and files', () => {
+describe('Admin > Backups and the photos', () => {
   const files = (state: string, keyId: string | null = '0123456789abcdef') => ({
     '/api/admin/files': { status: 200, body: { state, keyId, photos: 3, photoBytes: 5_242_880 } },
   });
 
-  it('says photos are on and shows the key id, with the warning about losing the key', async () => {
+  it('no longer shows the Photos and files card (it is on Storage & email)', async () => {
     open(files('ready'));
-    const card = await screen.findByRole('region', { name: 'Photos and files' });
-    expect(within(card).getByText(/Photos are on/)).toBeTruthy();
-    expect(within(card).getByText('0123456789abcdef')).toBeTruthy();
-    expect(within(card).getByText(/can never be opened again/)).toBeTruthy();
-  });
-
-  it.each([
-    ['key_missing', null, /no file encryption key is set\. Add FILE_ENCRYPTION_KEY/],
-    ['files_unavailable', '0123456789abcdef', /files folder cannot be used/],
-    ['key_mismatch', '0123456789abcdef', /does not match your files/],
-  ])('says why photos are not available: %s', async (state, keyId, text) => {
-    open(files(state, keyId));
-    const card = await screen.findByRole('region', { name: 'Photos and files' });
-    expect(within(card).getByRole('alert').textContent).toMatch(text);
+    await screen.findByText(/full copy of every photo \(5\.0 MB now\)/);
+    expect(screen.queryByRole('region', { name: 'Photos and files' })).toBeNull();
   });
 
   it('warns that each backup holds a full copy of the photos, with the size now', async () => {
@@ -617,11 +605,5 @@ describe('Admin > Backups > Photos and files', () => {
     open();
     await screen.findByRole('heading', { name: 'Backups', level: 1 });
     expect(screen.getByText(/full copy of every photo, so the backups folder grows/)).toBeTruthy();
-  });
-
-  it('is left out when the status cannot be read, and the rest of the page works', async () => {
-    open();
-    await screen.findByRole('heading', { name: 'Backups', level: 1 });
-    expect(screen.queryByRole('region', { name: 'Photos and files' })).toBeNull();
   });
 });

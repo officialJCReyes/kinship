@@ -15,6 +15,7 @@ import { applyTheme } from './lib/theme.js';
 import { AboutPage } from './pages/AboutPage.js';
 import { AdminLayout } from './pages/AdminLayout.js';
 import { AdminBackupsPage } from './pages/AdminBackupsPage.js';
+import { AdminStoragePage } from './pages/AdminStoragePage.js';
 import { AdminUpdatesPage } from './pages/AdminUpdatesPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { HomePage } from './pages/HomePage.js';
@@ -196,6 +197,7 @@ export function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/users" replace />} />
               <Route path="users" element={<AdminUsersPage />} />
+              <Route path="storage" element={<AdminStoragePage />} />
               <Route path="backups" element={<AdminBackupsPage />} />
               <Route path="updates" element={<AdminUpdatesPage />} />
               <Route path="*" element={<NotFoundPage />} />

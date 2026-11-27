@@ -21,7 +21,7 @@
 ### The key
 - `FILE_ENCRYPTION_KEY` or `FILE_ENCRYPTION_KEY_FILE` (the existing `_FILE` rules: both set is an error; the `change-me` placeholder is refused). The value is **base64 of exactly 32 bytes** (`openssl rand -base64 32`; it must be the canonical encoding) **or 64 hex characters**. Anything else is a `ConfigError` and the api refuses to start. The message never contains the value.
 - **HKDF-SHA-256 derives from it** the file master key (info `kinship-file v1`) and an 8-byte, non-secret **key id** (info `kinship-file v1 key id`). The configured bytes are never used directly.
-- **The key is optional at start.** Without it the api runs; uploads and photos answer 503 `files_unavailable` (built with the routes); Admin → Backups says "key missing". Optional, because an existing install must still start when it upgrades to 0.3.0 before the owner has made a key.
+- **The key is optional at start.** Without it the api runs; uploads and photos answer 503 `files_unavailable` (built with the routes); Admin → Backups says "key missing" (the Photos and files card is on Admin → Storage & email since 0.4, ADR 0041). Optional, because an existing install must still start when it upgrades to 0.3.0 before the owner has made a key.
 - Added to `scrubSecretsFromEnv`. Every child process (pg_dump, tar, …) already gets an explicit environment and never the api's.
 - **The key is never in the database and never in a backup.** A backup holds files encrypted with it; the key is kept by the owner. **A lost or changed key is permanent loss of the stored photos**, and INSTALL, UPGRADE, `.env.example` and Admin all say so plainly. There is no rotation in 0.3.0 (a later `kinship files rekey` needs no format change: the header carries the key id).
 

@@ -47,6 +47,7 @@ test('an admin invites a Member linked to a person, and copies the link', async 
   await expect(page).toHaveURL(/\/admin\/users$/);
   await expect(page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link')).toHaveText([
     'Users',
+    'Storage & email',
     'Backups',
     'Updates',
   ]);

@@ -177,6 +177,7 @@ export const en = {
   'setup.review.person': '1 person on the tree',
   'setup.failed': 'Your tree could not be created. {reason}',
   'admin.tab.backups': 'Backups',
+  'admin.tab.storage': 'Storage & email',
   'backups.title': 'Backups',
   'backups.intro':
     'Each backup is one encrypted file with a copy of everything in KinShip. Keep a recent one somewhere other than this server.',
@@ -362,11 +363,11 @@ export const en = {
   'photo.error.invalid': 'That file could not be read as a picture. It may be damaged.',
   'photo.error.limit': 'You added a lot of photos in a short time. Wait about {seconds} seconds and try again.',
   'photo.error.keyMissing':
-    'Photos are off on this server: no file encryption key is set. Ask the SuperAdmin (Admin → Backups, Photos and files).',
+    'Photos are off on this server: no file encryption key is set. Ask the SuperAdmin (Admin → Storage & email, Photos and files).',
   'photo.error.folder':
-    'Photos are off on this server: the files folder cannot be used. Ask the SuperAdmin (Admin → Backups, Photos and files).',
+    'Photos are off on this server: the files folder cannot be used. Ask the SuperAdmin (Admin → Storage & email, Photos and files).',
   'photo.error.keyMismatch':
-    'New photos are refused: the key on this server is not the one the stored photos were encrypted with. Ask the SuperAdmin (Admin → Backups, Photos and files).',
+    'New photos are refused: the key on this server is not the one the stored photos were encrypted with. Ask the SuperAdmin (Admin → Storage & email, Photos and files).',
   'photo.error.notFound': 'That photo is no longer there.',
   'photo.error.notAllowed': 'You are not allowed to change this photo.',
   'photo.error.generic': 'The photo could not be added. Try again.',
@@ -581,7 +582,7 @@ export const en = {
   'error.confirmation_mismatch': 'The email address you typed does not match this account.',
   'error.person_not_found': 'That person was not found.',
   'error.files_unavailable':
-    'Photos are not available right now. Ask the SuperAdmin to check Admin → Backups → Photos and files.',
+    'Photos are not available right now. Ask the SuperAdmin to check Admin → Storage & email → Photos and files.',
   'error.photo_not_found': 'That photo was not found.',
   'error.unsupported_image': 'Only JPEG, PNG and WebP pictures can be added.',
   'error.invalid_image': 'That file could not be read as a picture.',
@@ -1585,6 +1586,58 @@ export const en = {
     'The SMTP server did not offer an encrypted connection the way SMTP_SECURE asks. Port 587 usually needs starttls, port 465 tls.',
   'mail.hint.smtp_connection':
     'KinShip could not connect to the SMTP server. Check SMTP_HOST and SMTP_PORT, and that the server allows connections from here.',
+
+  // Admin > Storage & email (ADR 0041). SuperAdmin only. Shows what KinShip read from .env at start, never a key or a password.
+  'storage.title': 'Storage & email',
+  'storage.intro':
+    'Email settings and the file key are read from .env (or Docker secrets) when KinShip starts. This page shows what it read and tests it; it never shows a key or a password. To change a setting, edit .env and restart KinShip.',
+  'mail.title': 'Email',
+  'mail.provider': 'Provider',
+  'mail.provider.resend': 'Resend',
+  'mail.provider.smtp': 'SMTP {host}:{port}, {security}',
+  'mail.provider.off': 'Not set up',
+  'mail.security.starttls': 'STARTTLS',
+  'mail.security.tls': 'TLS',
+  'mail.security.none': 'not encrypted',
+  'mail.offNote':
+    'KinShip sends no email until a provider is set in .env. Everything still works: invitation and set-password links are shown once for you to pass on.',
+  'mail.setupLink': 'How to set up email (INSTALL.md)',
+  'mail.smtpUser': 'SMTP user',
+  'mail.smtpUser.none': 'None',
+  'mail.smtpPassword': 'SMTP password',
+  'mail.resendKey': 'Resend API key',
+  'mail.secret.set': 'set',
+  'mail.secret.notSet': 'not set',
+  'mail.from': 'Sender (MAIL_FROM)',
+  'mail.publicUrl': 'Links start with (PUBLIC_URL)',
+  'mail.publicUrl.http':
+    'Links in emails will not be encrypted: PUBLIC_URL starts with http:// on an address that is not this computer. Use https:// for an address people reach over a network.',
+  'mail.publicUrl.default':
+    'PUBLIC_URL is not set, so links in emails point to http://localhost:8080. Set it to the address people use to reach KinShip.',
+  'mail.queued': 'Waiting to be sent',
+  'mail.failedLastWeek': 'Failed in the last 7 days',
+  'mail.lastFailure': 'Last failure',
+  'mail.lastFailure.none': 'None',
+  'mail.lastFailure.when': '{time}, {template}',
+  'mail.lastFailure.final': 'KinShip gave up on this one.',
+  'mail.lastFailure.retrying': 'KinShip will try again.',
+  'mail.template.test': 'test email',
+  'mail.lastTest': 'Last test',
+  'mail.lastTest.never': 'Never',
+  'mail.lastTest.sent': 'Sent',
+  'mail.lastTest.waiting': 'Waiting',
+  'mail.lastTest.failed': 'Failed',
+  'mail.test.send': 'Send test to me',
+  'mail.test.sending': 'Sending…',
+  'mail.test.recipient': 'The test goes to your own address, {address}.',
+  'mail.test.off': 'Set up email first: there is no provider to send through.',
+  'mail.test.wait': 'You sent a test a moment ago. Try again in {seconds} seconds.',
+  'mail.test.checking': 'Test queued. Waiting for the result…',
+  'mail.test.sent': 'The test was sent. Look for it in your inbox, and in the spam folder if it is not there.',
+  'mail.test.failed': 'The test could not be sent.',
+  'mail.test.retrying': 'The test has not gone yet. KinShip will try again.',
+  'mail.test.slow':
+    'The test has not gone yet. KinShip keeps trying in the background; Last test shows the result when you open this page again.',
 
   'notFound.title': 'Page not found',
   'notFound.body': 'There is nothing at this address.',
