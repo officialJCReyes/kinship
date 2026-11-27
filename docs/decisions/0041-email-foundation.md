@@ -44,7 +44,7 @@ environment once read, like the other secrets. Nothing about mail settings is st
   - TLS: `starttls` (the default) requires STARTTLS, `tls` is TLS from the first byte, and `none` is above.
   - Certificates are always checked, TLS 1.2 is the oldest accepted, and there is no setting to turn checks off.
   - nodemailer is told never to read a file or a URL for a message part.
-  - A server with a private certificate authority is not supported yet; that is an open issue.
+  - A server with a private certificate authority is not supported yet (#292).
 - Every message carries `Auto-Submitted: auto-generated`. There are no tracking pixels and no remote images except the logo
   (53b).
 
