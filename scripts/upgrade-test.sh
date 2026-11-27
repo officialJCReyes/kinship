@@ -298,6 +298,17 @@ if [ -n "$seed_file_key" ]; then
 fi
 save_logs
 
+step "Email after the upgrade: the outbox is there and empty, and mail is not set up until .env says so (0026, ADR 0041)"
+# The same signed-in session as above: no new sign-in.
+mail_json="$(curl -s -b "$jar" "${base}/api/admin/mail")"
+echo "$mail_json"
+expect off "$(echo "$mail_json" | json "['provider']")" "the mail provider with nothing in .env"
+expect 0 "$(echo "$mail_json" | json "['queued']")" "queued email after the upgrade"
+expect None "$(echo "$mail_json" | json "['lastTest']")" "the last test email after the upgrade"
+expect 409 "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'X-KinShip-Request: 1' -H "Origin: ${base}" -b "$jar" "${base}/api/admin/mail/test")" "Send test to me with mail not set up"
+expect 0 "$(sql "select count(*) from mail_outbox")" "rows in the outbox"
+expect 0 "$(sql "select count(*) from mail_template_overrides")" "template overrides"
+
 step "A photo uploaded after the upgrade is stored encrypted, served back, and carried by a backup"
 # A real 64x64 PNG made here (no picture from anywhere else goes in this repo).
 python3 - "$work/test-photo.png" <<'PY'
@@ -445,6 +456,7 @@ rm -f "$jar"
 expect 200 "$(login_status "$admin_email" "$admin_password" -c "$jar")" "sign-in after restoring the backup with photos"
 expect "$((SEED_PHOTOS + 1))" "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['photos']")" "photos after the restore"
 expect ready "$(curl -s -b "$jar" "${base}/api/admin/files" | json "['state']")" "the photo state after the restore"
+expect 0 "$(curl -s -b "$jar" "${base}/api/admin/mail" | json "['queued']")" "queued email after the restore"
 expect "$(( (SEED_PHOTOS + 1) * 2 ))" "$(compose exec -T api sh -c 'find /var/lib/kinship/files/objects -type f | wc -l' | tr -d ' \r')" "files on disk after the restore"
 curl -s -b "$jar" -o "$work/avatar-restored.png" "${base}/api/media/${photo_id}/avatar"
 expect "$avatar_sum" "$(openssl dgst -sha256 "$work/avatar-restored.png" | awk '{print $NF}')" "the avatar's bytes after the restore"

@@ -27,6 +27,8 @@ import type { Maintenance } from './maintenance.js';
 import { registerBackupRoutes } from './routes/backups.js';
 import { registerFilesAdminRoutes } from './routes/files-admin.js';
 import { registerMediaRoutes } from './routes/media.js';
+import { registerMailAdminRoutes } from './routes/mail-admin.js';
+import type { MailService } from './mail/outbox.js';
 import type { FilesService } from './files/state.js';
 import type { BackupService } from './routes/backups.js';
 import { registerSetupRoutes } from './routes/setup.js';
@@ -58,6 +60,10 @@ export interface AppOptions {
   files?: FilesService;
   /** The update check and the bundled changelog, for Admin > Updates and What's new. Without it those routes do not exist. */
   updates?: UpdatesService;
+  /** Sending email (ADR 0041). Without it, email is "not set up". */
+  mail?: MailService;
+  /** PUBLIC_URL: what links in emails start with (default http://localhost:8080). */
+  publicUrl?: string;
   /** Connected as the app role. */
   db: Kysely<Database>;
   version: VersionInfo;
@@ -77,6 +83,8 @@ export interface AppOptions {
   loginRequestsPerMinute?: number;
   /** Most requests per minute and signed-in account to the people, relationship and tree routes. */
   apiRequestsPerMinute?: number;
+  /** Requests per account and minute to "Send test to me", refused ones included (default 10). The real limit is the limiter. */
+  mailTestRequestsPerMinute?: number;
   /** Photo uploads per signed-in account in ten minutes (default 20). */
   photoUploadsPer10Minutes?: number;
   /** Photo and avatar requests per signed-in account and minute, one bucket for all of them (default 2400). */
@@ -103,6 +111,9 @@ export interface Limiters {
   passwordAccount: FailureLimiter;
   /** The same, per IP address across accounts: blocks. */
   passwordIp: FailureLimiter;
+  /** "Send test to me" on Storage & email: every send counts, per account (5 in 15 minutes) and install-wide (20 an hour). */
+  mailTestAccount: FailureLimiter;
+  mailTestGlobal: FailureLimiter;
 }
 
 const FIFTEEN_MINUTES = 15 * 60 * 1000;
@@ -169,6 +180,8 @@ export function buildApp(options: AppOptions): FastifyInstance {
       ...clock,
     }),
     passwordIp: new FailureLimiter({ maxFailures: 20, windowMs: FIFTEEN_MINUTES, ...clock }),
+    mailTestAccount: new FailureLimiter({ maxFailures: 5, windowMs: FIFTEEN_MINUTES, ...clock }),
+    mailTestGlobal: new FailureLimiter({ maxFailures: 20, windowMs: 60 * 60 * 1000, ...clock }),
   };
 
   void app.register(cookie);
@@ -343,6 +356,15 @@ export function buildApp(options: AppOptions): FastifyInstance {
     );
     // Own scope: SuperAdmin only, never cached.
     void routes.register(async (files) => registerFilesAdminRoutes(files, limit, options.files));
+    // Own scope: SuperAdmin only, never cached.
+    void routes.register(async (mailRoutes) =>
+      registerMailAdminRoutes(mailRoutes, limit, {
+        mail: options.mail,
+        publicUrl: options.publicUrl ?? 'http://localhost:8080',
+        limiters,
+        testRequestsPerMinute: options.mailTestRequestsPerMinute ?? 10,
+      }),
+    );
     // Own scope: the update routes check their own roles (SuperAdmin, and for What's new any admin) and are never cached.
     if (options.updates) {
       const service = options.updates;

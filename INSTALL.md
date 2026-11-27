@@ -138,7 +138,7 @@ To go back after a database change there are no down-migrations: put the old ver
 
 Once a day KinShip reads GitHub's public list of releases for this project (`api.github.com`) and shows a notice to the SuperAdmin. It sends **nothing about your installation**; GitHub sees your server's address, as with any download. There is no email. The switch is **Admin → Updates → Check for new versions** (on by default), not a setting in `.env`. With no internet access the check fails quietly; turn it off if you like. **Include pre-releases** (off) also offers release candidates, and **Check now** runs it at once.
 
-If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_PROXY`) in `.env`. Nothing else in KinShip makes outgoing web requests.
+If your server reaches the internet through a proxy, set `HTTPS_PROXY` (and `NO_PROXY`) in `.env`. The only other outgoing web request KinShip makes is to Resend's API, and only when you set it up to send email that way (an SMTP server is reached directly, without the proxy).
 
 ## Back up and restore
 

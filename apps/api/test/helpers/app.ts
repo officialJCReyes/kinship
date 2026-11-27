@@ -49,6 +49,7 @@ export async function createTestApp(
     // The failure limiters are what most tests exercise; the plain request cap has its own tests.
     loginRequestsPerMinute: 10_000,
     apiRequestsPerMinute: 100_000,
+    mailTestRequestsPerMinute: 100_000,
     ...overrides,
   });
   beforeReady?.(app);

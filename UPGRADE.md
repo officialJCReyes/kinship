@@ -4,6 +4,10 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 ## Unreleased (will become 0.4.0)
 
+### Database: migration 0026 adds the email outbox (nothing to do)
+
+Migration 0026 adds two empty tables, `mail_outbox` and `mail_template_overrides`. No existing data changes, and nothing changes for you until you set up email (all of it optional; see "Email" in `.env.example`; INSTALL.md gets a full section later in 0.4.0). Without email settings KinShip works exactly as before. A backup carries the template text an admin changed, but never queued email (the outbox rows are left out on purpose: a queued email can hold a one-time link).
+
 ### Database: migration 0025 removes the surname particle and the old surname choice
 
 Migration 0025 drops two columns that nothing has read since 0.3.0: `people.surname_particle` (0.3.0's migration 0024 folded every particle into the surname, "de" + "la Cruz" became "de la Cruz") and `users.surname_choice` (replaced by the name form in 0.3.0). Names, search and settings look the same as before. It is quick for a family tree; the search text is rebuilt in place.
@@ -30,7 +34,7 @@ An empty result means nothing was kept aside. For each row that is there, open t
 docker compose exec db psql -U kinship -d kinship -c "DELETE FROM people_surname_particle_leftover WHERE person_id = '<id>';"
 ```
 
-The empty table stays and does no harm. To go back to 0.3.0, restore the safety copy the first start of 0.4.0 makes (`pre-upgrade-0024-to-0025.tar.enc` from 0.3.0); it still holds both columns.
+The empty table stays and does no harm. To go back to 0.3.0, restore the safety copy the first start of 0.4.0 makes (`pre-upgrade-0024-to-0026.tar.enc` from 0.3.0); it still holds both columns.
 
 ## 0.3.0
 

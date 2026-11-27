@@ -610,6 +610,7 @@ export const en = {
   'error.restore_ticket_invalid': 'The check of this backup has expired. Close this window and open it again.',
   'error.invalid_restore_word': 'Type the word RESTORE exactly, in capital letters.',
   'error.maintenance': 'KinShip is being restored from a backup. Try again in a moment.',
+  'error.mail_not_configured': 'Email is not set up. Set MAIL_FROM and a provider in .env, then restart KinShip.',
   'error.backup_not_found': 'That backup is not there.',
   'error.backup_unavailable': 'Backups are not available on this server right now.',
   'error.invalid_backup_setting': 'That backup setting is not allowed. Check the value.',
@@ -1569,6 +1570,21 @@ export const en = {
   'rel.ex.male': 'ex-husband',
   'rel.ex.female': 'ex-wife',
   'rel.ex.neutral': 'ex-partner',
+
+  // Advice shown next to a failed send on Admin > Storage & email (ADR 0041). Fixed text, never the provider's words.
+  'mail.hint.resend_domain':
+    'Resend has not verified the domain in MAIL_FROM. Verify it in your Resend account, or use an address on a verified domain.',
+  'mail.hint.resend_key':
+    'Resend did not accept the API key. Check RESEND_API_KEY (a full-access or sending key), then restart KinShip.',
+  'mail.hint.resend_connection':
+    'KinShip could not reach Resend. Check that the server can make HTTPS connections (and HTTPS_PROXY, if you use one).',
+  'mail.hint.smtp_auth': 'The SMTP server refused the user name or password. Check SMTP_USER and SMTP_PASSWORD.',
+  'mail.hint.smtp_certificate':
+    "The SMTP server's certificate is not trusted, or is for another name. Use the host name on its certificate in SMTP_HOST.",
+  'mail.hint.smtp_tls':
+    'The SMTP server did not offer an encrypted connection the way SMTP_SECURE asks. Port 587 usually needs starttls, port 465 tls.',
+  'mail.hint.smtp_connection':
+    'KinShip could not connect to the SMTP server. Check SMTP_HOST and SMTP_PORT, and that the server allows connections from here.',
 
   'notFound.title': 'Page not found',
   'notFound.body': 'There is nothing at this address.',

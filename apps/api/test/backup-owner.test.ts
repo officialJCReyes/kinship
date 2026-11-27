@@ -79,6 +79,7 @@ const context = (): BackupContext => ({
     db: config,
     backup: { enabled: true, dir, passphrase: PASS, skipSafetyCopy: false },
     files: { dir: join(dir, 'files'), key: undefined },
+    mail: { provider: 'off' },
   },
   tools: testTools(),
   log: () => undefined,
