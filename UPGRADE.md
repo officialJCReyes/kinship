@@ -6,7 +6,7 @@ Notes for upgrading from one release to the next, newest first. Read the section
 
 ### Database: migration 0026 adds the email outbox (nothing to do)
 
-Migration 0026 adds two empty tables, `mail_outbox` and `mail_template_overrides`. No existing data changes, and nothing changes for you until you set up email (all of it optional; see "Email" in `.env.example`; INSTALL.md gets a full section later in 0.4.0). Without email settings KinShip works exactly as before. A backup carries the template text an admin changed, but never queued email (the outbox rows are left out on purpose: a queued email can hold a one-time link).
+Migration 0026 adds two empty tables, `mail_outbox` and `mail_template_overrides`. No existing data changes, and nothing changes for you until you set up email (all of it optional; see "Sending email" in INSTALL.md and "Email" in `.env.example`). The new **Admin → Storage & email** tab (SuperAdmin) shows whether email works and sends you a test; the **Photos and files** card moved there from Admin → Backups. Without email settings KinShip works exactly as before. A backup carries the template text an admin changed, but never queued email (the outbox rows are left out on purpose: a queued email can hold a one-time link).
 
 ### Database: migration 0025 removes the surname particle and the old surname choice
 
@@ -52,7 +52,7 @@ The safety copy holds the database only, not the photos (there are none before 0
 
 ### From 0.2.1: photos need a key and a folder
 
-Photos (profile pictures and a photo gallery per person) are stored encrypted on disk, and they stay **off** until both of these are in place. KinShip starts and works without them; Admin → Backups says what is missing. Your backups folder and `BACKUP_PASSPHRASE` from 0.2 stay as they are.
+Photos (profile pictures and a photo gallery per person) are stored encrypted on disk, and they stay **off** until both of these are in place. KinShip starts and works without them; Admin → Backups says what is missing (Admin → Storage & email from 0.4). Your backups folder and `BACKUP_PASSPHRASE` from 0.2 stay as they are.
 
 1. **Make a key and put it in `.env`:** `openssl rand -base64 32`, then add `FILE_ENCRYPTION_KEY=<that value>` (or `FILE_ENCRYPTION_KEY_FILE=/run/secrets/...` for a Docker secret). 64 hex characters also work; anything else is refused and the api does not start.
 2. **Store the key in a password manager, apart from this server. A lost or changed key means the stored photos can never be opened again**, and nobody can recover them. Backups do not contain the key (a backup holds the photos encrypted with it).

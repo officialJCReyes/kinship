@@ -26,6 +26,8 @@ import type {
   WhatsNewResponse,
   BackupsResponse,
   FilesStatus,
+  MailStatus,
+  MailTestStarted,
   DownloadTicket,
   MaintenanceStatus,
   RestoreCheck,
@@ -211,6 +213,20 @@ export async function fetchFilesStatus(signal?: AbortSignal): Promise<FilesStatu
 }
 
 /** Starts a backup in the background (202). The page then polls fetchBackups. */
+/** Admin → Storage & email: how email is set up and what the outbox holds (SuperAdmin only; never a secret). */
+export async function fetchMailStatus(signal?: AbortSignal): Promise<MailStatus> {
+  const reply = await send('GET', '/api/admin/mail', undefined, signal);
+  if (reply.status !== 200) fail('/api/admin/mail', reply);
+  return reply.body as MailStatus;
+}
+
+/** "Send test to me": queues a test to the signed-in SuperAdmin's own address. The request names no recipient. */
+export async function sendTestMail(): Promise<MailTestStarted> {
+  const reply = await send('POST', '/api/admin/mail/test');
+  if (reply.status !== 202) fail('/api/admin/mail/test', reply);
+  return reply.body as MailTestStarted;
+}
+
 export async function startBackup(): Promise<void> {
   const reply = await send('POST', '/api/admin/backups');
   if (reply.status !== 202) fail('/api/admin/backups', reply);

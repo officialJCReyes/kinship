@@ -117,6 +117,17 @@ is the family's own text and **is** backed up. A pre-0026 archive restores and t
 - **The limiters, the test-send limit included, are per process and forget everything on a restart**, as ADR 0042 says. The
   outbox itself is safe with several api containers (the row claims above). Only the counting of test sends is per container.
 
+### The Storage & email page (53a-web)
+- **Admin → Storage & email** (`/admin/storage`) is a SuperAdmin tab. Everyone else has no tab and gets the not-found page,
+  as on Backups. The tabs follow the mockup's order: Users, Storage & email, Backups, Updates.
+- It holds the **Photos and files** card, moved from Backups (`GET /api/admin/files` is unchanged; Backups still reads it
+  for the photo size beside "Include uploaded files"), and the **Email** card with the status above.
+- "Not set up" links to "Sending email" in INSTALL.md on `main`, and the test button is disabled with the reason beside it.
+- After a 202 the page asks for the status every 2 seconds for at most 30 seconds, and stops as soon as the test is sent or
+  failed. It does not ask while the page is hidden (a hidden tab runs no interval). A 429 shows `retryAfterSeconds`.
+- Every value from the api is shown as text, never as HTML. The cleaned error is shown as the api returned it, with the
+  plain-sentence hint (`mail.hint.<code>`) under it.
+
 ### Email text and translation
 Email text is not UI text: emails are rendered by the api, and later per recipient. The built-in wording lives with the
 templates in `apps/api/src/mail/` (English only, like the app at launch). The page around it uses translation keys as usual.

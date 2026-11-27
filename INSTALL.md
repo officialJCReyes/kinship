@@ -56,7 +56,7 @@ KinShip writes its backups to `./data/backups` and its encrypted photos to `./da
 mkdir -p data/backups data/files && sudo chown 1000:1000 data/backups data/files
 ```
 
-Docker Desktop on macOS and Windows does not need the `chown`. Without a usable `BACKUP_PASSPHRASE` (step 2) KinShip still runs but makes no backups, and says so in Admin. Without `FILE_ENCRYPTION_KEY`, or without the `./data/files` mount, KinShip still runs but photos are off, and Admin → Backups says why.
+Docker Desktop on macOS and Windows does not need the `chown`. Without a usable `BACKUP_PASSPHRASE` (step 2) KinShip still runs but makes no backups, and says so in Admin. Without `FILE_ENCRYPTION_KEY`, or without the `./data/files` mount, KinShip still runs but photos are off, and Admin → Storage & email says why.
 
 ## 4. Start it
 
@@ -100,6 +100,12 @@ KinShip speaks plain HTTP on one port. Put a reverse proxy in front of it for HT
 - `TRUST_PROXY` tells KinShip which proxies to believe about those headers. The default trusts private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`). If your proxy reaches KinShip from a public address, add that address. Do not set it to `true` if the web port can be reached directly from the internet.
 - If it is wrong you will see it: sign-in cookies are not marked `Secure` over HTTPS, every visitor shares one rate limit, or signing in fails with a "csrf" error.
 - **Photo uploads are up to 10 MB**, sent as the request body. KinShip's own web container allows that, but a reverse proxy in front of it may not: nginx and Nginx Proxy Manager refuse bodies over **1 MB** by default, so an upload fails with **413 Request Entity Too Large** before it reaches KinShip. Allow at least 12 MB for your KinShip address (nginx: `client_max_body_size 12m;`; Nginx Proxy Manager: add that line under Advanced; Caddy, Traefik and Cloudflare Tunnel allow it by default, though the free Cloudflare plan stops uploads over 100 MB, which is far above this). If you also let the proxy buffer requests, no change is needed beyond the size.
+
+## Sending email
+
+Email is optional. Without it KinShip works as before: invitation and set-password links are shown once for you to pass on. To send email, fill in the **Email** section of `.env` (it is commented out in `.env.example`): `MAIL_FROM`, and either `RESEND_API_KEY` for [Resend](https://resend.com) or `SMTP_HOST` (with `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER` and `SMTP_PASSWORD`) for any SMTP server. The key and the password may also come from Docker secrets (`RESEND_API_KEY_FILE`, `SMTP_PASSWORD_FILE`). Links in emails start with `PUBLIC_URL`. Restart KinShip after a change; a setting that is only half there stops it at start, with a message that says what is missing.
+
+Then open **Admin → Storage & email** (SuperAdmin only). It shows what KinShip read (a key or a password only as "set"), how many emails are waiting or failed, the last failure with a hint about the usual causes, and **Send test to me**, which sends a test to your own address.
 
 ## Inviting people
 

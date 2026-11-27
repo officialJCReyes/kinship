@@ -2286,6 +2286,37 @@ pre.code {
   align-items: start;
 }
 
+/* Admin > Storage & email: Photos and files beside Email, one column on a phone (never wider than a 360 px window). */
+.storage-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.storage-columns > .card {
+  min-width: 0;
+}
+
+.mail-card .block {
+  display: block;
+}
+
+.mail-card dd .alert {
+  margin: 6px 0 0;
+}
+
+/* The provider's cleaned error: long words (a host name, an id) wrap instead of widening the card. */
+.mail-error {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Send test to me keeps the 36 px tap size of step 51, also at phone width. */
+.mail-card .button {
+  min-height: 36px;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

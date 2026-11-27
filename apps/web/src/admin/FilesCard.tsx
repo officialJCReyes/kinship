@@ -6,7 +6,7 @@ import { t } from '../i18n.js';
 
 export const filesKey = ['admin', 'files'] as const;
 
-/** Admin > Backups: can photos be stored, and which key is in use (its id, never the key). Shows nothing while it loads or fails. */
+/** Admin > Storage & email (and the photo size on Backups): can photos be stored, and which key is in use (its id, never the key). Shows nothing while it loads or fails. */
 export function useFilesStatus(enabled: boolean) {
   return useQuery({ queryKey: filesKey, queryFn: ({ signal }) => api.fetchFilesStatus(signal), enabled });
 }
