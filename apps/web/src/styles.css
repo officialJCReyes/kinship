@@ -2321,6 +2321,7 @@ pre.code {
 /* Admin > Emails: the list beside the editor and the preview; one column on a phone (never wider than a 360 px window). */
 .email-columns {
   display: grid;
+  min-width: 0;
   grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
@@ -2459,8 +2460,9 @@ a.email-list-item:hover {
   background: #f6f4ec;
 }
 
+/* A 360 px phone, never wider than the card: a fixed width would make every grid around it wider than a real phone. */
 .email-frame.phone {
-  width: 360px;
+  max-width: 360px;
 }
 
 .email-frame iframe {

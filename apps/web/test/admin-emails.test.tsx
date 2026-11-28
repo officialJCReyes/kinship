@@ -471,6 +471,8 @@ describe('Admin > Emails: the preview switches', () => {
       /@media \(max-width: 800px\) \{\s*\.email-columns \{\s*grid-template-columns: minmax\(0, 1fr\);/,
     );
     expect(css).toMatch(/\.email-frame \{[^}]*max-width: 100%;/);
+    // The phone frame is capped at 360 px, not set to it: a fixed width widened the page past a 360 px phone.
+    expect(css).toMatch(/\.email-frame\.phone \{\s*max-width: 360px;\s*\}/);
     expect(css).toMatch(/\.email-list-item \{[^}]*min-height: 44px;/);
     // With Emails the admin tabs are wider than a 360 px phone: they wrap instead of widening the page.
     expect(css).toMatch(/\.tabs \{[^}]*flex-wrap: wrap;/);
