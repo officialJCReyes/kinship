@@ -172,6 +172,15 @@ test('Emails lists the templates, previews the invitation in a sandboxed frame, 
   const frame = page.getByTitle('Email preview');
   await expect(frame).toHaveAttribute('sandbox', '');
   await expect(page.frameLocator('iframe[title="Email preview"]').getByText('Accept invitation')).toBeVisible();
+  // The frame takes the page's Content-Security-Policy, which lets the email's style attributes apply (an unstyled h1 is 32 px),
+  // and still allows no inline script or <style> block.
+  await expect(page.frameLocator('iframe[title="Email preview"]').getByRole('heading', { level: 1 })).toHaveCSS(
+    'font-size',
+    '25px',
+  );
+  const policy = (await page.request.get('/admin/emails')).headers()['content-security-policy'] ?? '';
+  expect(policy).toContain("style-src-attr 'unsafe-inline'");
+  expect(policy).not.toMatch(/script-src|style-src-elem|style-src /);
 
   // A stray brace is refused live, under its field.
   const editor = page.getByRole('region', { name: 'Invitation' });

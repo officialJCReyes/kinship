@@ -260,6 +260,14 @@ DNA stay private.
   when email is not set up, and shows the wait on a 429. It does not ask for the result: Storage & email shows the last test.
 - The preview is the API's HTML in `<iframe srcdoc sandbox="">`: no script, no forms, no same-origin access, no navigation.
   The switches are Email / Plain text and Desktop / Phone (360 px). There is no "Copy HTML".
+- A `srcdoc` frame takes the page's Content-Security-Policy, and an email is styled only with `style=""` attributes (mail
+  apps drop `<style>` blocks). So the web image's policy adds `style-src-attr 'unsafe-inline'` and nothing more:
+  - `<style>` blocks, stylesheets from elsewhere and every script stay blocked, in the frame and in the app;
+  - the app's own code still uses classes only (apps/web/README.md).
+
+  Without it the preview showed the email unstyled. Serving the preview as a page of its own, with its own policy, was set
+  aside: it needs a form post into the frame and its own nginx block. Journey 11 checks both the header and that the
+  email's heading is drawn at its own size.
 - The UI around the email is translated; the email's own text is the API's and is not in `en.ts`.
 
 ## Consequences
