@@ -1802,6 +1802,7 @@ main.tree-main {
 /* Admin */
 .tabs {
   display: flex;
+  flex-wrap: wrap; /* five tabs no longer fit a 360 px phone in one row */
   gap: 4px;
   border-bottom: 1px solid var(--line);
   padding-bottom: 6px;

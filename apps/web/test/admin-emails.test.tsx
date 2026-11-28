@@ -472,6 +472,8 @@ describe('Admin > Emails: the preview switches', () => {
     );
     expect(css).toMatch(/\.email-frame \{[^}]*max-width: 100%;/);
     expect(css).toMatch(/\.email-list-item \{[^}]*min-height: 44px;/);
+    // With Emails the admin tabs are wider than a 360 px phone: they wrap instead of widening the page.
+    expect(css).toMatch(/\.tabs \{[^}]*flex-wrap: wrap;/);
   });
 });
 
