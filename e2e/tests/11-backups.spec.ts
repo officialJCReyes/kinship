@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Journey 11: backups. The SuperAdmin opens Admin > Backups, backs up now, sees the backup pass its test, downloads it with their
 // password again, changes the schedule; opens Admin > Storage & email (Photos and files, and email "Not set up", with no secret
-// anywhere on the page); a Member cannot see or use any of it; the command line lists and checks the backup, and nothing secret
+// anywhere on the page); opens Admin > Emails (the list, the invitation preview in a sandboxed frame, a live error, save and
+// reset); a Member cannot see or use any of it; the command line lists and checks the backup, and nothing secret
 // reached the api log. Adds no sign-in. Fictional Hale-style data only.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -115,7 +116,7 @@ test('Storage & email shows Photos and files and that email is not set up, with 
   // The Photos and files card moved to Storage & email.
   await expect(page.getByRole('region', { name: 'Photos and files' })).toHaveCount(0);
   const tabs = page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link');
-  await expect(tabs).toHaveText(['Users', 'Storage & email', 'Backups', 'Updates']);
+  await expect(tabs).toHaveText(['Users', 'Storage & email', 'Emails', 'Backups', 'Updates']);
   await tabs.filter({ hasText: 'Storage & email' }).click();
   await expect(page).toHaveURL(/\/admin\/storage$/);
   await expect(page.getByRole('heading', { name: 'Storage & email', level: 1 })).toBeVisible();
@@ -154,6 +155,73 @@ test('Storage & email shows Photos and files and that email is not set up, with 
   }
 });
 
+test('Emails lists the templates, previews the invitation in a sandboxed frame, and saves and resets the wording', async ({
+  adminPage: page,
+}) => {
+  await page.goto('/admin/storage');
+  await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Emails' }).click();
+  await expect(page).toHaveURL(/\/admin\/emails\/invitation$/);
+  await expect(page.getByRole('heading', { name: 'Emails', level: 1 })).toBeVisible();
+  const list = page.getByRole('region', { name: 'Email templates' });
+  await expect(list.getByRole('link')).toHaveCount(4);
+  await expect(
+    list.getByRole('listitem').filter({ hasText: 'Weekly digest' }).getByText('Next', { exact: true }),
+  ).toBeVisible();
+
+  // The preview is the API's rendering of the Hale sample, in a frame that may run nothing.
+  const frame = page.getByTitle('Email preview');
+  await expect(frame).toHaveAttribute('sandbox', '');
+  await expect(page.frameLocator('iframe[title="Email preview"]').getByText('Accept invitation')).toBeVisible();
+  // The frame takes the page's Content-Security-Policy, which lets the email's style attributes apply (an unstyled h1 is 32 px),
+  // and still allows no inline script or <style> block.
+  await expect(page.frameLocator('iframe[title="Email preview"]').getByRole('heading', { level: 1 })).toHaveCSS(
+    'font-size',
+    '25px',
+  );
+  const policy = (await page.request.get('/admin/emails')).headers()['content-security-policy'] ?? '';
+  expect(policy).toContain("style-src-attr 'unsafe-inline'");
+  expect(policy).not.toMatch(/script-src|style-src-elem|style-src /);
+
+  // A stray brace is refused live, under its field.
+  const editor = page.getByRole('region', { name: 'Invitation' });
+  const subject = editor.getByRole('textbox', { name: 'Subject' });
+  await subject.fill('Join the {tree tree');
+  await expect(editor.getByText('Curly braces are only for placeholders. Remove the other { or }.')).toBeVisible();
+  await expect(subject).toHaveAttribute('aria-invalid', 'true');
+
+  // Saved, it is the family's text; reset (after a confirm), it is KinShip's again.
+  await subject.fill('Join the {tree} tree');
+  await expect(page.getByText('Join the Hale Family tree', { exact: false }).first()).toBeVisible();
+  await expect(editor.getByText('Unsaved changes.', { exact: true })).toBeVisible();
+  await editor.getByRole('button', { name: 'Save' }).click();
+  await expect(editor.getByText('Saved. New emails use this text.', { exact: true })).toBeVisible();
+  await expect(editor.getByText('Uses your family’s text.', { exact: true })).toBeVisible();
+  await expect(list.getByRole('link', { name: /Invitation/ }).getByText('Changed', { exact: true })).toBeVisible();
+  await editor.getByRole('button', { name: 'Reset to default' }).click();
+  await page
+    .getByRole('dialog', { name: 'Reset Invitation to the default?' })
+    .getByRole('button', { name: 'Reset to default' })
+    .click();
+  await expect(editor.getByText('Reset. New emails use KinShip’s default text.', { exact: true })).toBeVisible();
+  await expect(subject).toHaveValue('{inviter} invited you to the {tree} tree');
+
+  // The e2e stack sets no mail provider: the test button says why it cannot be pressed.
+  await expect(editor.getByRole('button', { name: 'Send test to me' })).toBeDisabled();
+  await expect(editor.getByText('Set up email first', { exact: false })).toBeVisible();
+
+  // At phone width the page never scrolls sideways, every button keeps its 36 px tap size, and the phone preview fits.
+  await page.setViewportSize({ width: 360, height: 800 });
+  try {
+    await page.getByRole('group', { name: 'Width' }).getByRole('button', { name: 'Phone' }).click();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    for (const button of await page.locator('.email-editor .button, .email-preview .button').all()) {
+      expect((await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(36);
+    }
+  } finally {
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+});
+
 test('the logo every email shows is served by the web image without sign-in', async ({ request }) => {
   const logo = await request.get('/email/logo.png');
   expect(logo.status()).toBe(200);
@@ -168,7 +236,7 @@ test('a Member cannot see or use any of it', async ({ page, adminApi }) => {
     displayName: 'Bea Member',
   });
   await page.context().addCookies(member.cookies);
-  for (const path of ['/admin/backups', '/admin/storage']) {
+  for (const path of ['/admin/backups', '/admin/storage', '/admin/emails/invitation']) {
     await page.goto(path);
     await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   }

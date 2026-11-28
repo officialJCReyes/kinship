@@ -241,6 +241,35 @@ if a marker appears. It also fails on a short list of words: diagnosis, medicati
 genetic, DNA, health and match. The one listed exception is the invitation's two fixed privacy lines, which say that health and
 DNA stay private.
 
+### The Emails tab (53b-web)
+
+- A SuperAdmin tab right after Storage & email: Users, Storage & email, Emails, Backups, Updates. Prompt 12 places it there; the
+  mockup puts Emails after Updates, among tabs not built yet. A Family Admin, a Member and a User get the not-found page, as on
+  Storage & email. `/admin/emails` opens the invitation; each template has its own address (`/admin/emails/<id>`).
+- The list names each template from the web app's translation keys (the API sends ids). It marks the changed ones and the fixed
+  test email; the five reserved templates show "Next" as plain text, not links, and their addresses give the not-found page.
+- Each field is a plain textarea with its rules (one line, or a blank line starts a paragraph or a list item), its note where
+  KinShip keeps fixed lines around it, and its placeholders as buttons that put `{name}` at the cursor. The help text says that
+  braces are only for placeholders.
+- Live errors: 400 ms after the last key press the draft goes to `POST …/preview`. A 200 redraws the preview; a 400
+  `invalid_template` marks each field it names, and the last good preview stays with a note. Nothing is saved until Save.
+- Save sends the whole draft (the API keeps only what differs from the defaults). Reset to default deletes every change after
+  a confirm. The status line ("Unsaved changes.", "Uses your family's text.", "Uses KinShip's default text.") and the saved,
+  reset and error banners are elements of their own, so a test or a screen reader finds each one by its exact text.
+- Send test to me sends the saved text, not the draft, and says so when there are unsaved changes. It is off with the reason
+  when email is not set up, and shows the wait on a 429. It does not ask for the result: Storage & email shows the last test.
+- The preview is the API's HTML in `<iframe srcdoc sandbox="">`: no script, no forms, no same-origin access, no navigation.
+  The switches are Email / Plain text and Desktop / Phone (360 px). There is no "Copy HTML".
+- A `srcdoc` frame takes the page's Content-Security-Policy, and an email is styled only with `style=""` attributes (mail
+  apps drop `<style>` blocks). So the web image's policy adds `style-src-attr 'unsafe-inline'` and nothing more:
+  - `<style>` blocks, stylesheets from elsewhere and every script stay blocked, in the frame and in the app;
+  - the app's own code still uses classes only (apps/web/README.md).
+
+  Without it the preview showed the email unstyled. Serving the preview as a page of its own, with its own policy, was set
+  aside: it needs a form post into the frame and its own nginx block. Journey 11 checks both the header and that the
+  email's heading is drawn at its own size.
+- The UI around the email is translated; the email's own text is the API's and is not in `en.ts`.
+
 ## Consequences
 - An install with no mail settings runs as before. The two new tables exist and stay empty.
 - One new production dependency (nodemailer, MIT-0).

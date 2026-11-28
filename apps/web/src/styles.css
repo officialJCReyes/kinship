@@ -1802,6 +1802,7 @@ main.tree-main {
 /* Admin */
 .tabs {
   display: flex;
+  flex-wrap: wrap; /* five tabs no longer fit a 360 px phone in one row */
   gap: 4px;
   border-bottom: 1px solid var(--line);
   padding-bottom: 6px;
@@ -2315,6 +2316,171 @@ pre.code {
 /* Send test to me keeps the 36 px tap size of step 51, also at phone width. */
 .mail-card .button {
   min-height: 36px;
+}
+
+/* Admin > Emails: the list beside the editor and the preview; one column on a phone (never wider than a 360 px window). */
+.email-columns {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .email-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.email-main,
+.email-main > .card {
+  min-width: 0;
+}
+
+.email-list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.email-list-head {
+  padding: 14px 16px 10px;
+}
+
+.email-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.email-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+a.email-list-item:hover {
+  background: var(--accent-soft);
+}
+
+.email-list-item[aria-current='page'] {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.email-list-item.reserved {
+  color: var(--muted);
+}
+
+.email-list-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.email-list-name {
+  font-weight: 600;
+}
+
+.email-editor .block,
+.email-test .block {
+  display: block;
+}
+
+.email-field textarea {
+  min-height: 44px;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+
+.email-field textarea[aria-invalid='true'] {
+  border-color: var(--crit);
+}
+
+.email-placeholders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* Every control on this page keeps a 36 px tap size, also at phone width. */
+.email-editor .button,
+.email-preview .button {
+  min-height: 36px;
+}
+
+.email-status {
+  margin: 0;
+  font-weight: 600;
+}
+
+.email-toggle {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.email-toggle .button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+}
+
+.email-toggle .button:last-child {
+  border-right: 0;
+}
+
+.email-toggle .button[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.email-subject {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+/* The email is drawn on its own cream page, whatever the app's theme: emails are light only. */
+.email-frame {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f6f4ec;
+}
+
+/* A 360 px phone, never wider than the card: a fixed width would make every grid around it wider than a real phone. */
+.email-frame.phone {
+  max-width: 360px;
+}
+
+.email-frame iframe {
+  display: block;
+  width: 100%;
+  height: 680px;
+  border: 0;
+  background: #f6f4ec;
+}
+
+.email-text {
+  margin: 0;
+  padding: 16px;
+  background: #ffffff;
+  color: #17231f;
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .visually-hidden {

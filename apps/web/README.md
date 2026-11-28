@@ -30,4 +30,4 @@ pnpm typecheck && pnpm lint
 
 - Every UI string is a key in `packages/shared/src/messages/en.ts`, used as `t('key')`. Add a language by adding a file with the same keys.
 - No third-party requests at runtime: system fonts only, no CDN.
-- The Content-Security-Policy forbids inline scripts and inline styles, so use CSS classes, never `style` attributes.
+- The Content-Security-Policy forbids inline scripts and `<style>` blocks. It allows `style` attributes only so that Admin > Emails can show an email's own inline styles in its sandboxed preview (ADR 0041). App code still uses CSS classes, never `style` attributes.
